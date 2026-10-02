@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en" data-theme="cream">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (function() {
+        try {
+          var t = localStorage.getItem('erp_theme');
+          if (!t || t === 'undefined' || t === 'null') {
+            t = 'cream';
+            localStorage.setItem('erp_theme', 'cream');
+          }
+          document.documentElement.setAttribute('data-theme', t);
+        } catch(e) {}
+      })();
+    </script>
+    <title>Restaurant Supply ERP &amp; Profit Intelligence</title>
+    <meta name="description" content="AI-powered wholesale restaurant supply management, order taking, inventory costing, multi-method expense allocation, and profit intelligence." />
+    <meta property="og:title" content="Restaurant Supply ERP &amp; Profit Intelligence" />
+    <meta property="og:description" content="AI-powered wholesale restaurant supply management, order taking, inventory costing, multi-method expense allocation, and profit intelligence." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

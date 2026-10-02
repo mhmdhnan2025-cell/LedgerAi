@@ -1,0 +1,10 @@
+{
+  "name": "Restaurant Supply ERP & Profit Intelligence",
+  "description": "AI-powered wholesale restaurant supply management, order taking, inventory costing, multi-method expense allocation, and profit intelligence.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
