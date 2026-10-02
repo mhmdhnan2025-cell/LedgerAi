@@ -1,5 +1,5 @@
 import { currencySymbol } from '../utils/currency';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import {
   Receipt,
   Plus,
@@ -281,31 +281,38 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
   const [keepDropdownOpenOnSelect, setKeepDropdownOpenOnSelect] = useState<boolean>(false);
 
   // Floating dropdown position updater
-  useEffect(() => {
-    if (isItemDropdownOpen && itemInputRef.current) {
-      const rect = itemInputRef.current.getBoundingClientRect();
-      setItemDropdownStyle({
-        position: 'fixed',
-        top: rect.bottom + 4,
-        left: Math.max(10, Math.min(window.innerWidth - 380, rect.left)),
-        width: Math.max(340, rect.width * 1.4),
-        zIndex: 99999,
-      });
-    }
-  }, [isItemDropdownOpen]);
+  useLayoutEffect(() => {
+    const updatePositions = () => {
+      if (isItemDropdownOpen && itemInputRef.current) {
+        const rect = itemInputRef.current.getBoundingClientRect();
+        setItemDropdownStyle({
+          position: 'fixed',
+          top: rect.bottom + 4,
+          left: Math.max(10, Math.min(window.innerWidth - 380, rect.left)),
+          width: Math.max(340, rect.width * 1.4),
+          zIndex: 99999,
+        });
+      }
+      if (isAccountDropdownOpen && accountDropdownRef.current) {
+        const rect = accountDropdownRef.current.getBoundingClientRect();
+        setAccountDropdownStyle({
+          position: 'fixed',
+          top: rect.bottom + 4,
+          left: Math.max(10, Math.min(window.innerWidth - 340, rect.left)),
+          width: Math.max(320, rect.width),
+          zIndex: 99999,
+        });
+      }
+    };
 
-  useEffect(() => {
-    if (isAccountDropdownOpen && accountDropdownRef.current) {
-      const rect = accountDropdownRef.current.getBoundingClientRect();
-      setAccountDropdownStyle({
-        position: 'fixed',
-        top: rect.bottom + 4,
-        left: Math.max(10, Math.min(window.innerWidth - 340, rect.left)),
-        width: Math.max(320, rect.width),
-        zIndex: 99999,
-      });
-    }
-  }, [isAccountDropdownOpen]);
+    updatePositions();
+    window.addEventListener('scroll', updatePositions, true);
+    window.addEventListener('resize', updatePositions);
+    return () => {
+      window.removeEventListener('scroll', updatePositions, true);
+      window.removeEventListener('resize', updatePositions);
+    };
+  }, [isItemDropdownOpen, isAccountDropdownOpen]);
 
   // Selected supplier object & party balance
   const selectedSupplier = suppliers.find((s) => s.id === selectedSupplierId);
@@ -856,7 +863,20 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
               <button
                 type="button"
                 disabled={isCash}
-                onClick={() => setIsAccountDropdownOpen((prev) => !prev)}
+                onClick={() => {
+                  if (isCash) return;
+                  if (!isAccountDropdownOpen && accountDropdownRef.current) {
+                    const rect = accountDropdownRef.current.getBoundingClientRect();
+                    setAccountDropdownStyle({
+                      position: 'fixed',
+                      top: rect.bottom + 4,
+                      left: Math.max(10, Math.min(window.innerWidth - 340, rect.left)),
+                      width: Math.max(320, rect.width),
+                      zIndex: 99999,
+                    });
+                  }
+                  setIsAccountDropdownOpen((prev) => !prev);
+                }}
                 className={`w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-left text-xs flex items-center justify-between focus:outline-none ${
                   isCash ? 'opacity-50 cursor-not-allowed text-slate-500' : 'text-white hover:border-slate-600'
                 }`}
@@ -895,7 +915,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
             {isAccountDropdownOpen && !isCash && (
               <div
                 style={accountDropdownStyle}
-                className="bg-slate-900 border border-slate-700 rounded-lg shadow-2xl overflow-hidden text-xs"
+                className="absolute top-full left-0 mt-1 w-full min-w-[320px] bg-slate-900 border border-slate-700 rounded-lg shadow-2xl overflow-hidden text-xs z-50"
               >
                 <div className="p-2 border-b border-slate-800 bg-slate-950">
                   <div className="relative">
@@ -1131,7 +1151,19 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                       className="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1 text-white font-bold text-xs focus:border-sky-500 focus:outline-none"
                     />
                     <ChevronDown
-                      onClick={() => setIsItemDropdownOpen((prev) => !prev)}
+                      onClick={() => {
+                        if (!isItemDropdownOpen && itemInputRef.current) {
+                          const rect = itemInputRef.current.getBoundingClientRect();
+                          setItemDropdownStyle({
+                            position: 'fixed',
+                            top: rect.bottom + 4,
+                            left: Math.max(10, Math.min(window.innerWidth - 380, rect.left)),
+                            width: Math.max(340, rect.width * 1.4),
+                            zIndex: 99999,
+                          });
+                        }
+                        setIsItemDropdownOpen((prev) => !prev);
+                      }}
                       className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-2 cursor-pointer"
                     />
                   </div>
@@ -1140,7 +1172,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                   {isItemDropdownOpen && (
                     <div
                       style={itemDropdownStyle}
-                      className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden text-xs"
+                      className="absolute top-full left-0 mt-1 min-w-[340px] bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden text-xs z-50"
                     >
                       <div className="p-2 border-b border-slate-800 bg-slate-950 space-y-1.5">
                         <div className="flex items-center justify-between gap-2">

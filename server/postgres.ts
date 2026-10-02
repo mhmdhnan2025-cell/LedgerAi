@@ -855,11 +855,40 @@ class PostgresService {
           data: undefined,
         });
 
+        const extractCustomer = (row: any): Customer => {
+          const d = row.data || {};
+          return {
+            ...d,
+            ...row,
+            id: row.id || d.id,
+            code: row.code || d.code || row.account_code || d.accountCode || '',
+            accountCode: row.account_code || d.accountCode || row.code || d.code || '',
+            manualCode: row.manual_code ?? d.manualCode ?? '',
+            accountTitle: row.account_title || d.accountTitle || row.name || d.name || row.title || d.title || '',
+            name: row.name || d.name || row.account_title || d.accountTitle || '',
+            title: row.title || d.title || row.account_title || d.accountTitle || '',
+            customerGroup: row.customer_group || d.customerGroup || 'Restaurants',
+            regDate: row.reg_date || d.regDate || '',
+            mobile: row.mobile || d.mobile || '',
+            city: row.city || d.city || '',
+            area: row.area || d.area || '',
+            sector: row.sector || d.sector || '',
+            location: row.location || d.location || '',
+            address: row.address || d.address || '',
+            status: (row.status || d.status || 'ACTIVE').toUpperCase() as any,
+            outstandingBalance: parseFloat(row.outstanding_balance ?? d.outstandingBalance ?? 0),
+            creditLimit: parseFloat(row.credit_limit ?? d.creditLimit ?? 50000),
+            totalSales: parseFloat(row.total_sales ?? d.totalSales ?? 0),
+            companyId,
+            data: undefined,
+          };
+        };
+
         const users: User[] = usersRes.rows.map(extractItem);
         const companyProfile: CompanyProfile | null = compRes.rows[0] ? extractItem(compRes.rows[0]) : null;
         const cashRegister: CashRegister | null = cashRes.rows[0] ? extractItem(cashRes.rows[0]) : null;
         const employees: Employee[] = empRes.rows.map(extractItem);
-        const customers: Customer[] = custRes.rows.map(extractItem);
+        const customers: Customer[] = custRes.rows.map(extractCustomer);
         const restaurants: Restaurant[] = restRes.rows.map(extractItem);
         const suppliers: Supplier[] = supRes.rows.map(extractItem);
         const products: Product[] = prodRes.rows.map(extractItem);

@@ -670,9 +670,15 @@ export const DEFAULT_CUSTOMER_COUNTRIES: string[] = [
 
 let ALL_329_CUSTOMERS: Customer[] = [];
 try {
-  const jsonPath = path.join(process.cwd(), 'data', 'all_329_customers.json');
-  if (fs.existsSync(jsonPath)) {
-    ALL_329_CUSTOMERS = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+  const seedsPath = path.join(__dirname, 'seeds', 'all_329_customers.json');
+  const seedsRootPath = path.join(process.cwd(), 'server', 'seeds', 'all_329_customers.json');
+  const dataPath = path.join(process.cwd(), 'data', 'all_329_customers.json');
+  if (fs.existsSync(seedsPath)) {
+    ALL_329_CUSTOMERS = JSON.parse(fs.readFileSync(seedsPath, 'utf8'));
+  } else if (fs.existsSync(seedsRootPath)) {
+    ALL_329_CUSTOMERS = JSON.parse(fs.readFileSync(seedsRootPath, 'utf8'));
+  } else if (fs.existsSync(dataPath)) {
+    ALL_329_CUSTOMERS = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
   }
 } catch (e) {
   console.warn('Could not load all_329_customers.json:', e);
@@ -1308,6 +1314,33 @@ class DatabaseService {
       });
     }
 
+    // Seed known companies & users from seed file immediately into memory
+    try {
+      const seedsFile = path.join(__dirname, 'seeds', 'seed_companies_users.json');
+      const seedsRootFile = path.join(process.cwd(), 'server', 'seeds', 'seed_companies_users.json');
+      const seedFilePath = fs.existsSync(seedsFile) ? seedsFile : (fs.existsSync(seedsRootFile) ? seedsRootFile : null);
+      if (seedFilePath) {
+        const seedData = JSON.parse(fs.readFileSync(seedFilePath, 'utf8'));
+        if (Array.isArray(seedData.companies)) {
+          for (const c of seedData.companies) {
+            if (!this.companies.has(c.id)) {
+              this.companies.set(c.id, c);
+            }
+          }
+        }
+        if (Array.isArray(seedData.users)) {
+          for (const u of seedData.users) {
+            const exists = this.allUsers.some(x => x.username?.toLowerCase() === u.username?.toLowerCase());
+            if (!exists) {
+              this.allUsers.push(u);
+            }
+          }
+        }
+      }
+    } catch (seedErr) {
+      console.warn('Could not load seed_companies_users in constructor:', seedErr);
+    }
+
     this.recalculateAllLedgers();
     this.initPostgresSync();
   }
@@ -1334,15 +1367,15 @@ class DatabaseService {
             registeredAt: comp.createdAt || new Date().toISOString(),
           };
         }
-        fresh.customers = [];
-        fresh.suppliers = [];
+        fresh.customers = [...DEFAULT_SEED_CUSTOMERS];
+        fresh.suppliers = [...DEFAULT_SEED_SUPPLIERS];
+        fresh.products = [...DEFAULT_INITIAL_PRODUCTS];
         fresh.employees = DEFAULT_SEED_EMPLOYEES.map((e) => ({
           ...e,
           id: `emp_${cid}_${e.code}`,
           companyId: cid,
         }));
         fresh.users = [];
-        fresh.products = [];
         fresh.orders = [];
         fresh.payments = [];
         fresh.expenses = [];
@@ -1371,6 +1404,37 @@ class DatabaseService {
         console.log(`[PostgreSQL] Connected to ${status.database} on ${status.host}`);
         await postgresService.initSchema();
 
+        // 0. Seed companies & users from seed file to PostgreSQL
+        try {
+          const seedsFile = path.join(__dirname, 'seeds', 'seed_companies_users.json');
+          const seedsRootFile = path.join(process.cwd(), 'server', 'seeds', 'seed_companies_users.json');
+          const seedFilePath = fs.existsSync(seedsFile) ? seedsFile : (fs.existsSync(seedsRootFile) ? seedsRootFile : null);
+          if (seedFilePath) {
+            const seedData = JSON.parse(fs.readFileSync(seedFilePath, 'utf8'));
+            if (Array.isArray(seedData.companies)) {
+              for (const c of seedData.companies) {
+                if (!this.companies.has(c.id)) {
+                  this.companies.set(c.id, c);
+                }
+                await postgresService.createCompany(c);
+              }
+            }
+            if (Array.isArray(seedData.users)) {
+              for (const u of seedData.users) {
+                const existingIdx = this.allUsers.findIndex(x => x.username?.toLowerCase() === u.username?.toLowerCase());
+                if (existingIdx === -1) {
+                  this.allUsers.push(u);
+                } else {
+                  this.allUsers[existingIdx] = { ...this.allUsers[existingIdx], ...u };
+                }
+                await postgresService.upsertUser(u, u.companyId, u.passwordHash);
+              }
+            }
+          }
+        } catch (seedErr) {
+          console.warn('[PostgreSQL Seed Companies/Users Warning]:', seedErr);
+        }
+
         // 1. Load companies
         const dbCompanies = await postgresService.getAllCompanies();
         for (const c of dbCompanies) {
@@ -1382,7 +1446,15 @@ class DatabaseService {
         if (dbUsers.length > 0) {
           const DUMMY_IDS = new Set(['usr-accountant', 'usr-manager', 'usr-sales', 'usr-1', 'usr-2', 'usr-3', 'usr-4', 'usr-5']);
           const DUMMY_USERNAMES = new Set(['accountant', 'manager', 'sales']);
-          this.allUsers = dbUsers.filter((u) => !DUMMY_IDS.has(u.id) && !DUMMY_USERNAMES.has(u.username?.toLowerCase() || ''));
+          const cleanDbUsers = dbUsers.filter((u) => !DUMMY_IDS.has(u.id) && !DUMMY_USERNAMES.has(u.username?.toLowerCase() || ''));
+          for (const u of cleanDbUsers) {
+            const idx = this.allUsers.findIndex((x) => x.id === u.id || x.username?.toLowerCase() === u.username?.toLowerCase());
+            if (idx >= 0) {
+              this.allUsers[idx] = { ...this.allUsers[idx], ...u };
+            } else {
+              this.allUsers.push(u);
+            }
+          }
         }
 
         // 3. Load data for companies
@@ -1390,9 +1462,9 @@ class DatabaseService {
           const pgData = await postgresService.loadCompanyData(cid);
           if (pgData) {
             const current = this.tenants.get(cid) || getCleanEmptyData();
-            const customers = (pgData.customers && pgData.customers.length > 0)
+            const customers = (pgData.customers && pgData.customers.length >= DEFAULT_SEED_CUSTOMERS.length)
               ? pgData.customers
-              : ((current.customers && current.customers.length > 0) ? current.customers : DEFAULT_SEED_CUSTOMERS);
+              : ((current.customers && current.customers.length >= DEFAULT_SEED_CUSTOMERS.length) ? current.customers : DEFAULT_SEED_CUSTOMERS);
             
             const restaurants = (pgData.restaurants && pgData.restaurants.length > 0)
               ? pgData.restaurants
@@ -1427,11 +1499,14 @@ class DatabaseService {
 
             this.tenants.set(cid, { ...current, ...pgData, customers, restaurants, employees });
 
-            // Backfill PostgreSQL customers table if it was empty
-            if ((!pgData.customers || pgData.customers.length === 0) && customers.length > 0) {
-              console.log(`[PostgreSQL] Backfilling ${customers.length} customers to PostgreSQL for company ${cid}...`);
-              for (const cust of customers) {
-                await postgresService.upsertCustomer(cust, cid);
+            // Backfill PostgreSQL customers table if missing or less than all 329 customers
+            if (DEFAULT_SEED_CUSTOMERS.length > 0 && (!pgData.customers || pgData.customers.length < DEFAULT_SEED_CUSTOMERS.length)) {
+              console.log(`[PostgreSQL] Backfilling up to ${DEFAULT_SEED_CUSTOMERS.length} customers to PostgreSQL for company ${cid}...`);
+              const existingCodes = new Set((pgData.customers || []).map((c: any) => c.code || c.accountCode));
+              for (const cust of DEFAULT_SEED_CUSTOMERS) {
+                if (!existingCodes.has(cust.code || cust.accountCode)) {
+                  await postgresService.upsertCustomer(cust, cid);
+                }
               }
             }
 

@@ -1,5 +1,5 @@
 import { currencySymbol } from '../utils/currency';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import {
   Receipt,
   Plus,
@@ -121,17 +121,27 @@ export const SalesView: React.FC<SalesViewProps> = ({
   const [itemDropdownStyle, setItemDropdownStyle] = useState<React.CSSProperties>({});
 
   // Floating dropdown positioning effect
-  useEffect(() => {
-    if (isItemDropdownOpen && itemInputRef.current) {
-      const rect = itemInputRef.current.getBoundingClientRect();
-      setItemDropdownStyle({
-        position: 'fixed',
-        top: rect.bottom + 4,
-        left: Math.max(10, Math.min(window.innerWidth - 380, rect.left)),
-        width: Math.max(340, rect.width * 1.3),
-        zIndex: 99999,
-      });
-    }
+  useLayoutEffect(() => {
+    const updatePosition = () => {
+      if (isItemDropdownOpen && itemInputRef.current) {
+        const rect = itemInputRef.current.getBoundingClientRect();
+        setItemDropdownStyle({
+          position: 'fixed',
+          top: rect.bottom + 4,
+          left: Math.max(10, Math.min(window.innerWidth - 380, rect.left)),
+          width: Math.max(340, rect.width * 1.3),
+          zIndex: 99999,
+        });
+      }
+    };
+
+    updatePosition();
+    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', updatePosition);
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
+    };
   }, [isItemDropdownOpen]);
 
   // Focus references
@@ -971,7 +981,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
               {isItemDropdownOpen && (
                 <div
                   style={itemDropdownStyle}
-                  className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-2 max-h-72 overflow-y-auto"
+                  className="absolute top-full left-0 mt-1 min-w-[340px] bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-2 max-h-72 overflow-y-auto z-50"
                 >
                   <div className="space-y-1">
                     {filteredProducts.map((p) => {

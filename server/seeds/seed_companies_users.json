@@ -1,0 +1,84 @@
+{
+  "companies": [
+    {
+      "id": "comp_default_01",
+      "name": "Restaurant Supply ERP",
+      "ownerName": "Admin",
+      "inviteCode": "ERP-7K9P",
+      "inviteCodeStatus": "ACTIVE",
+      "currency": "AED",
+      "city": "Sharjah",
+      "businessType": "Wholesale Food & Grains"
+    },
+    {
+      "id": "comp-mumsuhj5-u8d7",
+      "name": "HannanTraders",
+      "ownerName": "Muhammad Hannan",
+      "inviteCode": "HNAN-78TR",
+      "inviteCodeStatus": "ACTIVE",
+      "phone": "+923167225830",
+      "city": "Islamabaad",
+      "currency": "AED",
+      "businessType": "Wholesale Food & Grains"
+    },
+    {
+      "id": "comp-muocj00t-j3co",
+      "name": "ZAHRAT  AL  FAJR  FOOD  STUFF  TRADING L.L.C",
+      "ownerName": "ANJUM ABBAS",
+      "inviteCode": "ZAHR-FAJR",
+      "inviteCodeStatus": "ACTIVE",
+      "currency": "AED",
+      "city": "Sharjah",
+      "businessType": "Wholesale Food & Grains"
+    },
+    {
+      "id": "comp-mumt1k6a-u38o",
+      "name": "Al madina",
+      "ownerName": "madina",
+      "inviteCode": "ALMD-9988",
+      "inviteCodeStatus": "ACTIVE",
+      "currency": "AED",
+      "city": "Sharjah",
+      "businessType": "Wholesale Food & Grains"
+    }
+  ],
+  "users": [
+    {
+      "id": "usr-admin",
+      "companyId": "comp_default_01",
+      "name": "Admin",
+      "username": "admin",
+      "email": "admin@supplysmarterp.com",
+      "passwordHash": "$2b$10$K9RHrXjsLDCF9wD/kJnQNevd1OnVX7Z7wNGqMUFFpbeBqKfRy3RKm",
+      "password": "admin",
+      "role": "Admin"
+    },
+    {
+      "id": "usr-1790693787862",
+      "companyId": "comp-mumsuhj5-u8d7",
+      "name": "Muhammad Hannan",
+      "username": "hannan78",
+      "email": "mhmdhnan2023@gmail.com",
+      "passwordHash": "$2b$10$QWogjC03CKLb.PhhYpTISudArp3XB5d2lI.B1a12bhbE4ooev/KIe",
+      "role": "Admin"
+    },
+    {
+      "id": "usr-1790787310391",
+      "companyId": "comp-muocj00t-j3co",
+      "name": "ANJUM ABBAS",
+      "username": "qamarabbas",
+      "email": "qamarabbas@comp-muocj00t-j3co.erp",
+      "passwordHash": "$2b$10$bLEy87g5rSDVKk1keAobyuol.sqmwRHDKVhPDizuMWtC9hpM5CaKi",
+      "role": "Admin"
+    },
+    {
+      "id": "usr-1790694117860",
+      "companyId": "comp-mumt1k6a-u38o",
+      "name": "madina",
+      "username": "admin123",
+      "email": "admin123@comp-mumt1k6a-u38o.erp",
+      "passwordHash": "$2b$10$K9RHrXjsLDCF9wD/kJnQNevd1OnVX7Z7wNGqMUFFpbeBqKfRy3RKm",
+      "role": "Admin"
+    }
+  ]
+}
