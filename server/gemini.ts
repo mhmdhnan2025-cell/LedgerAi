@@ -564,18 +564,100 @@ async function localRuleBasedFallback(
     };
   }
 
-  // 0a. CHECK FOR CUSTOMER SALE BILL LOOKUP INTENT (e.g. "Al Madina ka bill dikhao", "Hannan ka bill", "bill show karo Al Madina")
+  // 0a. CHECK FOR BILL LOOKUP INTENT (Sale Bill or Purchase Bill / Supplier Voucher)
   const isBillLookup =
-    (/\b(bill|invoic[e]?|parcha|receipt|chalan)\b/i.test(text) || text.includes('bill')) &&
+    (/\b(bill|invoic[e]?|parcha|receipt|chalan|voucher)\b/i.test(text) || text.includes('bill')) &&
     !text.includes('purchase bill ban') &&
     !text.includes('khareed bill ban') &&
     !text.includes('sale bill ban');
 
   if (isBillLookup) {
+    const isPurchaseBillIntent =
+      text.includes('purchase') ||
+      text.includes('khareed') ||
+      text.includes('supplier') ||
+      text.includes('vendor') ||
+      text.includes('voucher') ||
+      text.includes('gate pass') ||
+      text.includes('gp#');
+
+    const suppliers = db.getSuppliers();
+    const purchaseBills = db.getPurchaseBills();
+
+    // Try finding supplier by title or code
+    let matchedSupplier = suppliers.find((s) => {
+      const title = (s.accountTitle || s.name || s.title || '').toLowerCase().trim();
+      const code = (s.code || '').toLowerCase().trim();
+      return (title.length > 2 && text.includes(title)) || (code.length > 3 && text.includes(code));
+    });
+
+    // Try finding purchase bill by supplier name or bill number
+    let matchedPurchaseBill = purchaseBills.find((b) => {
+      const sTitle = (b.supplierAccountTitle || '').toLowerCase().trim();
+      const bNum = (b.billNumber || '').toLowerCase().trim();
+      const vNum = (b.vendorBillNumber || '').toLowerCase().trim();
+      return (sTitle.length > 2 && text.includes(sTitle)) || (bNum.length >= 1 && text.includes(bNum)) || (vNum.length > 2 && text.includes(vNum));
+    });
+
+    if (!matchedPurchaseBill && matchedSupplier) {
+      matchedPurchaseBill = purchaseBills.find(
+        (b) =>
+          b.supplierId === matchedSupplier?.id ||
+          (b.supplierAccountTitle &&
+            b.supplierAccountTitle.toLowerCase() === (matchedSupplier?.accountTitle || matchedSupplier?.name || '').toLowerCase())
+      );
+    }
+
+    // If purchase intent explicitly stated and no purchase bill matched yet, pick latest purchase bill
+    if (!matchedPurchaseBill && isPurchaseBillIntent && purchaseBills.length > 0) {
+      matchedPurchaseBill = purchaseBills[0];
+    }
+
+    // If it's a purchase bill match
+    if (matchedPurchaseBill && (isPurchaseBillIntent || matchedSupplier || text.includes('supplier') || text.includes('khareed'))) {
+      const itemsListText = (matchedPurchaseBill.items || [])
+        .map(
+          (it: any, idx: number) =>
+            `  ${idx + 1}. **${it.itemTitle}** — ${it.ctn || 0} CTN (${it.qty} ${it.unit || 'Units'}) @ ${currencySymbol()} ${it.rate} = **${currencySymbol()} ${it.amount?.toLocaleString()}**`
+        )
+        .join('\n');
+
+      return {
+        reply: `📄 **Purchase Bill Voucher #${matchedPurchaseBill.billNumber}**\n\n` +
+          `• 🏢 Supplier: **${matchedPurchaseBill.supplierAccountTitle}**\n` +
+          `• 📅 Date: **${matchedPurchaseBill.date}**\n` +
+          `• 🔖 Vendor Bill #: **${matchedPurchaseBill.vendorBillNumber || 'N/A'}** | GP #: **${matchedPurchaseBill.gatePassNumber || 'N/A'}**\n` +
+          `• 🏷️ Type: **${matchedPurchaseBill.isCash ? 'Cash Purchase' : 'Credit / Account'}**\n\n` +
+          `📦 **Purchased Items (اشیاء کی تفصیل):**\n${itemsListText || '  Koi items record nahi hain'}\n\n` +
+          `💵 **Financial Summary:**\n` +
+          `• Gross Amount: ${currencySymbol()} ${(matchedPurchaseBill.grossAmount || 0).toLocaleString()}\n` +
+          `• Total Discount: ${currencySymbol()} ${(matchedPurchaseBill.totalDiscount || 0).toLocaleString()}\n` +
+          `• Total VAT: ${currencySymbol()} ${(matchedPurchaseBill.totalVatAmount || 0).toLocaleString()}\n` +
+          `• **Net Total: ${currencySymbol()} ${(matchedPurchaseBill.netTotal || 0).toLocaleString()}**\n` +
+          `• Paid Amount: ${currencySymbol()} ${(matchedPurchaseBill.paidAmount || 0).toLocaleString()}\n` +
+          `• **Remaining Payable (بقایا): ${currencySymbol()} ${(matchedPurchaseBill.remainingBalance || 0).toLocaleString()}**\n\n` +
+          `Purchase Bill Voucher aap k samnay open ho chuka hai. Agar aap isay band kar dein toh chat me button par click kar k dobara kisi bhi waqt khol sakty hain!`,
+        executedTools: [{
+          name: 'get_supplier_purchase_bill',
+          args: { supplierName: matchedPurchaseBill.supplierAccountTitle, billNumber: matchedPurchaseBill.billNumber },
+          result: {
+            success: true,
+            reportType: 'purchaseBill',
+            purchaseBill: matchedPurchaseBill,
+            billNumber: matchedPurchaseBill.billNumber,
+            supplierName: matchedPurchaseBill.supplierAccountTitle,
+            netTotal: matchedPurchaseBill.netTotal,
+            remainingBalance: matchedPurchaseBill.remainingBalance,
+          },
+        }],
+      };
+    }
+
+    // Otherwise, check for Customer Sale Bill
     const saleBills = db.getSaleBills();
     const customers = db.getCustomers();
 
-    // Try finding customer by matching words
+    // Try finding customer by matching title or code
     let matchedCustomer = customers.find((c) => {
       const title = (c.accountTitle || c.name || '').toLowerCase().trim();
       const code = (c.code || '').toLowerCase().trim();
@@ -583,63 +665,77 @@ async function localRuleBasedFallback(
     });
 
     // If not found in customers list, try searching directly in saleBills customerAccountTitle
-    let matchedBill = saleBills.find((b) => {
+    let matchedSaleBill = saleBills.find((b) => {
       const bCust = (b.customerAccountTitle || '').toLowerCase().trim();
       const bNum = (b.billNumber || '').toLowerCase().trim();
       return (bCust.length > 2 && text.includes(bCust)) || (bNum.length >= 1 && text.includes(bNum));
     });
 
-    if (!matchedBill && matchedCustomer) {
-      matchedBill = saleBills.find((b) => b.customerId === matchedCustomer?.id || (b.customerAccountTitle && b.customerAccountTitle.toLowerCase() === (matchedCustomer?.accountTitle || '').toLowerCase()));
+    if (!matchedSaleBill && matchedCustomer) {
+      matchedSaleBill = saleBills.find(
+        (b) =>
+          b.customerId === matchedCustomer?.id ||
+          (b.customerAccountTitle && b.customerAccountTitle.toLowerCase() === (matchedCustomer?.accountTitle || '').toLowerCase())
+      );
     }
 
-    // Also check for partial word matches (e.g. "hannan", "madina", "al madina", "karachi")
-    if (!matchedBill) {
-      const words = text.split(/\s+/).filter((w) => w.length > 3 && !['bill', 'dikhao', 'chahiye', 'batao', 'karo', 'show', 'mera', 'uska', 'wali'].includes(w));
+    // Also check for partial word matches (e.g. "hannan", "madina", "zubair", "dar alzubair")
+    if (!matchedSaleBill) {
+      const words = text
+        .split(/\s+/)
+        .filter((w) => w.length > 2 && !['bill', 'dikhao', 'chahiye', 'batao', 'karo', 'show', 'mera', 'uska', 'wali', 'sale', 'sales'].includes(w));
       for (const w of words) {
-        matchedBill = saleBills.find((b) => (b.customerAccountTitle || '').toLowerCase().includes(w));
-        if (matchedBill) break;
+        matchedSaleBill = saleBills.find((b) => (b.customerAccountTitle || '').toLowerCase().includes(w));
+        if (matchedSaleBill) break;
       }
     }
 
-    if (matchedBill) {
-      const itemsListText = matchedBill.items
-        .map((it, idx) => `  ${idx + 1}. **${it.itemTitle}** — ${it.ctn || 0} CTN (${it.qty} ${it.unit || 'Units'}) @ ${currencySymbol()} ${it.rate} = **${currencySymbol()} ${it.amount?.toLocaleString()}**`)
+    // If user asked generally for "sale bill" or "bill dikhao" without naming anyone, return latest bill
+    if (!matchedSaleBill && (text.includes('sale bill') || text.includes('bill dikhao') || text.includes('parcha') || text.includes('bill show') || text === 'bill' || text.includes('bill chahiye') || text.includes('invoice'))) {
+      matchedSaleBill = saleBills[0];
+    }
+
+    if (matchedSaleBill) {
+      const itemsListText = (matchedSaleBill.items || [])
+        .map(
+          (it: any, idx: number) =>
+            `  ${idx + 1}. **${it.itemTitle}** — ${it.ctn || 0} CTN (${it.qty} ${it.unit || 'Units'}) @ ${currencySymbol()} ${it.rate} = **${currencySymbol()} ${it.amount?.toLocaleString()}**`
+        )
         .join('\n');
 
       return {
-        reply: `📄 **Sale Bill / Tax Invoice #${matchedBill.billNumber}**\n\n` +
-          `• 🏢 Customer: **${matchedBill.customerAccountTitle}**\n` +
-          `• 📅 Date: **${matchedBill.date}**\n` +
-          `• 👤 Salesman / User: **${matchedBill.salesmanName || matchedBill.user || 'Admin'}**\n` +
-          `• 🏷️ Payment Type: **${matchedBill.paymentType}**\n\n` +
-          `📦 **Bill Items (اشیاء کی تفصیل):**\n${itemsListText}\n\n` +
+        reply: `📄 **Sale Bill / Tax Invoice #${matchedSaleBill.billNumber}**\n\n` +
+          `• 🏢 Customer: **${matchedSaleBill.customerAccountTitle}**\n` +
+          `• 📅 Date: **${matchedSaleBill.date}**\n` +
+          `• 👤 Salesman / User: **${matchedSaleBill.salesmanName || matchedSaleBill.user || 'Admin'}**\n` +
+          `• 🏷️ Payment Type: **${matchedSaleBill.paymentType}**\n\n` +
+          `📦 **Bill Items (اشیاء کی تفصیل):**\n${itemsListText || '  Koi items record nahi hain'}\n\n` +
           `💵 **Financial Summary:**\n` +
-          `• Gross Amount: ${currencySymbol()} ${(matchedBill.grossAmount || 0).toLocaleString()}\n` +
-          `• Total Discount: ${currencySymbol()} ${(matchedBill.totalDiscount || 0).toLocaleString()}\n` +
-          `• Total VAT: ${currencySymbol()} ${(matchedBill.totalVatAmount || 0).toLocaleString()}\n` +
-          `• **Net Total: ${currencySymbol()} ${(matchedBill.netTotal || 0).toLocaleString()}**\n` +
-          `• Cash Received: ${currencySymbol()} ${(matchedBill.cashReceived || 0).toLocaleString()}\n` +
-          `• **Balance Due (بقایا): ${currencySymbol()} ${(matchedBill.balanceReceivable || 0).toLocaleString()}**\n\n` +
-          `Aap neechay diye gaye button par click kar k mukammal bill print ya view kar sakty hain!`,
+          `• Gross Amount: ${currencySymbol()} ${(matchedSaleBill.grossAmount || 0).toLocaleString()}\n` +
+          `• Total Discount: ${currencySymbol()} ${(matchedSaleBill.totalDiscount || 0).toLocaleString()}\n` +
+          `• Total VAT: ${currencySymbol()} ${(matchedSaleBill.totalVatAmount || 0).toLocaleString()}\n` +
+          `• **Net Total: ${currencySymbol()} ${(matchedSaleBill.netTotal || 0).toLocaleString()}**\n` +
+          `• Cash Received: ${currencySymbol()} ${(matchedSaleBill.cashReceived || 0).toLocaleString()}\n` +
+          `• **Balance Due (بقایا): ${currencySymbol()} ${(matchedSaleBill.balanceReceivable || 0).toLocaleString()}**\n\n` +
+          `Official Tax Invoice aap k samnay open ho chuka hai. Agar aap isay band kar dein toh chat me button par click kar k dobara kisi bhi waqt khol sakty hain!`,
         executedTools: [{
           name: 'get_customer_sale_bill',
-          args: { customerName: matchedBill.customerAccountTitle, billNumber: matchedBill.billNumber },
+          args: { customerName: matchedSaleBill.customerAccountTitle, billNumber: matchedSaleBill.billNumber },
           result: {
             success: true,
-            bill: matchedBill,
-            billNumber: matchedBill.billNumber,
-            customerName: matchedBill.customerAccountTitle,
-            netTotal: matchedBill.netTotal,
-            balanceDue: matchedBill.balanceReceivable,
-            date: matchedBill.date,
+            bill: matchedSaleBill,
+            billNumber: matchedSaleBill.billNumber,
+            customerName: matchedSaleBill.customerAccountTitle,
+            netTotal: matchedSaleBill.netTotal,
+            balanceDue: matchedSaleBill.balanceReceivable,
+            date: matchedSaleBill.date,
           },
         }],
       };
     }
   }
 
-  // 0b. CHECK FOR THE 5 SPECIFIC ERP REPORTS FROM IMAGE 5
+  // 0b. CHECK FOR THE 5 SPECIFIC ERP REPORTS
   // 1. Purchase Report
   // 2. Sale Report
   // 3. Profit Intelligence
@@ -648,25 +744,38 @@ async function localRuleBasedFallback(
   const isPurchaseReport =
     (/\b(purchase|purchases|khareed|khareedari)\b/i.test(text) && /\b(report|details|hisaab|khata)\b/i.test(text)) ||
     text.includes('purchase report') ||
-    text.includes('khareed report');
+    text.includes('khareed report') ||
+    text.includes('purchasing report') ||
+    text.includes('sari purchase');
 
   const isSaleReport =
     (/\b(sale|sales|farokht|becha|bikri)\b/i.test(text) && /\b(report|details|hisaab|khata)\b/i.test(text)) ||
     text.includes('sale report') ||
-    text.includes('sales report');
+    text.includes('sales report') ||
+    text.includes('sari sale');
 
   const isProfitReport =
-    (/\b(profit|munafa|margin|gain|loss|intelligence)\b/i.test(text) && /\b(report|details|batao|hisaab)\b/i.test(text)) ||
+    (/\b(profit|munafa|margin|gain|loss|intelligence)\b/i.test(text) && /\b(report|details|batao|hisaab|per|har)\b/i.test(text)) ||
     text.includes('profit intelligence') ||
     text.includes('munafa report') ||
-    text.includes('profit report');
+    text.includes('profit report') ||
+    text.includes('profit per item') ||
+    text.includes('profit per bill') ||
+    text.includes('profit per salesman') ||
+    text.includes('profit per restaurant') ||
+    text.includes('profit per customer') ||
+    text.includes('item profit') ||
+    text.includes('bill profit') ||
+    text.includes('salesman profit');
 
   const isStockHistoryReport =
-    (/\b(stock|inventory|movement|ledger|inflow|outflow)\b/i.test(text) && /\b(history|ledger|report|hisaab|khata)\b/i.test(text)) ||
+    (/\b(stock|inventory|movement|ledger|inflow|outflow)\b/i.test(text) && /\b(history|ledger|report|hisaab|khata|details|management)\b/i.test(text)) ||
     text.includes('stock movement') ||
     text.includes('stock history') ||
     text.includes('stock ledger') ||
-    text.includes('stock khata');
+    text.includes('stock khata') ||
+    text.includes('stock management') ||
+    text.includes('inventory history');
 
   const isMasterAuditReport =
     (/\b(master|audit|business|overall|tamam|mukammal)\b/i.test(text) && /\b(report|audit|hisaab|file)\b/i.test(text)) ||
@@ -683,9 +792,15 @@ async function localRuleBasedFallback(
     text.includes('sari reports');
 
   if (isPurchaseReport) {
-    const pRep = db.getPurchaseReport();
+    const suppliers = db.getSuppliers();
+    let matchedSupplier = suppliers.find((s) => {
+      const title = (s.accountTitle || s.name || s.title || '').toLowerCase().trim();
+      return title.length > 2 && text.includes(title);
+    });
+
+    const pRep = db.getPurchaseReport(matchedSupplier ? { supplierId: matchedSupplier.id } : undefined);
     return {
-      reply: `📦 **Purchase Report (خریداری رپورٹ)**\n\n` +
+      reply: `📦 **Purchase Report (خریداری رپورٹ)**${matchedSupplier ? ` — Supplier: **${matchedSupplier.accountTitle || matchedSupplier.name}**` : ''}\n\n` +
         `• Kul Purchase Bills: **${pRep.totalBillsCount} Bills**\n` +
         `• Kul Cartons Khareed: **${pRep.totalCtn} CTN** (${pRep.totalQty} Units)\n` +
         `• Gross Purchases: ${currencySymbol()} ${(pRep.totalGrossAmount || 0).toLocaleString()}\n` +
@@ -693,16 +808,17 @@ async function localRuleBasedFallback(
         `• **Net Total Purchases: ${currencySymbol()} ${(pRep.totalNetPurchases || 0).toLocaleString()}**\n` +
         `• Suppliers Ko Ada Kiya: ${currencySymbol()} ${(pRep.totalPaidAmount || 0).toLocaleString()}\n` +
         `• **Remaining Payable to Suppliers: ${currencySymbol()} ${(pRep.totalRemainingBalance || 0).toLocaleString()}**\n\n` +
-        `Aap "Reports > Purchase Report" tab me is report ki mukammal details dekh sakty hain.`,
+        `Yeh rahi aapki mukammal Purchase Report table. Kisi bhi bill k "Details" par click kar k aap voucher dekh aur print kar sakty hain:`,
       executedTools: [{
         name: 'get_purchase_report',
-        args: {},
+        args: matchedSupplier ? { supplierId: matchedSupplier.id } : {},
         result: {
           success: true,
           reportType: 'purchases',
-          title: 'Purchase Report (خریداری رپورٹ)',
+          title: `Purchase Report (خریداری رپورٹ)${matchedSupplier ? ` - ${matchedSupplier.accountTitle || matchedSupplier.name}` : ''}`,
           summary: pRep,
-          tab: 'purchases',
+          bills: pRep.bills,
+          purchaseBill: pRep.bills?.[0],
         },
       }],
     };
@@ -719,7 +835,7 @@ async function localRuleBasedFallback(
         `• **Net Sales Turnover: ${currencySymbol()} ${(sRep.totalNetSales || 0).toLocaleString()}**\n` +
         `• Cash Wasool Hua: ${currencySymbol()} ${(sRep.totalCashReceived || 0).toLocaleString()}\n` +
         `• **Market Udhaar (Receivable): ${currencySymbol()} ${(sRep.totalBalanceReceivable || 0).toLocaleString()}**\n\n` +
-        `Aap "Reports > Sale Report" tab me mukammal customer-wise sale details dekh sakty hain.`,
+        `Yeh rahi aapki mukammal Sale Report table. Kisi bhi bill par click kar k aap Tax Invoice dekh aur print kar sakty hain:`,
       executedTools: [{
         name: 'get_sale_report',
         args: {},
@@ -728,7 +844,7 @@ async function localRuleBasedFallback(
           reportType: 'sales',
           title: 'Sale Report (سیل رپورٹ)',
           summary: sRep,
-          tab: 'sales',
+          bills: sRep.bills,
         },
       }],
     };
@@ -737,6 +853,18 @@ async function localRuleBasedFallback(
   if (isProfitReport) {
     const profRep = db.getComprehensiveProfitReport();
     const sum = profRep.summary;
+
+    let initialTab: 'perItem' | 'perBill' | 'perRestaurant' | 'perSalesman' = 'perItem';
+    if (text.includes('salesman') || text.includes('seller') || text.includes('rider') || text.includes('sales man')) {
+      initialTab = 'perSalesman';
+    } else if (text.includes('per bill') || text.includes('bill profit') || text.includes('har bill') || text.includes('bill wise') || text.includes('billwise') || text.includes('invoice profit') || text.includes('ivoice')) {
+      initialTab = 'perBill';
+    } else if (text.includes('restaurant') || text.includes('customer') || text.includes('hotel') || text.includes('resteunt') || text.includes('gahak') || text.includes('resturant')) {
+      initialTab = 'perRestaurant';
+    } else if (text.includes('per item') || text.includes('item wise') || text.includes('itemwise') || text.includes('har item') || text.includes('product profit') || text.includes('cheez')) {
+      initialTab = 'perItem';
+    }
+
     return {
       reply: `📈 **Profit Intelligence Report (نفع کی رپورٹ)**\n\n` +
         `• Kul Billed Sales Volume: **${currencySymbol()} ${(sum.totalSalesVolume || 0).toLocaleString()}**\n` +
@@ -745,16 +873,17 @@ async function localRuleBasedFallback(
         `• **Net Realized Profit (خالص منافع): ${currencySymbol()} ${(sum.totalNetProfit || 0).toLocaleString()}**\n` +
         `• Overall Net Profit Margin: **${sum.overallMarginPct || 0}%**\n` +
         `• Status: **${sum.totalNetProfit >= 0 ? 'PROFITABLE 🟢' : 'LOSS 🔴'}**\n\n` +
-        `Aap "Reports > Profit Intelligence" tab me item-wise aur bill-wise profit dekh sakty hain.`,
+        `Neechay Profit Report table di gayi hai. Aap tabs change kar k Item-Wise, Bill-Wise, Restaurant, aur Salesman profit dekh sakty hain, aur kisi bhi bill par click kar k invoice open kar sakty hain:`,
       executedTools: [{
         name: 'get_profit_report',
-        args: {},
+        args: { tab: initialTab },
         result: {
           success: true,
           reportType: 'profit',
           title: 'Profit Intelligence Report (نفع کی رپورٹ)',
           summary: sum,
-          tab: 'profit',
+          profitData: profRep,
+          initialTab,
         },
       }],
     };
@@ -772,7 +901,7 @@ async function localRuleBasedFallback(
         `• Current Warehouse Closing Stock Value: **${currencySymbol()} ${(stRep.totalStockValue || 0).toLocaleString()}**\n` +
         `• Out of Stock Alerts: **${stRep.itemsSummary.filter((i) => i.status === 'OUT_OF_STOCK').length} Items**\n` +
         `• Low Stock Alerts: **${stRep.itemsSummary.filter((i) => i.status === 'LOW_STOCK').length} Items**\n\n` +
-        `Aap "Reports > Stock Movement History" tab me date-wise stock movement check kar sakty hain.`,
+        `Neechay live Stock Movement History aur Warehouse Ledger table di gayi hai:`,
       executedTools: [{
         name: 'get_stock_history_report',
         args: {},
@@ -781,7 +910,7 @@ async function localRuleBasedFallback(
           reportType: 'stockHistory',
           title: 'Stock Movement History (اسٹاک کھاتہ)',
           summary: { totalStockValue: stRep.totalStockValue, inCtn, outCtn },
-          tab: 'stockHistory',
+          stockData: stRep,
         },
       }],
     };

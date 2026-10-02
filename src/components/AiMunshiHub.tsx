@@ -39,8 +39,17 @@ import {
   Trash2,
 } from 'lucide-react';
 import { api } from '../services/api';
-import { BusinessSummary, CompanyProfile, SaleBill, UserRole } from '../types';
+import {
+  BusinessSummary,
+  CompanyProfile,
+  SaleBill,
+  PurchaseBill,
+  ComprehensiveProfitReport,
+  StockMovementReport,
+  UserRole,
+} from '../types';
 import { SalesBillReceiptModal } from './SalesBillReceiptModal';
+import { PurchaseBillVoucherModal } from './PurchaseBillVoucherModal';
 import { MasterAuditReportModal } from './MasterAuditReportModal';
 
 interface AiMunshiHubProps {
@@ -76,9 +85,242 @@ interface ChatMessage {
   text: string;
   report?: ChatReportAttachment;
   executedActions?: ExecutedAction[];
-  billAttachment?: any;
+  billAttachment?: SaleBill | null;
+  purchaseBillAttachment?: PurchaseBill | null;
+  purchaseReportData?: {
+    summary: any;
+    bills: PurchaseBill[];
+  } | null;
+  saleReportData?: {
+    summary: any;
+    bills: SaleBill[];
+  } | null;
+  profitReportData?: {
+    summary: any;
+    profitData: ComprehensiveProfitReport;
+    initialTab?: 'perItem' | 'perBill' | 'perRestaurant' | 'perSalesman';
+  } | null;
+  stockHistoryData?: {
+    summary: any;
+    stockData: StockMovementReport;
+  } | null;
   reportTab?: string;
 }
+
+const InlineChatProfitReport: React.FC<{
+  profitData: ComprehensiveProfitReport;
+  initialTab?: 'perItem' | 'perBill' | 'perRestaurant' | 'perSalesman';
+  onSelectBill: (bill: SaleBill) => void;
+}> = ({ profitData, initialTab = 'perItem', onSelectBill }) => {
+  const [tab, setTab] = useState<'perItem' | 'perBill' | 'perRestaurant' | 'perSalesman'>(initialTab);
+  const sum = profitData.summary;
+
+  return (
+    <div className="mt-3.5 bg-slate-900 border border-slate-700/80 rounded-xl overflow-hidden shadow-lg text-xs">
+      {/* Top Header & Tabs */}
+      <div className="bg-slate-950 px-4 py-2.5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <TrendingUp className="w-4 h-4 text-emerald-400" />
+          <span className="font-bold text-white text-xs">Profit Intelligence (نفع کی رپورٹ)</span>
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-semibold">
+            {sum.overallMarginPct}% Margin
+          </span>
+        </div>
+        <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800 text-[11px]">
+          <button
+            type="button"
+            onClick={() => setTab('perItem')}
+            className={`px-2.5 py-1 rounded-md font-semibold transition cursor-pointer ${
+              tab === 'perItem' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            📦 Per Item
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('perBill')}
+            className={`px-2.5 py-1 rounded-md font-semibold transition cursor-pointer ${
+              tab === 'perBill' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            📄 Per Bill
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('perRestaurant')}
+            className={`px-2.5 py-1 rounded-md font-semibold transition cursor-pointer ${
+              tab === 'perRestaurant' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            🏢 Restaurant
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('perSalesman')}
+            className={`px-2.5 py-1 rounded-md font-semibold transition cursor-pointer ${
+              tab === 'perSalesman' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            👤 Salesman
+          </button>
+        </div>
+      </div>
+
+      {/* KPI Cards Strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 bg-slate-950/60 border-b border-slate-800/80 text-[11px]">
+        <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+          <span className="text-[10px] text-slate-400 block">Sales Volume</span>
+          <span className="font-mono font-bold text-white">{currencySymbol()} {(sum.totalSalesVolume || 0).toLocaleString()}</span>
+        </div>
+        <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+          <span className="text-[10px] text-slate-400 block">Cost of Goods</span>
+          <span className="font-mono font-bold text-amber-300">{currencySymbol()} {(sum.totalCostOfGoods || 0).toLocaleString()}</span>
+        </div>
+        <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+          <span className="text-[10px] text-slate-400 block">Gross Profit</span>
+          <span className="font-mono font-bold text-sky-400">{currencySymbol()} {(sum.totalGrossProfit || 0).toLocaleString()}</span>
+        </div>
+        <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+          <span className="text-[10px] text-slate-400 block">Net Realized Profit</span>
+          <span className={`font-mono font-black ${(sum.totalNetProfit || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+            {currencySymbol()} {(sum.totalNetProfit || 0).toLocaleString()}
+          </span>
+        </div>
+      </div>
+
+      {/* Tab Tables */}
+      <div className="max-h-72 overflow-y-auto overflow-x-auto">
+        {tab === 'perBill' && (
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="bg-slate-950 text-slate-400 sticky top-0 text-[10px] uppercase font-bold tracking-wider border-b border-slate-800">
+              <tr>
+                <th className="py-2 px-2.5">Bill #</th>
+                <th className="py-2 px-2.5">Date</th>
+                <th className="py-2 px-2.5">Customer / Restaurant</th>
+                <th className="py-2 px-2.5 text-right">Billed</th>
+                <th className="py-2 px-2.5 text-right">Cost</th>
+                <th className="py-2 px-2.5 text-right">Profit</th>
+                <th className="py-2 px-2.5 text-right">Margin</th>
+                <th className="py-2 px-2.5 text-center">Invoice</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60">
+              {(profitData.billWise || []).map((b, idx) => (
+                <tr key={idx} className="hover:bg-slate-800/40">
+                  <td className="py-1.5 px-2.5 font-mono font-bold text-sky-400">{b.billNumber}</td>
+                  <td className="py-1.5 px-2.5 text-slate-400 text-[11px] whitespace-nowrap">{b.date}</td>
+                  <td className="py-1.5 px-2.5 font-semibold text-white truncate max-w-[130px]">{b.customerName}</td>
+                  <td className="py-1.5 px-2.5 text-right font-mono text-slate-200">{currencySymbol()} {b.netSaleAmount.toLocaleString()}</td>
+                  <td className="py-1.5 px-2.5 text-right font-mono text-slate-400">{currencySymbol()} {b.costOfGoods.toLocaleString()}</td>
+                  <td className={`py-1.5 px-2.5 text-right font-mono font-bold ${b.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {currencySymbol()} {b.netProfit.toLocaleString()}
+                  </td>
+                  <td className="py-1.5 px-2.5 text-right font-mono text-slate-300">{b.marginPct}%</td>
+                  <td className="py-1.5 px-2.5 text-center">
+                    <button
+                      type="button"
+                      onClick={() => onSelectBill(b.saleBill)}
+                      className="px-2.5 py-1 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-[11px] font-bold transition cursor-pointer shadow-xs"
+                    >
+                      👁️ View Invoice
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {tab === 'perItem' && (
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="bg-slate-950 text-slate-400 sticky top-0 text-[10px] uppercase font-bold tracking-wider border-b border-slate-800">
+              <tr>
+                <th className="py-2 px-2.5">Item Description</th>
+                <th className="py-2 px-2.5 text-right">Cartons</th>
+                <th className="py-2 px-2.5 text-right">Units</th>
+                <th className="py-2 px-2.5 text-right">Sale Vol</th>
+                <th className="py-2 px-2.5 text-right">Cost</th>
+                <th className="py-2 px-2.5 text-right">Gross Profit</th>
+                <th className="py-2 px-2.5 text-right">Margin</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60">
+              {(profitData.itemWise || []).map((it, idx) => (
+                <tr key={idx} className="hover:bg-slate-800/40">
+                  <td className="py-1.5 px-2.5 font-bold text-white">{it.itemTitle}</td>
+                  <td className="py-1.5 px-2.5 text-right font-mono text-slate-300">{it.totalCtn}</td>
+                  <td className="py-1.5 px-2.5 text-right font-mono text-slate-400">{it.totalQty}</td>
+                  <td className="py-1.5 px-2.5 text-right font-mono text-slate-200">{currencySymbol()} {it.totalSaleAmount.toLocaleString()}</td>
+                  <td className="py-1.5 px-2.5 text-right font-mono text-slate-400">{currencySymbol()} {it.totalCostOfGoods.toLocaleString()}</td>
+                  <td className={`py-1.5 px-2.5 text-right font-mono font-bold ${it.grossProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {currencySymbol()} {it.grossProfit.toLocaleString()}
+                  </td>
+                  <td className="py-1.5 px-2.5 text-right font-mono text-slate-300">{it.marginPct}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {tab === 'perRestaurant' && (
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="bg-slate-950 text-slate-400 sticky top-0 text-[10px] uppercase font-bold tracking-wider border-b border-slate-800">
+              <tr>
+                <th className="py-2 px-2.5">Customer / Restaurant</th>
+                <th className="py-2 px-2.5 text-center">Bills</th>
+                <th className="py-2 px-2.5 text-right">Total Billed</th>
+                <th className="py-2 px-2.5 text-right">Cost</th>
+                <th className="py-2 px-2.5 text-right">Net Profit</th>
+                <th className="py-2 px-2.5 text-right">Margin</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60">
+              {(profitData.restaurantWise || []).map((r, idx) => (
+                <tr key={idx} className="hover:bg-slate-800/40">
+                  <td className="py-1.5 px-2.5 font-bold text-white">{r.customerName}</td>
+                  <td className="py-1.5 px-2.5 text-center font-mono text-slate-400">{r.billsCount}</td>
+                  <td className="py-1.5 px-2.5 text-right font-mono text-slate-200">{currencySymbol()} {r.totalSalesVolume.toLocaleString()}</td>
+                  <td className="py-1.5 px-2.5 text-right font-mono text-slate-400">{currencySymbol()} {r.totalCostOfGoods.toLocaleString()}</td>
+                  <td className={`py-1.5 px-2.5 text-right font-mono font-bold ${r.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {currencySymbol()} {r.netProfit.toLocaleString()}
+                  </td>
+                  <td className="py-1.5 px-2.5 text-right font-mono text-slate-300">{r.marginPct}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {tab === 'perSalesman' && (
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="bg-slate-950 text-slate-400 sticky top-0 text-[10px] uppercase font-bold tracking-wider border-b border-slate-800">
+              <tr>
+                <th className="py-2 px-2.5">Salesman / Agent</th>
+                <th className="py-2 px-2.5 text-center">Bills</th>
+                <th className="py-2 px-2.5 text-right">Sales Turnover</th>
+                <th className="py-2 px-2.5 text-right">Net Profit</th>
+                <th className="py-2 px-2.5 text-right">Margin</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60">
+              {(profitData.salesmanWise || []).map((s, idx) => (
+                <tr key={idx} className="hover:bg-slate-800/40">
+                  <td className="py-1.5 px-2.5 font-bold text-white">{s.salesmanName}</td>
+                  <td className="py-1.5 px-2.5 text-center font-mono text-slate-400">{s.billsCount}</td>
+                  <td className="py-1.5 px-2.5 text-right font-mono text-slate-200">{currencySymbol()} {s.totalSalesVolume.toLocaleString()}</td>
+                  <td className={`py-1.5 px-2.5 text-right font-mono font-bold ${s.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {currencySymbol()} {s.netProfit.toLocaleString()}
+                  </td>
+                  <td className="py-1.5 px-2.5 text-right font-mono text-slate-300">{s.marginPct}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const DEFAULT_WELCOME_MESSAGE: ChatMessage = {
   role: 'assistant',
@@ -104,6 +346,7 @@ export const AiMunshiHub: React.FC<AiMunshiHubProps> = ({
 }) => {
   const [inputText, setInputText] = useState('');
   const [selectedBillForReceiptModal, setSelectedBillForReceiptModal] = useState<SaleBill | null>(null);
+  const [selectedPurchaseBillModal, setSelectedPurchaseBillModal] = useState<PurchaseBill | null>(null);
   const [isMasterAuditModalOpen, setIsMasterAuditModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [chatLog, setChatLog] = useState<ChatMessage[]>(() => {
@@ -375,11 +618,77 @@ Please process this into the database (create inventory, record order, or expens
           };
         }
 
+        // 1. Purchase Bill (Supplier Voucher)
+        const purchaseBillTool = aiResponse.executedTools?.find(
+          (t) => t.name === 'get_supplier_purchase_bill' || t.result?.purchaseBill || (t.result?.reportType === 'purchaseBill' && t.result?.purchaseBill)
+        );
+        const purchaseBillAttachment: PurchaseBill | null = purchaseBillTool?.result?.purchaseBill || null;
+        if (purchaseBillAttachment) {
+          setSelectedPurchaseBillModal(purchaseBillAttachment);
+        }
+
+        // 2. Customer Sale Bill
         const billTool = aiResponse.executedTools?.find(
           (t) => t.name === 'get_customer_sale_bill' && t.result?.bill
         );
-        const billAttachment = billTool?.result?.bill;
-        const reportTab = reportTool?.result?.tab;
+        const billAttachment: SaleBill | null = billTool?.result?.bill || null;
+        if (billAttachment) {
+          setSelectedBillForReceiptModal(billAttachment);
+        }
+
+        // 3. Purchase Report Data
+        const purchaseReportTool = aiResponse.executedTools?.find(
+          (t) => t.name === 'get_purchase_report' || t.result?.reportType === 'purchases'
+        );
+        let purchaseReportData: { summary: any; bills: PurchaseBill[] } | null = null;
+        if (purchaseReportTool?.result?.bills && Array.isArray(purchaseReportTool.result.bills)) {
+          purchaseReportData = {
+            summary: purchaseReportTool.result.summary,
+            bills: purchaseReportTool.result.bills,
+          };
+          if (!purchaseBillAttachment && purchaseReportTool.result.purchaseBill) {
+            setSelectedPurchaseBillModal(purchaseReportTool.result.purchaseBill);
+          }
+        }
+
+        // 4. Sale Report Data
+        const saleReportTool = aiResponse.executedTools?.find(
+          (t) => t.name === 'get_sale_report' || t.result?.reportType === 'sales'
+        );
+        let saleReportData: { summary: any; bills: SaleBill[] } | null = null;
+        if (saleReportTool?.result?.bills && Array.isArray(saleReportTool.result.bills)) {
+          saleReportData = {
+            summary: saleReportTool.result.summary,
+            bills: saleReportTool.result.bills,
+          };
+        }
+
+        // 5. Profit Intelligence Report Data
+        const profitReportTool = aiResponse.executedTools?.find(
+          (t) => t.name === 'get_profit_report' || t.result?.reportType === 'profit'
+        );
+        let profitReportData: { summary: any; profitData: ComprehensiveProfitReport; initialTab?: 'perItem' | 'perBill' | 'perRestaurant' | 'perSalesman' } | null = null;
+        if (profitReportTool?.result?.profitData) {
+          profitReportData = {
+            summary: profitReportTool.result.summary,
+            profitData: profitReportTool.result.profitData,
+            initialTab: profitReportTool.result.initialTab || 'perItem',
+          };
+        }
+
+        // 6. Stock History Report Data
+        const stockHistoryTool = aiResponse.executedTools?.find(
+          (t) => t.name === 'get_stock_history_report' || t.result?.reportType === 'stockHistory'
+        );
+        let stockHistoryData: { summary: any; stockData: StockMovementReport } | null = null;
+        if (stockHistoryTool?.result?.stockData) {
+          stockHistoryData = {
+            summary: stockHistoryTool.result.summary,
+            stockData: stockHistoryTool.result.stockData,
+          };
+        }
+
+        const reportTab = (!purchaseReportData && !saleReportData && !profitReportData && !stockHistoryData) ? reportTool?.result?.tab : undefined;
 
         setChatLog((prev) => [
           ...prev,
@@ -388,6 +697,11 @@ Please process this into the database (create inventory, record order, or expens
             text: aiResponse.reply,
             report: reportAttachment,
             billAttachment,
+            purchaseBillAttachment,
+            purchaseReportData,
+            saleReportData,
+            profitReportData,
+            stockHistoryData,
             reportTab,
           },
         ]);
@@ -630,22 +944,77 @@ Please process this into the database (create inventory, record order, or expens
                     </div>
                   )}
 
-                  {msg.billAttachment && (
-                    <div className="mt-3 p-3.5 rounded-xl bg-slate-900 border border-slate-700 shadow-md space-y-2.5">
+                  {/* 1. Supplier Purchase Bill Attachment Card */}
+                  {msg.purchaseBillAttachment && (
+                    <div className="mt-3.5 p-4 rounded-xl bg-slate-900 border border-amber-500/40 shadow-lg space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="font-mono text-xs font-bold text-cyan-400 bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-800">
-                          Sale Bill / Invoice #{msg.billAttachment.billNumber}
+                        <span className="font-mono text-xs font-bold text-amber-300 bg-amber-950/80 px-2.5 py-0.5 rounded border border-amber-700/60">
+                          Purchase Bill Voucher #{msg.purchaseBillAttachment.billNumber}
+                        </span>
+                        <span className="text-xs text-slate-400 font-medium">{msg.purchaseBillAttachment.date}</span>
+                      </div>
+                      <div className="text-sm font-bold text-white flex items-center justify-between">
+                        <div>
+                          <span className="text-slate-400 text-[11px] block">Supplier:</span>
+                          <span className="text-sm text-amber-200">{msg.purchaseBillAttachment.supplierAccountTitle}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-slate-400 text-[11px] block">Total Amount:</span>
+                          <span className="text-emerald-400 font-mono text-base font-extrabold">
+                            {currencySymbol()} {(msg.purchaseBillAttachment.netTotal || 0).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                      {msg.purchaseBillAttachment.items && msg.purchaseBillAttachment.items.length > 0 && (
+                        <div className="text-xs text-slate-300 divide-y divide-slate-800 bg-slate-950/70 p-2.5 rounded-lg max-h-36 overflow-y-auto">
+                          {msg.purchaseBillAttachment.items.map((it: any, idx: number) => (
+                            <div key={idx} className="py-1 flex justify-between items-center text-[11px]">
+                              <span>{it.itemTitle} ({it.ctn ? `${it.ctn} CTN / ` : ''}{it.qty} {it.unit || 'Units'})</span>
+                              <span className="font-mono font-semibold">{currencySymbol()} {it.amount?.toLocaleString()}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-slate-800/80 text-xs">
+                        <div className="flex items-center gap-3 text-slate-400">
+                          <span>Paid: <strong className="text-emerald-400 font-mono">{currencySymbol()} {(msg.purchaseBillAttachment.paidAmount || 0).toLocaleString()}</strong></span>
+                          <span>Remaining: <strong className="text-amber-400 font-mono">{currencySymbol()} {(msg.purchaseBillAttachment.remainingBalance || 0).toLocaleString()}</strong></span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedPurchaseBillModal(msg.purchaseBillAttachment || null)}
+                          className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                        >
+                          <Receipt className="w-3.5 h-3.5" />
+                          <span>👁️ View &amp; Print Purchase Voucher (واؤچر دیکھیں / پرنٹ کریں)</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 2. Customer Sale Bill Attachment Card */}
+                  {msg.billAttachment && (
+                    <div className="mt-3.5 p-4 rounded-xl bg-slate-900 border border-cyan-500/40 shadow-lg space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-xs font-bold text-cyan-400 bg-cyan-950/80 px-2.5 py-0.5 rounded border border-cyan-800">
+                          Sale Bill / Tax Invoice #{msg.billAttachment.billNumber}
                         </span>
                         <span className="text-xs text-slate-400 font-medium">{msg.billAttachment.date}</span>
                       </div>
                       <div className="text-sm font-bold text-white flex items-center justify-between">
-                        <span>{msg.billAttachment.customerAccountTitle || msg.billAttachment.customerName}</span>
-                        <span className="text-emerald-400 font-mono text-base font-extrabold">
-                          {currencySymbol()} {(msg.billAttachment.netTotal || 0).toLocaleString()}
-                        </span>
+                        <div>
+                          <span className="text-slate-400 text-[11px] block">Customer:</span>
+                          <span className="text-sm text-cyan-200">{msg.billAttachment.customerAccountTitle || msg.billAttachment.customerName}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-slate-400 text-[11px] block">Total Amount:</span>
+                          <span className="text-emerald-400 font-mono text-base font-extrabold">
+                            {currencySymbol()} {(msg.billAttachment.netTotal || 0).toLocaleString()}
+                          </span>
+                        </div>
                       </div>
                       {msg.billAttachment.items && msg.billAttachment.items.length > 0 && (
-                        <div className="text-xs text-slate-300 divide-y divide-slate-800 bg-slate-950/60 p-2.5 rounded-lg max-h-40 overflow-y-auto">
+                        <div className="text-xs text-slate-300 divide-y divide-slate-800 bg-slate-950/70 p-2.5 rounded-lg max-h-36 overflow-y-auto">
                           {msg.billAttachment.items.map((it: any, idx: number) => (
                             <div key={idx} className="py-1 flex justify-between items-center text-[11px]">
                               <span>{it.itemTitle} ({it.ctn ? `${it.ctn} CTN / ` : ''}{it.qty} {it.unit || 'Units'})</span>
@@ -659,12 +1028,246 @@ Please process this into the database (create inventory, record order, or expens
                           Balance Due: <strong className="text-amber-400 font-mono">{currencySymbol()} {(msg.billAttachment.balanceReceivable || msg.billAttachment.balanceDue || 0).toLocaleString()}</strong>
                         </span>
                         <button
-                          onClick={() => setSelectedBillForReceiptModal(msg.billAttachment)}
+                          type="button"
+                          onClick={() => setSelectedBillForReceiptModal(msg.billAttachment || null)}
                           className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
                         >
                           <Receipt className="w-3.5 h-3.5" />
-                          <span>👁️ View & Print Bill (بل دیکھیں / پرنٹ کریں)</span>
+                          <span>👁️ View &amp; Print Tax Invoice (بل دیکھیں / پرنٹ کریں)</span>
                         </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 3. Purchase Report Table (Matching Image 2) */}
+                  {msg.purchaseReportData && msg.purchaseReportData.bills && (
+                    <div className="mt-3.5 bg-slate-900 border border-slate-700/80 rounded-xl overflow-hidden shadow-lg text-xs">
+                      <div className="bg-slate-950 px-4 py-2.5 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <Package className="w-4 h-4 text-amber-400" />
+                          <span className="font-bold text-white text-xs">Purchase Report (خریداری رپورٹ)</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-mono font-semibold">
+                            {msg.purchaseReportData.bills.length} Bills
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-400">
+                          Total Net: <strong className="text-emerald-400 font-mono">{currencySymbol()} {(msg.purchaseReportData.summary?.totalNetPurchases || 0).toLocaleString()}</strong>
+                        </div>
+                      </div>
+
+                      <div className="max-h-72 overflow-y-auto overflow-x-auto">
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead className="bg-slate-950 text-slate-400 sticky top-0 text-[10px] uppercase font-bold tracking-wider border-b border-slate-800">
+                            <tr>
+                              <th className="py-2 px-2.5">Bill #</th>
+                              <th className="py-2 px-2.5">V.Bill #</th>
+                              <th className="py-2 px-2.5">GP #</th>
+                              <th className="py-2 px-2.5">Date</th>
+                              <th className="py-2 px-2.5">Supplier</th>
+                              <th className="py-2 px-2.5 text-right">Cartons</th>
+                              <th className="py-2 px-2.5 text-right">Qty</th>
+                              <th className="py-2 px-2.5 text-right">Total Amount</th>
+                              <th className="py-2 px-2.5 text-right">Paid</th>
+                              <th className="py-2 px-2.5 text-right">Payables</th>
+                              <th className="py-2 px-2.5 text-center">Status</th>
+                              <th className="py-2 px-2.5 text-center">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/60">
+                            {msg.purchaseReportData.bills.map((b: PurchaseBill, idx: number) => {
+                              const isPaid = (b.remainingBalance || 0) <= 0;
+                              const isPartial = (b.paidAmount || 0) > 0 && (b.remainingBalance || 0) > 0;
+                              return (
+                                <tr
+                                  key={idx}
+                                  onClick={() => setSelectedPurchaseBillModal(b)}
+                                  className="hover:bg-slate-800/50 cursor-pointer transition"
+                                >
+                                  <td className="py-2 px-2.5 font-mono font-bold text-amber-400">{b.billNumber}</td>
+                                  <td className="py-2 px-2.5 text-slate-400 font-mono text-[11px]">{b.vendorBillNumber || '-'}</td>
+                                  <td className="py-2 px-2.5 text-slate-400 font-mono text-[11px]">{b.gatePassNumber || '-'}</td>
+                                  <td className="py-2 px-2.5 text-slate-300 text-[11px] whitespace-nowrap">{b.date}</td>
+                                  <td className="py-2 px-2.5 font-semibold text-white truncate max-w-[130px]">{b.supplierAccountTitle}</td>
+                                  <td className="py-2 px-2.5 text-right font-mono text-slate-300">{b.totalCtn || 0}</td>
+                                  <td className="py-2 px-2.5 text-right font-mono text-slate-400">{b.totalQty || 0}</td>
+                                  <td className="py-2 px-2.5 text-right font-mono font-bold text-emerald-400">
+                                    {currencySymbol()} {(b.netTotal || 0).toLocaleString()}
+                                  </td>
+                                  <td className="py-2 px-2.5 text-right font-mono text-slate-300">
+                                    {currencySymbol()} {(b.paidAmount || 0).toLocaleString()}
+                                  </td>
+                                  <td className="py-2 px-2.5 text-right font-mono font-semibold text-amber-400">
+                                    {currencySymbol()} {(b.remainingBalance || 0).toLocaleString()}
+                                  </td>
+                                  <td className="py-2 px-2.5 text-center">
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                      isPaid ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : isPartial ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                    }`}>
+                                      {isPaid ? 'PAID' : isPartial ? 'PARTIAL' : 'UNPAID'}
+                                    </span>
+                                  </td>
+                                  <td className="py-2 px-2.5 text-center">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedPurchaseBillModal(b);
+                                      }}
+                                      className="px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded text-[11px] font-bold transition shadow-xs cursor-pointer"
+                                    >
+                                      Details
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 4. Sale Report Table */}
+                  {msg.saleReportData && msg.saleReportData.bills && (
+                    <div className="mt-3.5 bg-slate-900 border border-slate-700/80 rounded-xl overflow-hidden shadow-lg text-xs">
+                      <div className="bg-slate-950 px-4 py-2.5 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <Coins className="w-4 h-4 text-cyan-400" />
+                          <span className="font-bold text-white text-xs">Sale Report (فروخت رپورٹ)</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono font-semibold">
+                            {msg.saleReportData.bills.length} Bills
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-400">
+                          Total Net: <strong className="text-emerald-400 font-mono">{currencySymbol()} {(msg.saleReportData.summary?.totalNetSales || 0).toLocaleString()}</strong>
+                        </div>
+                      </div>
+
+                      <div className="max-h-72 overflow-y-auto overflow-x-auto">
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead className="bg-slate-950 text-slate-400 sticky top-0 text-[10px] uppercase font-bold tracking-wider border-b border-slate-800">
+                            <tr>
+                              <th className="py-2 px-2.5">Bill #</th>
+                              <th className="py-2 px-2.5">Date</th>
+                              <th className="py-2 px-2.5">Customer</th>
+                              <th className="py-2 px-2.5">Salesman</th>
+                              <th className="py-2 px-2.5 text-right">Cartons</th>
+                              <th className="py-2 px-2.5 text-right">Qty</th>
+                              <th className="py-2 px-2.5 text-right">Net Total</th>
+                              <th className="py-2 px-2.5 text-right">Cash Received</th>
+                              <th className="py-2 px-2.5 text-right">Balance Due</th>
+                              <th className="py-2 px-2.5 text-center">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/60">
+                            {msg.saleReportData.bills.map((b: SaleBill, idx: number) => (
+                              <tr
+                                key={idx}
+                                onClick={() => setSelectedBillForReceiptModal(b)}
+                                className="hover:bg-slate-800/50 cursor-pointer transition"
+                              >
+                                <td className="py-2 px-2.5 font-mono font-bold text-cyan-400">{b.billNumber}</td>
+                                <td className="py-2 px-2.5 text-slate-300 text-[11px] whitespace-nowrap">{b.date}</td>
+                                <td className="py-2 px-2.5 font-semibold text-white truncate max-w-[130px]">{b.customerAccountTitle}</td>
+                                <td className="py-2 px-2.5 text-slate-300 text-[11px]">{b.salesmanName || b.user || 'Admin'}</td>
+                                <td className="py-2 px-2.5 text-right font-mono text-slate-300">{b.totalCtn || 0}</td>
+                                <td className="py-2 px-2.5 text-right font-mono text-slate-400">{b.totalQty || 0}</td>
+                                <td className="py-2 px-2.5 text-right font-mono font-bold text-emerald-400">
+                                  {currencySymbol()} {(b.netTotal || 0).toLocaleString()}
+                                </td>
+                                <td className="py-2 px-2.5 text-right font-mono text-slate-300">
+                                  {currencySymbol()} {(b.cashReceived || 0).toLocaleString()}
+                                </td>
+                                <td className="py-2 px-2.5 text-right font-mono font-semibold text-amber-400">
+                                  {currencySymbol()} {(b.balanceReceivable || 0).toLocaleString()}
+                                </td>
+                                <td className="py-2 px-2.5 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedBillForReceiptModal(b);
+                                    }}
+                                    className="px-2.5 py-1 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-[11px] font-bold transition shadow-xs cursor-pointer"
+                                  >
+                                    View Invoice
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 5. Profit Intelligence Report with 4 Tabs & Invoices */}
+                  {msg.profitReportData && msg.profitReportData.profitData && (
+                    <InlineChatProfitReport
+                      profitData={msg.profitReportData.profitData}
+                      initialTab={msg.profitReportData.initialTab}
+                      onSelectBill={(b) => setSelectedBillForReceiptModal(b)}
+                    />
+                  )}
+
+                  {/* 6. Stock Movement History Table */}
+                  {msg.stockHistoryData && msg.stockHistoryData.stockData && (
+                    <div className="mt-3.5 bg-slate-900 border border-slate-700/80 rounded-xl overflow-hidden shadow-lg text-xs">
+                      <div className="bg-slate-950 px-4 py-2.5 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <Package className="w-4 h-4 text-indigo-400" />
+                          <span className="font-bold text-white text-xs">Stock Movement History (اسٹاک کھاتہ)</span>
+                        </div>
+                        <div className="text-[11px] text-slate-400">
+                          Warehouse Stock Value: <strong className="text-emerald-400 font-mono">{currencySymbol()} {(msg.stockHistoryData.stockData.totalStockValue || 0).toLocaleString()}</strong>
+                        </div>
+                      </div>
+
+                      <div className="max-h-72 overflow-y-auto overflow-x-auto">
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead className="bg-slate-950 text-slate-400 sticky top-0 text-[10px] uppercase font-bold tracking-wider border-b border-slate-800">
+                            <tr>
+                              <th className="py-2 px-2.5">Date / Time</th>
+                              <th className="py-2 px-2.5">Product Item</th>
+                              <th className="py-2 px-2.5 text-center">Movement</th>
+                              <th className="py-2 px-2.5 text-right">Cartons</th>
+                              <th className="py-2 px-2.5 text-right">Units</th>
+                              <th className="py-2 px-2.5 text-right">Rate</th>
+                              <th className="py-2 px-2.5">Ref / Bill #</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/60">
+                            {(msg.stockHistoryData.stockData.ledgerTransactions || []).map((t: any, idx: number) => {
+                              const isPurchase = t.movementType === 'PURCHASE';
+                              const isSale = t.movementType === 'SALE';
+                              return (
+                                <tr key={idx} className="hover:bg-slate-800/40">
+                                  <td className="py-2 px-2.5 text-slate-300 font-mono text-[11px] whitespace-nowrap">{t.timestamp || t.date}</td>
+                                  <td className="py-2 px-2.5 font-bold text-white">{t.productName || t.itemTitle}</td>
+                                  <td className="py-2 px-2.5 text-center">
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                      isPurchase ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : isSale ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                    }`}>
+                                      {t.movementType}
+                                    </span>
+                                  </td>
+                                  <td className={`py-2 px-2.5 text-right font-mono font-bold ${isPurchase ? 'text-emerald-400' : isSale ? 'text-rose-400' : 'text-slate-300'}`}>
+                                    {isPurchase ? `+${t.cartonsChange}` : `${t.cartonsChange}`}
+                                  </td>
+                                  <td className={`py-2 px-2.5 text-right font-mono font-bold ${isPurchase ? 'text-emerald-400' : isSale ? 'text-rose-400' : 'text-slate-300'}`}>
+                                    {isPurchase ? `+${t.quantityChange}` : `${t.quantityChange}`}
+                                  </td>
+                                  <td className="py-2 px-2.5 text-right font-mono text-slate-300">
+                                    {t.rate ? `${currencySymbol()} ${t.rate.toLocaleString()}` : '—'}
+                                  </td>
+                                  <td className="py-2 px-2.5 font-mono text-slate-400 text-[11px]">
+                                    {t.referenceBillNumber || t.notes || '—'}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
                   )}
@@ -860,6 +1463,14 @@ Please process this into the database (create inventory, record order, or expens
           bill={selectedBillForReceiptModal}
           companyProfile={companyProfile}
           onClose={() => setSelectedBillForReceiptModal(null)}
+        />
+      )}
+
+      {selectedPurchaseBillModal && (
+        <PurchaseBillVoucherModal
+          bill={selectedPurchaseBillModal}
+          companyProfile={companyProfile}
+          onClose={() => setSelectedPurchaseBillModal(null)}
         />
       )}
 
