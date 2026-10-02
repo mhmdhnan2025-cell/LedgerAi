@@ -6,8 +6,12 @@
     <script>
       (function() {
         try {
-          var t = localStorage.getItem('erp_theme');
-          if (!t || t === 'undefined' || t === 'null') {
+          var params = new URLSearchParams(window.location.search);
+          var t = params.get('theme');
+          if (!t || !['cream', 'pearl', 'sand', 'dark'].includes(t)) {
+            t = localStorage.getItem('erp_theme');
+          }
+          if (!t || t === 'undefined' || t === 'null' || !['cream', 'pearl', 'sand', 'dark'].includes(t)) {
             t = 'cream';
             localStorage.setItem('erp_theme', 'cream');
           }

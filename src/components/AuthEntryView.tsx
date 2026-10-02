@@ -44,12 +44,43 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
   ];
 
   const activeThemeObj = themeOptions.find((t) => t.id === currentTheme) || themeOptions[0];
+  const isDark = currentTheme === 'dark';
+
+  // Theme-aware styles for crisp contrast in both Light (Cream/Pearl/Sand) and Dark (Midnight)
+  const inputWithIconClass = isDark
+    ? "w-full pl-11 pr-4 py-3 bg-slate-950/80 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition-all"
+    : "w-full pl-11 pr-4 py-3 bg-slate-50 hover:bg-white focus:bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-xs transition-all";
+
+  const inputWithSmallIconClass = isDark
+    ? "w-full pl-9 pr-3 py-2.5 bg-slate-950/80 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:ring-2 focus:ring-indigo-400 focus:outline-none"
+    : "w-full pl-9 pr-3 py-2.5 bg-slate-50 hover:bg-white focus:bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none shadow-xs";
+
+  const inputStandardClass = isDark
+    ? "w-full px-3 py-2.5 bg-slate-950/80 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:ring-2 focus:ring-indigo-400 focus:outline-none"
+    : "w-full px-3 py-2.5 bg-slate-50 hover:bg-white focus:bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none shadow-xs";
+
+  const inviteCodeInputClass = isDark
+    ? "w-full pl-11 pr-4 py-3 bg-slate-950/80 border border-indigo-500/50 rounded-xl text-white placeholder-slate-500 font-mono text-base tracking-widest uppercase focus:outline-none focus:ring-2 focus:ring-indigo-400"
+    : "w-full pl-11 pr-4 py-3 bg-slate-50 hover:bg-white focus:bg-white border border-indigo-300 rounded-xl text-slate-900 placeholder-slate-400 font-mono text-base tracking-widest uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-xs";
+
+  const labelClass = isDark
+    ? "block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5"
+    : "block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5";
+
+  const labelMb2Class = isDark
+    ? "block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2"
+    : "block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2";
+
+  const inputIconClass = isDark ? "text-slate-500" : "text-slate-400";
 
   const handleSelectTheme = (themeId: AppTheme) => {
     if (onThemeChange) {
       onThemeChange(themeId);
     } else {
       document.documentElement.setAttribute('data-theme', themeId);
+      if (document.body) {
+        document.body.setAttribute('data-theme', themeId);
+      }
       try {
         localStorage.setItem('erp_theme', themeId);
       } catch (e) {}
@@ -225,7 +256,11 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
           <button
             type="button"
             onClick={() => setShowThemeMenu((prev) => !prev)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/90 dark:bg-slate-800/90 hover:bg-white dark:hover:bg-slate-700/80 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-xl shadow-sm transition cursor-pointer backdrop-blur-md"
+            className={`flex items-center gap-1.5 px-3 py-1.5 border text-xs font-semibold rounded-xl shadow-sm transition cursor-pointer backdrop-blur-md ${
+              isDark
+                ? 'bg-slate-800/90 hover:bg-slate-700/80 border-slate-700 text-slate-200'
+                : 'bg-white/95 hover:bg-white border-slate-300 text-slate-800'
+            }`}
             title="Switch Theme (تھیم تبدیل کریں)"
           >
             <Palette className="w-3.5 h-3.5 text-amber-500" />
@@ -235,8 +270,14 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
           </button>
 
           {showThemeMenu && (
-            <div className="absolute right-0 mt-1.5 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl p-1.5 z-50 text-xs space-y-1">
-              <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800">
+            <div
+              className={`absolute right-0 mt-1.5 w-56 border rounded-2xl shadow-2xl p-1.5 z-50 text-xs space-y-1 ${
+                isDark ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-white border-slate-200 text-slate-800'
+              }`}
+            >
+              <div className={`px-2 py-1 text-[10px] font-bold uppercase tracking-wider border-b ${
+                isDark ? 'text-slate-400 border-slate-800' : 'text-slate-500 border-slate-100'
+              }`}>
                 Select Theme (تھیم منتخب کریں)
               </div>
               {themeOptions.map((t) => (
@@ -247,7 +288,7 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
                   className={`w-full text-left px-2.5 py-2 rounded-xl flex items-start gap-2.5 transition cursor-pointer ${
                     currentTheme === t.id
                       ? 'bg-amber-500/15 border border-amber-500/40 text-amber-900 dark:text-amber-300 font-bold'
-                      : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                      : (isDark ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-100 text-slate-700')
                   }`}
                 >
                   <span className="text-base leading-none mt-0.5">{t.icon}</span>
@@ -274,25 +315,33 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 to-blue-500 shadow-xl shadow-indigo-500/25 mb-4 border border-indigo-400/30">
             <Building2 className="w-8 h-8 text-white" />
           </div>
-          <h1 className="auth-header-title text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
+          <h1 className={`auth-header-title text-3xl font-black tracking-tight sm:text-4xl ${
+            isDark ? 'text-white' : 'text-slate-900'
+          }`}>
             Restaurant & Wholesale Supply ERP
           </h1>
-          <p className="auth-header-subtitle mt-2 text-sm font-medium text-slate-600">
+          <p className={`auth-header-subtitle mt-2 text-sm font-medium ${
+            isDark ? 'text-slate-300' : 'text-slate-600'
+          }`}>
             Multi-Tenant Enterprise Cloud &bull; Isolated Database & AI Munshi
           </p>
         </div>
 
         {/* Auth Container Card */}
-        <div className="auth-card bg-white backdrop-blur-xl border border-slate-300 rounded-3xl shadow-2xl overflow-hidden transition-all duration-300">
+        <div className={`auth-card rounded-3xl shadow-2xl overflow-hidden transition-all duration-300 border ${
+          isDark ? 'bg-slate-900/95 border-slate-800' : 'bg-white border-slate-200/90'
+        }`}>
           {/* Tab Navigation */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 border-b border-slate-200 p-1.5 bg-slate-100/90 gap-1">
+          <div className={`grid grid-cols-2 sm:grid-cols-4 p-1.5 gap-1 border-b ${
+            isDark ? 'bg-slate-950/80 border-slate-800' : 'bg-slate-100/90 border-slate-200'
+          }`}>
             <button
               type="button"
               onClick={() => handleTabChange('login')}
               className={`flex items-center justify-center gap-1.5 py-3 px-2 text-xs sm:text-sm font-bold rounded-2xl transition-all duration-200 cursor-pointer ${
                 activeTab === 'login'
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/80'
+                  : (isDark ? 'text-slate-400 hover:text-white hover:bg-slate-800/60' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/80')
               }`}
             >
               <LogIn className="w-4 h-4" />
@@ -305,7 +354,7 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
               className={`flex items-center justify-center gap-1.5 py-3 px-2 text-xs sm:text-sm font-bold rounded-2xl transition-all duration-200 cursor-pointer ${
                 activeTab === 'create_company'
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/80'
+                  : (isDark ? 'text-slate-400 hover:text-white hover:bg-slate-800/60' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/80')
               }`}
             >
               <Sparkles className="w-4 h-4" />
@@ -318,7 +367,7 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
               className={`flex items-center justify-center gap-1.5 py-3 px-2 text-xs sm:text-sm font-bold rounded-2xl transition-all duration-200 cursor-pointer ${
                 activeTab === 'join_company'
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/80'
+                  : (isDark ? 'text-slate-400 hover:text-white hover:bg-slate-800/60' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/80')
               }`}
             >
               <KeyRound className="w-4 h-4" />
@@ -331,7 +380,7 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
               className={`flex items-center justify-center gap-1.5 py-3 px-2 text-xs sm:text-sm font-bold rounded-2xl transition-all duration-200 cursor-pointer ${
                 activeTab === 'reset_password'
                   ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/30'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/80'
+                  : (isDark ? 'text-slate-400 hover:text-white hover:bg-slate-800/60' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/80')
               }`}
             >
               <Lock className="w-4 h-4" />
@@ -359,11 +408,11 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
             {activeTab === 'login' && (
               <form onSubmit={handleLogin} className="space-y-5">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                  <label className={labelMb2Class}>
                     Username or Email
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <div className={`absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none ${inputIconClass}`}>
                       <UserIcon className="w-5 h-5" />
                     </div>
                     <input
@@ -372,14 +421,14 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
                       value={loginIdentifier}
                       onChange={(e) => setLoginIdentifier(e.target.value)}
                       placeholder="e.g. hunny78 or yourname@company.com"
-                      className="w-full pl-11 pr-4 py-3 bg-slate-800/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                      className={inputWithIconClass}
                     />
                   </div>
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                    <label className={labelClass}>
                       Password
                     </label>
                     <button
@@ -388,13 +437,15 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
                         setResetIdentifier(loginIdentifier);
                         handleTabChange('reset_password');
                       }}
-                      className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                      className={`text-xs transition-colors cursor-pointer ${
+                        isDark ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-600 hover:text-indigo-800 font-semibold'
+                      }`}
                     >
                       Forgot / Reset Password?
                     </button>
                   </div>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <div className={`absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none ${inputIconClass}`}>
                       <Lock className="w-5 h-5" />
                     </div>
                     <input
@@ -403,7 +454,7 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
                       value={loginPassword}
                       onChange={(e) => setLoginPassword(e.target.value)}
                       placeholder="Enter your account password"
-                      className="w-full pl-11 pr-4 py-3 bg-slate-800/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                      className={inputWithIconClass}
                     />
                   </div>
                 </div>
@@ -412,7 +463,7 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full py-3.5 px-4 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-3.5 px-4 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
                     {loading ? (
                       <Loader2 className="w-5 h-5 animate-spin" />
@@ -426,28 +477,30 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
                 </div>
 
                 <div className="text-center pt-2">
-                  <p className="text-xs text-slate-400">
+                  <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                     The system automatically routes you to your registered company with full data isolation.
                   </p>
                 </div>
               </form>
             )}
 
-            {/* TAB 2: CREATE COMPANY */}
+            {/* TAB 2: CREATE NEW COMPANY */}
             {activeTab === 'create_company' && (
               <form onSubmit={handleCreateCompany} className="space-y-4">
-                <div className="p-3 bg-indigo-950/40 border border-indigo-500/20 rounded-xl text-xs text-indigo-300 flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-indigo-400 shrink-0" />
+                <div className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
+                  isDark ? 'bg-indigo-950/40 border border-indigo-500/20 text-indigo-300' : 'bg-indigo-50 border border-indigo-200 text-indigo-700'
+                }`}>
+                  <ShieldCheck className={`w-4 h-4 shrink-0 ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`} />
                   <span>You will become the Company Owner & Admin with full control over all operations.</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className={labelClass}>
                       Company / Karobar Name *
                     </label>
                     <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                      <div className={`absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none ${inputIconClass}`}>
                         <Building2 className="w-4 h-4" />
                       </div>
                       <input
@@ -456,17 +509,17 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
                         value={companyName}
                         onChange={(e) => setCompanyName(e.target.value)}
                         placeholder="e.g. Al-Madina Food Supplies"
-                        className="w-full pl-9 pr-3 py-2.5 bg-slate-800/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                        className={inputWithSmallIconClass}
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className={labelClass}>
                       Owner Full Name *
                     </label>
                     <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                      <div className={`absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none ${inputIconClass}`}>
                         <UserIcon className="w-4 h-4" />
                       </div>
                       <input
@@ -475,7 +528,7 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
                         value={ownerName}
                         onChange={(e) => setOwnerName(e.target.value)}
                         placeholder="e.g. Muhammad Usman"
-                        className="w-full pl-9 pr-3 py-2.5 bg-slate-800/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                        className={inputWithSmallIconClass}
                       />
                     </div>
                   </div>
@@ -483,7 +536,7 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className={labelClass}>
                       Admin Username *
                     </label>
                     <input
@@ -492,16 +545,16 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
                       value={createUsername}
                       onChange={(e) => setCreateUsername(e.target.value.toLowerCase().replace(/\s+/g, ''))}
                       placeholder="e.g. usman_admin"
-                      className="w-full px-3 py-2.5 bg-slate-800/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      className={inputStandardClass}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className={labelClass}>
                       Password *
                     </label>
                     <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                      <div className={`absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none ${inputIconClass}`}>
                         <Lock className="w-4 h-4" />
                       </div>
                       <input
@@ -510,7 +563,7 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
                         value={createPassword}
                         onChange={(e) => setCreatePassword(e.target.value)}
                         placeholder="Min 6 characters"
-                        className="w-full pl-9 pr-3 py-2.5 bg-slate-800/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                        className={inputWithSmallIconClass}
                       />
                     </div>
                   </div>
@@ -518,7 +571,7 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className={labelClass}>
                       Email (Optional)
                     </label>
                     <input
@@ -526,12 +579,12 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
                       value={createEmail}
                       onChange={(e) => setCreateEmail(e.target.value)}
                       placeholder="owner@company.com"
-                      className="w-full px-3 py-2.5 bg-slate-800/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      className={inputStandardClass}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className={labelClass}>
                       Phone / Mobile
                     </label>
                     <input
@@ -539,12 +592,12 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
                       value={companyPhone}
                       onChange={(e) => setCompanyPhone(e.target.value)}
                       placeholder="+971 / 0300..."
-                      className="w-full px-3 py-2.5 bg-slate-800/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      className={inputStandardClass}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className={labelClass}>
                       City / Region
                     </label>
                     <input
@@ -552,7 +605,7 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
                       value={companyCity}
                       onChange={(e) => setCompanyCity(e.target.value)}
                       placeholder="e.g. Dubai / Lahore"
-                      className="w-full px-3 py-2.5 bg-slate-800/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      className={inputStandardClass}
                     />
                   </div>
                 </div>
@@ -579,18 +632,20 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
             {/* TAB 3: JOIN COMPANY VIA INVITE CODE */}
             {activeTab === 'join_company' && (
               <form onSubmit={handleJoinCompany} className="space-y-4">
-                <div className="p-3 bg-blue-950/40 border border-blue-500/20 rounded-xl text-xs text-blue-300 flex items-center gap-2">
-                  <KeyRound className="w-4 h-4 text-blue-400 shrink-0" />
+                <div className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
+                  isDark ? 'bg-blue-950/40 border border-blue-500/20 text-blue-300' : 'bg-blue-50 border border-blue-200 text-blue-700'
+                }`}>
+                  <KeyRound className={`w-4 h-4 shrink-0 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
                   <span>Enter the 8-character Invite Code provided by your Company Admin to join.</span>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  <label className={labelClass}>
                     Company Invite Code * (e.g. X7K9-P2M4)
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                      <KeyRound className="w-5 h-5 text-indigo-400" />
+                    <div className={`absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none ${inputIconClass}`}>
+                      <KeyRound className="w-5 h-5 text-indigo-500" />
                     </div>
                     <input
                       type="text"
@@ -599,14 +654,14 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
                       onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                       placeholder="X7K9-P2M4"
                       maxLength={12}
-                      className="w-full pl-11 pr-4 py-3 bg-slate-800/90 border border-indigo-500/40 rounded-xl text-white placeholder-slate-500 font-mono text-base tracking-widest uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                      className={inviteCodeInputClass}
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className={labelClass}>
                       Your Full Name *
                     </label>
                     <input
@@ -615,12 +670,12 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
                       value={joinName}
                       onChange={(e) => setJoinName(e.target.value)}
                       placeholder="e.g. Tariq Mehmood"
-                      className="w-full px-3 py-2.5 bg-slate-800/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      className={inputStandardClass}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className={labelClass}>
                       Username *
                     </label>
                     <input
@@ -629,14 +684,14 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
                       value={joinUsername}
                       onChange={(e) => setJoinUsername(e.target.value.toLowerCase().replace(/\s+/g, ''))}
                       placeholder="e.g. tariq_sales"
-                      className="w-full px-3 py-2.5 bg-slate-800/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      className={inputStandardClass}
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className={labelClass}>
                       Email (Optional)
                     </label>
                     <input
@@ -644,12 +699,12 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
                       value={joinEmail}
                       onChange={(e) => setJoinEmail(e.target.value)}
                       placeholder="tariq@company.com"
-                      className="w-full px-3 py-2.5 bg-slate-800/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      className={inputStandardClass}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className={labelClass}>
                       Password *
                     </label>
                     <input
@@ -658,7 +713,7 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
                       value={joinPassword}
                       onChange={(e) => setJoinPassword(e.target.value)}
                       placeholder="Create your password"
-                      className="w-full px-3 py-2.5 bg-slate-800/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      className={inputStandardClass}
                     />
                   </div>
                 </div>
@@ -685,17 +740,19 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
             {/* TAB 4: RESET PASSWORD */}
             {activeTab === 'reset_password' && (
               <form onSubmit={handleResetPassword} className="space-y-4">
-                <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-300 flex items-center gap-2.5">
-                  <KeyRound className="w-5 h-5 text-amber-400 shrink-0" />
+                <div className={`p-3.5 rounded-xl text-xs flex items-center gap-2.5 ${
+                  isDark ? 'bg-amber-500/10 border border-amber-500/20 text-amber-300' : 'bg-amber-50 border border-amber-200 text-amber-800'
+                }`}>
+                  <KeyRound className={`w-5 h-5 shrink-0 ${isDark ? 'text-amber-400' : 'text-amber-600'}`} />
                   <span>Enter your username or email and choose your new password. You will be logged in immediately.</span>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                  <label className={labelMb2Class}>
                     Username or Email *
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <div className={`absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none ${inputIconClass}`}>
                       <UserIcon className="w-5 h-5" />
                     </div>
                     <input
@@ -704,17 +761,17 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
                       value={resetIdentifier}
                       onChange={(e) => setResetIdentifier(e.target.value)}
                       placeholder="e.g. hunny78 or yourname@company.com"
-                      className="w-full pl-11 pr-4 py-3 bg-slate-800/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      className={inputWithIconClass}
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                  <label className={labelMb2Class}>
                     New Password * (Min 6 characters)
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <div className={`absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none ${inputIconClass}`}>
                       <Lock className="w-5 h-5" />
                     </div>
                     <input
@@ -723,17 +780,17 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
                       value={resetNewPassword}
                       onChange={(e) => setResetNewPassword(e.target.value)}
                       placeholder="Enter new password"
-                      className="w-full pl-11 pr-4 py-3 bg-slate-800/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      className={inputWithIconClass}
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                  <label className={labelMb2Class}>
                     Confirm New Password *
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <div className={`absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none ${inputIconClass}`}>
                       <Lock className="w-5 h-5" />
                     </div>
                     <input
@@ -742,7 +799,7 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
                       value={resetConfirmPassword}
                       onChange={(e) => setResetConfirmPassword(e.target.value)}
                       placeholder="Confirm new password"
-                      className="w-full pl-11 pr-4 py-3 bg-slate-800/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      className={inputWithIconClass}
                     />
                   </div>
                 </div>
@@ -766,7 +823,9 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
                   <button
                     type="button"
                     onClick={() => handleTabChange('login')}
-                    className="text-xs text-slate-400 hover:text-white py-1.5 transition-colors text-center"
+                    className={`text-xs py-1.5 transition-colors text-center ${
+                      isDark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900 font-medium'
+                    }`}
                   >
                     &larr; Back to Login
                   </button>

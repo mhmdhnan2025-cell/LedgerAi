@@ -68,6 +68,13 @@ export default function App() {
   // Theme selection state (Creamish White is default as requested)
   const [currentTheme, setCurrentTheme] = useState<AppTheme>(() => {
     try {
+      if (typeof window !== 'undefined' && window.location.search) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlTheme = urlParams.get('theme') as AppTheme;
+        if (urlTheme && ['cream', 'pearl', 'sand', 'dark'].includes(urlTheme)) {
+          return urlTheme;
+        }
+      }
       const saved = localStorage.getItem('erp_theme') as AppTheme;
       if (saved && ['cream', 'pearl', 'sand', 'dark'].includes(saved)) {
         return saved;
@@ -80,6 +87,9 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', currentTheme);
+    if (document.body) {
+      document.body.setAttribute('data-theme', currentTheme);
+    }
     try {
       localStorage.setItem('erp_theme', currentTheme);
     } catch (e) {
