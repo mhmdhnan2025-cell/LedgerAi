@@ -839,8 +839,9 @@ class PostgresService {
           client.query(`
             SELECT * FROM suppliers 
             WHERE company_id = $1 
-               OR (company_id IS NULL AND NOT EXISTS (SELECT 1 FROM suppliers WHERE company_id = $1))
-               OR (company_id = 'comp_default_01' AND NOT EXISTS (SELECT 1 FROM suppliers WHERE company_id = $1))
+               OR company_id = 'comp_default_01' 
+               OR company_id IS NULL 
+               OR company_id = ''
             ORDER BY id;
           `, [companyId]),
           client.query('SELECT * FROM products WHERE company_id = $1 ORDER BY id;', [companyId]),
@@ -933,7 +934,25 @@ class PostgresService {
         const employees: Employee[] = empRes.rows.map(extractItem);
         const customers: Customer[] = custRes.rows.map(extractCustomer);
         const restaurants: Restaurant[] = restRes.rows.map(extractItem);
-        const suppliers: Supplier[] = supRes.rows.map(extractSupplier);
+        
+        // Deduplicate suppliers: default suppliers loaded first, company-specific suppliers overwrite/add
+        const rawSuppliers: Supplier[] = supRes.rows.map(extractSupplier);
+        const supplierMap = new Map<string, Supplier>();
+        for (const s of rawSuppliers) {
+          if (s.companyId !== companyId) {
+            const key = (s.code || s.title || s.name || s.id).trim().toLowerCase();
+            if (!supplierMap.has(key)) {
+              supplierMap.set(key, { ...s, companyId });
+            }
+          }
+        }
+        for (const s of rawSuppliers) {
+          if (s.companyId === companyId) {
+            const key = (s.code || s.title || s.name || s.id).trim().toLowerCase();
+            supplierMap.set(key, s);
+          }
+        }
+        const suppliers: Supplier[] = Array.from(supplierMap.values());
         const products: Product[] = prodRes.rows.map(extractItem);
         const inventoryTransactions: InventoryTransaction[] = invRes.rows.map(extractItem);
         const orders: Order[] = ordRes.rows.map(extractItem);

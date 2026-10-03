@@ -1462,9 +1462,21 @@ class DatabaseService {
           const pgData = await postgresService.loadCompanyData(cid);
           if (pgData) {
             const current = this.tenants.get(cid) || getCleanEmptyData();
-            const customers = (pgData.customers && pgData.customers.length >= DEFAULT_SEED_CUSTOMERS.length)
-              ? pgData.customers
-              : ((current.customers && current.customers.length >= DEFAULT_SEED_CUSTOMERS.length) ? current.customers : DEFAULT_SEED_CUSTOMERS);
+            // Merge customers
+            const tenantCustomers = pgData.customers || [];
+            const existingCustCodes = new Set(tenantCustomers.map((c: any) => (c.code || c.accountCode || '').trim().toLowerCase()).filter(Boolean));
+            const mergedCustomers: Customer[] = [...tenantCustomers];
+            for (const cust of DEFAULT_SEED_CUSTOMERS) {
+              const cKey = (cust.code || cust.accountCode || '').trim().toLowerCase();
+              if (cKey && !existingCustCodes.has(cKey)) {
+                mergedCustomers.push({
+                  ...cust,
+                  companyId: cid,
+                });
+                existingCustCodes.add(cKey);
+              }
+            }
+            const customers = mergedCustomers.length > 0 ? mergedCustomers : DEFAULT_SEED_CUSTOMERS;
             
             const restaurants = (pgData.restaurants && pgData.restaurants.length > 0)
               ? pgData.restaurants
@@ -1497,15 +1509,31 @@ class DatabaseService {
                       companyId: cid,
                     })));
 
-            const suppliers = (pgData.suppliers && pgData.suppliers.length > 0)
-              ? pgData.suppliers
-              : ((current.suppliers && current.suppliers.length > 0)
-                  ? current.suppliers
-                  : DEFAULT_SEED_SUPPLIERS.map((s) => ({
-                      ...s,
-                      id: `sup_${cid}_${s.code}`,
-                      companyId: cid,
-                    })));
+            // Merge suppliers: ensure all default seed suppliers exist alongside any company-created suppliers (e.g. Ali Traders)
+            const tenantSuppliers = Array.isArray(pgData.suppliers) ? pgData.suppliers : [];
+            const existingSupCodes = new Set(tenantSuppliers.map((s: any) => (s.code || '').trim().toLowerCase()).filter(Boolean));
+            const existingSupTitles = new Set(tenantSuppliers.map((s: any) => (s.title || s.name || s.accountTitle || '').trim().toLowerCase()).filter(Boolean));
+
+            const mergedSuppliers: Supplier[] = [...tenantSuppliers];
+            const suppliersToBackfill: Supplier[] = [];
+
+            for (const seed of DEFAULT_SEED_SUPPLIERS) {
+              const codeKey = (seed.code || '').trim().toLowerCase();
+              const titleKey = (seed.title || seed.name || seed.accountTitle || '').trim().toLowerCase();
+              if ((!codeKey || !existingSupCodes.has(codeKey)) && (!titleKey || !existingSupTitles.has(titleKey))) {
+                const companySupplier: Supplier = {
+                  ...seed,
+                  id: `sup_${cid}_${seed.code || Math.random().toString(36).substring(2, 8)}`,
+                  companyId: cid,
+                };
+                mergedSuppliers.push(companySupplier);
+                suppliersToBackfill.push(companySupplier);
+                if (codeKey) existingSupCodes.add(codeKey);
+                if (titleKey) existingSupTitles.add(titleKey);
+              }
+            }
+
+            const suppliers = mergedSuppliers;
 
             this.tenants.set(cid, { ...current, ...pgData, customers, restaurants, employees, suppliers });
 
@@ -1528,11 +1556,15 @@ class DatabaseService {
               }
             }
 
-            // Backfill PostgreSQL suppliers table if it was empty
-            if ((!pgData.suppliers || pgData.suppliers.length === 0) && suppliers.length > 0) {
-              console.log(`[PostgreSQL] Backfilling ${suppliers.length} suppliers to PostgreSQL for company ${cid}...`);
-              for (const sup of suppliers) {
-                await postgresService.upsertSupplier(sup, cid);
+            // Backfill PostgreSQL suppliers table if any seed suppliers are missing
+            if (suppliersToBackfill.length > 0) {
+              console.log(`[PostgreSQL] Backfilling ${suppliersToBackfill.length} suppliers to PostgreSQL for company ${cid}...`);
+              for (const sup of suppliersToBackfill) {
+                try {
+                  await postgresService.upsertSupplier(sup, cid);
+                } catch (err: any) {
+                  console.warn(`[PostgreSQL] Failed to backfill supplier ${sup.title} for company ${cid}:`, err.message);
+                }
               }
             }
           }
@@ -2703,9 +2735,37 @@ class DatabaseService {
   // SUPPLIERS MANAGEMENT
   // =============================================================
   public getSuppliers(): Supplier[] {
-    if (!Array.isArray(this.data.suppliers) || this.data.suppliers.length === 0) {
-      this.data.suppliers = [...DEFAULT_SEED_SUPPLIERS];
+    if (!Array.isArray(this.data.suppliers)) {
+      this.data.suppliers = [];
     }
+
+    // Merge default seed suppliers if missing so tenant always has full catalog alongside custom suppliers
+    const existingCodes = new Set(this.data.suppliers.map((s) => (s.code || '').trim().toLowerCase()).filter(Boolean));
+    const existingTitles = new Set(this.data.suppliers.map((s) => (s.title || s.name || s.accountTitle || '').trim().toLowerCase()).filter(Boolean));
+    let added = false;
+
+    for (const seed of DEFAULT_SEED_SUPPLIERS) {
+      const codeKey = (seed.code || '').trim().toLowerCase();
+      const titleKey = (seed.title || seed.name || seed.accountTitle || '').trim().toLowerCase();
+      if ((!codeKey || !existingCodes.has(codeKey)) && (!titleKey || !existingTitles.has(titleKey))) {
+        const newSup: Supplier = {
+          ...seed,
+          id: `sup_${this.companyId}_${seed.code || Math.random().toString(36).substring(2, 8)}`,
+          companyId: this.companyId,
+        };
+        this.data.suppliers.push(newSup);
+        if (codeKey) existingCodes.add(codeKey);
+        if (titleKey) existingTitles.add(titleKey);
+        added = true;
+        // Asynchronously persist missing supplier to postgres
+        postgresService.upsertSupplier(newSup, this.companyId).catch(() => {});
+      }
+    }
+
+    if (added) {
+      this.persist();
+    }
+
     return this.data.suppliers;
   }
 
