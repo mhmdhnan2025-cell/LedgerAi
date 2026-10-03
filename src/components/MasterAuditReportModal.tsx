@@ -110,13 +110,13 @@ export const MasterAuditReportModal: React.FC<MasterAuditReportModalProps> = ({
             </button>
 
             <a
-              href={downloadUrl('doc')}
-              download="Master_Audit_Report.doc"
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold border border-slate-700 transition"
-              title="Download Word (.doc)"
+              href={downloadUrl('html')}
+              download="Master_Business_Audit_Report.html"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow-md shadow-emerald-600/20 transition cursor-pointer"
+              title="Download standalone styled HTML audit report (opens identically offline/in browser)"
             >
-              <FileText className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Word (.doc)</span>
+              <Download className="w-3.5 h-3.5" />
+              <span>Download Report (.html)</span>
             </a>
 
             <button

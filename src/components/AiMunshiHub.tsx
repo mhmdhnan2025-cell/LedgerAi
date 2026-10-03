@@ -51,6 +51,7 @@ import {
 import { SalesBillReceiptModal } from './SalesBillReceiptModal';
 import { PurchaseBillVoucherModal } from './PurchaseBillVoucherModal';
 import { MasterAuditReportModal } from './MasterAuditReportModal';
+import { AiSmartPurchaseReportWidget } from './AiSmartPurchaseReportWidget';
 
 interface AiMunshiHubProps {
   currentRole: UserRole;
@@ -612,15 +613,15 @@ Please process this into the database (create inventory, record order, or expens
           reportAttachment = {
             type: isBusiness ? 'business' : 'restaurant',
             title: isBusiness ? 'Master Business Profit & Loss Audit Report' : 'Restaurant Statement of Account',
-            downloadUrl: isBusiness ? '/api/reports/download?type=business' : '/api/reports/download',
+            downloadUrl: isBusiness ? '/api/reports/download?type=business&format=html' : '/api/reports/download?format=html',
             viewUrl: isBusiness ? '/api/reports/business' : undefined,
-            fileName: isBusiness ? 'Master_Business_Profit_Audit.doc' : 'Statement_Of_Account.doc',
+            fileName: isBusiness ? 'Master_Business_Profit_Audit.html' : 'Statement_Of_Account.html',
           };
         }
 
-        // 1. Purchase Bill (Supplier Voucher)
+        // 1. Purchase Bill (Supplier Voucher) - opens when user specifically asks for a bill
         const purchaseBillTool = aiResponse.executedTools?.find(
-          (t) => t.name === 'get_supplier_purchase_bill' || t.result?.purchaseBill || (t.result?.reportType === 'purchaseBill' && t.result?.purchaseBill)
+          (t) => t.name === 'get_supplier_purchase_bill' || (t.result?.reportType === 'purchaseBill' && t.result?.purchaseBill)
         );
         const purchaseBillAttachment: PurchaseBill | null = purchaseBillTool?.result?.purchaseBill || null;
         if (purchaseBillAttachment) {
@@ -636,7 +637,7 @@ Please process this into the database (create inventory, record order, or expens
           setSelectedBillForReceiptModal(billAttachment);
         }
 
-        // 3. Purchase Report Data
+        // 3. Purchase Report Data (Interactive Multi-Supplier Hub)
         const purchaseReportTool = aiResponse.executedTools?.find(
           (t) => t.name === 'get_purchase_report' || t.result?.reportType === 'purchases'
         );
@@ -646,9 +647,6 @@ Please process this into the database (create inventory, record order, or expens
             summary: purchaseReportTool.result.summary,
             bills: purchaseReportTool.result.bills,
           };
-          if (!purchaseBillAttachment && purchaseReportTool.result.purchaseBill) {
-            setSelectedPurchaseBillModal(purchaseReportTool.result.purchaseBill);
-          }
         }
 
         // 4. Sale Report Data
@@ -788,12 +786,12 @@ Please process this into the database (create inventory, record order, or expens
         {/* Action buttons */}
         <div className="flex items-center gap-3">
           <a
-            href="/api/reports/download?type=business"
+            href="/api/reports/download?type=business&format=html"
             download="Master_Business_Profit_Audit.html"
-            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold shadow transition"
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold shadow transition cursor-pointer"
           >
             <Download className="w-4 h-4" />
-            Download Master Audit (.doc)
+            Download Master Audit (.html)
           </a>
           {onNavigateTab && (
             <button
@@ -933,12 +931,12 @@ Please process this into the database (create inventory, record order, or expens
                           <span>👁️ View &amp; Print Master Audit (ماسٹر آڈٹ کھولیں)</span>
                         </button>
                         <a
-                          href={msg.report.downloadUrl}
-                          download={msg.report.fileName}
-                          className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow transition"
+                          href={msg.report.downloadUrl.replace('format=doc', 'format=html')}
+                          download={msg.report.fileName.replace(/\.doc$/, '.html')}
+                          className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow transition cursor-pointer"
                         >
                           <Download className="w-3.5 h-3.5" />
-                          Download Report (.doc)
+                          Download Report (.html)
                         </a>
                       </div>
                     </div>
@@ -1039,92 +1037,13 @@ Please process this into the database (create inventory, record order, or expens
                     </div>
                   )}
 
-                  {/* 3. Purchase Report Table (Matching Image 2) */}
+                  {/* 3. AI Smart Multi-Supplier Purchase & Invoice Hub */}
                   {msg.purchaseReportData && msg.purchaseReportData.bills && (
-                    <div className="mt-3.5 bg-slate-900 border border-slate-700/80 rounded-xl overflow-hidden shadow-lg text-xs">
-                      <div className="bg-slate-950 px-4 py-2.5 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2">
-                        <div className="flex items-center gap-2">
-                          <Package className="w-4 h-4 text-amber-400" />
-                          <span className="font-bold text-white text-xs">Purchase Report (خریداری رپورٹ)</span>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-mono font-semibold">
-                            {msg.purchaseReportData.bills.length} Bills
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-slate-400">
-                          Total Net: <strong className="text-emerald-400 font-mono">{currencySymbol()} {(msg.purchaseReportData.summary?.totalNetPurchases || 0).toLocaleString()}</strong>
-                        </div>
-                      </div>
-
-                      <div className="max-h-72 overflow-y-auto overflow-x-auto">
-                        <table className="w-full text-left text-xs border-collapse">
-                          <thead className="bg-slate-950 text-slate-400 sticky top-0 text-[10px] uppercase font-bold tracking-wider border-b border-slate-800">
-                            <tr>
-                              <th className="py-2 px-2.5">Bill #</th>
-                              <th className="py-2 px-2.5">V.Bill #</th>
-                              <th className="py-2 px-2.5">GP #</th>
-                              <th className="py-2 px-2.5">Date</th>
-                              <th className="py-2 px-2.5">Supplier</th>
-                              <th className="py-2 px-2.5 text-right">Cartons</th>
-                              <th className="py-2 px-2.5 text-right">Qty</th>
-                              <th className="py-2 px-2.5 text-right">Total Amount</th>
-                              <th className="py-2 px-2.5 text-right">Paid</th>
-                              <th className="py-2 px-2.5 text-right">Payables</th>
-                              <th className="py-2 px-2.5 text-center">Status</th>
-                              <th className="py-2 px-2.5 text-center">Action</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-800/60">
-                            {msg.purchaseReportData.bills.map((b: PurchaseBill, idx: number) => {
-                              const isPaid = (b.remainingBalance || 0) <= 0;
-                              const isPartial = (b.paidAmount || 0) > 0 && (b.remainingBalance || 0) > 0;
-                              return (
-                                <tr
-                                  key={idx}
-                                  onClick={() => setSelectedPurchaseBillModal(b)}
-                                  className="hover:bg-slate-800/50 cursor-pointer transition"
-                                >
-                                  <td className="py-2 px-2.5 font-mono font-bold text-amber-400">{b.billNumber}</td>
-                                  <td className="py-2 px-2.5 text-slate-400 font-mono text-[11px]">{b.vendorBillNumber || '-'}</td>
-                                  <td className="py-2 px-2.5 text-slate-400 font-mono text-[11px]">{b.gatePassNumber || '-'}</td>
-                                  <td className="py-2 px-2.5 text-slate-300 text-[11px] whitespace-nowrap">{b.date}</td>
-                                  <td className="py-2 px-2.5 font-semibold text-white truncate max-w-[130px]">{b.supplierAccountTitle}</td>
-                                  <td className="py-2 px-2.5 text-right font-mono text-slate-300">{b.totalCtn || 0}</td>
-                                  <td className="py-2 px-2.5 text-right font-mono text-slate-400">{b.totalQty || 0}</td>
-                                  <td className="py-2 px-2.5 text-right font-mono font-bold text-emerald-400">
-                                    {currencySymbol()} {(b.netTotal || 0).toLocaleString()}
-                                  </td>
-                                  <td className="py-2 px-2.5 text-right font-mono text-slate-300">
-                                    {currencySymbol()} {(b.paidAmount || 0).toLocaleString()}
-                                  </td>
-                                  <td className="py-2 px-2.5 text-right font-mono font-semibold text-amber-400">
-                                    {currencySymbol()} {(b.remainingBalance || 0).toLocaleString()}
-                                  </td>
-                                  <td className="py-2 px-2.5 text-center">
-                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                      isPaid ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : isPartial ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                                    }`}>
-                                      {isPaid ? 'PAID' : isPartial ? 'PARTIAL' : 'UNPAID'}
-                                    </span>
-                                  </td>
-                                  <td className="py-2 px-2.5 text-center">
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSelectedPurchaseBillModal(b);
-                                      }}
-                                      className="px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded text-[11px] font-bold transition shadow-xs cursor-pointer"
-                                    >
-                                      Details
-                                    </button>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
+                    <AiSmartPurchaseReportWidget
+                      data={msg.purchaseReportData}
+                      companyName={companyProfile?.name}
+                      onOpenVoucher={(b) => setSelectedPurchaseBillModal(b)}
+                    />
                   )}
 
                   {/* 4. Sale Report Table */}

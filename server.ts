@@ -1344,16 +1344,18 @@ app.get('/api/reports/ledger-audit', (req, res) => {
 
 app.get('/api/reports/download', (req, res) => {
   const type = String(req.query.type || 'business');
-  const format = String(req.query.format || 'doc');
+  const format = String(req.query.format || (type === 'ledger-audit' || type === 'business' ? 'html' : 'doc'));
 
-  if (type === 'ledger-audit') {
+  if (type === 'ledger-audit' || type === 'business') {
     const date = typeof req.query.date === 'string' ? req.query.date : undefined;
-    const isHtml = format === 'html';
+    const isHtml = format !== 'doc';
     const result = isHtml ? generateAiLedgerAuditHtml(date) : generateAiLedgerAuditDoc(date);
-    if (!result.success || !(result as any).html && !(result as any).docContent) {
+    if (!result.success || (!(result as any).html && !(result as any).docContent)) {
       return res.status(500).send((result as any).error || 'Report generation failed');
     }
-    const filename = isHtml ? result.fileName : result.fileName.replace(/\.html$/, '.doc');
+    const filename = isHtml
+      ? (result.fileName.endsWith('.html') ? result.fileName : `${result.fileName.replace(/\.doc$/, '')}.html`)
+      : result.fileName.replace(/\.html$/, '.doc');
     const contentType = isHtml ? 'text/html; charset=utf-8' : 'application/msword; charset=utf-8';
     res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);

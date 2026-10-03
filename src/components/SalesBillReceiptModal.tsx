@@ -307,9 +307,9 @@ ${items
 
   return (
     <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto print:p-0 print:bg-white print:static">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden my-4 print:my-0 print:border-none print:shadow-none print:bg-white print:w-full print:max-w-none">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl max-h-[92vh] shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 print:my-0 print:border-none print:shadow-none print:bg-white print:w-full print:max-w-none print:max-h-none">
         {/* Top Control Bar (Hidden on Print) */}
-        <div className="px-4 sm:px-6 py-3 bg-slate-950 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 print:hidden">
+        <div className="px-4 sm:px-6 py-3 bg-slate-950 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 shrink-0 print:hidden">
           <div className="flex items-center gap-2 text-white font-bold text-sm">
             <Receipt className="w-5 h-5 text-emerald-400" />
             <span>Customer Sales Bill &amp; Tax Invoice / فاتورة ضريبية للعميل</span>
@@ -368,7 +368,7 @@ ${items
         </div>
 
         {/* Customer Details Verification Bar before Printing */}
-        <div className="px-4 sm:px-6 py-2.5 bg-slate-950/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs print:hidden">
+        <div className="px-4 sm:px-6 py-2.5 bg-slate-950/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs shrink-0 print:hidden">
           <div className="flex items-center gap-2">
             <span className="text-amber-400 font-bold">Verify Customer Details for Bill:</span>
             <span className="text-white font-semibold font-mono">{bill.customerAccountTitle}</span>
@@ -415,19 +415,21 @@ ${items
           </div>
         </div>
 
-        {/* ========================================================= */}
-        {/* PRINTABLE RECEIPT — layout mirrors the reference          */}
-        {/* "Tax Invoice Slip" sample (A4)                            */}
-        {/* ========================================================= */}
-        <div
-          id="printable-sales-receipt"
-          ref={printRef}
-          className={`p-4 sm:p-7 bg-white text-slate-900 mx-auto transition-all ${
-            isThermal
-              ? 'max-w-[380px] text-[11px] print:max-w-none print:w-[80mm] print:p-2'
-              : 'max-w-3xl text-[11.5px] print:max-w-none print:w-full print:p-6'
-          }`}
-        >
+        {/* Scrollable Container for Invoice */}
+        <div className="flex-1 overflow-y-auto p-2 sm:p-4 bg-slate-950/40 print:p-0 print:bg-white print:overflow-visible">
+          {/* ========================================================= */}
+          {/* PRINTABLE RECEIPT — layout mirrors the reference          */}
+          {/* "Tax Invoice Slip" sample (A4)                            */}
+          {/* ========================================================= */}
+          <div
+            id="printable-sales-receipt"
+            ref={printRef}
+            className={`p-4 sm:p-7 bg-white text-slate-900 mx-auto transition-all ${
+              isThermal
+                ? 'max-w-[380px] text-[11px] print:max-w-none print:w-[80mm] print:p-2'
+                : 'max-w-3xl text-[11.5px] print:max-w-none print:w-full print:p-6'
+            }`}
+          >
           {/* ---------------- LETTERHEAD ---------------- */}
           <div className="pb-3 mb-3 border-b-2 border-slate-800">
             <div className={`grid ${headerGrid} gap-4 items-start`}>
@@ -746,6 +748,7 @@ ${items
             </span>
             <span>Computer Generated Tax Invoice Slip</span>
           </div>
+        </div>
         </div>
       </div>
     </div>

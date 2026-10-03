@@ -1120,7 +1120,7 @@ export async function executeTool(name: string, args: Record<string, any>, ctx: 
         reportType: 'business',
         summary: report.summary,
         fileName: report.fileName,
-        downloadUrl: `/api/reports/download?type=business`,
+        downloadUrl: `/api/reports/download?type=business&format=html`,
         viewUrl: `/api/reports/business`,
         message: `Master Business Profit & Audit Report generated!\n\n` +
           `• Total Turnover: ${currencySymbol()} ${report.summary?.totalRevenue.toLocaleString()}\n` +

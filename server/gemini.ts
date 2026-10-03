@@ -800,15 +800,8 @@ async function localRuleBasedFallback(
 
     const pRep = db.getPurchaseReport(matchedSupplier ? { supplierId: matchedSupplier.id } : undefined);
     return {
-      reply: `📦 **Purchase Report (خریداری رپورٹ)**${matchedSupplier ? ` — Supplier: **${matchedSupplier.accountTitle || matchedSupplier.name}**` : ''}\n\n` +
-        `• Kul Purchase Bills: **${pRep.totalBillsCount} Bills**\n` +
-        `• Kul Cartons Khareed: **${pRep.totalCtn} CTN** (${pRep.totalQty} Units)\n` +
-        `• Gross Purchases: ${currencySymbol()} ${(pRep.totalGrossAmount || 0).toLocaleString()}\n` +
-        `• Discount Mila: ${currencySymbol()} ${(pRep.totalDiscount || 0).toLocaleString()}\n` +
-        `• **Net Total Purchases: ${currencySymbol()} ${(pRep.totalNetPurchases || 0).toLocaleString()}**\n` +
-        `• Suppliers Ko Ada Kiya: ${currencySymbol()} ${(pRep.totalPaidAmount || 0).toLocaleString()}\n` +
-        `• **Remaining Payable to Suppliers: ${currencySymbol()} ${(pRep.totalRemainingBalance || 0).toLocaleString()}**\n\n` +
-        `Yeh rahi aapki mukammal Purchase Report table. Kisi bhi bill k "Details" par click kar k aap voucher dekh aur print kar sakty hain:`,
+      reply: `✨ **AI Munshi Multi-Supplier Purchase Report & Invoices**${matchedSupplier ? ` — Supplier: **${matchedSupplier.accountTitle || matchedSupplier.name}**` : ''}\n\n` +
+        `Aap ke store ki mukammal purchasing summary aur verified supplier vouchers generate ho chukay hain. Neechay interactive AI dashboard mein tamam suppliers ki list, kul khareed, paid raqam, aur remaining payables live calculation k sath dekhain. Kisi bhi bill ki item-wise invoice dekhnay k liye **Details** par click karein ya voucher print karein:`,
       executedTools: [{
         name: 'get_purchase_report',
         args: matchedSupplier ? { supplierId: matchedSupplier.id } : {},
@@ -818,7 +811,6 @@ async function localRuleBasedFallback(
           title: `Purchase Report (خریداری رپورٹ)${matchedSupplier ? ` - ${matchedSupplier.accountTitle || matchedSupplier.name}` : ''}`,
           summary: pRep,
           bills: pRep.bills,
-          purchaseBill: pRep.bills?.[0],
         },
       }],
     };
