@@ -252,12 +252,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="flex items-center gap-1.5">
               {currentUser.role === 'Admin' && (
                 <button
+                  id="btn-navbar-invite-code"
                   onClick={() => handleTabChange('settings')}
                   title="View and manage employee invite codes in Settings"
-                  className="hidden lg:flex items-center gap-1 bg-indigo-50 hover:bg-indigo-100 border border-indigo-300 px-2 py-1 rounded-md text-indigo-950 text-xs font-black transition cursor-pointer shadow-xs"
+                  className="hidden lg:flex items-center gap-1.5 bg-indigo-100 hover:bg-indigo-200 border border-indigo-300 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/80 dark:border-indigo-600 px-2.5 py-1 rounded-md text-indigo-950 dark:text-indigo-100 text-xs font-black transition cursor-pointer shadow-xs"
                 >
-                  <KeyRound className="w-3.5 h-3.5 text-indigo-700" />
-                  <span className="text-indigo-950 font-black">Invite Code</span>
+                  <KeyRound className="w-3.5 h-3.5 text-indigo-800 dark:text-indigo-300" />
+                  <span className="text-indigo-950 dark:text-indigo-100 font-black">Invite Code</span>
                 </button>
               )}
 

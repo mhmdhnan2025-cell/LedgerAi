@@ -2228,7 +2228,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <div className="flex-1 bg-slate-950 border border-indigo-500/40 rounded-xl px-4 py-3 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Code:</span>
-                    <span className="font-mono text-xl sm:text-2xl font-black text-indigo-300 tracking-widest selection:bg-indigo-600">
+                    <span className="font-mono text-xl sm:text-2xl font-black text-indigo-900 dark:text-indigo-300 tracking-widest selection:bg-indigo-600">
                       {inviteData?.inviteCode || '--------'}
                     </span>
                   </div>
