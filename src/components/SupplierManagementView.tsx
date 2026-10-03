@@ -132,28 +132,32 @@ export const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
-  // Load suppliers if empty
+  const [isLoadingSuppliers, setIsLoadingSuppliers] = useState(false);
+
+  // Dedicated fetch function to load suppliers from server
+  const fetchSuppliers = React.useCallback(async () => {
+    setIsLoadingSuppliers(true);
+    try {
+      const data = await api.getSuppliers();
+      if (Array.isArray(data) && data.length > 0) {
+        setSuppliersList(data);
+        if (onSuppliersChange) onSuppliersChange(data);
+      }
+    } catch (err) {
+      console.error('Error fetching suppliers:', err);
+    } finally {
+      setIsLoadingSuppliers(false);
+    }
+  }, [onSuppliersChange]);
+
+  // Load suppliers if empty or sync prop changes
   React.useEffect(() => {
     if (propSuppliers && propSuppliers.length > 0) {
       setSuppliersList(propSuppliers);
     } else {
-      api.getSuppliers()
-        .then((data) => {
-          if (data && data.length > 0) {
-            setSuppliersList(data);
-            if (onSuppliersChange) onSuppliersChange(data);
-          }
-        })
-        .catch((err) => console.error('Error fetching suppliers:', err));
+      fetchSuppliers();
     }
-  }, [propSuppliers]);
-
-  // Sync prop changes
-  React.useEffect(() => {
-    if (propSuppliers && propSuppliers.length > 0) {
-      setSuppliersList(propSuppliers);
-    }
-  }, [propSuppliers]);
+  }, [propSuppliers, fetchSuppliers]);
 
   // Calculate next sequential ERP code e.g. 0401010349
   const generateNextCode = () => {
@@ -508,6 +512,17 @@ export const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({
           </button>
 
           <button
+            id="supplier-btn-refresh"
+            onClick={fetchSuppliers}
+            disabled={isLoadingSuppliers}
+            title="Refresh suppliers from database (سپلائرز ریفریش کریں)"
+            className="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-50 cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoadingSuppliers ? 'animate-spin text-blue-400' : 'text-slate-400'}`} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+
+          <button
             id="supplier-btn-new"
             onClick={resetFormForNew}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
@@ -663,10 +678,17 @@ export const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({
                     </tr>
                   ) : (
                     filteredList.map((sup, idx) => {
-                      const payable = Number(sup.payableToSupplier) || Number(sup.balanceOwed) || 0;
+                      const payable = Number(sup.payableToSupplier) || Number((sup as any).payable_to_supplier) || Number((sup as any).balanceOwed) || 0;
+                      const supTitle = sup.title || sup.name || (sup as any).account_title || (sup as any).accountTitle || 'Supplier';
+                      const supGroup = sup.supplierGroup || (sup as any).supplier_group || 'General';
+                      const supVat = sup.vatNumber || (sup as any).vat_number || '';
+                      const supPerson = sup.contactPerson || (sup as any).contact_person || (sup as any).contactPerson || '-';
+                      const supPhone = sup.mobile || (sup as any).mobile || sup.telephones || sup.phone || (sup as any).phone || '-';
+                      const supCity = sup.city || (sup as any).city || '-';
+                      const supPayableType = sup.payableType || (sup as any).payable_type || 'CR';
                       return (
                         <tr
-                          key={sup.id}
+                          key={sup.id || (sup as any).code || idx}
                           onClick={() => openEditSupplier(sup)}
                           className="hover:bg-slate-800/50 transition cursor-pointer group"
                         >
@@ -674,31 +696,31 @@ export const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({
                             {idx + 1}
                           </td>
                           <td className="px-3 py-3 font-mono font-bold text-blue-400 text-[11px]">
-                            {sup.code}
+                            {sup.code || (sup as any).code || '-'}
                           </td>
                           <td className="px-4 py-3">
                             <div className="font-bold text-white group-hover:text-blue-300 transition">
-                              {sup.title || sup.name}
+                              {supTitle}
                             </div>
                             <div className="text-[10px] text-slate-400 flex items-center gap-1.5 mt-0.5">
                               <span className="px-1.5 py-0.2 bg-slate-800 rounded text-slate-300">
-                                {sup.supplierGroup || 'General'}
+                                {supGroup}
                               </span>
-                              {sup.vatNumber && <span>VAT: {sup.vatNumber}</span>}
+                              {supVat && <span>VAT: {supVat}</span>}
                             </div>
                           </td>
                           <td className="px-3 py-3 text-slate-300">
-                            {sup.contactPerson || '-'}
+                            {supPerson}
                           </td>
                           <td className="px-3 py-3 font-mono text-slate-300">
-                            {sup.mobile || sup.telephones || sup.phone || '-'}
+                            {supPhone}
                           </td>
                           <td className="px-3 py-3 text-slate-300">
-                            {sup.city || '-'}
+                            {supCity}
                           </td>
                           <td className="px-3 py-3 text-right font-mono font-bold text-amber-300">
                             {currencySymbol()} {payable.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
-                            <span className="text-[10px] text-amber-400/80">{sup.payableType || 'CR'}</span>
+                            <span className="text-[10px] text-amber-400/80">{supPayableType}</span>
                           </td>
                           {/* Switch / Unswitch Supplier Activation */}
                           <td

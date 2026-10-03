@@ -836,7 +836,13 @@ class PostgresService {
           client.query('SELECT * FROM employees WHERE company_id = $1 ORDER BY id;', [companyId]),
           client.query('SELECT * FROM customers WHERE company_id = $1 ORDER BY id;', [companyId]),
           client.query('SELECT * FROM restaurants WHERE company_id = $1 ORDER BY id;', [companyId]),
-          client.query('SELECT * FROM suppliers WHERE company_id = $1 ORDER BY id;', [companyId]),
+          client.query(`
+            SELECT * FROM suppliers 
+            WHERE company_id = $1 
+               OR (company_id IS NULL AND NOT EXISTS (SELECT 1 FROM suppliers WHERE company_id = $1))
+               OR (company_id = 'comp_default_01' AND NOT EXISTS (SELECT 1 FROM suppliers WHERE company_id = $1))
+            ORDER BY id;
+          `, [companyId]),
           client.query('SELECT * FROM products WHERE company_id = $1 ORDER BY id;', [companyId]),
           client.query('SELECT * FROM inventory_transactions WHERE company_id = $1 ORDER BY id;', [companyId]),
           client.query('SELECT * FROM orders WHERE company_id = $1 ORDER BY id;', [companyId]),
@@ -884,13 +890,50 @@ class PostgresService {
           };
         };
 
+        const extractSupplier = (row: any): Supplier => {
+          const d = row.data || {};
+          const title = row.title || d.title || row.account_title || d.accountTitle || row.name || d.name || 'Supplier';
+          return {
+            ...d,
+            ...row,
+            id: row.id || d.id,
+            code: row.code || d.code || '',
+            title,
+            accountTitle: row.account_title || d.accountTitle || title,
+            name: row.name || d.name || title,
+            supplierGroup: row.supplier_group || d.supplierGroup || 'General Trading',
+            mobile: row.mobile || d.mobile || row.phone || d.phone || '',
+            vatNumber: row.vat_number || d.vatNumber || '',
+            ntnNumber: row.ntn_number || d.ntnNumber || '',
+            bankName: row.bank_name || d.bankName || '',
+            bankTitle: row.bank_title || d.bankTitle || '',
+            bankAccountNo: row.bank_account_no || d.bankAccountNo || '',
+            prefixTitle: row.prefix_title || d.prefixTitle || 'Mr',
+            firstName: row.first_name || d.firstName || '',
+            lastName: row.last_name || d.lastName || '',
+            contactPerson: row.contact_person || d.contactPerson || title,
+            email: row.email || d.email || '',
+            telephones: row.telephones || d.telephones || '',
+            phone: row.phone || d.phone || row.mobile || d.mobile || '',
+            city: row.city || d.city || 'Sharjah',
+            address: row.address || d.address || '',
+            cnic: row.cnic || d.cnic || '',
+            status: ((row.status || d.status || 'ACTIVE').toUpperCase() === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE') as any,
+            payableToSupplier: parseFloat(row.payable_to_supplier ?? d.payableToSupplier ?? row.balance_owed ?? d.balanceOwed ?? 0),
+            payableType: (row.payable_type || d.payableType || 'CR').toUpperCase() as any,
+            categories: Array.isArray(row.categories) ? row.categories : (Array.isArray(d.categories) ? d.categories : []),
+            companyId,
+            data: undefined,
+          };
+        };
+
         const users: User[] = usersRes.rows.map(extractItem);
         const companyProfile: CompanyProfile | null = compRes.rows[0] ? extractItem(compRes.rows[0]) : null;
         const cashRegister: CashRegister | null = cashRes.rows[0] ? extractItem(cashRes.rows[0]) : null;
         const employees: Employee[] = empRes.rows.map(extractItem);
         const customers: Customer[] = custRes.rows.map(extractCustomer);
         const restaurants: Restaurant[] = restRes.rows.map(extractItem);
-        const suppliers: Supplier[] = supRes.rows.map(extractItem);
+        const suppliers: Supplier[] = supRes.rows.map(extractSupplier);
         const products: Product[] = prodRes.rows.map(extractItem);
         const inventoryTransactions: InventoryTransaction[] = invRes.rows.map(extractItem);
         const orders: Order[] = ordRes.rows.map(extractItem);

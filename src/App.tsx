@@ -158,7 +158,18 @@ export default function App() {
         }
       }
       setEmployees(empList);
-      setSuppliers(data.suppliers || []);
+      let supList = data.suppliers || [];
+      if (!supList || supList.length === 0) {
+        try {
+          const directSups = await api.getSuppliers();
+          if (Array.isArray(directSups) && directSups.length > 0) {
+            supList = directSups;
+          }
+        } catch (e) {
+          console.warn('Fallback getSuppliers error:', e);
+        }
+      }
+      setSuppliers(supList);
       if (data.users && data.users.length > 0) {
         setUsersList(data.users);
       }

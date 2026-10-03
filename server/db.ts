@@ -1497,7 +1497,17 @@ class DatabaseService {
                       companyId: cid,
                     })));
 
-            this.tenants.set(cid, { ...current, ...pgData, customers, restaurants, employees });
+            const suppliers = (pgData.suppliers && pgData.suppliers.length > 0)
+              ? pgData.suppliers
+              : ((current.suppliers && current.suppliers.length > 0)
+                  ? current.suppliers
+                  : DEFAULT_SEED_SUPPLIERS.map((s) => ({
+                      ...s,
+                      id: `sup_${cid}_${s.code}`,
+                      companyId: cid,
+                    })));
+
+            this.tenants.set(cid, { ...current, ...pgData, customers, restaurants, employees, suppliers });
 
             // Backfill PostgreSQL customers table if missing or less than all 329 customers
             if (DEFAULT_SEED_CUSTOMERS.length > 0 && (!pgData.customers || pgData.customers.length < DEFAULT_SEED_CUSTOMERS.length)) {
@@ -1515,6 +1525,14 @@ class DatabaseService {
               console.log(`[PostgreSQL] Backfilling ${employees.length} employees to PostgreSQL for company ${cid}...`);
               for (const emp of employees) {
                 await postgresService.upsertEmployee(emp, cid);
+              }
+            }
+
+            // Backfill PostgreSQL suppliers table if it was empty
+            if ((!pgData.suppliers || pgData.suppliers.length === 0) && suppliers.length > 0) {
+              console.log(`[PostgreSQL] Backfilling ${suppliers.length} suppliers to PostgreSQL for company ${cid}...`);
+              for (const sup of suppliers) {
+                await postgresService.upsertSupplier(sup, cid);
               }
             }
           }
@@ -1753,7 +1771,14 @@ class DatabaseService {
   }
 
   public getSnapshot(): DatabaseSchema {
-    return this.data;
+    const d = this.data;
+    if (!Array.isArray(d.suppliers) || d.suppliers.length === 0) {
+      d.suppliers = [...DEFAULT_SEED_SUPPLIERS];
+    }
+    if (!Array.isArray(d.customers) || d.customers.length === 0) {
+      d.customers = [...DEFAULT_SEED_CUSTOMERS];
+    }
+    return d;
   }
 
   // =============================================================

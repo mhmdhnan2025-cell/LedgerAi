@@ -62,10 +62,15 @@ app.get('/api/db/all', (req, res) => {
     const summary = db.getBusinessSummary();
     const alerts = db.getSmartAlerts();
     const companyProfile = db.getCompanyProfile();
+    const suppliers = db.getSuppliers();
+    const customers = db.getCustomers();
+    const employees = db.getEmployees();
     res.json({
       ...snapshot,
       companyProfile,
-      employees: db.getEmployees(),
+      employees,
+      suppliers,
+      customers,
       summary,
       alerts,
     });
@@ -861,40 +866,6 @@ app.post('/api/expenses/:id/allocate', (req, res) => {
   }
 });
 
-// -------------------------------------------------------------
-// SUPPLIERS API
-// -------------------------------------------------------------
-app.get('/api/suppliers', (req, res) => {
-  res.json(db.getSuppliers());
-});
-
-app.post('/api/suppliers', (req, res) => {
-  try {
-    const { supplier, source, user } = req.body;
-    const created = db.createSupplier(supplier, source || 'manual', user);
-    res.json(created);
-  } catch (err: any) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
-app.put('/api/suppliers/:id', (req, res) => {
-  try {
-    const updated = db.updateSupplier(req.params.id, req.body.updates, req.body.source, req.body.user);
-    res.json(updated);
-  } catch (err: any) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
-app.delete('/api/suppliers/:id', (req, res) => {
-  try {
-    const success = db.deleteSupplier(req.params.id, req.body.source, req.body.user);
-    res.json({ success });
-  } catch (err: any) {
-    res.status(400).json({ error: err.message });
-  }
-});
 
 // -------------------------------------------------------------
 // ITEM CATEGORIES, BRANDS & MEASURES API
