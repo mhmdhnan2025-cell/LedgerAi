@@ -64,6 +64,7 @@ export interface OCRItemRow {
   mcode: string;
   isNewItem?: boolean;
   category: string;
+  packageType?: string;
   ctn: number;
   qtyPerCtn: number;
   quantity: number;
@@ -521,6 +522,13 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
 
         const category = it.category || (matched ? matched.category : mapToProductCategory(itemName));
         const unit = isLumpSum ? 'LUMP_SUM' : normalizeUnit(it.unit || (matched ? matched.unit : ctn > 0 ? 'CTN' : 'KG'));
+        const packageType = it.packageType || matched?.packageType || (
+          `${category} ${unit} ${itemName}`.toLowerCase().includes('bag') ? 'Bag' :
+          `${category} ${unit} ${itemName}`.toLowerCase().includes('box') ? 'Box' :
+          `${category} ${unit} ${itemName}`.toLowerCase().includes('tin') ? 'Tin' :
+          `${category} ${unit} ${itemName}`.toLowerCase().includes('pack') ? 'Pack' :
+          'Carton'
+        );
 
         return {
           id: it.id || `ocr-item-${Date.now()}-${idx + 1}`,
@@ -529,6 +537,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
           mcode,
           isNewItem,
           category,
+          packageType,
           ctn,
           qtyPerCtn,
           quantity: qty,
@@ -832,6 +841,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
             itemTitle: it.name.trim(),
             category: it.category,
             mcode: it.mcode,
+            packageType: it.packageType,
             qty: it.quantity,
             rate: it.price,
             salePrice: it.salePrice, // preserved for inventory sellingPrice
@@ -875,6 +885,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
             itemTitle: it.name.trim(),
             category: it.category,
             mcode: it.mcode,
+            packageType: it.packageType,
             qty: it.quantity,
             rate: it.price,
             amount: it.total,

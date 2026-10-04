@@ -867,6 +867,7 @@ export interface StockMovementSummaryItem {
   mcode: string;
   name: string;
   category: string;
+  packageType?: string;
   unit: string;
   qtyInCarton: number;
   openingStock: number;

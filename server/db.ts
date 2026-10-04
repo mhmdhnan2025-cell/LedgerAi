@@ -6552,6 +6552,7 @@ class DatabaseService {
         mcode: prod.mcode || prod.sku || 'N/A',
         name: prod.name,
         category: prod.category || 'General',
+        packageType: prod.packageType,
         unit: prod.unit || 'Units',
         qtyInCarton,
         openingStock: opening,

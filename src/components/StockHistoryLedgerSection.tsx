@@ -578,7 +578,7 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
                     <th className="py-2.5 px-3 text-center text-emerald-400">Purchased (+)</th>
                     <th className="py-2.5 px-3 text-center text-rose-400">Sold (-)</th>
                     <th className="py-2.5 px-3 text-center font-bold text-white">Remaining Balance</th>
-                    <th className="py-2.5 px-3 text-center">Remaining CTN</th>
+                    <th className="py-2.5 px-3 text-center">Remaining CTN / BAG</th>
                     <th className="py-2.5 px-3 text-right">Cost Rate</th>
                     <th className="py-2.5 px-3 text-right">Selling Rate</th>
                     <th className="py-2.5 px-3 text-right">Stock Value</th>
@@ -611,7 +611,22 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
                           {it.closingStock} <span className="text-[10px] text-slate-500 font-normal">{it.unit}</span>
                         </td>
                         <td className="py-2.5 px-3 text-center text-slate-300 font-bold">
-                          {it.closingStockCartons} CTN
+                          {(() => {
+                            const pkg = (it.packageType || 'CTN').toUpperCase();
+                            if (it.qtyInCarton > 1) {
+                              const full = Math.floor(it.closingStock / it.qtyInCarton);
+                              const loose = Number((it.closingStock % it.qtyInCarton).toFixed(1));
+                              if (loose > 0) {
+                                return (
+                                  <span>
+                                    {full} {pkg} <span className="text-[10px] text-slate-400 font-normal">(+{loose} {it.unit})</span>
+                                  </span>
+                                );
+                              }
+                              return `${full} ${pkg}`;
+                            }
+                            return `${it.closingStockCartons} ${pkg}`;
+                          })()}
                         </td>
                         <td className="py-2.5 px-3 text-right text-slate-400">
                           {currencySymbol()} {it.purchasePrice.toLocaleString()}
