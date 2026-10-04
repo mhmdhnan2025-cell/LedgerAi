@@ -244,6 +244,7 @@ export interface Restaurant {
 
 export interface Supplier {
   id: string;
+  companyId?: string;
   code: string;                 // e.g. "0401010341"
   title: string;                // e.g. "ABDULLA AL KHATTAL GENERAL TRADING"
   accountTitle?: string;
@@ -622,6 +623,7 @@ export interface BusinessProfitDiagnosis {
 
 export interface Customer {
   id: string;
+  companyId?: string;
   code: string;                 // A/C Code e.g. "0101040001" or "0101040087"
   accountCode?: string;         // compatibility
   manualCode?: string;          // C.CODE / M.CODE (User defined code)

@@ -13,11 +13,13 @@ import {
   Payment,
   Product,
   PurchaseBill,
+  PurchaseBillItem,
   Restaurant,
   Supplier,
   User,
   Customer,
   SaleBill,
+  SaleBillItem,
   CashRegister,
 } from '../src/types';
 
@@ -928,6 +930,122 @@ class PostgresService {
           };
         };
 
+        const extractProduct = (row: any): Product => {
+          const d = typeof row.data === 'string' ? JSON.parse(row.data) : (row.data || {});
+          const name = row.name || d.name || d.itemTitle || '';
+          const category = row.category || d.category || 'General';
+          const measure = row.measure_unit || d.measure || d.unit || 'Units';
+          const combined = `${name} ${category} ${measure}`.toLowerCase();
+          const pkg = d.packageType || row.package_type ||
+            (combined.includes('bag') || combined.includes('bori') || combined.includes('sugar') || combined.includes('suger') || combined.includes('rice') || combined.includes('chawal') || combined.includes('atta') || combined.includes('flour') || combined.includes('daal') ? 'Bag' :
+             combined.includes('box') || combined.includes('dabba') ? 'Box' :
+             combined.includes('tin') || combined.includes('can') || combined.includes('drum') ? 'Tin' :
+             combined.includes('pack') ? 'Pack' : 'Carton');
+
+          const qtyInCarton = Number(d.qtyInCarton) > 0 ? Number(d.qtyInCarton) : 1;
+          const purchasePrice = parseFloat(row.purchase_price ?? d.purchasePrice ?? 0);
+          const salePrice = parseFloat(row.sale_price ?? d.salePrice ?? d.sellingPrice ?? 0);
+          const currentQty = parseFloat(row.current_quantity ?? d.currentQuantity ?? d.totalStock ?? 0);
+
+          return {
+            ...d,
+            ...row,
+            id: row.id || d.id,
+            sku: row.sku || d.sku || d.mcode || '',
+            mcode: row.sku || d.mcode || d.sku || '',
+            name,
+            itemTitle: name,
+            category,
+            brand: row.brand || d.brand || '',
+            measure,
+            unit: measure as any,
+            packageType: pkg,
+            qtyInCarton,
+            ctnPurchaseRate: Number(d.ctnPurchaseRate) || (purchasePrice * qtyInCarton),
+            ctnSaleRate: Number(d.ctnSaleRate) || (salePrice * qtyInCarton),
+            purchasePrice,
+            salePrice,
+            sellingPrice: salePrice,
+            currentQuantity: currentQty,
+            totalStock: currentQty,
+            stockValue: Number((currentQty * purchasePrice).toFixed(2)),
+            companyId,
+            data: undefined,
+          };
+        };
+
+        const extractPurchaseBill = (row: any): PurchaseBill => {
+          const d = typeof row.data === 'string' ? JSON.parse(row.data) : (row.data || {});
+          let items: PurchaseBillItem[] = Array.isArray(row.items) ? row.items : (Array.isArray(d.items) ? d.items : []);
+          items = items.map((it: any) => {
+            const combined = `${it.itemTitle || ''} ${it.category || ''} ${it.unit || ''}`.toLowerCase();
+            const pkg = it.packageType ||
+              (combined.includes('bag') || combined.includes('bori') || combined.includes('sugar') || combined.includes('suger') || combined.includes('rice') || combined.includes('atta') || combined.includes('daal') ? 'Bag' :
+               combined.includes('box') ? 'Box' :
+               combined.includes('tin') ? 'Tin' :
+               combined.includes('pack') ? 'Pack' : 'Carton');
+            return {
+              ...it,
+              packageType: pkg,
+              unit: it.unit || (pkg === 'Bag' ? 'KG' : 'CTN'),
+            };
+          });
+
+          return {
+            ...d,
+            ...row,
+            id: row.id || d.id,
+            billNumber: row.bill_number || d.billNumber || '',
+            supplierId: row.supplier_id || d.supplierId || '',
+            supplierName: row.supplier_name || d.supplierName || d.supplierAccountTitle || '',
+            supplierAccountTitle: row.supplier_name || d.supplierAccountTitle || d.supplierName || '',
+            date: row.bill_date || d.date || '',
+            totalAmount: parseFloat(row.total_amount ?? d.totalAmount ?? d.netTotal ?? 0),
+            netTotal: parseFloat(row.total_amount ?? d.netTotal ?? d.totalAmount ?? 0),
+            paidAmount: parseFloat(row.paid_amount ?? d.paidAmount ?? 0),
+            remainingBalance: parseFloat(row.balance_amount ?? d.remainingBalance ?? 0),
+            items,
+            companyId,
+            data: undefined,
+          };
+        };
+
+        const extractSaleBill = (row: any): SaleBill => {
+          const d = typeof row.data === 'string' ? JSON.parse(row.data) : (row.data || {});
+          let items: SaleBillItem[] = Array.isArray(row.items) ? row.items : (Array.isArray(d.items) ? d.items : []);
+          items = items.map((it: any) => {
+            const combined = `${it.itemTitle || ''} ${it.category || ''} ${it.unit || ''}`.toLowerCase();
+            const pkg = it.packageType ||
+              (combined.includes('bag') || combined.includes('bori') || combined.includes('sugar') || combined.includes('suger') || combined.includes('rice') || combined.includes('atta') || combined.includes('daal') ? 'Bag' :
+               combined.includes('box') ? 'Box' :
+               combined.includes('tin') ? 'Tin' :
+               combined.includes('pack') ? 'Pack' : 'Carton');
+            return {
+              ...it,
+              packageType: pkg,
+              unit: it.unit || (pkg === 'Bag' ? 'KG' : 'CTN'),
+            };
+          });
+
+          return {
+            ...d,
+            ...row,
+            id: row.id || d.id,
+            billNumber: row.bill_number || d.billNumber || '',
+            customerId: row.customer_id || d.customerId || '',
+            customerName: row.customer_name || d.customerName || d.customerAccountTitle || '',
+            customerAccountTitle: row.customer_name || d.customerAccountTitle || d.customerName || '',
+            date: row.bill_date || d.date || '',
+            totalAmount: parseFloat(row.total_amount ?? d.totalAmount ?? d.netTotal ?? 0),
+            netTotal: parseFloat(row.total_amount ?? d.netTotal ?? d.totalAmount ?? 0),
+            paidAmount: parseFloat(row.paid_amount ?? d.cashReceived ?? d.paidAmount ?? 0),
+            balanceReceivable: parseFloat(row.balance_amount ?? d.balanceReceivable ?? 0),
+            items,
+            companyId,
+            data: undefined,
+          };
+        };
+
         const users: User[] = usersRes.rows.map(extractItem);
         const companyProfile: CompanyProfile | null = compRes.rows[0] ? extractItem(compRes.rows[0]) : null;
         const cashRegister: CashRegister | null = cashRes.rows[0] ? extractItem(cashRes.rows[0]) : null;
@@ -953,14 +1071,14 @@ class PostgresService {
           }
         }
         const suppliers: Supplier[] = Array.from(supplierMap.values());
-        const products: Product[] = prodRes.rows.map(extractItem);
+        const products: Product[] = prodRes.rows.map(extractProduct);
         const inventoryTransactions: InventoryTransaction[] = invRes.rows.map(extractItem);
         const orders: Order[] = ordRes.rows.map(extractItem);
         const payments: Payment[] = payRes.rows.map(extractItem);
         const expenses: Expense[] = expRes.rows.map(extractItem);
         const auditLogs: AuditLog[] = auditRes.rows.map(extractItem);
-        const purchaseBills: PurchaseBill[] = pbRes.rows.map(extractItem);
-        const saleBills: SaleBill[] = sbRes.rows.map(extractItem);
+        const purchaseBills: PurchaseBill[] = pbRes.rows.map(extractPurchaseBill);
+        const saleBills: SaleBill[] = sbRes.rows.map(extractSaleBill);
 
         const lookups: Record<string, string[]> = {};
         for (const r of metaRes.rows) {

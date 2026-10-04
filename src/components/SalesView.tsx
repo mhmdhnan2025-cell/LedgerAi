@@ -385,6 +385,47 @@ export const SalesView: React.FC<SalesViewProps> = ({
     return null;
   }, [selectedProductId, itemTitle, products]);
 
+  // Synchronize itemPackageType whenever activeProduct changes
+  useEffect(() => {
+    if (activeProduct) {
+      const combined = `${activeProduct.name || ''} ${activeProduct.itemTitle || ''} ${activeProduct.category || ''} ${activeProduct.measure || ''}`.toLowerCase();
+      const detectedPkg = activeProduct.packageType ||
+        (combined.includes('bag') || combined.includes('bori') || combined.includes('sugar') || combined.includes('suger') || combined.includes('atta') || combined.includes('flour') || combined.includes('rice') || combined.includes('chawal') || combined.includes('daal') ? 'Bag' :
+         combined.includes('box') || combined.includes('dabba') ? 'Box' :
+         combined.includes('tin') || combined.includes('can') || combined.includes('drum') ? 'Tin' :
+         combined.includes('pack') ? 'Pack' : 'Carton');
+      setItemPackageType(detectedPkg);
+    }
+  }, [activeProduct]);
+
+  const resolvedPackageType = React.useMemo(() => {
+    if (itemPackageType && itemPackageType !== 'Carton' && itemPackageType !== 'Single') {
+      return itemPackageType;
+    }
+    if (activeProduct?.packageType && activeProduct.packageType !== 'Single') {
+      return activeProduct.packageType;
+    }
+    const combined = `${itemTitle} ${activeProduct?.name || ''} ${activeProduct?.category || ''} ${activeProduct?.measure || ''}`.toLowerCase();
+    if (combined.includes('bag') || combined.includes('bori') || combined.includes('sugar') || combined.includes('suger') || combined.includes('atta') || combined.includes('rice') || combined.includes('daal')) {
+      return 'Bag';
+    }
+    if (combined.includes('box')) return 'Box';
+    if (combined.includes('tin')) return 'Tin';
+    if (combined.includes('pack')) return 'Pack';
+    return itemPackageType || 'Carton';
+  }, [itemPackageType, activeProduct, itemTitle]);
+
+  const resolvedBaseUnit = React.useMemo(() => {
+    const raw = (activeProduct?.measure || activeProduct?.unit || '').trim();
+    if (raw.toLowerCase().includes('kilo') || raw.toLowerCase() === 'kg') return 'KG';
+    if (raw.toLowerCase().includes('litter') || raw.toLowerCase().includes('liter') || raw.toLowerCase() === 'ltr') return 'Ltr';
+    if (raw.toLowerCase().includes('gram') || raw.toLowerCase() === 'g') return 'Gram';
+    if (raw.toLowerCase().includes('piece') || raw.toLowerCase() === 'pcs') return 'Pcs';
+    if (raw && !['ctn', 'carton', 'bag', 'box'].includes(raw.toLowerCase())) return raw;
+    if (itemTitle.toLowerCase().includes('kg')) return 'KG';
+    return resolvedPackageType === 'Bag' ? 'KG' : 'Units';
+  }, [activeProduct, itemTitle, resolvedPackageType]);
+
   const unitPurchaseCost = activeProduct?.purchasePrice || activeProduct?.averagePurchaseCost || activeProduct?.lastPurchasePrice || 0;
   const ctnPurchaseCost = activeProduct?.ctnPurchaseRate || (unitPurchaseCost * (activeProduct?.qtyInCarton || 1));
   const expectedProfitPerUnit = numericRate > 0 && unitPurchaseCost > 0 ? Number((numericRate - unitPurchaseCost).toFixed(2)) : 0;
@@ -417,7 +458,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
       itemTitle: itemTitle.trim(),
       category: itemCategory,
       mcode: itemMCode,
-      packageType: itemPackageType,
+      packageType: resolvedPackageType,
       ctn: typeof ctn === 'number' ? ctn : 0,
       ratePerCtn: typeof ratePerCtn === 'number' ? ratePerCtn : 0,
       qtyPerCtn: typeof qtyPerCtn === 'number' ? qtyPerCtn : 1,
@@ -429,7 +470,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
       amount: currentItemTotalAmount,
       stock: itemStock,
       remainingStock: Math.max(0, Number((itemStock - numericQty).toFixed(2))),
-      unit: (activeProduct?.measure || activeProduct?.unit || '').toString().trim() || 'PCS',
+      unit: resolvedBaseUnit,
     };
 
     setBillItems([...billItems, newItem]);
@@ -1408,10 +1449,10 @@ export const SalesView: React.FC<SalesViewProps> = ({
                 <th className="py-2.5 px-3 text-center">#</th>
                 <th className="py-2.5 px-3">Item Title</th>
                 <th className="py-2.5 px-3">M.Code</th>
-                <th className="py-2.5 px-3 text-right">CTN</th>
-                <th className="py-2.5 px-3 text-right">Rate/CTN</th>
-                <th className="py-2.5 px-3 text-right">Qty/CTN</th>
-                <th className="py-2.5 px-3 text-right">Qty</th>
+                <th className="py-2.5 px-3 text-right">PACKAGES</th>
+                <th className="py-2.5 px-3 text-right">RATE/PKG</th>
+                <th className="py-2.5 px-3 text-right">QTY/PKG</th>
+                <th className="py-2.5 px-3 text-right">TOTAL QTY</th>
                 <th className="py-2.5 px-3 text-right">Rate</th>
                 <th className="py-2.5 px-3 text-right">Disc.</th>
                 <th className="py-2.5 px-3 text-right">VAT%</th>
@@ -1433,12 +1474,14 @@ export const SalesView: React.FC<SalesViewProps> = ({
                     <td className="py-2.5 px-3 text-center text-slate-500 font-mono">{idx + 1}</td>
                     <td className="py-2.5 px-3 font-semibold text-white">{it.itemTitle}</td>
                     <td className="py-2.5 px-3 font-mono text-slate-400">{it.mcode || '---'}</td>
-                    <td className="py-2.5 px-3 text-right font-mono">{it.ctn}</td>
+                    <td className="py-2.5 px-3 text-right font-mono font-bold text-white">
+                      {it.ctn} <span className="text-[10px] text-sky-400 font-normal">{it.packageType || 'CTN'}</span>
+                    </td>
                     <td className="py-2.5 px-3 text-right font-mono">{it.ratePerCtn}</td>
-                    <td className="py-2.5 px-3 text-right font-mono">{it.qtyPerCtn}</td>
+                    <td className="py-2.5 px-3 text-right font-mono text-slate-400">{it.qtyPerCtn} {it.unit || 'Units'}/{it.packageType || 'CTN'}</td>
                     <td className="py-2.5 px-3 text-right font-mono font-bold">
                       <span className={it.stock !== undefined && it.qty > it.stock ? 'text-rose-400 font-black' : 'text-white'}>
-                        {it.qty}
+                        {it.qty} <span className="text-[10px] text-sky-300 font-normal">{it.unit || 'KG'}</span>
                       </span>
                       {it.stock !== undefined && it.qty > it.stock && (
                         <div className="text-[10px] text-rose-300 font-bold bg-rose-950/90 px-1.5 py-0.5 rounded border border-rose-800 whitespace-nowrap mt-0.5">

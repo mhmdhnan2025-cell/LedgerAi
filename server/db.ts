@@ -2744,21 +2744,22 @@ class DatabaseService {
     const existingTitles = new Set(this.data.suppliers.map((s) => (s.title || s.name || s.accountTitle || '').trim().toLowerCase()).filter(Boolean));
     let added = false;
 
+    const cid = getActiveCompanyId();
     for (const seed of DEFAULT_SEED_SUPPLIERS) {
       const codeKey = (seed.code || '').trim().toLowerCase();
       const titleKey = (seed.title || seed.name || seed.accountTitle || '').trim().toLowerCase();
       if ((!codeKey || !existingCodes.has(codeKey)) && (!titleKey || !existingTitles.has(titleKey))) {
         const newSup: Supplier = {
           ...seed,
-          id: `sup_${this.companyId}_${seed.code || Math.random().toString(36).substring(2, 8)}`,
-          companyId: this.companyId,
+          id: `sup_${cid}_${seed.code || Math.random().toString(36).substring(2, 8)}`,
+          companyId: cid,
         };
         this.data.suppliers.push(newSup);
         if (codeKey) existingCodes.add(codeKey);
         if (titleKey) existingTitles.add(titleKey);
         added = true;
         // Asynchronously persist missing supplier to postgres
-        postgresService.upsertSupplier(newSup, this.companyId).catch(() => {});
+        postgresService.upsertSupplier(newSup, cid).catch(() => {});
       }
     }
 

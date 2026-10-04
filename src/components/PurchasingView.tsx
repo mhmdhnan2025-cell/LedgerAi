@@ -461,10 +461,10 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
       itemTitle: itemTitle.trim(),
       category: itemCategory || 'General',
       mcode: itemMCode || '',
-      packageType: itemPackageType,
+      packageType: resolvedPackageType,
       ctn: typeof ctn === 'number' ? ctn : 0,
       extraPiece: typeof extraPiece === 'number' ? extraPiece : 0,
-      unit: activeProduct?.measure || activeProduct?.unit || 'CTN',
+      unit: resolvedBaseUnit,
       ratePerCtn: typeof ratePerCtn === 'number' ? ratePerCtn : 0,
       qtyPerCtn: typeof qtyPerCtn === 'number' ? qtyPerCtn : 1,
       qty: numericQty,
@@ -537,6 +537,66 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
     return null;
   }, [selectedProductId, itemTitle, products]);
 
+  // Synchronize itemPackageType whenever activeProduct changes
+  useEffect(() => {
+    if (activeProduct) {
+      const combined = `${activeProduct.name || ''} ${activeProduct.itemTitle || ''} ${activeProduct.category || ''} ${activeProduct.measure || ''}`.toLowerCase();
+      const detectedPkg = activeProduct.packageType ||
+        (combined.includes('bag') || combined.includes('bori') || combined.includes('sugar') || combined.includes('suger') || combined.includes('atta') || combined.includes('flour') || combined.includes('rice') || combined.includes('chawal') || combined.includes('daal') ? 'Bag' :
+         combined.includes('box') || combined.includes('dabba') ? 'Box' :
+         combined.includes('tin') || combined.includes('can') || combined.includes('drum') ? 'Tin' :
+         combined.includes('pack') ? 'Pack' : 'Carton');
+      setItemPackageType(detectedPkg);
+    }
+  }, [activeProduct]);
+
+  // Dynamic packaging type resolved from current product / selection / keywords
+  const resolvedPackageType = React.useMemo(() => {
+    if (itemPackageType && itemPackageType !== 'Carton' && itemPackageType !== 'Single') {
+      return itemPackageType;
+    }
+    if (activeProduct?.packageType && activeProduct.packageType !== 'Single') {
+      return activeProduct.packageType;
+    }
+    const combined = `${itemTitle} ${itemCategory} ${activeProduct?.name || ''} ${activeProduct?.itemTitle || ''} ${activeProduct?.category || ''} ${activeProduct?.measure || ''}`.toLowerCase();
+    if (combined.includes('bag') || combined.includes('bori') || combined.includes('sugar') || combined.includes('suger') || combined.includes('atta') || combined.includes('flour') || combined.includes('rice') || combined.includes('chawal') || combined.includes('daal')) {
+      return 'Bag';
+    }
+    if (combined.includes('box') || combined.includes('dabba')) {
+      return 'Box';
+    }
+    if (combined.includes('tin') || combined.includes('can') || combined.includes('drum')) {
+      return 'Tin';
+    }
+    if (combined.includes('pack')) {
+      return 'Pack';
+    }
+    return itemPackageType || 'Carton';
+  }, [itemPackageType, activeProduct, itemTitle, itemCategory]);
+
+  const resolvedBaseUnit = React.useMemo(() => {
+    const raw = (activeProduct?.measure || activeProduct?.unit || '').trim();
+    if (raw.toLowerCase().includes('kilo') || raw.toLowerCase() === 'kg') return 'KG';
+    if (raw.toLowerCase().includes('litter') || raw.toLowerCase().includes('liter') || raw.toLowerCase() === 'ltr') return 'Ltr';
+    if (raw.toLowerCase().includes('gram') || raw.toLowerCase() === 'g') return 'Gram';
+    if (raw.toLowerCase().includes('piece') || raw.toLowerCase() === 'pcs') return 'Pcs';
+    if (raw && !['ctn', 'carton', 'bag', 'box'].includes(raw.toLowerCase())) return raw;
+    if (itemTitle.toLowerCase().includes('kg')) return 'KG';
+    return resolvedPackageType === 'Bag' ? 'KG' : 'Units';
+  }, [activeProduct, itemTitle, resolvedPackageType]);
+
+  const dominantPackageLabel = React.useMemo(() => {
+    const firstWithPkg = billItems.find(it => it.packageType);
+    if (firstWithPkg?.packageType) return `${firstWithPkg.packageType}s`;
+    return `${resolvedPackageType}s`;
+  }, [billItems, resolvedPackageType]);
+
+  const dominantUnitLabel = React.useMemo(() => {
+    const firstWithUnit = billItems.find(it => it.unit && !['ctn', 'carton'].includes(it.unit.toLowerCase()));
+    if (firstWithUnit?.unit) return firstWithUnit.unit;
+    return resolvedBaseUnit;
+  }, [billItems, resolvedBaseUnit]);
+
   // SAVE PURCHASE BILL / REPORT
   // User: "aur ye new bill main add to stock btn funcionity remove krdo. us k baad baad purchase detail matlb new bill section main product select kr k seller select kr k details addkr k save report krwa skein aur wo report settings main aik report section hoga us main purchase detail section hoga us main save hogi"
   const handleSaveBill = async () => {
@@ -552,7 +612,10 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
         itemTitle: itemTitle.trim(),
         category: itemCategory || 'General',
         mcode: itemMCode || '',
+        packageType: resolvedPackageType,
         ctn: typeof ctn === 'number' ? ctn : 0,
+        extraPiece: typeof extraPiece === 'number' ? extraPiece : 0,
+        unit: resolvedBaseUnit,
         ratePerCtn: typeof ratePerCtn === 'number' ? ratePerCtn : 0,
         qtyPerCtn: typeof qtyPerCtn === 'number' ? qtyPerCtn : 1,
         qty: numericQty,
@@ -1138,15 +1201,17 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                   </div>
                 </th>
                 <th className="py-2.5 px-2 w-20 text-center text-[10px] leading-tight font-bold text-sky-300">
-                  {itemPackageType === 'Bag' ? 'BAG' : itemPackageType === 'Box' ? 'BOX' : itemPackageType === 'Tin' ? 'TIN' : itemPackageType === 'Pack' ? 'PACK' : 'CTN'}
+                  {resolvedPackageType.toUpperCase()}
                 </th>
                 <th className="py-2.5 px-2 w-24 text-right text-[10px] leading-tight font-bold text-sky-300">
-                  RATE/{itemPackageType === 'Bag' ? 'BAG' : itemPackageType === 'Box' ? 'BOX' : itemPackageType === 'Tin' ? 'TIN' : itemPackageType === 'Pack' ? 'PACK' : 'CTN'}
+                  RATE/{resolvedPackageType.toUpperCase()}
                 </th>
                 <th className="py-2.5 px-2 w-20 text-center text-[10px] leading-tight font-bold text-slate-300">
-                  QTY/{itemPackageType === 'Bag' ? 'BAG' : itemPackageType === 'Box' ? 'BOX' : itemPackageType === 'Tin' ? 'TIN' : itemPackageType === 'Pack' ? 'PACK' : 'CTN'}
+                  QTY/{resolvedPackageType.toUpperCase()}
                 </th>
-                <th className="py-2.5 px-2 w-20 text-right">QTY</th>
+                <th className="py-2.5 px-2 w-20 text-right text-[10px] leading-tight font-bold text-sky-300">
+                  {resolvedBaseUnit.toUpperCase()}
+                </th>
                 <th className="py-2.5 px-2 w-20 text-right">RATE</th>
                 <th className="py-2.5 px-2 w-20 text-right">DISC RS.</th>
                 <th className="py-2.5 px-2 w-16 text-center">VAT@%</th>
@@ -1348,7 +1413,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                     type="number"
                     min="0"
                     step="any"
-                    placeholder="Qty/kg"
+                    placeholder={`Qty (${resolvedBaseUnit})`}
                     value={qty}
                     onChange={(e) => handleQtyDirectChange(e.target.value === '' ? '' : Number(e.target.value))}
                     onKeyDown={(e) => {
@@ -1450,10 +1515,14 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                       </span>
                     )}
                   </td>
-                  <td className="py-2 px-2 text-center font-mono">{item.ctn}</td>
-                  <td className="py-2 px-2 text-right font-mono">{item.ratePerCtn || '—'}</td>
-                  <td className="py-2 px-2 text-center font-mono text-slate-400">{item.qtyPerCtn}</td>
-                  <td className="py-2 px-2 text-right font-mono font-bold text-white">{item.qty}</td>
+                  <td className="py-2 px-2 text-center font-mono font-bold text-white">
+                    {item.ctn} <span className="text-[10px] text-sky-300 font-normal">{item.packageType || 'CTN'}</span>
+                  </td>
+                  <td className="py-2 px-2 text-right font-mono">{item.ratePerCtn ? `${currencySymbol()} ${item.ratePerCtn}` : '—'}</td>
+                  <td className="py-2 px-2 text-center font-mono text-slate-400">{item.qtyPerCtn} {item.unit || 'Units'}/{item.packageType || 'CTN'}</td>
+                  <td className="py-2 px-2 text-right font-mono font-bold text-white">
+                    {item.qty} <span className="text-[10px] text-sky-300 font-normal">{item.unit || 'KG'}</span>
+                  </td>
                   <td className="py-2 px-2 text-right font-mono">{item.rate}</td>
                   <td className="py-2 px-2 text-right font-mono text-amber-400">{item.discount || 0}</td>
                   <td className="py-2 px-2 text-center font-mono text-slate-400">{item.vatPercent}%</td>
@@ -1489,10 +1558,14 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
             <tfoot className="bg-slate-950 font-bold border-t border-slate-700 text-white text-xs">
               <tr>
                 <td className="py-2.5 px-3 uppercase tracking-wider text-slate-400">Total</td>
-                <td className="py-2.5 px-2 text-center font-mono text-sky-300">{totalBillCtn.toFixed(2)}</td>
+                <td className="py-2.5 px-2 text-center font-mono text-sky-300">
+                  {totalBillCtn.toFixed(2)} <span className="text-[10px] text-slate-400 font-normal">{dominantPackageLabel}</span>
+                </td>
                 <td className="py-2.5 px-2 text-center text-slate-600">---</td>
                 <td className="py-2.5 px-2 text-center text-slate-600">---</td>
-                <td className="py-2.5 px-2 text-right font-mono text-sky-300">{totalBillQty.toFixed(2)}</td>
+                <td className="py-2.5 px-2 text-right font-mono text-sky-300">
+                  {totalBillQty.toFixed(2)} <span className="text-[10px] text-slate-400 font-normal">{dominantUnitLabel}</span>
+                </td>
                 <td className="py-2.5 px-2 text-center text-slate-600">---</td>
                 <td className="py-2.5 px-2 text-right font-mono text-amber-400">
                   {billItems.reduce((acc, it) => acc + (it.discount || 0), 0).toFixed(2)}
@@ -1696,10 +1769,10 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
 
       {/* PURCHASE INVOICE & RECEIPT MODAL */}
       {isInvoiceModalOpen && lastSavedBill && (
-        <div className="fixed inset-0 z-[100000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto print:p-0 print:bg-white">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden my-6 print:m-0 print:border-none print:shadow-none print:bg-white print:text-black">
+        <div className="fixed inset-0 z-[100000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-hidden print:p-0 print:bg-white">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-3xl max-h-[92vh] shadow-2xl flex flex-col overflow-hidden my-auto print:m-0 print:border-none print:shadow-none print:bg-white print:text-black">
             {/* Top Controls */}
-            <div className="px-6 py-3.5 bg-slate-950 border-b border-slate-800 flex items-center justify-between print:hidden">
+            <div className="px-6 py-3.5 bg-slate-950 border-b border-slate-800 flex items-center justify-between shrink-0 print:hidden">
               <div className="flex items-center gap-2 text-white font-bold text-sm">
                 <Receipt className="w-4 h-4 text-sky-400" />
                 <span>Official Purchase Bill & Intake Voucher</span>
@@ -1722,7 +1795,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
             </div>
 
             {/* Printable Body */}
-            <div className="p-8 space-y-6 text-slate-200 bg-slate-900 print:bg-white print:text-black print:p-6 text-xs">
+            <div className="p-6 sm:p-8 space-y-6 text-slate-200 bg-slate-900 print:bg-white print:text-black print:p-6 text-xs flex-1 overflow-y-auto">
               {/* Header */}
               <div className="flex justify-between items-start border-b border-slate-800 pb-5 print:border-black">
                 <div>
@@ -1808,29 +1881,44 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                     <tr>
                       <th className="p-2.5">#</th>
                       <th className="p-2.5">Item Description</th>
-                      <th className="p-2.5 text-center">CTN</th>
-                      <th className="p-2.5 text-center">Extra Pcs</th>
-                      <th className="p-2.5 text-right">Rate / CTN</th>
+                      <th className="p-2.5 text-center">Packaging</th>
+                      <th className="p-2.5 text-center text-amber-300">Extra Pcs</th>
+                      <th className="p-2.5 text-right">Rate / PKG</th>
                       <th className="p-2.5 text-right">Total Qty</th>
                       <th className="p-2.5 text-right">Rate</th>
                       <th className="p-2.5 text-right">Amount ({currencySymbol()})</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800 print:divide-gray-300">
-                    {lastSavedBill.items?.map((it, idx) => (
-                      <tr key={it.id || idx}>
-                        <td className="p-2.5 font-mono text-slate-500 print:text-gray-600">{idx + 1}</td>
-                        <td className="p-2.5 font-bold text-white print:text-black">{it.itemTitle}</td>
-                        <td className="p-2.5 text-center font-mono text-slate-300 print:text-black">{it.ctn}</td>
-                        <td className="p-2.5 text-center font-mono text-amber-300 print:text-black">{it.extraPiece || 0}</td>
-                        <td className="p-2.5 text-right font-mono text-slate-300 print:text-black">{it.ratePerCtn || '—'}</td>
-                        <td className="p-2.5 text-right font-mono font-bold text-white print:text-black">{it.qty}</td>
-                        <td className="p-2.5 text-right font-mono text-slate-300 print:text-black">{it.rate}</td>
-                        <td className="p-2.5 text-right font-mono font-bold text-emerald-400 print:text-black">
-                          {Number(it.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </td>
-                      </tr>
-                    ))}
+                    {lastSavedBill.items?.map((it, idx) => {
+                      const combined = `${it.itemTitle || ''} ${it.category || ''} ${it.unit || ''}`.toLowerCase();
+                      const pkgLabel = it.packageType ||
+                        (combined.includes('bag') || combined.includes('bori') || combined.includes('sugar') || combined.includes('suger') || combined.includes('atta') || combined.includes('rice') || combined.includes('daal') ? 'Bag' :
+                         combined.includes('box') || combined.includes('dabba') ? 'Box' :
+                         combined.includes('tin') || combined.includes('drum') ? 'Tin' :
+                         combined.includes('pack') ? 'Pack' : 'Carton');
+                      const looseUnit = it.unit || (pkgLabel === 'Bag' ? 'KG' : 'Units');
+
+                      return (
+                        <tr key={it.id || idx}>
+                          <td className="p-2.5 font-mono text-slate-500 print:text-gray-600">{idx + 1}</td>
+                          <td className="p-2.5 font-bold text-white print:text-black">
+                            {it.itemTitle}
+                            <span className="ml-1 text-[10px] text-sky-400 font-normal">({pkgLabel})</span>
+                          </td>
+                          <td className="p-2.5 text-center font-mono font-bold text-sky-300 print:text-black">
+                            {it.ctn} {pkgLabel}s
+                          </td>
+                          <td className="p-2.5 text-center font-mono text-amber-300 print:text-black">{it.extraPiece || 0}</td>
+                          <td className="p-2.5 text-right font-mono text-slate-300 print:text-black">{it.ratePerCtn || '—'}</td>
+                          <td className="p-2.5 text-right font-mono font-bold text-white print:text-black">{it.qty} {looseUnit}</td>
+                          <td className="p-2.5 text-right font-mono text-slate-300 print:text-black">{it.rate}</td>
+                          <td className="p-2.5 text-right font-mono font-bold text-emerald-400 print:text-black">
+                            {Number(it.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

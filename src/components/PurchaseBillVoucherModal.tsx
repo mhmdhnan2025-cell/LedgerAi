@@ -84,23 +84,23 @@ export const PurchaseBillVoucherModal: React.FC<PurchaseBillVoucherModalProps> =
             <div>
               <span className="text-slate-400 block text-[11px]">Total Items</span>
               <span className="font-bold text-sky-400 text-xs">
-                {bill.items?.length || 0} Products ({bill.totalQty || 0} units)
+                {bill.items?.length || 0} Products ({bill.totalCartons || bill.totalCtn || 0} Packages &bull; {bill.totalQty || 0} Base Units)
               </span>
             </div>
           </div>
 
           {/* Items Breakdown Table */}
-          <div className="border border-slate-800 rounded-xl overflow-hidden">
-            <table className="w-full text-left text-xs">
+          <div className="border border-slate-800 rounded-xl overflow-x-auto">
+            <table className="w-full text-left text-xs min-w-[750px]">
               <thead className="bg-slate-950 text-slate-400 font-semibold border-b border-slate-800 uppercase tracking-wider text-[10px]">
                 <tr>
                   <th className="py-2.5 px-3">Item Name</th>
                   <th className="py-2.5 px-3">Category</th>
-                  <th className="py-2.5 px-3 text-right">CTN</th>
+                  <th className="py-2.5 px-3 text-right">Packaging (PKG)</th>
                   <th className="py-2.5 px-3 text-right text-amber-300">Extra Pcs</th>
                   <th className="py-2.5 px-3 text-center">Unit</th>
-                  <th className="py-2.5 px-3 text-right">Rate/CTN</th>
-                  <th className="py-2.5 px-3 text-right">Qty/CTN</th>
+                  <th className="py-2.5 px-3 text-right">Rate / PKG</th>
+                  <th className="py-2.5 px-3 text-right">Qty / PKG</th>
                   <th className="py-2.5 px-3 text-right">Total Qty</th>
                   <th className="py-2.5 px-3 text-right">Rate</th>
                   <th className="py-2.5 px-3 text-right">VAT%</th>
@@ -108,25 +108,46 @@ export const PurchaseBillVoucherModal: React.FC<PurchaseBillVoucherModalProps> =
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/70">
-                {bill.items?.map((it, idx) => (
-                  <tr key={it.id || idx} className="hover:bg-slate-800/40">
-                    <td className="py-2 px-3 font-bold text-white">{it.itemTitle}</td>
-                    <td className="py-2 px-3 text-slate-400">{it.category || '—'}</td>
-                    <td className="py-2 px-3 text-right font-mono text-slate-300">{it.ctn}</td>
-                    <td className="py-2 px-3 text-right font-mono text-amber-300 font-semibold">{it.extraPiece || 0}</td>
-                    <td className="py-2 px-3 text-center font-mono text-slate-400">{it.unit || 'CTN'}</td>
-                    <td className="py-2 px-3 text-right font-mono text-slate-300">
-                      {it.ratePerCtn ? `${currencySymbol()} ${it.ratePerCtn}` : '—'}
-                    </td>
-                    <td className="py-2 px-3 text-right font-mono text-slate-400">{it.qtyPerCtn}</td>
-                    <td className="py-2 px-3 text-right font-mono font-semibold text-white">{it.qty}</td>
-                    <td className="py-2 px-3 text-right font-mono text-slate-300">{currencySymbol()} {it.rate}</td>
-                    <td className="py-2 px-3 text-right font-mono text-slate-400">{it.vatPercent || 0}%</td>
-                    <td className="py-2 px-3 text-right font-mono font-bold text-emerald-400">
-                      {currencySymbol()} {it.amount.toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
+                {bill.items?.map((it, idx) => {
+                  const combined = `${it.itemTitle || ''} ${it.category || ''} ${it.unit || ''}`.toLowerCase();
+                  const pkgLabel = it.packageType ||
+                    (combined.includes('bag') || combined.includes('bori') || combined.includes('sugar') || combined.includes('suger') || combined.includes('atta') || combined.includes('rice') || combined.includes('daal') ? 'Bag' :
+                     combined.includes('box') || combined.includes('dabba') ? 'Box' :
+                     combined.includes('tin') || combined.includes('drum') ? 'Tin' :
+                     combined.includes('pack') ? 'Pack' : 'Carton');
+                  const looseUnit = it.unit || (pkgLabel === 'Bag' ? 'Kilo grams' : 'Units');
+
+                  return (
+                    <tr key={it.id || idx} className="hover:bg-slate-800/40">
+                      <td className="py-2 px-3 font-bold text-white">
+                        {it.itemTitle}
+                        <span className="ml-1.5 px-1.5 py-0.5 rounded bg-sky-950 text-sky-300 border border-sky-800 text-[9px]">
+                          {pkgLabel}
+                        </span>
+                      </td>
+                      <td className="py-2 px-3 text-slate-400">{it.category || '—'}</td>
+                      <td className="py-2 px-3 text-right font-mono font-bold text-sky-300">
+                        {it.ctn} <span className="text-[10px] font-normal text-slate-400">{pkgLabel}s</span>
+                      </td>
+                      <td className="py-2 px-3 text-right font-mono text-amber-300 font-semibold">{it.extraPiece || 0}</td>
+                      <td className="py-2 px-3 text-center font-mono text-slate-300">{looseUnit}</td>
+                      <td className="py-2 px-3 text-right font-mono text-slate-300">
+                        {it.ratePerCtn ? `${currencySymbol()} ${it.ratePerCtn} / ${pkgLabel}` : '—'}
+                      </td>
+                      <td className="py-2 px-3 text-right font-mono text-slate-400">
+                        {it.qtyPerCtn} {looseUnit}/{pkgLabel}
+                      </td>
+                      <td className="py-2 px-3 text-right font-mono font-bold text-white">
+                        {it.qty} <span className="text-[10px] font-normal text-sky-400">{looseUnit}</span>
+                      </td>
+                      <td className="py-2 px-3 text-right font-mono text-slate-300">{currencySymbol()} {it.rate}</td>
+                      <td className="py-2 px-3 text-right font-mono text-slate-400">{it.vatPercent || 0}%</td>
+                      <td className="py-2 px-3 text-right font-mono font-bold text-emerald-400">
+                        {currencySymbol()} {it.amount.toLocaleString()}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

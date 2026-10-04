@@ -679,7 +679,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3">
             <span className="text-[10px] text-slate-400 font-bold uppercase block">Total Stock Volume</span>
             <span className="text-base sm:text-lg font-black font-mono text-indigo-300">
-              {totalCartons.toFixed(1)} <span className="text-xs font-normal text-slate-400">CTN</span> &bull; {totalQuantity} <span className="text-xs font-normal text-slate-400">Qty</span>
+              {totalCartons.toFixed(1)} <span className="text-xs font-normal text-slate-400">Pkgs/CTN</span> &bull; {totalQuantity} <span className="text-xs font-normal text-slate-400">Base Qty</span>
             </span>
             <span className="text-[10px] text-slate-500 block mt-0.5">Physical inventory volume</span>
           </div>
@@ -695,7 +695,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 <th className="py-3 px-3">GP#</th>
                 <th className="py-3 px-3">DATE</th>
                 <th className="py-3 px-3">SUPPLIER</th>
-                <th className="py-3 px-3 text-right">CARTONS</th>
+                <th className="py-3 px-3 text-right">PACKAGES / CTN</th>
                 <th className="py-3 px-3 text-right">QTY</th>
                 <th className="py-3 px-3 text-right">TOTAL AMOUNT</th>
                 <th className="py-3 px-3 text-right text-sky-400">PAID</th>
@@ -740,13 +740,28 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                         {bill.date}
                       </td>
                       <td className="py-2.5 px-3 font-medium text-white">
-                        {bill.supplierAccountTitle || 'Local Supplier'}
+                        <div>{bill.supplierAccountTitle || 'Local Supplier'}</div>
+                        <div className="text-[10px] text-slate-400 font-mono">
+                          {bill.isCash ? 'Cash Payment' : 'Supplier Credit Ledger'}
+                        </div>
                       </td>
                       <td className="py-2.5 px-3 text-right font-mono font-semibold text-slate-200">
-                        {(Number(bill.totalCtn) || 0).toFixed(2)}
+                        {(() => {
+                          const billPkgs = bill.items?.map(it => it.packageType).filter(Boolean);
+                          const pkg = billPkgs && billPkgs[0] ? billPkgs[0] : (bill.items?.some(it => (it.itemTitle || '').toLowerCase().includes('bag') || (it.itemTitle || '').toLowerCase().includes('sugar') || (it.itemTitle || '').toLowerCase().includes('suger')) ? 'Bag' : 'CTN');
+                          return (
+                            <span>
+                              {(Number(bill.totalCtn) || 0).toFixed(2)}{' '}
+                              <span className="text-[10px] font-normal text-sky-400">{pkg}s</span>
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="py-2.5 px-3 text-right font-mono font-semibold text-slate-200">
-                        {bill.totalQty ?? 0}
+                        {bill.totalQty ?? 0}{' '}
+                        <span className="text-[10px] font-normal text-slate-400">
+                          {bill.items?.find(it => it.unit && !['ctn', 'carton'].includes(it.unit.toLowerCase()))?.unit || (bill.items?.some(it => (it.packageType || '').toLowerCase() === 'bag') ? 'KG' : 'Units')}
+                        </span>
                       </td>
                       <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-400">
                         {currencySymbol()} {billTotal.toLocaleString(undefined, {

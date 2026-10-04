@@ -3,16 +3,20 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   AlertCircle,
   Bot,
+  Building2,
   CheckCircle2,
   ChevronDown,
+  Clock,
   Download,
   FileText,
+  Layers,
   Loader2,
   Mic,
   MicOff,
   Package,
   Printer,
   Receipt,
+  Search,
   Send,
   Sparkles,
   Trash2,
@@ -22,8 +26,9 @@ import {
   X,
 } from 'lucide-react';
 import { api } from '../services/api';
-import { CompanyProfile, SaleBill, UserRole } from '../types';
+import { CompanyProfile, SaleBill, PurchaseBill, UserRole } from '../types';
 import { SalesBillReceiptModal } from './SalesBillReceiptModal';
+import { PurchaseBillVoucherModal } from './PurchaseBillVoucherModal';
 import { MasterAuditReportModal } from './MasterAuditReportModal';
 
 interface AiAssistantModalProps {
@@ -34,6 +39,556 @@ interface AiAssistantModalProps {
   onDataMutated: () => void;
   initialQuery?: string;
 }
+
+// -------------------------------------------------------------
+// SUB-COMPONENT: 3D Horizontal Bill Cards Carousel
+// -------------------------------------------------------------
+const BillCardsCarousel: React.FC<{
+  bills: any[];
+  isPurchase?: boolean;
+  onOpenSaleBill: (bill: SaleBill) => void;
+  onOpenPurchaseBill: (bill: PurchaseBill) => void;
+}> = ({ bills, isPurchase = false, onOpenSaleBill, onOpenPurchaseBill }) => {
+  if (!bills || bills.length === 0) return null;
+
+  return (
+    <div className="space-y-2 pt-1 w-full overflow-hidden">
+      <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
+        <span className="font-semibold flex items-center gap-1.5 text-slate-300">
+          <span>📜</span>
+          <span>{isPurchase ? 'Supplier Purchase Vouchers' : 'Customer Tax Invoices'} ({bills.length} Bills)</span>
+        </span>
+        <span className="text-[10px] text-indigo-400 font-medium">Scroll horizontally &bull; Click to open</span>
+      </div>
+
+      <div className="flex gap-3.5 overflow-x-auto py-2.5 px-1 snap-x scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-900/40">
+        {bills.map((bill: any, idx: number) => {
+          const isPurchaseBill = isPurchase || Boolean(bill.supplierAccountTitle || bill.supplierName || bill.vendorBillNumber);
+          const billNo = bill.billNumber || bill.invoiceNumber || idx + 1;
+          const partyTitle = isPurchaseBill
+            ? (bill.supplierAccountTitle || bill.supplierName || 'Supplier')
+            : (bill.customerAccountTitle || bill.customerName || 'Customer');
+          const netTotal = bill.netTotal ?? bill.totalAmount ?? 0;
+          const balance = isPurchaseBill ? (bill.remainingBalance ?? 0) : (bill.balanceReceivable ?? 0);
+          const isPaid = balance <= 0;
+          const itemCount = bill.items?.length || 0;
+          const totalPkgs = bill.totalCartons || bill.totalCtn || bill.items?.reduce((s: number, i: any) => s + (Number(i.ctn) || 0), 0) || 0;
+
+          return (
+            <div
+              key={bill.id || billNo || idx}
+              onClick={() => {
+                if (isPurchaseBill) {
+                  onOpenPurchaseBill(bill);
+                } else {
+                  onOpenSaleBill(bill);
+                }
+              }}
+              className="group relative shrink-0 w-[260px] sm:w-[280px] snap-center rounded-2xl bg-gradient-to-b from-slate-900 to-slate-950 p-4 border border-slate-700/80 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 hover:scale-[1.03] hover:border-indigo-500/80 cursor-pointer flex flex-col justify-between select-none"
+            >
+              <div className="space-y-2">
+                {/* Header Badge */}
+                <div className="flex items-center justify-between">
+                  <span className={`font-mono text-[10px] font-black px-2 py-0.5 rounded border ${
+                    isPurchaseBill
+                      ? 'bg-sky-950/80 text-sky-300 border-sky-800'
+                      : 'bg-cyan-950/80 text-cyan-300 border-cyan-800'
+                  }`}>
+                    {isPurchaseBill ? `Purchase Bill #${billNo}` : `Tax Invoice #${billNo}`}
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">{bill.date || 'Today'}</span>
+                </div>
+
+                {/* Party Title */}
+                <div>
+                  <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                    {isPurchaseBill ? 'Supplier / Vendor' : 'Customer / Restaurant'}
+                  </div>
+                  <div className="font-extrabold text-sm text-white truncate mt-0.5 group-hover:text-indigo-300 transition-colors">
+                    {partyTitle}
+                  </div>
+                </div>
+
+                {/* Amount */}
+                <div className="bg-slate-950/70 p-2.5 rounded-xl border border-slate-800/80 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-slate-400">Total Billed:</span>
+                    <span className="font-mono text-sm font-black text-emerald-400">
+                      {currencySymbol()} {Number(netTotal).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px]">
+                    <span className="text-slate-400">{isPurchaseBill ? 'Payable Due:' : 'Udhaar Due:'}</span>
+                    <span className={`font-mono font-bold ${balance > 0 ? 'text-amber-400' : 'text-slate-400'}`}>
+                      {currencySymbol()} {Number(balance).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Meta details */}
+                <div className="flex items-center justify-between text-[10px] text-slate-400">
+                  <span>{itemCount} Items {totalPkgs > 0 ? `(${totalPkgs} Pkgs)` : ''}</span>
+                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
+                    isPaid ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-300'
+                  }`}>
+                    {isPaid ? 'PAID' : 'CREDIT / UDHAAR'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <div className="pt-3 mt-2 border-t border-slate-800/80">
+                <button
+                  type="button"
+                  className={`w-full py-1.5 px-3 rounded-xl text-xs font-bold text-white transition flex items-center justify-center gap-1.5 shadow-sm ${
+                    isPurchaseBill
+                      ? 'bg-sky-600 hover:bg-sky-500 group-hover:bg-sky-500'
+                      : 'bg-emerald-600 hover:bg-emerald-500 group-hover:bg-emerald-500'
+                  }`}
+                >
+                  <Receipt className="w-3.5 h-3.5" />
+                  <span>👁️ Open {isPurchaseBill ? 'Voucher' : 'Invoice'}</span>
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// -------------------------------------------------------------
+// SUB-COMPONENT: Stock Report Dual Widget (Image 5 Replica)
+// -------------------------------------------------------------
+const StockReportDualWidget: React.FC<{
+  stockData?: any;
+  products?: any[];
+}> = ({ stockData, products = [] }) => {
+  const [activeTab, setActiveTab] = useState<'balances' | 'trail'>('balances');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const itemsSummary: any[] = stockData?.itemsSummary || products || [];
+  const transactions: any[] = stockData?.ledgerTransactions || [];
+
+  const filteredItems = itemsSummary.filter((item: any) => {
+    const title = (item.productName || item.name || item.itemTitle || '').toLowerCase();
+    const cat = (item.category || '').toLowerCase();
+    return title.includes(searchTerm.toLowerCase()) || cat.includes(searchTerm.toLowerCase());
+  });
+
+  const filteredTransactions = transactions.filter((tx: any) => {
+    const name = (tx.productName || '').toLowerCase();
+    const ref = (tx.referenceLabel || tx.partyName || '').toLowerCase();
+    return name.includes(searchTerm.toLowerCase()) || ref.includes(searchTerm.toLowerCase());
+  });
+
+  return (
+    <div className="p-3 bg-slate-900 border border-slate-700/80 rounded-2xl space-y-3 text-xs w-full">
+      {/* Exact Tabs matching Image 5 */}
+      <div className="flex border-b border-slate-800 gap-2">
+        <button
+          type="button"
+          onClick={() => setActiveTab('balances')}
+          className={`flex items-center gap-2 px-3 py-2 text-xs font-bold rounded-t-xl transition border-b-2 cursor-pointer ${
+            activeTab === 'balances'
+              ? 'bg-slate-950 text-indigo-400 border-indigo-500 shadow-sm'
+              : 'text-slate-400 hover:text-slate-200 border-transparent hover:bg-slate-950/40'
+          }`}
+        >
+          <Layers className="w-3.5 h-3.5" />
+          <span>Product Stock Balances (اسٹاک کا موجودہ کھاتہ)</span>
+          <span className="px-1.5 py-0.2 text-[10px] rounded-full bg-slate-800 text-slate-300 font-mono">
+            {itemsSummary.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('trail')}
+          className={`flex items-center gap-2 px-3 py-2 text-xs font-bold rounded-t-xl transition border-b-2 cursor-pointer ${
+            activeTab === 'trail'
+              ? 'bg-slate-950 text-indigo-400 border-indigo-500 shadow-sm'
+              : 'text-slate-400 hover:text-slate-200 border-transparent hover:bg-slate-950/40'
+          }`}
+        >
+          <Clock className="w-3.5 h-3.5" />
+          <span>Detailed Movement Audit Trail (ایک ایک مال کی حرکت)</span>
+          <span className="px-1.5 py-0.2 text-[10px] rounded-full bg-slate-800 text-slate-300 font-mono">
+            {transactions.length}
+          </span>
+        </button>
+      </div>
+
+      {/* Search Input */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search items by name or category..."
+            className="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-3 py-1.5 text-[11px] text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+          />
+        </div>
+      </div>
+
+      {/* Tab 1: Product Stock Balances */}
+      {activeTab === 'balances' && (
+        <div className="border border-slate-800 rounded-xl overflow-x-auto max-h-64 overflow-y-auto">
+          <table className="w-full text-left text-[11px] min-w-[550px]">
+            <thead className="bg-slate-950 text-slate-400 uppercase text-[9px] font-bold border-b border-slate-800 sticky top-0">
+              <tr>
+                <th className="py-2 px-2.5">Product Name</th>
+                <th className="py-2 px-2 text-center">Packaging</th>
+                <th className="py-2 px-2 text-right">In Stock (Pkgs)</th>
+                <th className="py-2 px-2 text-right">Loose Qty</th>
+                <th className="py-2 px-2 text-right">Cost Rate</th>
+                <th className="py-2 px-2.5 text-right">Stock Valuation</th>
+                <th className="py-2 px-2 text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60 bg-slate-950/40">
+              {filteredItems.map((item: any, iIdx: number) => {
+                const name = item.productName || item.name || item.itemTitle || 'Item';
+                const pkg = item.packageType ||
+                  (name.toLowerCase().includes('bag') || name.toLowerCase().includes('bori') || name.toLowerCase().includes('sugar') || name.toLowerCase().includes('suger') || name.toLowerCase().includes('atta') || name.toLowerCase().includes('rice') || name.toLowerCase().includes('daal') ? 'Bag' :
+                   name.toLowerCase().includes('box') || name.toLowerCase().includes('dabba') ? 'Box' :
+                   name.toLowerCase().includes('tin') || name.toLowerCase().includes('drum') ? 'Tin' :
+                   name.toLowerCase().includes('pack') ? 'Pack' : 'Carton');
+                const pkgs = item.currentCtn ?? Math.floor((item.currentQuantity || 0) / (item.qtyInCarton || 1));
+                const loose = item.currentBalance ?? item.currentQuantity ?? 0;
+                const unit = item.unit || (pkg === 'Bag' ? 'KG' : 'Units');
+                const rate = item.unitCost ?? item.purchasePrice ?? 0;
+                const value = item.stockValue ?? (loose * rate);
+                const isLow = loose <= (item.minStockLevel || 10);
+                const isOut = loose <= 0;
+
+                return (
+                  <tr key={item.productId || item.id || iIdx} className="hover:bg-slate-800/40 transition">
+                    <td className="py-1.5 px-2.5 font-bold text-white">
+                      {name}
+                      <span className="block text-[9px] text-slate-500 font-normal">{item.category || 'General'}</span>
+                    </td>
+                    <td className="py-1.5 px-2 text-center text-sky-400 font-medium">
+                      {pkg}
+                    </td>
+                    <td className="py-1.5 px-2 text-right font-mono font-bold text-slate-200">
+                      {pkgs} {pkg}s
+                    </td>
+                    <td className="py-1.5 px-2 text-right font-mono font-bold text-emerald-400">
+                      {loose} {unit}
+                    </td>
+                    <td className="py-1.5 px-2 text-right font-mono text-slate-300">
+                      {currencySymbol()} {Number(rate).toLocaleString()}
+                    </td>
+                    <td className="py-1.5 px-2.5 text-right font-mono font-black text-white">
+                      {currencySymbol()} {Number(value).toLocaleString()}
+                    </td>
+                    <td className="py-1.5 px-2 text-center">
+                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
+                        isOut ? 'bg-rose-500/20 text-rose-400' : isLow ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'
+                      }`}>
+                        {isOut ? 'OUT' : isLow ? 'LOW' : 'IN STOCK'}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Tab 2: Detailed Movement Audit Trail */}
+      {activeTab === 'trail' && (
+        <div className="border border-slate-800 rounded-xl overflow-x-auto max-h-64 overflow-y-auto">
+          <table className="w-full text-left text-[11px] min-w-[620px]">
+            <thead className="bg-slate-950 text-slate-400 uppercase text-[9px] font-bold border-b border-slate-800 sticky top-0">
+              <tr>
+                <th className="py-2 px-2.5">Date</th>
+                <th className="py-2 px-2 text-center">Movement</th>
+                <th className="py-2 px-2">Item</th>
+                <th className="py-2 px-2">Ref / Party</th>
+                <th className="py-2 px-2 text-right">Pkgs &bull; Loose</th>
+                <th className="py-2 px-2 text-right">Balance</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60 bg-slate-950/40">
+              {filteredTransactions.map((tx: any, tIdx: number) => {
+                const isPurchaseTx = tx.movementType === 'PURCHASE';
+                const sign = isPurchaseTx ? '+' : '-';
+                const ctnChg = Math.abs(tx.cartonsChange || 0);
+                const qtyChg = Math.abs(tx.quantityChange || 0);
+
+                return (
+                  <tr key={tx.id || tIdx} className="hover:bg-slate-800/40 transition">
+                    <td className="py-1.5 px-2.5 font-mono text-[10px] text-slate-400 whitespace-nowrap">
+                      {tx.date || 'Today'}
+                    </td>
+                    <td className="py-1.5 px-2 text-center">
+                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
+                        isPurchaseTx ? 'bg-sky-500/20 text-sky-400' : 'bg-amber-500/20 text-amber-400'
+                      }`}>
+                        {isPurchaseTx ? '📥 INWARD' : '📤 OUTWARD'}
+                      </span>
+                    </td>
+                    <td className="py-1.5 px-2 font-bold text-white truncate max-w-[150px]">
+                      {tx.productName}
+                    </td>
+                    <td className="py-1.5 px-2 text-slate-300 truncate max-w-[160px]">
+                      <span className="block font-medium text-slate-200">{tx.referenceLabel || '-'}</span>
+                      <span className="text-[9px] text-slate-500">{tx.partyName || '-'}</span>
+                    </td>
+                    <td className={`py-1.5 px-2 text-right font-mono font-bold ${isPurchaseTx ? 'text-sky-400' : 'text-amber-400'}`}>
+                      {sign}{ctnChg} Pkg &bull; {sign}{qtyChg} {tx.unit || 'Units'}
+                    </td>
+                    <td className="py-1.5 px-2 text-right font-mono font-bold text-white">
+                      {tx.resultingBalance} {tx.unit || 'Units'}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// -------------------------------------------------------------
+// SUB-COMPONENT: Profit Intelligence Widget (Image 4 Replica)
+// -------------------------------------------------------------
+const ProfitIntelligenceWidget: React.FC<{
+  summary: any;
+  profitData?: any;
+  initialTab?: 'perItem' | 'perBill' | 'perRestaurant' | 'perSalesman';
+  onOpenSaleBill: (bill: SaleBill) => void;
+}> = ({ summary, profitData, initialTab = 'perItem', onOpenSaleBill }) => {
+  const [activeTab, setActiveTab] = useState<'perItem' | 'perBill' | 'perRestaurant' | 'perSalesman'>(initialTab);
+
+  const perItem = profitData?.perItem || [];
+  const perBill = profitData?.perBill || [];
+  const perRestaurant = profitData?.perRestaurant || [];
+  const perSalesman = profitData?.perSalesman || [];
+
+  return (
+    <div className="p-3.5 bg-slate-900 border border-slate-700/80 rounded-2xl space-y-3 text-xs w-full">
+      {/* Header with Title and Margin Badge (Image 4) */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <TrendingUp className="w-4 h-4 text-emerald-400" />
+          <h4 className="font-extrabold text-sm text-white">Profit Intelligence (نفع کی رپورٹ)</h4>
+        </div>
+        <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-mono">
+          {summary.overallMarginPct || 0}% Margin
+        </span>
+      </div>
+
+      {/* 4 Tabs Container (Image 4) */}
+      <div className="flex items-center gap-1.5 p-1 bg-slate-950/80 rounded-xl border border-slate-800 overflow-x-auto no-scrollbar">
+        <button
+          type="button"
+          onClick={() => setActiveTab('perItem')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+            activeTab === 'perItem'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+          }`}
+        >
+          <span>📦</span>
+          <span>Per Item</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('perBill')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+            activeTab === 'perBill'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+          }`}
+        >
+          <span>📄</span>
+          <span>Per Bill</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('perRestaurant')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+            activeTab === 'perRestaurant'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+          }`}
+        >
+          <span>🏢</span>
+          <span>Restaurant</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('perSalesman')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+            activeTab === 'perSalesman'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+          }`}
+        >
+          <span>👤</span>
+          <span>Salesman</span>
+        </button>
+      </div>
+
+      {/* 4 Metric Cards in Grid (Image 4) */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px]">
+        <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800/80">
+          <span className="text-slate-400 block text-[10px]">Sales Volume</span>
+          <span className="font-mono font-bold text-white text-xs mt-0.5 block">
+            {currencySymbol()} {Number(summary.totalSalesVolume || 0).toLocaleString()}
+          </span>
+        </div>
+        <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800/80">
+          <span className="text-slate-400 block text-[10px]">Cost of Goods</span>
+          <span className="font-mono font-bold text-amber-400 text-xs mt-0.5 block">
+            {currencySymbol()} {Number(summary.totalCostOfGoods || 0).toLocaleString()}
+          </span>
+        </div>
+        <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800/80">
+          <span className="text-slate-400 block text-[10px]">Gross Profit</span>
+          <span className="font-mono font-bold text-emerald-400 text-xs mt-0.5 block">
+            {currencySymbol()} {Number(summary.totalGrossProfit || 0).toLocaleString()}
+          </span>
+        </div>
+        <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800/80">
+          <span className="text-slate-400 block text-[10px]">Net Realized Profit</span>
+          <span className="font-mono font-bold text-emerald-400 text-xs mt-0.5 block">
+            {currencySymbol()} {Number(summary.totalNetProfit || summary.totalGrossProfit || 0).toLocaleString()}
+          </span>
+        </div>
+      </div>
+
+      {/* Active Tab Data Table */}
+      <div className="border border-slate-800 rounded-xl overflow-x-auto max-h-56 overflow-y-auto">
+        {activeTab === 'perItem' && (
+          <table className="w-full text-left text-[11px] min-w-[500px]">
+            <thead className="bg-slate-950 text-slate-400 uppercase text-[9px] font-bold border-b border-slate-800 sticky top-0">
+              <tr>
+                <th className="py-2 px-2.5">Item Title</th>
+                <th className="py-2 px-2 text-center">Sold Units</th>
+                <th className="py-2 px-2 text-right">Revenue</th>
+                <th className="py-2 px-2 text-right">Cost</th>
+                <th className="py-2 px-2 text-right">Profit</th>
+                <th className="py-2 px-2.5 text-right">Margin</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60 bg-slate-950/40">
+              {perItem.map((it: any, i: number) => (
+                <tr key={i} className="hover:bg-slate-800/40 transition">
+                  <td className="py-1.5 px-2.5 font-bold text-white">{it.itemTitle}</td>
+                  <td className="py-1.5 px-2 text-center font-mono text-slate-300">{it.qtySold}</td>
+                  <td className="py-1.5 px-2 text-right font-mono text-white">{currencySymbol()} {Number(it.totalRevenue).toLocaleString()}</td>
+                  <td className="py-1.5 px-2 text-right font-mono text-slate-400">{currencySymbol()} {Number(it.totalCostOfGoods).toLocaleString()}</td>
+                  <td className="py-1.5 px-2 text-right font-mono font-bold text-emerald-400">+{currencySymbol()} {Number(it.grossProfit).toLocaleString()}</td>
+                  <td className="py-1.5 px-2.5 text-right font-mono text-cyan-300">{it.profitMarginPct}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {activeTab === 'perBill' && (
+          <table className="w-full text-left text-[11px] min-w-[500px]">
+            <thead className="bg-slate-950 text-slate-400 uppercase text-[9px] font-bold border-b border-slate-800 sticky top-0">
+              <tr>
+                <th className="py-2 px-2.5">Bill #</th>
+                <th className="py-2 px-2">Customer</th>
+                <th className="py-2 px-2 text-right">Turnover</th>
+                <th className="py-2 px-2 text-right">Gross Profit</th>
+                <th className="py-2 px-2 text-right">Margin</th>
+                <th className="py-2 px-2.5 text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60 bg-slate-950/40">
+              {perBill.map((b: any, i: number) => (
+                <tr key={i} className="hover:bg-slate-800/40 transition">
+                  <td className="py-1.5 px-2.5 font-mono text-cyan-300 font-bold">#{b.billNumber}</td>
+                  <td className="py-1.5 px-2 font-bold text-white">{b.customerAccountTitle}</td>
+                  <td className="py-1.5 px-2 text-right font-mono text-white">{currencySymbol()} {Number(b.totalAmount).toLocaleString()}</td>
+                  <td className="py-1.5 px-2 text-right font-mono font-bold text-emerald-400">+{currencySymbol()} {Number(b.grossProfit).toLocaleString()}</td>
+                  <td className="py-1.5 px-2 text-right font-mono text-cyan-300">{b.profitMarginPct}%</td>
+                  <td className="py-1.5 px-2.5 text-center">
+                    {b.rawBill && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenSaleBill(b.rawBill)}
+                        className="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold transition cursor-pointer"
+                      >
+                        👁️ View Bill
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {activeTab === 'perRestaurant' && (
+          <table className="w-full text-left text-[11px] min-w-[500px]">
+            <thead className="bg-slate-950 text-slate-400 uppercase text-[9px] font-bold border-b border-slate-800 sticky top-0">
+              <tr>
+                <th className="py-2 px-2.5">Customer / Restaurant</th>
+                <th className="py-2 px-2 text-center">Bills</th>
+                <th className="py-2 px-2 text-right">Turnover</th>
+                <th className="py-2 px-2 text-right">Net Profit</th>
+                <th className="py-2 px-2.5 text-right">Margin</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60 bg-slate-950/40">
+              {perRestaurant.map((r: any, i: number) => (
+                <tr key={i} className="hover:bg-slate-800/40 transition">
+                  <td className="py-1.5 px-2.5 font-bold text-white">{r.accountTitle}</td>
+                  <td className="py-1.5 px-2 text-center font-mono text-slate-300">{r.billsCount}</td>
+                  <td className="py-1.5 px-2 text-right font-mono text-white">{currencySymbol()} {Number(r.totalSalesVolume).toLocaleString()}</td>
+                  <td className="py-1.5 px-2 text-right font-mono font-bold text-emerald-400">+{currencySymbol()} {Number(r.grossProfit).toLocaleString()}</td>
+                  <td className="py-1.5 px-2.5 text-right font-mono text-cyan-300">{r.profitMarginPct}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {/* Exact columns matching Image 4: SALESMAN / AGENT, BILLS, SALES TURNOVER, NET PROFIT, MARGIN */}
+        {activeTab === 'perSalesman' && (
+          <table className="w-full text-left text-[11px] min-w-[500px]">
+            <thead className="bg-slate-950 text-slate-400 uppercase text-[9px] font-bold border-b border-slate-800 sticky top-0">
+              <tr>
+                <th className="py-2 px-2.5">SALESMAN / AGENT</th>
+                <th className="py-2 px-2 text-center">BILLS</th>
+                <th className="py-2 px-2 text-right">SALES TURNOVER</th>
+                <th className="py-2 px-2 text-right">NET PROFIT</th>
+                <th className="py-2 px-2.5 text-right">MARGIN</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60 bg-slate-950/40">
+              {perSalesman.map((s: any, i: number) => (
+                <tr key={i} className="hover:bg-slate-800/40 transition">
+                  <td className="py-1.5 px-2.5 font-bold text-white">{s.salesmanName}</td>
+                  <td className="py-1.5 px-2 text-center font-mono text-slate-300">{s.billsCount}</td>
+                  <td className="py-1.5 px-2 text-right font-mono text-white">{currencySymbol()} {Number(s.totalSalesVolume).toLocaleString()}</td>
+                  <td className="py-1.5 px-2 text-right font-mono font-bold text-emerald-400">+{currencySymbol()} {Number(s.totalProfit).toLocaleString()}</td>
+                  <td className="py-1.5 px-2.5 text-right font-mono text-cyan-300">{Number(s.profitMarginPct).toFixed(1)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const DEFAULT_MODAL_MESSAGE = {
   role: 'assistant' as const,
@@ -50,6 +605,7 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
 }) => {
   const [input, setInput] = useState('');
   const [selectedBillForReceiptModal, setSelectedBillForReceiptModal] = useState<SaleBill | null>(null);
+  const [selectedPurchaseBillForModal, setSelectedPurchaseBillForModal] = useState<PurchaseBill | null>(null);
   const [isMasterAuditModalOpen, setIsMasterAuditModalOpen] = useState(false);
   const [messages, setMessages] = useState<
     {
@@ -354,8 +910,18 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
                         >
                           <div className="text-indigo-300 font-mono font-bold text-xs">{tool.name}()</div>
                           
-                          {/* 1. CUSTOMER SALE BILL / TAX INVOICE */}
-                          {tool.result?.bill && (
+                          {/* 1. MULTI-BILL HORIZONTAL 3D CAROUSEL (SALE BILLS OR PURCHASE BILLS) */}
+                          {tool.result?.bills && tool.result.bills.length > 0 && (
+                            <BillCardsCarousel
+                              bills={tool.result.bills}
+                              isPurchase={tool.result.reportType === 'purchases' || tool.name.includes('purchase')}
+                              onOpenSaleBill={setSelectedBillForReceiptModal}
+                              onOpenPurchaseBill={setSelectedPurchaseBillForModal}
+                            />
+                          )}
+
+                          {/* 2. SINGLE CUSTOMER SALE BILL (if no multi-bill carousel shown) */}
+                          {tool.result?.bill && (!tool.result?.bills || tool.result.bills.length === 0) && (
                             <div className="p-3 bg-slate-900 border border-emerald-500/40 rounded-xl space-y-2">
                               <div className="flex items-center justify-between">
                                 <span className="font-mono text-[10px] font-black text-cyan-300 bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-800">
@@ -373,7 +939,7 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
                                 <div className="text-[11px] text-slate-300 divide-y divide-slate-800 bg-slate-950/80 p-2 rounded-lg max-h-36 overflow-y-auto">
                                   {tool.result.bill.items.map((it: any, iIdx: number) => (
                                     <div key={iIdx} className="py-1 flex justify-between items-center text-[10px]">
-                                      <span>{it.itemTitle} ({it.ctn ? `${it.ctn} CTN / ` : ''}{it.qty} {it.unit || 'Units'})</span>
+                                      <span>{it.itemTitle} ({it.ctn ? `${it.ctn} PKG / ` : ''}{it.qty} {it.unit || 'Units'})</span>
                                       <span className="font-mono font-bold text-slate-200">{currencySymbol()} {it.amount?.toLocaleString()}</span>
                                     </div>
                                   ))}
@@ -395,7 +961,56 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
                             </div>
                           )}
 
-                          {/* 2. MASTER BUSINESS AUDIT REPORT */}
+                          {/* 3. SINGLE PURCHASE BILL VOUCHER (if no multi-bill carousel shown) */}
+                          {tool.result?.purchaseBill && (!tool.result?.bills || tool.result.bills.length === 0) && (
+                            <div className="p-3 bg-slate-900 border border-sky-500/40 rounded-xl space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="font-mono text-[10px] font-black text-sky-300 bg-sky-950/80 px-2 py-0.5 rounded border border-sky-800">
+                                  Purchase Bill #{tool.result.purchaseBill.billNumber}
+                                </span>
+                                <span className="text-[10px] text-slate-400">{tool.result.purchaseBill.date}</span>
+                              </div>
+                              <div className="flex items-center justify-between text-xs font-bold text-white">
+                                <span>{tool.result.purchaseBill.supplierAccountTitle || tool.result.supplierName}</span>
+                                <span className="text-emerald-400 font-mono text-sm font-black">
+                                  {currencySymbol()} {(tool.result.purchaseBill.netTotal || 0).toLocaleString()}
+                                </span>
+                              </div>
+                              <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-slate-800 text-[11px]">
+                                <span className="text-slate-400">
+                                  Payable Due: <strong className="text-amber-400 font-mono">{currencySymbol()} {(tool.result.purchaseBill.remainingBalance || 0).toLocaleString()}</strong>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedPurchaseBillForModal(tool.result.purchaseBill)}
+                                  className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                                >
+                                  <Receipt className="w-3.5 h-3.5" />
+                                  <span>👁️ View &amp; Print Voucher (واؤچر دیکھیں / پرنٹ کریں)</span>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* 4. PROFIT INTELLIGENCE (Exact Image 4 Replica) */}
+                          {(tool.result?.reportType === 'profit' || tool.name === 'get_profit_report' || tool.name === 'get_profit_by_salesman' || tool.name === 'get_profit_by_restaurant') && (
+                            <ProfitIntelligenceWidget
+                              summary={tool.result.summary || {}}
+                              profitData={tool.result.profitData}
+                              initialTab={tool.result.initialTab}
+                              onOpenSaleBill={setSelectedBillForReceiptModal}
+                            />
+                          )}
+
+                          {/* 5. STOCK REPORT & MOVEMENT AUDIT TRAIL (Exact Image 5 Replica) */}
+                          {(tool.result?.reportType === 'stockHistory' || tool.name === 'get_stock_history_report' || tool.name === 'get_stock_report') && (
+                            <StockReportDualWidget
+                              stockData={tool.result.stockData}
+                              products={Array.isArray(tool.result) ? tool.result : undefined}
+                            />
+                          )}
+
+                          {/* 6. MASTER BUSINESS AUDIT REPORT */}
                           {(tool.name === 'generate_business_report' || tool.result?.reportType === 'aiLedgerAudit') && (
                             <div className="p-3 bg-slate-900 border border-indigo-500/40 rounded-xl space-y-2.5">
                               <div className="flex items-center justify-between">
@@ -448,70 +1063,17 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
                             </div>
                           )}
 
-                          {/* 3. PURCHASE REPORT SUMMARY */}
-                          {tool.result?.reportType === 'purchases' && tool.result?.summary && (
-                            <div className="p-3 bg-slate-900 border border-slate-700 rounded-xl space-y-2">
-                              <div className="flex items-center justify-between text-xs font-bold text-white">
-                                <span>📦 Purchase Report Summary</span>
-                                <span className="text-emerald-400 font-mono">{currencySymbol()} {(tool.result.summary.totalNetPurchases || 0).toLocaleString()}</span>
-                              </div>
-                              <div className="grid grid-cols-2 gap-2 text-[10px]">
-                                <div className="p-2 rounded bg-slate-950/80">
-                                  <span className="text-slate-400 block">Total Bills</span>
-                                  <span className="font-bold text-white">{tool.result.summary.totalBillsCount || 0} Bills</span>
-                                </div>
-                                <div className="p-2 rounded bg-slate-950/80">
-                                  <span className="text-slate-400 block">Supplier Payable</span>
-                                  <span className="font-bold text-rose-400 font-mono">{currencySymbol()} {(tool.result.summary.totalRemainingBalance || 0).toLocaleString()}</span>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* 4. SALE REPORT SUMMARY */}
-                          {tool.result?.reportType === 'sales' && tool.result?.summary && (
-                            <div className="p-3 bg-slate-900 border border-slate-700 rounded-xl space-y-2">
-                              <div className="flex items-center justify-between text-xs font-bold text-white">
-                                <span>💰 Sale Report Summary</span>
-                                <span className="text-emerald-400 font-mono">{currencySymbol()} {(tool.result.summary.totalNetSales || 0).toLocaleString()}</span>
-                              </div>
-                              <div className="grid grid-cols-2 gap-2 text-[10px]">
-                                <div className="p-2 rounded bg-slate-950/80">
-                                  <span className="text-slate-400 block">Total Bills</span>
-                                  <span className="font-bold text-white">{tool.result.summary.totalBillsCount || 0} Bills</span>
-                                </div>
-                                <div className="p-2 rounded bg-slate-950/80">
-                                  <span className="text-slate-400 block">Market Udhaar</span>
-                                  <span className="font-bold text-amber-400 font-mono">{currencySymbol()} {(tool.result.summary.totalBalanceReceivable || 0).toLocaleString()}</span>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* 5. PROFIT INTELLIGENCE SUMMARY */}
-                          {tool.result?.reportType === 'profit' && tool.result?.summary && (
-                            <div className="p-3 bg-slate-900 border border-slate-700 rounded-xl space-y-2">
-                              <div className="flex items-center justify-between text-xs font-bold text-white">
-                                <span>📈 Profit Intelligence Summary</span>
-                                <span className={`font-mono ${(tool.result.summary.totalNetProfit || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                  {currencySymbol()} {(tool.result.summary.totalNetProfit || 0).toLocaleString()}
-                                </span>
-                              </div>
-                              <div className="grid grid-cols-2 gap-2 text-[10px]">
-                                <div className="p-2 rounded bg-slate-950/80">
-                                  <span className="text-slate-400 block">Gross Profit</span>
-                                  <span className="font-bold text-emerald-400 font-mono">{currencySymbol()} {(tool.result.summary.totalGrossProfit || 0).toLocaleString()}</span>
-                                </div>
-                                <div className="p-2 rounded bg-slate-950/80">
-                                  <span className="text-slate-400 block">Net Margin</span>
-                                  <span className="font-bold text-cyan-300 font-mono">{tool.result.summary.overallMarginPct || 0}%</span>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Default message / download link if not specialized card */}
-                          {!tool.result?.bill && tool.name !== 'generate_business_report' && tool.result?.reportType !== 'aiLedgerAudit' && !['purchases', 'sales', 'profit'].includes(tool.result?.reportType) && (
+                          {/* Fallback for raw / unformatted responses */}
+                          {!tool.result?.bills &&
+                            !tool.result?.bill &&
+                            !tool.result?.purchaseBill &&
+                            tool.name !== 'generate_business_report' &&
+                            tool.result?.reportType !== 'aiLedgerAudit' &&
+                            tool.result?.reportType !== 'profit' &&
+                            tool.name !== 'get_profit_report' &&
+                            tool.result?.reportType !== 'stockHistory' &&
+                            tool.name !== 'get_stock_history_report' &&
+                            tool.name !== 'get_stock_report' && (
                             tool.result && (
                               <div className="text-slate-300 whitespace-pre-line font-mono text-[11px]">
                                 {tool.result.message || JSON.stringify(tool.result)}
@@ -622,6 +1184,15 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
           bill={selectedBillForReceiptModal}
           isOpen={true}
           onClose={() => setSelectedBillForReceiptModal(null)}
+          companyProfile={companyProfile}
+        />
+      )}
+
+      {/* PURCHASE BILL VOUCHER MODAL */}
+      {selectedPurchaseBillForModal && (
+        <PurchaseBillVoucherModal
+          bill={selectedPurchaseBillForModal}
+          onClose={() => setSelectedPurchaseBillForModal(null)}
           companyProfile={companyProfile}
         />
       )}

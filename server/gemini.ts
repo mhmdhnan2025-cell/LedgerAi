@@ -584,6 +584,33 @@ async function localRuleBasedFallback(
     const suppliers = db.getSuppliers();
     const purchaseBills = db.getPurchaseBills();
 
+    // Check if general purchase bills requested without specific supplier
+    const isGeneralPurchaseBills =
+      (text.includes('purchase bill') || text.includes('purchases bill') || text.includes('supplier bill') || text.includes('khareed bill') || text.includes('sary purchase') || text.includes('sare purchase') || text.includes('tamam purchase') || text.includes('purchase bills')) &&
+      !suppliers.some((s) => {
+        const title = (s.accountTitle || s.name || s.title || '').toLowerCase().trim();
+        return title.length > 2 && text.includes(title);
+      });
+
+    if (isGeneralPurchaseBills && purchaseBills.length > 0) {
+      return {
+        reply: `📦 **Supplier Purchase Bills & Inward Goods Vouchers (${purchaseBills.length} Bills)**\n\n` +
+          `Aap k store k tamam suppliers k purchase bills aur inward vouchers neechay 3D card carousel mein mojood hain. Kisi bhi bill par click kar k mukammal Purchase Voucher dekhain ya print karein:`,
+        executedTools: [{
+          name: 'get_purchases_report',
+          args: {},
+          result: {
+            success: true,
+            reportType: 'purchases',
+            isGeneral: true,
+            title: 'Supplier Purchase Bills',
+            bills: purchaseBills,
+            bill: purchaseBills[0] || null,
+          },
+        }],
+      };
+    }
+
     // Try finding supplier by title or code
     let matchedSupplier = suppliers.find((s) => {
       const title = (s.accountTitle || s.name || s.title || '').toLowerCase().trim();
@@ -614,48 +641,73 @@ async function localRuleBasedFallback(
     }
 
     // If it's a purchase bill match
-    if (matchedPurchaseBill && (isPurchaseBillIntent || matchedSupplier || text.includes('supplier') || text.includes('khareed'))) {
-      const itemsListText = (matchedPurchaseBill.items || [])
-        .map(
-          (it: any, idx: number) =>
-            `  ${idx + 1}. **${it.itemTitle}** — ${it.ctn || 0} CTN (${it.qty} ${it.unit || 'Units'}) @ ${currencySymbol()} ${it.rate} = **${currencySymbol()} ${it.amount?.toLocaleString()}**`
-        )
-        .join('\n');
+    if (matchedPurchaseBill || (matchedSupplier && isPurchaseBillIntent)) {
+      const targetSupplierTitle = matchedSupplier ? (matchedSupplier.accountTitle || matchedSupplier.name || matchedSupplier.title) : matchedPurchaseBill?.supplierAccountTitle;
+      const supplierBills = purchaseBills.filter(
+        (b) =>
+          (matchedSupplier && b.supplierId === matchedSupplier.id) ||
+          (b.supplierAccountTitle && targetSupplierTitle && b.supplierAccountTitle.toLowerCase().includes(targetSupplierTitle.toLowerCase())) ||
+          (matchedPurchaseBill && (b.supplierAccountTitle || '').toLowerCase() === (matchedPurchaseBill.supplierAccountTitle || '').toLowerCase())
+      );
+      const billsToShow = supplierBills.length > 0 ? supplierBills : (matchedPurchaseBill ? [matchedPurchaseBill] : []);
+      const primaryBill = billsToShow[0] || matchedPurchaseBill;
 
-      return {
-        reply: `📄 **Purchase Bill Voucher #${matchedPurchaseBill.billNumber}**\n\n` +
-          `• 🏢 Supplier: **${matchedPurchaseBill.supplierAccountTitle}**\n` +
-          `• 📅 Date: **${matchedPurchaseBill.date}**\n` +
-          `• 🔖 Vendor Bill #: **${matchedPurchaseBill.vendorBillNumber || 'N/A'}** | GP #: **${matchedPurchaseBill.gatePassNumber || 'N/A'}**\n` +
-          `• 🏷️ Type: **${matchedPurchaseBill.isCash ? 'Cash Purchase' : 'Credit / Account'}**\n\n` +
-          `📦 **Purchased Items (اشیاء کی تفصیل):**\n${itemsListText || '  Koi items record nahi hain'}\n\n` +
-          `💵 **Financial Summary:**\n` +
-          `• Gross Amount: ${currencySymbol()} ${(matchedPurchaseBill.grossAmount || 0).toLocaleString()}\n` +
-          `• Total Discount: ${currencySymbol()} ${(matchedPurchaseBill.totalDiscount || 0).toLocaleString()}\n` +
-          `• Total VAT: ${currencySymbol()} ${(matchedPurchaseBill.totalVatAmount || 0).toLocaleString()}\n` +
-          `• **Net Total: ${currencySymbol()} ${(matchedPurchaseBill.netTotal || 0).toLocaleString()}**\n` +
-          `• Paid Amount: ${currencySymbol()} ${(matchedPurchaseBill.paidAmount || 0).toLocaleString()}\n` +
-          `• **Remaining Payable (بقایا): ${currencySymbol()} ${(matchedPurchaseBill.remainingBalance || 0).toLocaleString()}**\n\n` +
-          `Purchase Bill Voucher aap k samnay open ho chuka hai. Agar aap isay band kar dein toh chat me button par click kar k dobara kisi bhi waqt khol sakty hain!`,
-        executedTools: [{
-          name: 'get_supplier_purchase_bill',
-          args: { supplierName: matchedPurchaseBill.supplierAccountTitle, billNumber: matchedPurchaseBill.billNumber },
-          result: {
-            success: true,
-            reportType: 'purchaseBill',
-            purchaseBill: matchedPurchaseBill,
-            billNumber: matchedPurchaseBill.billNumber,
-            supplierName: matchedPurchaseBill.supplierAccountTitle,
-            netTotal: matchedPurchaseBill.netTotal,
-            remainingBalance: matchedPurchaseBill.remainingBalance,
-          },
-        }],
-      };
+      if (primaryBill) {
+        return {
+          reply: `📦 **Purchase Bills — ${primaryBill.supplierAccountTitle} (${billsToShow.length} Bills)**\n\n` +
+            `• 🏢 Supplier: **${primaryBill.supplierAccountTitle}**\n` +
+            `• 📅 Date: **${primaryBill.date}**\n` +
+            `• 🔖 Vendor Bill #: **${primaryBill.vendorBillNumber || 'N/A'}** | GP #: **${primaryBill.gatePassNumber || 'N/A'}**\n` +
+            `• 🏷️ Type: **${primaryBill.isCash ? 'Cash Purchase' : 'Credit / Account'}**\n` +
+            `• 💵 Net Total: ${currencySymbol()} ${(primaryBill.netTotal || 0).toLocaleString()}\n` +
+            `• **Remaining Payable (واجب الادا): ${currencySymbol()} ${(primaryBill.remainingBalance || 0).toLocaleString()}**\n\n` +
+            `Aap k samnay sirf **${primaryBill.supplierAccountTitle}** k purchase bills display ho rahay hain. Kisi bhi bill par click kar k mukammal voucher open karein:`,
+          executedTools: [{
+            name: 'get_supplier_purchase_bill',
+            args: { supplierName: primaryBill.supplierAccountTitle, billNumber: primaryBill.billNumber },
+            result: {
+              success: true,
+              isSpecific: true,
+              reportType: 'purchases',
+              supplierName: primaryBill.supplierAccountTitle,
+              bill: primaryBill,
+              bills: billsToShow,
+            },
+          }],
+        };
+      }
     }
 
     // Otherwise, check for Customer Sale Bill
     const saleBills = db.getSaleBills();
     const customers = db.getCustomers();
+
+    // Check if general sale bills request (no specific party name mentioned)
+    const isGeneralBillsRequest =
+      (text.includes('sales bill') || text.includes('sale bill') || text.includes('customer bill') || text.includes('bill do') || text.includes('bills do') || text === 'bills' || text === 'bill' || text.includes('tamam bills') || text.includes('sary bills') || text.includes('sare bill')) &&
+      !customers.some((c) => {
+        const title = (c.accountTitle || c.name || '').toLowerCase().trim();
+        return title.length > 2 && text.includes(title);
+      });
+
+    if (isGeneralBillsRequest && saleBills.length > 0) {
+      return {
+        reply: `📋 **Customer Sales Bills & Invoices (${saleBills.length} Bills)**\n\n` +
+          `Aap k store k tamam registered customer sales bills aur tax invoices neechay 3D card carousel mein mojood hain. Kisi bhi bill par click kar k mukammal Tax Invoice open kar k print ya inspect kar sakty hain:`,
+        executedTools: [{
+          name: 'get_customer_sale_bills',
+          args: {},
+          result: {
+            success: true,
+            reportType: 'sales',
+            isGeneral: true,
+            title: 'Customer Sales Bills',
+            bills: saleBills,
+            bill: saleBills[0] || null,
+          },
+        }],
+      };
+    }
 
     // Try finding customer by matching title or code
     let matchedCustomer = customers.find((c) => {
@@ -683,55 +735,46 @@ async function localRuleBasedFallback(
     if (!matchedSaleBill) {
       const words = text
         .split(/\s+/)
-        .filter((w) => w.length > 2 && !['bill', 'dikhao', 'chahiye', 'batao', 'karo', 'show', 'mera', 'uska', 'wali', 'sale', 'sales'].includes(w));
+        .filter((w) => w.length > 2 && !['bill', 'dikhao', 'chahiye', 'batao', 'karo', 'show', 'mera', 'uska', 'wali', 'sale', 'sales', 'report', 'customer'].includes(w));
       for (const w of words) {
         matchedSaleBill = saleBills.find((b) => (b.customerAccountTitle || '').toLowerCase().includes(w));
         if (matchedSaleBill) break;
       }
     }
 
-    // If user asked generally for "sale bill" or "bill dikhao" without naming anyone, return latest bill
-    if (!matchedSaleBill && (text.includes('sale bill') || text.includes('bill dikhao') || text.includes('parcha') || text.includes('bill show') || text === 'bill' || text.includes('bill chahiye') || text.includes('invoice'))) {
-      matchedSaleBill = saleBills[0];
-    }
+    if (matchedSaleBill || matchedCustomer) {
+      const targetCustomerTitle = matchedCustomer ? (matchedCustomer.accountTitle || matchedCustomer.name) : matchedSaleBill?.customerAccountTitle;
+      const customerBills = saleBills.filter(
+        (b) =>
+          (matchedCustomer && b.customerId === matchedCustomer.id) ||
+          (b.customerAccountTitle && targetCustomerTitle && b.customerAccountTitle.toLowerCase().includes(targetCustomerTitle.toLowerCase())) ||
+          (matchedSaleBill && (b.customerAccountTitle || '').toLowerCase() === (matchedSaleBill.customerAccountTitle || '').toLowerCase())
+      );
+      const billsToShow = customerBills.length > 0 ? customerBills : (matchedSaleBill ? [matchedSaleBill] : []);
+      const primaryBill = billsToShow[0] || matchedSaleBill;
 
-    if (matchedSaleBill) {
-      const itemsListText = (matchedSaleBill.items || [])
-        .map(
-          (it: any, idx: number) =>
-            `  ${idx + 1}. **${it.itemTitle}** — ${it.ctn || 0} CTN (${it.qty} ${it.unit || 'Units'}) @ ${currencySymbol()} ${it.rate} = **${currencySymbol()} ${it.amount?.toLocaleString()}**`
-        )
-        .join('\n');
-
-      return {
-        reply: `📄 **Sale Bill / Tax Invoice #${matchedSaleBill.billNumber}**\n\n` +
-          `• 🏢 Customer: **${matchedSaleBill.customerAccountTitle}**\n` +
-          `• 📅 Date: **${matchedSaleBill.date}**\n` +
-          `• 👤 Salesman / User: **${matchedSaleBill.salesmanName || matchedSaleBill.user || 'Admin'}**\n` +
-          `• 🏷️ Payment Type: **${matchedSaleBill.paymentType}**\n\n` +
-          `📦 **Bill Items (اشیاء کی تفصیل):**\n${itemsListText || '  Koi items record nahi hain'}\n\n` +
-          `💵 **Financial Summary:**\n` +
-          `• Gross Amount: ${currencySymbol()} ${(matchedSaleBill.grossAmount || 0).toLocaleString()}\n` +
-          `• Total Discount: ${currencySymbol()} ${(matchedSaleBill.totalDiscount || 0).toLocaleString()}\n` +
-          `• Total VAT: ${currencySymbol()} ${(matchedSaleBill.totalVatAmount || 0).toLocaleString()}\n` +
-          `• **Net Total: ${currencySymbol()} ${(matchedSaleBill.netTotal || 0).toLocaleString()}**\n` +
-          `• Cash Received: ${currencySymbol()} ${(matchedSaleBill.cashReceived || 0).toLocaleString()}\n` +
-          `• **Balance Due (بقایا): ${currencySymbol()} ${(matchedSaleBill.balanceReceivable || 0).toLocaleString()}**\n\n` +
-          `Official Tax Invoice aap k samnay open ho chuka hai. Agar aap isay band kar dein toh chat me button par click kar k dobara kisi bhi waqt khol sakty hain!`,
-        executedTools: [{
-          name: 'get_customer_sale_bill',
-          args: { customerName: matchedSaleBill.customerAccountTitle, billNumber: matchedSaleBill.billNumber },
-          result: {
-            success: true,
-            bill: matchedSaleBill,
-            billNumber: matchedSaleBill.billNumber,
-            customerName: matchedSaleBill.customerAccountTitle,
-            netTotal: matchedSaleBill.netTotal,
-            balanceDue: matchedSaleBill.balanceReceivable,
-            date: matchedSaleBill.date,
-          },
-        }],
-      };
+      if (primaryBill) {
+        return {
+          reply: `📄 **Sale Bills — ${primaryBill.customerAccountTitle} (${billsToShow.length} Bills)**\n\n` +
+            `• 🏢 Customer: **${primaryBill.customerAccountTitle}**\n` +
+            `• 📅 Date: **${primaryBill.date}**\n` +
+            `• 💵 Net Total: ${currencySymbol()} ${(primaryBill.netTotal || 0).toLocaleString()}\n` +
+            `• **Balance Due (بقایا): ${currencySymbol()} ${(primaryBill.balanceReceivable || 0).toLocaleString()}**\n\n` +
+            `Aap k samnay sirf **${primaryBill.customerAccountTitle}** k bills display ho rahay hain. Kisi bhi bill par click kar k invoice dekhain:`,
+          executedTools: [{
+            name: 'get_customer_sale_bills',
+            args: { customerName: primaryBill.customerAccountTitle, billNumber: primaryBill.billNumber },
+            result: {
+              success: true,
+              isSpecific: true,
+              reportType: 'sales',
+              customerName: primaryBill.customerAccountTitle,
+              bill: primaryBill,
+              bills: billsToShow,
+            },
+          }],
+        };
+      }
     }
   }
 
