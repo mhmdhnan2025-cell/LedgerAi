@@ -424,6 +424,9 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
   const numRate = typeof rate === 'number' ? rate : (typeof ratePerCtn === 'number' && typeof qtyPerCtn === 'number' && qtyPerCtn > 0 ? ratePerCtn / qtyPerCtn : 0);
   const numRatePerCtn = typeof ratePerCtn === 'number' ? ratePerCtn : (numRate * (Number(qtyPerCtn) || 1));
   const numDiscount = typeof discount === 'number' ? discount : 0;
+  const numericQty = numQty;
+  const numericRate = numRate;
+  const numericDiscount = numDiscount;
 
   let liveRowGross = 0;
   if (numCtn > 0 && numRatePerCtn > 0) {

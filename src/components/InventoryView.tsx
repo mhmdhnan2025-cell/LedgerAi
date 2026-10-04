@@ -134,28 +134,23 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   const [isSavingMeasure, setIsSavingMeasure] = useState<boolean>(false);
 
   // Fetch Categories, Brands, Measures on mount
+  const fetchMasters = async () => {
+    try {
+      const [cats, brs, msrs] = await Promise.all([
+        api.getItemCategories().catch(() => []),
+        api.getItemBrands().catch(() => []),
+        api.getItemMeasures().catch(() => []),
+      ]);
+      if (cats && cats.length > 0) setCategoriesList(cats);
+      if (brs && brs.length > 0) setBrandsList(brs);
+      if (msrs && msrs.length > 0) setMeasuresList(msrs);
+    } catch (err) {
+      console.error('Failed to load item masters:', err);
+    }
+  };
+
   useEffect(() => {
-    let isMounted = true;
-    const loadMasters = async () => {
-      try {
-        const [cats, brs, msrs] = await Promise.all([
-          api.getItemCategories().catch(() => []),
-          api.getItemBrands().catch(() => []),
-          api.getItemMeasures().catch(() => []),
-        ]);
-        if (isMounted) {
-          if (cats && cats.length > 0) setCategoriesList(cats);
-          if (brs && brs.length > 0) setBrandsList(brs);
-          if (msrs && msrs.length > 0) setMeasuresList(msrs);
-        }
-      } catch (err) {
-        console.error('Failed to load item masters:', err);
-      }
-    };
-    loadMasters();
-    return () => {
-      isMounted = false;
-    };
+    fetchMasters();
   }, []);
 
   // Quick-Add Handlers with instant persistence & selection
