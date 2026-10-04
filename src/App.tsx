@@ -630,6 +630,7 @@ export default function App() {
             onCreateProduct={handleCreateProduct}
             onUpdateProduct={handleUpdateProduct}
             onDeleteProduct={handleDeleteProduct}
+            onRefreshData={() => loadBusinessData(true)}
           />
         )}
 

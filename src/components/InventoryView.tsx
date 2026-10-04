@@ -27,6 +27,7 @@ import { Order, Product, ProductCategory, UnitType, UserRole } from '../types';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import { isBilingualMatch } from '../utils/productSynonyms';
 import { api } from '../services/api';
+import { AddItemHeadModal } from './AddItemHeadModal';
 
 interface InventoryViewProps {
   products: Product[];
@@ -36,6 +37,7 @@ interface InventoryViewProps {
   onUpdateProduct: (id: string, updates: Partial<Product>) => Promise<void>;
   onDeleteProduct?: (id: string) => Promise<void>;
   onNavigateTab?: (tab: string) => void;
+  onRefreshData?: () => void;
 }
 
 export const InventoryView: React.FC<InventoryViewProps> = ({
@@ -46,6 +48,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   onUpdateProduct,
   onDeleteProduct,
   onNavigateTab,
+  onRefreshData,
 }) => {
   // View mode: 'stock-position' (Image 3 design) vs 'order-shortages'
   const [activeViewMode, setActiveViewMode] = useState<'stock-position' | 'shortages'>('stock-position');
@@ -78,6 +81,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   const [isFormModalOpen, setIsFormModalOpen] = useState<boolean>(false);
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   // Form Fields matching Images 1 & 2 - Completely empty by default (no demo/mock values)
   const [formCategory, setFormCategory] = useState<string>('');
@@ -456,38 +460,11 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     setZeroStockHide(false);
   };
 
-  // Open Add New Modal (resetting form fields - all blank, no prefill)
+  // Open Add New Modal
   const handleOpenAddModal = () => {
     setIsEditMode(false);
     setEditingProductId(null);
-    setFormCategory('');
-    setFormMCode('');
-    setFormItemTitle('');
-    setFormDescription('');
-    setFormMeasure('');
-    setFormCompanyBrand('');
-    setFormPackageType('single');
-    setFormPackageCount('');
-    setFormQtyPerPackage('');
-    setFormLooseUnits('');
-    setFormTotalStock('');
-    setFormPurchasePrice('');
-    setFormPrchFixedPrice(false);
-    setFormPackagePurchaseRate('');
-    setFormSalePrice('');
-    setFormSaleFixedPrice(false);
-    setFormPackageSaleRate('');
-    setFormPackageMinSaleRate('');
-    setFormSaleDiscount('');
-    setFormSaleMinPrice('');
-    setFormMinQuantity('');
-    setFormComments('');
-    setFormScanTypeGeneral(true);
-    setFormCustomFields('');
-    setFormImage('');
-    setShowAddCategoryInline(false);
-    setShowAddBrandInline(false);
-    setShowAddMeasureInline(false);
+    setEditingProduct(null);
     setIsFormModalOpen(true);
   };
 
@@ -495,130 +472,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   const handleOpenEditModal = (prod: Product) => {
     setIsEditMode(true);
     setEditingProductId(prod.id);
-    setFormCategory(prod.category || 'Nothing selected');
-    setFormMCode(prod.mcode || prod.sku || '');
-    setFormItemTitle(prod.itemTitle || prod.name || '');
-    setFormDescription(prod.description || '');
-    setFormMeasure(prod.measure || prod.unit || 'KG');
-    setFormCompanyBrand(prod.companyBrand || 'Nothing selected');
-    
-    // Determine package type from existing data
-    const existingQCtn = prod.qtyInCarton && prod.qtyInCarton > 0 ? prod.qtyInCarton : 1;
-    const catMeasure = `${prod.category || ''} ${prod.measure || ''}`.toLowerCase();
-    let pkgType: 'carton' | 'bag' | 'box' | 'packet' | 'tin' | 'single' = 'single';
-    if (catMeasure.includes('bag') || catMeasure.includes('bori')) pkgType = 'bag';
-    else if (catMeasure.includes('box') || catMeasure.includes('dabba')) pkgType = 'box';
-    else if (catMeasure.includes('packet') || catMeasure.includes('pack')) pkgType = 'packet';
-    else if (catMeasure.includes('tin') || catMeasure.includes('drum') || catMeasure.includes('can')) pkgType = 'tin';
-    else if (existingQCtn > 1) pkgType = 'carton';
-    
-    setFormPackageType(pkgType);
-    
-    if (pkgType === 'single') {
-      // Single item - just total stock
-      setFormTotalStock(prod.totalStock !== undefined ? prod.totalStock : prod.currentQuantity);
-      setFormPackageCount('');
-      setFormQtyPerPackage('');
-      setFormLooseUnits('');
-    } else {
-      // Packaged item - calculate package count and qty per package
-      const totalStock = prod.totalStock !== undefined ? prod.totalStock : prod.currentQuantity;
-      setFormPackageCount(Math.floor(totalStock / existingQCtn));
-      setFormQtyPerPackage(existingQCtn);
-      setFormLooseUnits(totalStock % existingQCtn);
-      setFormTotalStock(totalStock);
-    }
-    
-    setFormPurchasePrice(prod.purchasePrice);
-    setFormPrchFixedPrice(Boolean(prod.prchFixedPrice));
-    setFormSalePrice(prod.salePrice || prod.sellingPrice);
-    setFormSaleFixedPrice(Boolean(prod.saleFixedPrice));
-    setFormSaleDiscount(prod.saleDiscount || 0);
-    setFormSaleMinPrice(prod.saleMinPrice || prod.sellingPrice);
-    setFormMinQuantity(prod.minQuantity !== undefined ? prod.minQuantity : prod.minStockLevel);
-    setFormComments(prod.comments || '');
-    setFormScanTypeGeneral(prod.scanType !== 'Barcode');
-    setFormCustomFields(prod.customFields || '');
-    setFormImage(prod.image || '');
+    setEditingProduct(prod);
     setIsFormModalOpen(true);
-  };
-
-  // Calculate derived values for form
-  const computedPkgCount = Number(formPackageCount) || 0;
-  const computedQtyPerPkg = Number(formQtyPerPackage) || 1;
-  const computedLooseUnits = Number(formLooseUnits) || 0;
-  const computedTotalStock = formPackageType === 'single' 
-    ? (Number(formTotalStock) || 0) 
-    : (computedPkgCount * computedQtyPerPkg + computedLooseUnits);
-  const computedQtyInCarton = formPackageType === 'single' ? 1 : computedQtyPerPkg;
-  const computedCtnPurchaseRate = formPackageType === 'single' ? 0 : (Number(formPackagePurchaseRate) || 0);
-  const computedCtnSaleRate = formPackageType === 'single' ? 0 : (Number(formPackageSaleRate) || 0);
-  const computedCtnMinSaleRate = formPackageType === 'single' ? 0 : (Number(formPackageMinSaleRate) || 0);
-  const computedPurchasePrice = Number(formPurchasePrice) || (computedCtnPurchaseRate > 0 && computedQtyPerPkg > 0 
-    ? parseFloat((computedCtnPurchaseRate / computedQtyPerPkg).toFixed(2)) 
-    : 0);
-  const computedSalePrice = Number(formSalePrice) || (computedCtnSaleRate > 0 && computedQtyPerPkg > 0 
-    ? parseFloat((computedCtnSaleRate / computedQtyPerPkg).toFixed(2)) 
-    : 0);
-  const computedMinQuantity = Number(formMinQuantity) || 5;
-
-  // Submit Add / Edit Form
-  const handleSubmitItemForm = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formItemTitle.trim()) {
-      setFeedbackMsg({ type: 'error', text: 'Item Title is required!' });
-      return;
-    }
-
-    setIsSubmittingForm(true);
-    setFeedbackMsg(null);
-    try {
-      const payload: Partial<Product> = {
-        name: formItemTitle.trim(),
-        itemTitle: formItemTitle.trim(),
-        mcode: formMCode.trim(),
-        sku: formMCode.trim() || `SKU-${Date.now().toString().slice(-4)}`,
-        description: formDescription.trim(),
-        category: formCategory.trim() && formCategory !== 'Nothing selected' ? formCategory.trim() : 'General',
-        measure: formMeasure.trim() && formMeasure !== 'Nothing selected' ? formMeasure.trim() : 'Kilogram (Kg)',
-        unit: (formMeasure.trim() && formMeasure !== 'Nothing selected' ? formMeasure.trim().toLowerCase() : 'kg') as UnitType,
-        companyBrand: formCompanyBrand.trim() && formCompanyBrand !== 'Nothing selected' ? formCompanyBrand.trim() : '',
-        qtyInCarton: computedQtyInCarton,
-        ctnPurchaseRate: computedCtnPurchaseRate,
-        ctnSaleRate: computedCtnSaleRate,
-        ctnMinSaleRate: computedCtnMinSaleRate,
-        totalStock: computedTotalStock,
-        currentQuantity: computedTotalStock,
-        minQuantity: computedMinQuantity,
-        minStockLevel: computedMinQuantity,
-        purchasePrice: computedPurchasePrice,
-        prchFixedPrice: formPrchFixedPrice,
-        sellingPrice: computedSalePrice,
-        salePrice: computedSalePrice,
-        saleFixedPrice: formSaleFixedPrice,
-        saleDiscount: Number(formSaleDiscount) || 0,
-        saleMinPrice: Number(formSaleMinPrice) || computedSalePrice,
-        comments: formComments.trim(),
-        scanType: formScanTypeGeneral ? 'General' : 'Barcode',
-        customFields: formCustomFields.trim(),
-        image: formImage,
-        status: true,
-      };
-
-      if (isEditMode && editingProductId) {
-        await onUpdateProduct(editingProductId, payload);
-        setFeedbackMsg({ type: 'success', text: `Product "${formItemTitle}" updated successfully!` });
-      } else {
-        await onCreateProduct(payload);
-        setFeedbackMsg({ type: 'success', text: `Product "${formItemTitle}" added successfully!` });
-      }
-
-      setIsFormModalOpen(false);
-    } catch (err: any) {
-      setFeedbackMsg({ type: 'error', text: err.message || 'Operation failed' });
-    } finally {
-      setIsSubmittingForm(false);
-    }
   };
 
   // Toggle item status
@@ -1282,9 +1137,9 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                 <th className="py-2.5 px-3 text-right">S.RATE</th>
                 <th className="py-2.5 px-3 text-right">DISC</th>
                 <th className="py-2.5 px-3 text-right font-black">T.STOCK</th>
-                <th className="py-2.5 px-3 text-right">PKG/CTN/BAG</th>
-                <th className="py-2.5 px-3 text-right">LOOSE/PCS</th>
-                <th className="py-2.5 px-3 text-right text-emerald-400">STOCK VALUE (RS)</th>
+                <th className="py-2.5 px-3 text-right">CARTON</th>
+                <th className="py-2.5 px-3 text-right">PCS</th>
+                <th className="py-2.5 px-3 text-right text-emerald-400">STOCK VALUE ({currencySymbol()})</th>
                 <th className="py-2.5 px-3 text-center">STATUS</th>
                 <th className="py-2.5 px-3 text-center print:hidden">ACTION</th>
               </tr>
@@ -1397,67 +1252,39 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                         </div>
                       </td>
 
-                      {/* TYPE */}
-                      <td className="py-2.5 px-3 text-slate-400 font-sans">{prod.scanType || 'General'}</td>
+                      {/* TYPE (Image 5: Kilo grams, Liter, Grams, KG) */}
+                      <td className="py-2.5 px-3 text-slate-300 font-sans">{prod.measure || prod.unit || 'Kilo grams'}</td>
 
-                      {/* P.RATE */}
-                      <td className="py-2.5 px-3 text-right text-slate-200">{Number(pRate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      {/* P.RATE (Image 5: 2.51) */}
+                      <td className="py-2.5 px-3 text-right text-slate-200 font-mono font-semibold">
+                        {(Number(prod.purchasePrice) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
 
-                      {/* S.RATE */}
-                      <td className="py-2.5 px-3 text-right text-slate-200">{Number(sRate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      {/* S.RATE (Image 5: 2.65) */}
+                      <td className="py-2.5 px-3 text-right text-slate-200 font-mono font-semibold">
+                        {(Number(prod.salePrice || prod.sellingPrice) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
 
                       {/* DISC */}
-                      <td className="py-2.5 px-3 text-right text-slate-400">{disc}</td>
+                      <td className="py-2.5 px-3 text-right text-slate-400 font-mono">{disc}</td>
 
-                      {/* T.STOCK */}
+                      {/* T.STOCK (Image 5: 868.50, 369.00) */}
                       <td
-                        className={`py-2.5 px-3 text-right font-bold ${
+                        className={`py-2.5 px-3 text-right font-bold font-mono ${
                           isNegative ? 'text-rose-400' : isLow ? 'text-amber-400' : 'text-slate-200'
                         }`}
                       >
-                        <div className="flex items-center justify-end gap-1.5 font-mono">
-                          <span>{formattedStockDisplay}</span>
-                          <span
-                            className={`text-[9px] font-sans font-bold px-1.5 py-0.2 rounded border ${
-                              isKg
-                                ? 'bg-emerald-950/60 text-emerald-300 border-emerald-700/60'
-                                : isLtr
-                                ? 'bg-cyan-950/60 text-cyan-300 border-cyan-700/60'
-                                : isBox
-                                ? 'bg-amber-950/60 text-amber-300 border-amber-700/60'
-                                : isBag
-                                ? 'bg-purple-950/60 text-purple-300 border-purple-700/60'
-                                : 'bg-indigo-950/60 text-indigo-300 border-indigo-700/60'
-                            }`}
-                          >
-                            {displayUnit}
-                          </span>
-                        </div>
+                        {Number(stock).toFixed(2)}
                       </td>
 
-                      {/* PKG / CARTON / BAG */}
-                      <td className={`py-2.5 px-3 text-right font-mono ${isNegative ? 'text-rose-400 font-bold' : 'text-slate-300'}`}>
-                        {cartons}{' '}
-                        <span className="text-[10px] text-slate-500 font-sans">
-                          {isKg
-                            ? 'KG'
-                            : isLtr
-                            ? 'Ltr'
-                            : isBag
-                            ? 'Bags'
-                            : isBox
-                            ? 'Boxes'
-                            : ((prod.category || '') + ' ' + (prod.measure || '')).toLowerCase().includes('packet')
-                            ? 'Packs'
-                            : ((prod.category || '') + ' ' + (prod.measure || '')).toLowerCase().includes('tin')
-                            ? 'Tins'
-                            : 'Ctns'}
-                        </span>
+                      {/* CARTON (Image 5: 17, 24, 29, 15, 218) */}
+                      <td className={`py-2.5 px-3 text-right font-mono ${isNegative ? 'text-rose-400 font-bold' : 'text-slate-300 font-semibold'}`}>
+                        {cartons > 0 ? cartons : (stock > 0 && qCtn <= 1 ? cartons : '-')}
                       </td>
 
-                      {/* LOOSE / PCS */}
+                      {/* PCS (Image 5: 18, 9, 13, 12, 7, 0) */}
                       <td className={`py-2.5 px-3 text-right font-mono ${isNegative ? 'text-rose-400 font-bold' : 'text-slate-300'}`}>
-                        {pcs > 0 ? `${pcs} Pcs` : '-'}
+                        {qCtn > 1 ? (pcs % 1 === 0 ? pcs : pcs.toFixed(1)) : '-'}
                       </td>
 
                       {/* STOCK VALUE (AMOUNT) */}
@@ -1562,611 +1389,31 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         </div>
       </div>
 
-      {/* ADD / EDIT ITEM MODAL (Matching Images 1 & 2) */}
-      {isFormModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col">
-            {/* Modal Header */}
-            <div className="px-6 py-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30">
-                  <Package className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-base text-white">
-                    {isEditMode ? 'Edit Item Details' : 'Add Item Form (Item Management)'}
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    Specify carton conversion, purchase rate, selling price, and stock levels.
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsFormModalOpen(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Form Body */}
-            <form onSubmit={handleSubmitItemForm} className="p-6 overflow-y-auto space-y-4 text-xs text-slate-300">
-              {/* TOP SECTION (Image 1) */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Category with + button */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <label className="block font-semibold text-slate-300">Category :</label>
-                    <span className="text-[10px] text-blue-400 font-urdu">نیا کیٹیگری کیلئے + دبائیں</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <select
-                      value={formCategory}
-                      onChange={(e) => setFormCategory(e.target.value)}
-                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500"
-                    >
-                      <option value="">-- Select Category (کیٹیگری منتخب کریں) --</option>
-                      {categoryOptions.map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddCategoryInline(!showAddCategoryInline)}
-                      title="Add New Category (+ نیا کیٹیگری شامل کریں)"
-                      className="p-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold flex items-center justify-center shrink-0 transition shadow-sm cursor-pointer"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  </div>
-                  {showAddCategoryInline && (
-                    <div className="mt-1.5 p-2 bg-slate-950 border border-blue-500/50 rounded-lg flex items-center gap-2 animate-in fade-in">
-                      <input
-                        type="text"
-                        autoFocus
-                        placeholder="New category name (e.g. Spices, Grains)..."
-                        value={newCategoryInline}
-                        onChange={(e) => setNewCategoryInline(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleQuickAddCategory();
-                          }
-                        }}
-                        className="flex-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-xs text-white outline-none focus:border-blue-400"
-                      />
-                      <button
-                        type="button"
-                        disabled={isSavingCategory || !newCategoryInline.trim()}
-                        onClick={() => handleQuickAddCategory()}
-                        className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold rounded cursor-pointer"
-                      >
-                        {isSavingCategory ? 'Saving...' : 'Add'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowAddCategoryInline(false);
-                          setNewCategoryInline('');
-                        }}
-                        className="text-slate-400 hover:text-white px-1 text-xs cursor-pointer"
-                      >
-                        &times;
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* M.CODE */}
-                <div className="space-y-1">
-                  <label className="block font-semibold text-slate-300">M.CODE :</label>
-                  <input
-                    type="text"
-                    value={formMCode}
-                    onChange={(e) => setFormMCode(e.target.value)}
-                    placeholder="M.CODE (e.g. M-1001)"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* Item Title */}
-              <div className="space-y-1">
-                <label className="block font-semibold text-slate-300">Item Title : *</label>
-                <input
-                  type="text"
-                  required
-                  value={formItemTitle}
-                  onChange={(e) => setFormItemTitle(e.target.value)}
-                  placeholder="e.g. Black Chana 15 Kg"
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white font-bold focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              {/* Description */}
-              <div className="space-y-1">
-                <label className="block font-semibold text-slate-300">Description :</label>
-                <input
-                  type="text"
-                  value={formDescription}
-                  onChange={(e) => setFormDescription(e.target.value)}
-                  placeholder="Item details or specifications"
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              {/* Measure & Company Brands with + buttons */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Measure with + button */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <label className="block font-semibold text-slate-300">Measure (پیمائش) :</label>
-                    <span className="text-[10px] text-teal-400 font-urdu">نیا یونٹ کیلئے + دبائیں</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <select
-                      value={formMeasure}
-                      onChange={(e) => setFormMeasure(e.target.value)}
-                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-teal-500"
-                    >
-                      <option value="">-- Select Measure (Gram, Kilo Gram, Litter...) --</option>
-                      {measureOptions.map((msr) => (
-                        <option key={msr} value={msr}>
-                          {msr}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddMeasureInline(!showAddMeasureInline)}
-                      title="Add New Measure (+ نیا پیمائش کا یونٹ شامل کریں)"
-                      className="p-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg font-bold flex items-center justify-center shrink-0 transition shadow-sm cursor-pointer"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  </div>
-                  {showAddMeasureInline && (
-                    <div className="mt-1.5 p-2 bg-slate-950 border border-teal-500/50 rounded-lg flex items-center gap-2 animate-in fade-in">
-                      <input
-                        type="text"
-                        autoFocus
-                        placeholder="New unit (e.g. Gram, Kilogram, Liter, Dozen)..."
-                        value={newMeasureInline}
-                        onChange={(e) => setNewMeasureInline(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleQuickAddMeasure();
-                          }
-                        }}
-                        className="flex-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-xs text-white outline-none focus:border-teal-400"
-                      />
-                      <button
-                        type="button"
-                        disabled={isSavingMeasure || !newMeasureInline.trim()}
-                        onClick={() => handleQuickAddMeasure()}
-                        className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold rounded cursor-pointer"
-                      >
-                        {isSavingMeasure ? 'Saving...' : 'Add'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowAddMeasureInline(false);
-                          setNewMeasureInline('');
-                        }}
-                        className="text-slate-400 hover:text-white px-1 text-xs cursor-pointer"
-                      >
-                        &times;
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Company Brands with + button */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <label className="block font-semibold text-slate-300">Company Brands (برانڈز) :</label>
-                    <span className="text-[10px] text-indigo-400 font-urdu">نیا برانڈ کیلئے + دبائیں</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <select
-                      value={formCompanyBrand}
-                      onChange={(e) => setFormCompanyBrand(e.target.value)}
-                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500"
-                    >
-                      <option value="Nothing selected">Nothing selected</option>
-                      {companyBrandOptions.map((brand) => (
-                        <option key={brand} value={brand}>
-                          {brand}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddBrandInline(!showAddBrandInline)}
-                      title="Add New Brand (+ نیا برانڈ شامل کریں)"
-                      className="p-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold flex items-center justify-center shrink-0 transition shadow-sm cursor-pointer"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  </div>
-                  {showAddBrandInline && (
-                    <div className="mt-1.5 p-2 bg-slate-950 border border-indigo-500/50 rounded-lg flex items-center gap-2 animate-in fade-in">
-                      <input
-                        type="text"
-                        autoFocus
-                        placeholder="New brand name (e.g. National, Shan, Guard)..."
-                        value={newBrandInline}
-                        onChange={(e) => setNewBrandInline(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleQuickAddBrand();
-                          }
-                        }}
-                        className="flex-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-xs text-white outline-none focus:border-indigo-400"
-                      />
-                      <button
-                        type="button"
-                        disabled={isSavingBrand || !newBrandInline.trim()}
-                        onClick={() => handleQuickAddBrand()}
-                        className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold rounded cursor-pointer"
-                      >
-                        {isSavingBrand ? 'Saving...' : 'Add'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowAddBrandInline(false);
-                          setNewBrandInline('');
-                        }}
-                        className="text-slate-400 hover:text-white px-1 text-xs cursor-pointer"
-                      >
-                        &times;
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="border-t border-slate-800 pt-3"></div>
-
-              {/* UNIFIED PACKAGING & STOCK SECTION - Single section for all packaging types */}
-              <div className="space-y-3 bg-slate-950/60 p-3.5 rounded-xl border border-slate-800">
-                {/* Package Type Selector */}
-                <div className="space-y-2">
-                  <label className="block font-semibold text-slate-300">Packaging Type (پیکیج کی قسم) :</label>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { label: 'Single / Loose (صرف لاگت)', val: 'single', icon: '📦' },
-                      { label: 'Carton / CTN (کارٹن)', val: 'carton', icon: '📦' },
-                      { label: 'Bag / Bori (بوری/تھیلا)', val: 'bag', icon: '🛍️' },
-                      { label: 'Box / Dabba (ڈبہ/باکس)', val: 'box', icon: '📦' },
-                      { label: 'Packet / Pack (پیکٹ)', val: 'packet', icon: '✉️' },
-                      { label: 'Tin / Drum (ٹین/ڈرم)', val: 'tin', icon: '🛢️' },
-                    ].map((pkg) => (
-                      <button
-                        key={pkg.val}
-                        type="button"
-                        onClick={() => {
-                          setFormPackageType(pkg.val as any);
-                          // Auto-set measure based on package type
-                          const measureMap: Record<string, string> = {
-                            carton: 'Carton (CTN)',
-                            bag: 'Bag (Bori)',
-                            box: 'Box',
-                            packet: 'Packet (Pack)',
-                            tin: 'Tin',
-                            single: 'Kilogram (Kg)'
-                          };
-                          setFormMeasure(measureMap[pkg.val] || 'Kilogram (Kg)');
-                        }}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 text-xs font-bold transition cursor-pointer ${
-                          formPackageType === pkg.val
-                            ? 'bg-blue-600 border-blue-500 text-white shadow-md'
-                            : 'bg-slate-800 border-slate-700 text-slate-300 hover:border-blue-500 hover:text-white'
-                        }`}
-                      >
-                        <span>{pkg.icon}</span>
-                        <span>{pkg.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* SINGLE ITEM MODE - Just Total Stock Amount */}
-                {formPackageType === 'single' && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-800/80 bg-blue-950/20 p-3 rounded-lg">
-                    <div className="sm:col-span-2">
-                      <label className="block font-semibold text-slate-300 mb-1 text-green-400">
-                        Total Stock Amount (کل اسٹاک مقدار) * :
-                      </label>
-                      <input
-                        type="number"
-                        step="any"
-                        min="0"
-                        placeholder="e.g. 10 (10 packets oil), 50, 100..."
-                        value={formTotalStock}
-                        onChange={(e) => setFormTotalStock(e.target.value)}
-                        className="w-full bg-slate-800 border border-green-500/50 rounded-lg px-3 py-2 text-white font-mono font-bold text-green-300 focus:border-green-500 focus:ring-2 focus:ring-green-500/30"
-                      />
-                      <p className="text-[10px] text-green-400/80 mt-1 font-urdu">
-                        گی جیسے 10 پیکٹ تیل، بس COLлек ٹوٹل لکھ دیں - کوئی کٹن/باکس نہیں
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block font-semibold text-slate-300 mb-1">Purchase Price / Unit (خریداری قیمت) :</label>
-                      <input
-                        type="number"
-                        step="any"
-                        min="0"
-                        placeholder="e.g. 280"
-                        value={formPurchasePrice}
-                        onChange={(e) => setFormPurchasePrice(e.target.value)}
-                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block font-semibold text-slate-300 mb-1">Sale Price / Unit (فروخت قیمت) :</label>
-                      <input
-                        type="number"
-                        step="any"
-                        min="0"
-                        placeholder="e.g. 300"
-                        value={formSalePrice}
-                        onChange={(e) => setFormSalePrice(e.target.value)}
-                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono font-bold text-emerald-400"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* PACKAGED ITEM MODE - Package Count + Qty Per Package + Rates */}
-                {formPackageType !== 'single' && (
-                  <div className="space-y-3 pt-2 border-t border-slate-800/80">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-300 mb-1 text-amber-400">
-                          Kitny {formPackageType === 'carton' ? 'CTN' : formPackageType === 'bag' ? 'Bags' : formPackageType === 'box' ? 'Boxes' : formPackageType === 'packet' ? 'Packets' : 'Tins'} Hain (پیکیج کی تعداد) * :
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="1"
-                          placeholder={formPackageType === 'carton' ? 'e.g. 5 CTN' : formPackageType === 'bag' ? 'e.g. 10 Bags' : formPackageType === 'box' ? 'e.g. 20 Boxes' : formPackageType === 'packet' ? 'e.g. 50 Packets' : 'e.g. 8 Tins'}
-                          value={formPackageCount}
-                          onChange={(e) => setFormPackageCount(e.target.value)}
-                          className="w-full bg-slate-800 border border-amber-500/50 rounded-lg px-3 py-2 text-white font-mono font-bold text-amber-300 focus:border-amber-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-300 mb-1 text-sky-400">
-                          Qty Per {formPackageType === 'carton' ? 'CTN' : formPackageType === 'bag' ? 'Bag' : formPackageType === 'box' ? 'Box' : formPackageType === 'packet' ? 'Packet' : 'Tin'} (فی پیکیج مقدار) * :
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          step="any"
-                          placeholder={formPackageType === 'carton' ? 'e.g. 15 pcs/CTN' : formPackageType === 'bag' ? 'e.g. 50 kg/Bag' : formPackageType === 'box' ? 'e.g. 24 pcs/Box' : formPackageType === 'packet' ? 'e.g. 10 units/Pack' : 'e.g. 16 Ltr/Tin'}
-                          value={formQtyPerPackage}
-                          onChange={(e) => setFormQtyPerPackage(e.target.value)}
-                          className="w-full bg-slate-800 border border-sky-500/50 rounded-lg px-3 py-2 text-white font-mono font-bold text-sky-300 focus:border-sky-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-300 mb-1 text-rose-400">
-                          Loose / Extra Units (باقی بچے) :
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="any"
-                          placeholder="e.g. 5"
-                          value={formLooseUnits}
-                          onChange={(e) => setFormLooseUnits(e.target.value)}
-                          className="w-full bg-slate-800 border border-rose-500/50 rounded-lg px-3 py-2 text-white font-mono text-rose-300 focus:border-rose-500"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Auto-calculated Total Stock Display */}
-                    <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-700">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-400 font-urdu">ٹوٹل محاسبه شدہ اسٹاک:</span>
-                        <span className="font-bold text-white font-mono text-lg">
-                          {computedTotalStock} Units
-                        </span>
-                        <span className="text-sky-400 font-mono">
-                          = ({computedPkgCount} × {computedQtyPerPkg}) + {computedLooseUnits}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Package Rates Section */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-800/50">
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-300 mb-1">
-                          Purchase Rate Per {formPackageType === 'carton' ? 'CTN' : formPackageType === 'bag' ? 'Bag' : formPackageType === 'box' ? 'Box' : formPackageType === 'packet' ? 'Packet' : 'Tin'} :
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="any"
-                          placeholder="e.g. 4500 per bag"
-                          value={formPackagePurchaseRate}
-                          onChange={(e) => setFormPackagePurchaseRate(e.target.value)}
-                          className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-300 mb-1">
-                          Sale Rate Per {formPackageType === 'carton' ? 'CTN' : formPackageType === 'bag' ? 'Bag' : formPackageType === 'box' ? 'Box' : formPackageType === 'packet' ? 'Packet' : 'Tin'} :
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="any"
-                          placeholder="e.g. 4800 per bag"
-                          value={formPackageSaleRate}
-                          onChange={(e) => setFormPackageSaleRate(e.target.value)}
-                          className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono font-bold text-emerald-400"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-300 mb-1">
-                          Min Sale Rate Per {formPackageType === 'carton' ? 'CTN' : formPackageType === 'bag' ? 'Bag' : formPackageType === 'box' ? 'Box' : formPackageType === 'packet' ? 'Packet' : 'Tin'} :
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="any"
-                          placeholder="e.g. 4600 per bag"
-                          value={formPackageMinSaleRate}
-                          onChange={(e) => setFormPackageMinSaleRate(e.target.value)}
-                          className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Auto-calculated Unit Rates Preview */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px] font-mono text-slate-400 pt-1 border-t border-slate-800/50 bg-slate-900/30 p-2 rounded">
-                      <div className="flex items-center gap-1">
-                        <span className="text-amber-300">Per Unit Purchase:</span>
-                        <strong className="text-white">{currencySymbol()} {computedPurchasePrice.toFixed(2)}</strong>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span className="text-emerald-400">Per Unit Sale:</span>
-                        <strong className="text-white">{currencySymbol()} {computedSalePrice.toFixed(2)}</strong>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span className="text-sky-300">Full Packages:</span>
-                        <strong className="text-white">{computedPkgCount}</strong>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span className="text-rose-300">Loose Units:</span>
-                        <strong className="text-white">{computedLooseUnits}</strong>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Min Quantity & Demand List */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-semibold text-slate-300 mb-1">
-                    Min Quantity :
-                    <span className="text-[10px] text-slate-400 font-normal ml-1.5">
-                      ( Min Quantity for generate demand list )
-                    </span>
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    placeholder="e.g. 5"
-                    value={formMinQuantity}
-                    onChange={(e) => setFormMinQuantity(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-300 mb-1">Comments :</label>
-                  <input
-                    type="text"
-                    value={formComments}
-                    onChange={(e) => setFormComments(e.target.value)}
-                    placeholder="General comments..."
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
-                  />
-                </div>
-              </div>
-
-              {/* Scan Type */}
-              <div className="flex items-center gap-3 pt-1">
-                <span className="font-semibold text-slate-300">Scan Type :</span>
-                <label className="flex items-center gap-2 cursor-pointer hover:text-white">
-                  <input
-                    type="checkbox"
-                    checked={formScanTypeGeneral}
-                    onChange={(e) => setFormScanTypeGeneral(e.target.checked)}
-                    className="rounded border-slate-700 text-blue-600 focus:ring-0"
-                  />
-                  <span>General</span>
-                </label>
-              </div>
-
-              <div className="border-t border-slate-800 pt-3"></div>
-
-              {/* Custom Fields (Image 2) */}
-              <div className="space-y-1">
-                <label className="block font-semibold text-slate-300">Custom Fields :</label>
-                <input
-                  type="text"
-                  value={formCustomFields}
-                  onChange={(e) => setFormCustomFields(e.target.value)}
-                  placeholder="Optional custom attribute / field"
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
-                />
-              </div>
-
-              <div className="border-t border-slate-800 pt-3"></div>
-
-              {/* Image Input (Image 2) */}
-              <div className="space-y-1">
-                <label className="block font-semibold text-slate-300">Image :</label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="file"
-                    accept="image/png, image/jpeg"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (ev) => {
-                          setFormImage(ev.target?.result as string);
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                    className="text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-slate-300 hover:file:bg-slate-700 cursor-pointer"
-                  />
-                  <span className="text-[10px] text-slate-500">PNG, JPG (200PX or 200KB)</span>
-                </div>
-                {formImage && (
-                  <div className="mt-2 w-16 h-16 rounded-lg overflow-hidden border border-slate-700">
-                    <img src={formImage} alt="Preview" className="w-full h-full object-cover" />
-                  </div>
-                )}
-              </div>
-
-              {/* Modal Actions (Save & New Form matching Image 2) */}
-              <div className="pt-4 border-t border-slate-800 flex items-center justify-end gap-2.5">
-                <button
-                  type="button"
-                  onClick={handleOpenAddModal}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold transition cursor-pointer"
-                >
-                  New Form
-                </button>
-
-                <button
-                  type="submit"
-                  disabled={isSubmittingForm}
-                  className="flex items-center gap-1.5 px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold shadow-md shadow-blue-600/30 transition disabled:opacity-50 cursor-pointer"
-                >
-                  <Check className="w-4 h-4" />
-                  <span>{isSubmittingForm ? 'Saving...' : 'Save'}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* ADD / EDIT ITEM HEAD MODAL (Matching Images 1 & 3) */}
+      <AddItemHeadModal
+        isOpen={isFormModalOpen}
+        onClose={() => {
+          setIsFormModalOpen(false);
+          setEditingProduct(null);
+        }}
+        onSuccess={async (saved) => {
+          setIsFormModalOpen(false);
+          setEditingProduct(null);
+          setFeedbackMsg({
+            type: 'success',
+            text: `Item "${saved.name}" saved successfully!`,
+          });
+          if (onRefreshData) {
+            onRefreshData();
+          }
+          fetchMasters();
+        }}
+        initialProduct={editingProduct}
+        categories={categoriesList}
+        brands={brandsList}
+        measures={measuresList}
+        onRefreshMasters={fetchMasters}
+      />
 
       {/* QUICK RESTOCK / ADJUSTMENT MODAL */}
       {restockProduct && (

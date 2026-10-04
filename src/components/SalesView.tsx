@@ -40,6 +40,7 @@ import {
 } from '../types';
 import { api } from '../services/api';
 import { SalesBillReceiptModal } from './SalesBillReceiptModal';
+import { AddItemHeadModal } from './AddItemHeadModal';
 
 interface SalesViewProps {
   products: Product[];
@@ -105,6 +106,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
   const [itemTitle, setItemTitle] = useState<string>('');
   const [itemCategory, setItemCategory] = useState<string>('General');
   const [itemMCode, setItemMCode] = useState<string>('');
+  const [itemPackageType, setItemPackageType] = useState<string>('Carton');
   const [ctn, setCtn] = useState<number | ''>(1);
   const [ratePerCtn, setRatePerCtn] = useState<number | ''>('');
   const [qtyPerCtn, setQtyPerCtn] = useState<number | ''>(1);
@@ -113,6 +115,12 @@ export const SalesView: React.FC<SalesViewProps> = ({
   const [discount, setDiscount] = useState<number | ''>(0);
   const [vatPercent, setVatPercent] = useState<number | ''>(5);
   const [itemStock, setItemStock] = useState<number>(0);
+
+  // Quick add item modal & masters
+  const [isAddProductModalOpen, setIsAddProductModalOpen] = useState<boolean>(false);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [brands, setBrands] = useState<string[]>([]);
+  const [measures, setMeasures] = useState<string[]>([]);
 
   // Live item search dropdown
   const [isItemDropdownOpen, setIsItemDropdownOpen] = useState(false);
@@ -211,10 +219,26 @@ export const SalesView: React.FC<SalesViewProps> = ({
     }
   };
 
+  const fetchMasters = async () => {
+    try {
+      const [cats, brs, msrs] = await Promise.all([
+        api.getItemCategories().catch(() => []),
+        api.getItemBrands().catch(() => []),
+        api.getItemMeasures().catch(() => []),
+      ]);
+      setCategories(cats);
+      setBrands(brs);
+      setMeasures(msrs);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
     loadCustomersData();
     loadSalesmenData();
     loadNextBillNumber();
+    fetchMasters();
   }, []);
 
   // Close dropdowns on outside click
@@ -266,7 +290,17 @@ export const SalesView: React.FC<SalesViewProps> = ({
     setItemTitle(prod.name);
     setItemCategory(prod.category || 'General');
     setItemMCode(prod.mcode || prod.sku || '');
-    setItemStock(prod.currentQuantity || 0);
+    const rawStock = prod.totalStock !== undefined ? prod.totalStock : (prod.currentQuantity || 0);
+    setItemStock(Number(rawStock) || 0);
+
+    const detectedPkg = prod.packageType || (
+      `${prod.category || ''} ${prod.measure || ''}`.toLowerCase().includes('bag') ? 'Bag' :
+      `${prod.category || ''} ${prod.measure || ''}`.toLowerCase().includes('box') ? 'Box' :
+      `${prod.category || ''} ${prod.measure || ''}`.toLowerCase().includes('tin') ? 'Tin' :
+      `${prod.category || ''} ${prod.measure || ''}`.toLowerCase().includes('pack') ? 'Pack' :
+      'Carton'
+    );
+    setItemPackageType(detectedPkg);
 
     const sellPrice = prod.sellingPrice || prod.salePrice || 0;
     setRate(sellPrice);
@@ -277,7 +311,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
     setRatePerCtn(rateCtn);
 
     const c = typeof ctn === 'number' && ctn > 0 ? ctn : 1;
-    setQty(c * qPerCtn);
+    setQty(Number((c * qPerCtn).toFixed(2)));
 
     setIsItemDropdownOpen(false);
     if (ctnInputRef.current) {
@@ -290,10 +324,12 @@ export const SalesView: React.FC<SalesViewProps> = ({
     setCtn(val);
     if (typeof val === 'number') {
       const qpc = typeof qtyPerCtn === 'number' && qtyPerCtn > 0 ? qtyPerCtn : 1;
-      setQty(val * qpc);
+      setQty(Number((val * qpc).toFixed(2)));
       if (typeof rate === 'number' && rate > 0) {
         setRatePerCtn(Number((rate * qpc).toFixed(2)));
       }
+    } else {
+      setQty('');
     }
   };
 
@@ -311,6 +347,8 @@ export const SalesView: React.FC<SalesViewProps> = ({
     if (typeof val === 'number') {
       const qpc = typeof qtyPerCtn === 'number' && qtyPerCtn > 0 ? qtyPerCtn : 1;
       setCtn(Number((val / qpc).toFixed(2)));
+    } else {
+      setCtn('');
     }
   };
 
@@ -379,6 +417,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
       itemTitle: itemTitle.trim(),
       category: itemCategory,
       mcode: itemMCode,
+      packageType: itemPackageType,
       ctn: typeof ctn === 'number' ? ctn : 0,
       ratePerCtn: typeof ratePerCtn === 'number' ? ratePerCtn : 0,
       qtyPerCtn: typeof qtyPerCtn === 'number' ? qtyPerCtn : 1,
@@ -389,6 +428,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
       vatAmount: currentItemVatAmount,
       amount: currentItemTotalAmount,
       stock: itemStock,
+      remainingStock: Math.max(0, Number((itemStock - numericQty).toFixed(2))),
       unit: (activeProduct?.measure || activeProduct?.unit || '').toString().trim() || 'PCS',
     };
 
@@ -398,6 +438,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
     setSelectedProductId('');
     setItemTitle('');
     setItemMCode('');
+    setItemPackageType('Carton');
     setCtn(1);
     setRatePerCtn('');
     setQtyPerCtn(1);
@@ -957,8 +998,17 @@ export const SalesView: React.FC<SalesViewProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
             {/* Item Title Dropdown Search */}
             <div className="sm:col-span-4 relative" ref={itemDropdownRef}>
-              <label className="block text-slate-400 font-semibold mb-1">
-                Item Title <span className="text-emerald-400">*</span>
+              <label className="block text-slate-400 font-semibold mb-1 flex items-center justify-between">
+                <span>Item Title <span className="text-emerald-400">*</span></span>
+                <button
+                  type="button"
+                  onClick={() => setIsAddProductModalOpen(true)}
+                  className="text-[10px] text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-0.5 cursor-pointer bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800"
+                  title="Add New Item Head (+ نیا آئٹم شامل کریں)"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>نیا آئٹم (+)</span>
+                </button>
               </label>
               <div className="relative">
                 <input
@@ -986,11 +1036,12 @@ export const SalesView: React.FC<SalesViewProps> = ({
                   <div className="space-y-1">
                     {filteredProducts.map((p) => {
                       const qCtn = Number(p.qtyInCarton) > 1 ? Number(p.qtyInCarton) : 1;
-                      const stock = Number(p.currentQuantity) || 0;
+                      const stock = Number(p.totalStock !== undefined ? p.totalStock : p.currentQuantity) || 0;
                       const unitName = (p.unit || p.measure || 'Unit').toUpperCase();
                       const isKgOrLtr = unitName.includes('KG') || unitName.includes('LIT') || unitName.includes('LTR');
                       const ctnPart = qCtn > 1 ? Math.floor(stock / qCtn) : 0;
-                      const pcsPart = qCtn > 1 ? stock % qCtn : 0;
+                      const pcsPart = qCtn > 1 ? Number((stock % qCtn).toFixed(2)) : 0;
+                      const pkgName = (p.packageType || 'CTN').toUpperCase();
 
                       return (
                         <div
@@ -1014,16 +1065,16 @@ export const SalesView: React.FC<SalesViewProps> = ({
                             <div className="text-[10px] text-slate-400 flex items-center gap-2">
                               <span>{p.category}</span>
                               <span className="text-emerald-400 font-mono">Unit: {p.unit || p.measure || 'CTN'}</span>
-                              {qCtn > 1 && <span className="text-slate-500 font-mono">({qCtn} pcs/ctn)</span>}
+                              {qCtn > 1 && <span className="text-slate-500 font-mono">({qCtn} {p.measure || p.unit || 'units'}/{pkgName})</span>}
                             </div>
                           </div>
                           <div className="text-right">
                             <div className="font-bold text-emerald-400">{currencySymbol()} {p.sellingPrice || p.price}</div>
                             <div className={`text-[11px] font-mono font-semibold ${stock <= 0 ? 'text-rose-400' : stock <= (p.minStockLevel || 10) ? 'text-amber-400' : 'text-slate-300'}`}>
                               {isKgOrLtr ? (
-                                <span>{stock} {unitName}</span>
+                                <span>{stock} {unitName} {qCtn > 1 && `(${ctnPart} ${pkgName} + ${pcsPart} ${unitName})`}</span>
                               ) : qCtn > 1 ? (
-                                <span>{ctnPart}.{pcsPart} CTN ({stock} pcs)</span>
+                                <span>{ctnPart}.{pcsPart} {pkgName} ({stock} pcs)</span>
                               ) : (
                                 <span>{stock} {unitName}</span>
                               )}
@@ -1052,9 +1103,11 @@ export const SalesView: React.FC<SalesViewProps> = ({
               />
             </div>
 
-            {/* CTN (Cartons) */}
+            {/* CTN / Bag / Packaging */}
             <div className="sm:col-span-1">
-              <label className="block text-slate-400 font-semibold mb-1">CTN</label>
+              <label className="block text-slate-400 font-semibold mb-1 truncate" title={itemPackageType.toUpperCase()}>
+                {itemPackageType.toUpperCase()}
+              </label>
               <input
                 ref={ctnInputRef}
                 type="number"
@@ -1065,9 +1118,11 @@ export const SalesView: React.FC<SalesViewProps> = ({
               />
             </div>
 
-            {/* Rate / CTN */}
+            {/* Rate / Packaging */}
             <div className="sm:col-span-1">
-              <label className="block text-slate-400 font-semibold mb-1">Rate / CTN</label>
+              <label className="block text-slate-400 font-semibold mb-1 truncate" title={`Rate / ${itemPackageType.toUpperCase()}`}>
+                Rate/{itemPackageType.toUpperCase()}
+              </label>
               <input
                 ref={ratePerCtnInputRef}
                 type="number"
@@ -1079,9 +1134,11 @@ export const SalesView: React.FC<SalesViewProps> = ({
               />
             </div>
 
-            {/* Qty / CTN */}
+            {/* Qty / Packaging */}
             <div className="sm:col-span-1">
-              <label className="block text-slate-400 font-semibold mb-1">Qty / CTN</label>
+              <label className="block text-slate-400 font-semibold mb-1 truncate" title={`Qty / ${itemPackageType.toUpperCase()}`}>
+                Qty/{itemPackageType.toUpperCase()}
+              </label>
               <input
                 type="number"
                 step="any"
@@ -1090,7 +1147,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
                   const val = e.target.value === '' ? '' : parseFloat(e.target.value);
                   setQtyPerCtn(val);
                   if (typeof val === 'number' && typeof ctn === 'number') {
-                    setQty(ctn * val);
+                    setQty(Number((ctn * val).toFixed(2)));
                   }
                 }}
                 className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-white font-mono text-xs focus:outline-hidden focus:border-emerald-500 text-right"
@@ -1292,12 +1349,25 @@ export const SalesView: React.FC<SalesViewProps> = ({
 
           {/* Quick Info & Add Button Row */}
           <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-            <div className="flex items-center gap-4 text-xs">
+            <div className="flex flex-wrap items-center gap-4 text-xs">
               <div className="text-slate-400">
                 Current Stock:{' '}
                 <strong className={`font-mono ${itemStock <= 5 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                  {itemStock} units
+                  {itemStock} {activeProduct?.measure || activeProduct?.unit || 'units'}
                 </strong>
+              </div>
+              <div className="text-slate-400">
+                After Sale:{' '}
+                <strong className={`font-mono ${itemStock - numericQty < 0 ? 'text-rose-400' : 'text-sky-300'}`}>
+                  {itemStock - numericQty >= 0
+                    ? `${Number((itemStock - numericQty).toFixed(2))} ${activeProduct?.measure || activeProduct?.unit || 'units'}`
+                    : `SHORT by ${Number((numericQty - itemStock).toFixed(2))}`}
+                </strong>
+                {activeProduct && Number(activeProduct.qtyInCarton) > 1 && itemStock - numericQty >= 0 && (
+                  <span className="text-[11px] text-slate-500 ml-1">
+                    (= {Math.floor((itemStock - numericQty) / Number(activeProduct.qtyInCarton))} {itemPackageType}s + {Number(((itemStock - numericQty) % Number(activeProduct.qtyInCarton)).toFixed(2))} loose)
+                  </span>
+                )}
               </div>
               <div className="text-slate-400">
                 VAT Amount: <strong className="text-white font-mono">{currencySymbol()} {currentItemVatAmount}</strong>
@@ -1589,6 +1659,21 @@ export const SalesView: React.FC<SalesViewProps> = ({
           onClose={() => setIsReceiptModalOpen(false)}
         />
       )}
+
+      {/* Quick Add Item Head Modal (+ Button) */}
+      <AddItemHeadModal
+        isOpen={isAddProductModalOpen}
+        onClose={() => setIsAddProductModalOpen(false)}
+        onSuccess={(newProd) => {
+          handleSelectItem(newProd);
+          if (onRefreshData) onRefreshData();
+          fetchMasters();
+        }}
+        categories={categories}
+        brands={brands}
+        measures={measures}
+        onRefreshMasters={fetchMasters}
+      />
     </div>
   );
 };

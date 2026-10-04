@@ -75,6 +75,7 @@ export interface Product {
   measure?: string;               // Measure / Unit
   unit: UnitType | string;
   companyBrand?: string;          // Company Brands
+  packageType?: string;           // Package Type: Carton, Bag, Box, Tin, Pack
   qtyInCarton?: number;           // Qty In Carton
   ctnPurchaseRate?: number;       // CTN Purchase Rate
   ctnSaleRate?: number;           // CTN Sale Rate
@@ -115,6 +116,7 @@ export interface PurchaseBillItem {
   itemTitle: string;
   category?: string;
   mcode?: string;
+  packageType?: string;           // Carton, Bag, Box, Tin, Pack
   ctn: number;
   ratePerCtn: number;
   qtyPerCtn: number;
@@ -125,6 +127,7 @@ export interface PurchaseBillItem {
   vatAmount: number;
   amount: number;
   stock?: number;
+  newStock?: number;              // Stock after addition
   extraPiece?: number;
   unit?: string;
 }
@@ -663,6 +666,7 @@ export interface SaleBillItem {
   itemTitle: string;
   category?: string;
   mcode?: string;
+  packageType?: string;           // Carton, Bag, Box, Tin, Pack
   ctn: number;
   ratePerCtn: number;
   qtyPerCtn: number;
@@ -673,6 +677,7 @@ export interface SaleBillItem {
   vatAmount: number;
   amount: number;
   stock?: number;
+  remainingStock?: number;        // Stock after sale deduction
   unit?: string;              // Packing unit printed on Tax Invoice (BAG / TIN / CTN)
 }
 

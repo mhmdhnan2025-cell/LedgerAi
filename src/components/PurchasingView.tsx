@@ -30,6 +30,7 @@ import {
   UserRole,
 } from '../types';
 import { api } from '../services/api';
+import { AddItemHeadModal } from './AddItemHeadModal';
 
 interface PurchasingViewProps {
   products: Product[];
@@ -117,7 +118,8 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
   const [itemTitle, setItemTitle] = useState<string>('');
   const [itemCategory, setItemCategory] = useState<string>('General');
   const [itemMCode, setItemMCode] = useState<string>('');
-  const [ctn, setCtn] = useState<number | ''>(1);
+  const [itemPackageType, setItemPackageType] = useState<string>('Carton');
+  const [ctn, setCtn] = useState<number | ''>('');
   const [extraPiece, setExtraPiece] = useState<number | ''>('');
   const [ratePerCtn, setRatePerCtn] = useState<number | ''>('');
   const [qtyPerCtn, setQtyPerCtn] = useState<number | ''>(1);
@@ -318,12 +320,21 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
   const selectedSupplier = suppliers.find((s) => s.id === selectedSupplierId);
   const partyBalance = selectedSupplier ? (selectedSupplier.payableToSupplier ?? selectedSupplier.balanceOwed ?? 0) : 0;
 
-  // Handle Item Selection from dropdown (Image 2)
+  // Handle Item Selection from dropdown (Image 2 & Image 4)
   const handleSelectItem = (prod: Product) => {
     setSelectedProductId(prod.id);
-    setItemTitle(prod.name);
+    setItemTitle(prod.itemTitle || prod.name);
     setItemCategory(typeof prod.category === 'string' ? prod.category : 'General');
     setItemMCode(prod.sku || prod.mcode || '');
+
+    // Resolve packaging type
+    const pkg = prod.packageType ||
+      (prod.category?.toLowerCase().includes('bag') || (prod.measure || '').toLowerCase().includes('bag') ? 'Bag' :
+       prod.category?.toLowerCase().includes('box') || (prod.measure || '').toLowerCase().includes('box') ? 'Box' :
+       prod.category?.toLowerCase().includes('tin') || (prod.measure || '').toLowerCase().includes('tin') ? 'Tin' :
+       prod.category?.toLowerCase().includes('pack') || (prod.measure || '').toLowerCase().includes('pack') ? 'Pack' : 'Carton');
+    setItemPackageType(pkg);
+
     const qInCtn = prod.qtyInCarton && prod.qtyInCarton > 0 ? prod.qtyInCarton : 1;
     setQtyPerCtn(qInCtn);
     setExtraPiece('');
@@ -331,22 +342,21 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
     const ctnRate = prod.ctnPurchaseRate && prod.ctnPurchaseRate > 0
       ? prod.ctnPurchaseRate
       : (prod.purchasePrice * qInCtn);
-    setRatePerCtn(ctnRate);
+    setRatePerCtn(ctnRate > 0 ? ctnRate : '');
 
-    const unitRate = prod.purchasePrice > 0 ? prod.purchasePrice : (ctnRate / qInCtn);
+    const unitRate = prod.purchasePrice > 0 ? prod.purchasePrice : (ctnRate > 0 ? parseFloat((ctnRate / qInCtn).toFixed(3)) : '');
     setRate(unitRate);
 
-    // This screen records the physical stock purchase, so pre-fill the pack
-    // count and total qty straight from the item's current stock position.
+    // Initial stock from catalog
     const stockRaw = Number(prod.totalStock !== undefined ? prod.totalStock : prod.currentQuantity) || 0;
-    if (stockRaw > 0) {
-      setCtn(qInCtn > 0 ? Math.floor(stockRaw / qInCtn) : Math.floor(stockRaw));
-      setQty(stockRaw);
-    } else {
-      setCtn(1);
-      setQty(qInCtn);
-    }
     setItemStock(stockRaw);
+
+    // Exactly matching Screenshot 4: CTN and QTY are empty waiting for input
+    setCtn('');
+    setQty('');
+    setDiscount(0);
+    setVatPercent(5);
+
     if (!keepDropdownOpenOnSelect) {
       setIsItemDropdownOpen(false);
     }
@@ -357,63 +367,75 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
     }, 50);
   };
 
-  const recomputeQty = (c: number | '', ext: number | '', qpc: number | '') => {
-    const numCtn = typeof c === 'number' ? c : 0;
-    const numExt = typeof ext === 'number' ? ext : 0;
-    const numQpc = typeof qpc === 'number' && qpc > 0 ? qpc : 1;
-
-    if (numQpc > 1) {
-      setQty((numCtn * numQpc) + numExt);
+  // When CTN changes: QTY = CTN * qtyPerCtn
+  const handleCtnChange = (val: number | '') => {
+    setCtn(val);
+    if (typeof val === 'number') {
+      const qpc = typeof qtyPerCtn === 'number' && qtyPerCtn > 0 ? qtyPerCtn : 1;
+      setQty(val * qpc);
     } else {
-      if (numExt > 0) {
-        setQty(Number((numCtn + (numExt * 0.1)).toFixed(2)));
-      } else {
-        setQty(numCtn > 0 ? numCtn : '');
-      }
+      setQty('');
     }
   };
 
-  // When CTN, ExtraPiece or QtyPerCtn changes, auto-update QTY
-  const handleCtnChange = (val: number | '') => {
-    setCtn(val);
-    recomputeQty(val, extraPiece, qtyPerCtn);
+  // When QTY changes directly: CTN = QTY / qtyPerCtn
+  const handleQtyDirectChange = (val: number | '') => {
+    setQty(val);
+    if (typeof val === 'number') {
+      const qpc = typeof qtyPerCtn === 'number' && qtyPerCtn > 0 ? qtyPerCtn : 1;
+      setCtn(parseFloat((val / qpc).toFixed(2)));
+    } else {
+      setCtn('');
+    }
   };
 
-  const handleExtraPieceChange = (val: number | '') => {
-    setExtraPiece(val);
-    recomputeQty(ctn, val, qtyPerCtn);
+  // When Rate/CTN changes: Rate = Rate/CTN / qtyPerCtn
+  const handleRatePerCtnChange = (val: number | '') => {
+    setRatePerCtn(val);
+    if (typeof val === 'number') {
+      const qpc = typeof qtyPerCtn === 'number' && qtyPerCtn > 0 ? qtyPerCtn : 1;
+      setRate(parseFloat((val / qpc).toFixed(3)));
+    }
+  };
+
+  // When Rate changes: Rate/CTN = Rate * qtyPerCtn
+  const handleRateChange = (val: number | '') => {
+    setRate(val);
+    if (typeof val === 'number') {
+      const qpc = typeof qtyPerCtn === 'number' && qtyPerCtn > 0 ? qtyPerCtn : 1;
+      setRatePerCtn(parseFloat((val * qpc).toFixed(2)));
+    }
   };
 
   const handleQtyPerCtnChange = (val: number | '') => {
     setQtyPerCtn(val);
-    recomputeQty(ctn, extraPiece, val);
-    if (typeof ratePerCtn === 'number' && typeof val === 'number' && val > 0) {
-      setRate(parseFloat((ratePerCtn / val).toFixed(2)));
+    const qpc = typeof val === 'number' && val > 0 ? val : 1;
+    if (typeof ctn === 'number') {
+      setQty(ctn * qpc);
+    }
+    if (typeof ratePerCtn === 'number' && ratePerCtn > 0) {
+      setRate(parseFloat((ratePerCtn / qpc).toFixed(3)));
     }
   };
 
-  // When Rate/CTN changes, auto-update Unit Rate
-  const handleRatePerCtnChange = (val: number | '') => {
-    setRatePerCtn(val);
-    if (typeof val === 'number') {
-      const qCtn = typeof qtyPerCtn === 'number' && qtyPerCtn > 0 ? qtyPerCtn : 1;
-      setRate(parseFloat((val / qCtn).toFixed(2)));
-    }
-  };
+  // Calculate live row amount matching Screenshot 4
+  const numCtn = typeof ctn === 'number' ? ctn : 0;
+  const numQty = typeof qty === 'number' ? qty : (numCtn * (Number(qtyPerCtn) || 1));
+  const numRate = typeof rate === 'number' ? rate : (typeof ratePerCtn === 'number' && typeof qtyPerCtn === 'number' && qtyPerCtn > 0 ? ratePerCtn / qtyPerCtn : 0);
+  const numRatePerCtn = typeof ratePerCtn === 'number' ? ratePerCtn : (numRate * (Number(qtyPerCtn) || 1));
+  const numDiscount = typeof discount === 'number' ? discount : 0;
 
-  // When user directly inputs QTY (e.g. 25 kg or 4.5 loose)
-  const handleQtyDirectChange = (val: number | '') => {
-    setQty(val);
-  };
-
-  // Calculate live row amount
-  const numericQty = typeof qty === 'number' ? qty : (typeof ctn === 'number' ? ctn * (Number(qtyPerCtn) || 1) : 0);
-  const numericRate = typeof rate === 'number' ? rate : (typeof ratePerCtn === 'number' && typeof qtyPerCtn === 'number' && qtyPerCtn > 0 ? ratePerCtn / qtyPerCtn : 0);
-  const numericDiscount = typeof discount === 'number' ? discount : 0;
-  const lineSubtotal = Math.max(0, (numericQty * numericRate) - numericDiscount);
+  let liveRowGross = 0;
+  if (numCtn > 0 && numRatePerCtn > 0) {
+    liveRowGross = numCtn * numRatePerCtn;
+  } else if (numQty > 0 && numRate > 0) {
+    liveRowGross = numQty * numRate;
+  }
+  const lineSubtotal = Math.max(0, liveRowGross - numDiscount);
   const numericVatPercent = typeof vatPercent === 'number' ? vatPercent : 5;
   const liveRowVatAmount = parseFloat((lineSubtotal * (numericVatPercent / 100)).toFixed(2));
   const liveRowAmount = parseFloat((lineSubtotal + liveRowVatAmount).toFixed(2));
+  const liveRowStockPreview = itemStock + numQty;
 
   // Add Item Action (Triggered by blue [ Enter ] button)
   const handleAddRowItem = () => {
@@ -436,6 +458,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
       itemTitle: itemTitle.trim(),
       category: itemCategory || 'General',
       mcode: itemMCode || '',
+      packageType: itemPackageType,
       ctn: typeof ctn === 'number' ? ctn : 0,
       extraPiece: typeof extraPiece === 'number' ? extraPiece : 0,
       unit: activeProduct?.measure || activeProduct?.unit || 'CTN',
@@ -448,6 +471,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
       vatAmount: liveRowVatAmount,
       amount: liveRowAmount,
       stock: itemStock,
+      newStock: liveRowStockPreview,
     };
 
     setBillItems((prev) => [...prev, newItem]);
@@ -1110,17 +1134,22 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                     </div>
                   </div>
                 </th>
-                <th className="py-2.5 px-2 w-20 text-center text-[10px] leading-tight">CTN/BAG/BOX</th>
-                <th className="py-2.5 px-2 w-20 text-center text-[10px] leading-tight text-amber-300">EXTRA PCS</th>
-                <th className="py-2.5 px-2 w-28 text-right text-[10px] leading-tight">RATE/CTN/BAG/BOX</th>
-                <th className="py-2.5 px-2 w-20 text-center">QTY/CTN</th>
+                <th className="py-2.5 px-2 w-20 text-center text-[10px] leading-tight font-bold text-sky-300">
+                  {itemPackageType === 'Bag' ? 'BAG' : itemPackageType === 'Box' ? 'BOX' : itemPackageType === 'Tin' ? 'TIN' : itemPackageType === 'Pack' ? 'PACK' : 'CTN'}
+                </th>
+                <th className="py-2.5 px-2 w-24 text-right text-[10px] leading-tight font-bold text-sky-300">
+                  RATE/{itemPackageType === 'Bag' ? 'BAG' : itemPackageType === 'Box' ? 'BOX' : itemPackageType === 'Tin' ? 'TIN' : itemPackageType === 'Pack' ? 'PACK' : 'CTN'}
+                </th>
+                <th className="py-2.5 px-2 w-20 text-center text-[10px] leading-tight font-bold text-slate-300">
+                  QTY/{itemPackageType === 'Bag' ? 'BAG' : itemPackageType === 'Box' ? 'BOX' : itemPackageType === 'Tin' ? 'TIN' : itemPackageType === 'Pack' ? 'PACK' : 'CTN'}
+                </th>
                 <th className="py-2.5 px-2 w-20 text-right">QTY</th>
                 <th className="py-2.5 px-2 w-20 text-right">RATE</th>
-                <th className="py-2.5 px-2 w-20 text-right">DISC {currencySymbol()}</th>
+                <th className="py-2.5 px-2 w-20 text-right">DISC RS.</th>
                 <th className="py-2.5 px-2 w-16 text-center">VAT@%</th>
                 <th className="py-2.5 px-2 w-20 text-right">VAT AMOUNT</th>
                 <th className="py-2.5 px-2 w-24 text-right">AMOUNT</th>
-                <th className="py-2.5 px-2 w-16 text-center">STOCK</th>
+                <th className="py-2.5 px-2 w-20 text-center">STOCK</th>
                 <th className="py-2.5 px-2 w-20 text-center">ACTION</th>
               </tr>
             </thead>
@@ -1270,31 +1299,10 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
-                        extraPieceInputRef.current?.focus();
-                      }
-                    }}
-                    className="w-full bg-slate-800 border border-slate-700 rounded px-1.5 py-1 text-center font-mono font-bold text-white text-xs focus:border-sky-500 focus:outline-none"
-                  />
-                </td>
-
-                {/* EXTRA PCS */}
-                <td className="py-2 px-2">
-                  <input
-                    ref={extraPieceInputRef}
-                    type="number"
-                    min="0"
-                    step="1"
-                    placeholder="0"
-                    value={extraPiece}
-                    onChange={(e) => handleExtraPieceChange(e.target.value === '' ? '' : Number(e.target.value))}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
                         ratePerCtnInputRef.current?.focus();
                       }
                     }}
-                    className="w-full bg-slate-800 border border-slate-700 rounded px-1.5 py-1 text-center font-mono font-bold text-amber-300 text-xs focus:border-sky-500 focus:outline-none"
-                    title="Extra loose pieces (e.g. 1 piece with 2 ctns => 2.1)"
+                    className="w-full bg-slate-800 border border-slate-700 rounded px-1.5 py-1 text-center font-mono font-bold text-white text-xs focus:border-sky-500 focus:outline-none"
                   />
                 </td>
 
@@ -1330,7 +1338,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                   />
                 </td>
 
-                {/* QTY (Direct Entry for kg / loose: "ye items selection main quantity b add krwa sku k itna kg") */}
+                {/* QTY (Direct Entry for kg / loose) */}
                 <td className="py-2 px-2">
                   <input
                     ref={qtyInputRef}
@@ -1358,7 +1366,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                     min="0"
                     step="any"
                     value={rate}
-                    onChange={(e) => setRate(e.target.value === '' ? '' : Number(e.target.value))}
+                    onChange={(e) => handleRateChange(e.target.value === '' ? '' : Number(e.target.value))}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
@@ -1403,9 +1411,16 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                   {liveRowAmount.toFixed(2)}
                 </td>
 
-                {/* STOCK */}
-                <td className="py-2 px-2 text-center font-mono text-slate-400">
-                  {itemStock}
+                {/* STOCK (Image 4: shows current stock 868.5 and live updated preview) */}
+                <td className="py-2 px-2 text-center font-mono">
+                  <div className="flex flex-col items-center justify-center">
+                    <span className="text-slate-200 font-bold">{itemStock}</span>
+                    {numQty > 0 && (
+                      <span className="text-[10px] text-emerald-400 font-semibold whitespace-nowrap">
+                        +{numQty} ➔ {liveRowStockPreview}
+                      </span>
+                    )}
+                  </div>
                 </td>
 
                 {/* ACTION: Blue [ Enter ] Button */}
@@ -1426,9 +1441,13 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                 <tr key={item.id} className="hover:bg-slate-800/40 text-slate-300 transition">
                   <td className="py-2 px-3 font-semibold text-white">
                     {index + 1}. {item.itemTitle}
+                    {item.packageType && (
+                      <span className="ml-1.5 px-1.5 py-0.5 rounded bg-sky-950 text-sky-300 border border-sky-800 text-[10px]">
+                        {item.packageType}
+                      </span>
+                    )}
                   </td>
                   <td className="py-2 px-2 text-center font-mono">{item.ctn}</td>
-                  <td className="py-2 px-2 text-center font-mono text-amber-300 font-bold">{item.extraPiece || 0}</td>
                   <td className="py-2 px-2 text-right font-mono">{item.ratePerCtn || '—'}</td>
                   <td className="py-2 px-2 text-center font-mono text-slate-400">{item.qtyPerCtn}</td>
                   <td className="py-2 px-2 text-right font-mono font-bold text-white">{item.qty}</td>
@@ -1439,7 +1458,16 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                   <td className="py-2 px-2 text-right font-mono font-bold text-emerald-400">
                     {item.amount.toFixed(2)}
                   </td>
-                  <td className="py-2 px-2 text-center font-mono text-slate-400">{item.stock ?? 0}</td>
+                  <td className="py-2 px-2 text-center font-mono text-slate-400">
+                    {item.stock !== undefined ? (
+                      <span>
+                        {item.stock}
+                        {item.newStock !== undefined && item.newStock !== item.stock && (
+                          <span className="text-[10px] text-emerald-400 block font-semibold">➔ {item.newStock}</span>
+                        )}
+                      </span>
+                    ) : '—'}
+                  </td>
                   <td className="py-2 px-2 text-center">
                     <button
                       type="button"
@@ -1454,19 +1482,18 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
               ))}
             </tbody>
 
-            {/* Total Row (Image 1) */}
+            {/* Total Row (Image 2 & Image 4) */}
             <tfoot className="bg-slate-950 font-bold border-t border-slate-700 text-white text-xs">
               <tr>
                 <td className="py-2.5 px-3 uppercase tracking-wider text-slate-400">Total</td>
                 <td className="py-2.5 px-2 text-center font-mono text-sky-300">{totalBillCtn.toFixed(2)}</td>
-                <td className="py-2.5 px-2 text-center font-mono text-amber-300">
-                  {billItems.reduce((acc, it) => acc + (it.extraPiece || 0), 0)}
+                <td className="py-2.5 px-2 text-center text-slate-600">---</td>
+                <td className="py-2.5 px-2 text-center text-slate-600">---</td>
+                <td className="py-2.5 px-2 text-right font-mono text-sky-300">{totalBillQty.toFixed(2)}</td>
+                <td className="py-2.5 px-2 text-center text-slate-600">---</td>
+                <td className="py-2.5 px-2 text-right font-mono text-amber-400">
+                  {billItems.reduce((acc, it) => acc + (it.discount || 0), 0).toFixed(2)}
                 </td>
-                <td className="py-2.5 px-2 text-center text-slate-600">---</td>
-                <td className="py-2.5 px-2 text-center text-slate-600">---</td>
-                <td className="py-2.5 px-2 text-right font-mono text-sky-300">{totalBillQty}</td>
-                <td className="py-2.5 px-2 text-center text-slate-600">---</td>
-                <td className="py-2.5 px-2"></td>
                 <td className="py-2.5 px-2 text-center text-slate-600">---</td>
                 <td className="py-2.5 px-2 text-right font-mono text-sky-300">{totalBillVatAmount.toFixed(2)}</td>
                 <td className="py-2.5 px-2 text-right font-mono font-black text-emerald-400 text-sm">
@@ -1575,216 +1602,23 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
         </div>
       </div>
 
-      {/* QUICK ADD PRODUCT MODAL */}
-      {isQuickAddProductOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-            <div className="px-5 py-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
-              <h3 className="font-extrabold text-sm text-white flex items-center gap-2">
-                <Plus className="w-4 h-4 text-sky-400" />
-                <span>Quick Add New Item to Catalog</span>
-              </h3>
-              <button onClick={() => setIsQuickAddProductOpen(false)} className="text-slate-400 hover:text-white">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleQuickAddProduct} className="p-5 space-y-3 text-xs text-slate-300">
-              <div>
-                <label className="block font-semibold mb-1">Item Title / Product Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Alokozay Tea 200g, Shan Masala..."
-                  value={newProdName}
-                  onChange={(e) => setNewProdName(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded p-2 text-white font-bold text-xs focus:border-sky-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <label className="block font-semibold mb-0">Category</label>
-                    <span className="text-[10px] text-blue-400">نیا کیٹیگری +</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <select
-                      value={newProdCategory}
-                      onChange={(e) => setNewProdCategory(e.target.value)}
-                      className="w-full bg-slate-800 border border-slate-700 rounded p-2 text-white text-xs focus:border-sky-500 focus:outline-none"
-                    >
-                      <option value="">-- Select Category --</option>
-                      {categories.map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddCategoryInline(!showAddCategoryInline)}
-                      title="Add New Category"
-                      className="p-2 bg-blue-600 hover:bg-blue-500 text-white rounded font-bold flex items-center justify-center shrink-0 transition shadow-sm cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  {showAddCategoryInline && (
-                    <div className="mt-1.5 p-2 bg-slate-950 border border-blue-500/50 rounded-lg flex items-center gap-2 animate-in fade-in">
-                      <input
-                        type="text"
-                        autoFocus
-                        placeholder="New category name..."
-                        value={newCategoryInline}
-                        onChange={(e) => setNewCategoryInline(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleQuickAddCategory();
-                          }
-                        }}
-                        className="flex-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-xs text-white outline-none focus:border-blue-400"
-                      />
-                      <button
-                        type="button"
-                        disabled={isSavingCategory || !newCategoryInline.trim()}
-                        onClick={() => handleQuickAddCategory()}
-                        className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold rounded cursor-pointer"
-                      >
-                        {isSavingCategory ? 'Saving...' : 'Add'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowAddCategoryInline(false);
-                          setNewCategoryInline('');
-                        }}
-                        className="text-slate-400 hover:text-white px-1 text-xs cursor-pointer"
-                      >
-                        &times;
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <label className="block font-semibold mb-0">Measure / Unit</label>
-                    <span className="text-[10px] text-teal-400">نیا یونٹ +</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <select
-                      value={newProdMeasure}
-                      onChange={(e) => setNewProdMeasure(e.target.value)}
-                      className="w-full bg-slate-800 border border-slate-700 rounded p-2 text-white text-xs focus:border-teal-500 focus:outline-none"
-                    >
-                      <option value="">-- Select Measure --</option>
-                      {measures.map((m) => (
-                        <option key={m} value={m}>{m}</option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddMeasureInline(!showAddMeasureInline)}
-                      title="Add New Measure"
-                      className="p-2 bg-teal-600 hover:bg-teal-500 text-white rounded font-bold flex items-center justify-center shrink-0 transition shadow-sm cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  {showAddMeasureInline && (
-                    <div className="mt-1.5 p-2 bg-slate-950 border border-teal-500/50 rounded-lg flex items-center gap-2 animate-in fade-in">
-                      <input
-                        type="text"
-                        autoFocus
-                        placeholder="New unit (e.g. KG, CTN, PCS)..."
-                        value={newMeasureInline}
-                        onChange={(e) => setNewMeasureInline(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleQuickAddMeasure();
-                          }
-                        }}
-                        className="flex-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-xs text-white outline-none focus:border-teal-400"
-                      />
-                      <button
-                        type="button"
-                        disabled={isSavingMeasure || !newMeasureInline.trim()}
-                        onClick={() => handleQuickAddMeasure()}
-                        className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold rounded cursor-pointer"
-                      >
-                        {isSavingMeasure ? 'Saving...' : 'Add'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowAddMeasureInline(false);
-                          setNewMeasureInline('');
-                        }}
-                        className="text-slate-400 hover:text-white px-1 text-xs cursor-pointer"
-                      >
-                        &times;
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="block font-semibold mb-1">Qty / CTN</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={newProdQtyInCtn}
-                    onChange={(e) => setNewProdQtyInCtn(Number(e.target.value))}
-                    className="w-full bg-slate-800 border border-slate-700 rounded p-2 text-white text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold mb-1">CTN Purchase Rate</label>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder={currencySymbol()}
-                    value={newProdCtnPurRate}
-                    onChange={(e) => setNewProdCtnPurRate(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full bg-slate-800 border border-slate-700 rounded p-2 text-white text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold mb-1">CTN Sale Rate</label>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder={currencySymbol()}
-                    value={newProdCtnSaleRate}
-                    onChange={(e) => setNewProdCtnSaleRate(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full bg-slate-800 border border-slate-700 rounded p-2 text-white text-xs"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setIsQuickAddProductOpen(false)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isCreatingProduct}
-                  className="px-5 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded font-bold text-xs transition"
-                >
-                  {isCreatingProduct ? 'Adding...' : 'Add Item'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* QUICK ADD PRODUCT / ITEM HEAD MODAL (Matching Image 1 & Image 3) */}
+      <AddItemHeadModal
+        isOpen={isQuickAddProductOpen}
+        onClose={() => setIsQuickAddProductOpen(false)}
+        onSuccess={(createdProduct) => {
+          onRefreshData?.();
+          handleSelectItem(createdProduct);
+        }}
+        categories={categories}
+        brands={brands}
+        measures={measures}
+        onRefreshMasters={() => {
+          api.getItemCategories().then(setCategories).catch(() => {});
+          api.getItemBrands().then(setBrands).catch(() => {});
+          api.getItemMeasures().then(setMeasures).catch(() => {});
+        }}
+      />
 
       {/* QUICK ADD SUPPLIER MODAL */}
       {isQuickAddSupplierOpen && (

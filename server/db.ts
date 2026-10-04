@@ -3344,6 +3344,7 @@ class DatabaseService {
       lowStockAlert: currentQuantity <= minStockLevel,
       description: prodData.description || '',
       companyBrand: prodData.companyBrand || '',
+      packageType: prodData.packageType || 'Carton',
       qtyInCarton,
       ctnPurchaseRate,
       ctnSaleRate: Number(prodData.ctnSaleRate) || 0,
