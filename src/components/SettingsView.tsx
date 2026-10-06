@@ -45,6 +45,7 @@ import { ReportsView } from './ReportsView';
 import { CustomerManagementView } from './CustomerManagementView';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import { CashBankManagementView } from './CashBankManagementView';
+import { ExpenseAccountsManagementView } from './ExpenseAccountsManagementView';
 import { api } from '../services/api';
 
 interface SettingsViewProps {
@@ -75,6 +76,7 @@ type SettingsSubSection =
   | 'users'
   | 'password'
   | 'banks'
+  | 'expenseAccounts'
   | 'categories'
   | 'brands'
   | 'measures';
@@ -685,6 +687,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           onDataMutated={onRefreshData}
         />
       </div>
+    );
+  }
+
+  // If the user selected Expense Accounts Management
+  if (activeSection === 'expenseAccounts') {
+    return (
+      <ExpenseAccountsManagementView
+        onBackToSettings={() => setActiveSection('overview')}
+        onDataMutated={onRefreshData}
+      />
     );
   }
 
@@ -1910,6 +1922,37 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
           <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-xs text-sky-400 font-semibold">
             <span>Manage Banks</span>
+            <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+          </div>
+        </div>
+
+        {/* 5c. Expense Accounts Management */}
+        <div
+          id="setting-card-expense-accounts"
+          onClick={() => setActiveSection('expenseAccounts')}
+          className="bg-slate-900/90 border border-slate-800 hover:border-amber-500/60 rounded-xl p-4 transition-all duration-150 hover:bg-slate-800/60 cursor-pointer group shadow-sm flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 group-hover:scale-105 transition-transform">
+                <Layers className="w-5 h-5" />
+              </div>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-mono">
+                Expenses Master
+              </span>
+            </div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-amber-400 transition-colors flex items-center gap-1.5">
+              <span>Expense Accounts</span>
+              <span className="text-[10px] px-1.5 py-0.2 bg-amber-500/15 text-amber-300 rounded font-semibold font-urdu border border-amber-500/30">
+                اخراجات کے کھاتے
+              </span>
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+              Administrative, Others, Freight Expenses (Electricity, Rent, Petrol, Food, Salaries...)
+            </p>
+          </div>
+          <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-xs text-amber-400 font-semibold">
+            <span>Manage Expense Accounts</span>
             <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
           </div>
         </div>

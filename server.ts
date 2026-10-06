@@ -1387,6 +1387,32 @@ app.put('/api/cash-accounts/:id', (req, res) => {
   }
 });
 
+app.get('/api/expense-accounts', (req, res) => {
+  try {
+    res.json(db.getExpenseAccounts());
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/expense-accounts', (req, res) => {
+  try {
+    const acc = db.createExpenseAccount(req.body);
+    res.status(201).json(acc);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete('/api/expense-accounts/:id', (req, res) => {
+  try {
+    const ok = db.deleteExpenseAccount(req.params.id);
+    res.json({ success: ok });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/accounts/gl', (req, res) => {
   try {
     res.json(db.getGlAccounts());

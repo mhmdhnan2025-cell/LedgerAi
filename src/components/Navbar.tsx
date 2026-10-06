@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { BusinessSummary, CompanyProfile, SmartAlert, User, UserRole } from '../types';
 
-export type AppTheme = 'cream' | 'pearl' | 'sand' | 'dark';
+export type AppTheme = 'cream' | 'pearl' | 'sand' | 'dark' | 'dark_blue' | 'light_blue';
 
 export interface NavbarProps {
   currentTab?: string;
@@ -136,6 +136,20 @@ export const Navbar: React.FC<NavbarProps> = ({
       urdu: 'اصل ڈارک (نائٹ)',
       desc: 'Original deep slate high-contrast dark theme',
       icon: '🌙',
+    },
+    {
+      id: 'dark_blue',
+      name: 'Royal Dark Blue',
+      urdu: 'گہرا نیلا (ڈارک نائٹ)',
+      desc: 'Deep royal navy blue with high-contrast text and glowing accents',
+      icon: '🌌',
+    },
+    {
+      id: 'light_blue',
+      name: 'Sky Ice Blue',
+      urdu: 'ہلکا نیلا (لائٹ ڈے)',
+      desc: 'Crisp corporate daylight sky-blue shade with crystal clear contrast',
+      icon: '❄️',
     },
   ];
 

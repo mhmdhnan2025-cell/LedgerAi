@@ -401,8 +401,20 @@ export interface Expense {
   paymentMethod?: string;
   bankId?: string;
   bankTitle?: string;
+  voucherId?: string;
   createdAt: string;
 }
+
+export interface ExpenseAccount {
+  id: string;
+  expenseType: string;
+  name: string;
+  code: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type AppTheme = 'cream' | 'pearl' | 'sand' | 'dark' | 'dark_blue' | 'light_blue';
 
 export interface AuditLog {
   id: string;

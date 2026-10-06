@@ -90,6 +90,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
 
   // Line Item Entry State
   const [selectedAccountId, setSelectedAccountId] = useState('');
+  const [accountSearch, setAccountSearch] = useState('');
   const [chequeNo, setChequeNo] = useState('');
   const [chequeDate, setChequeDate] = useState(getTodayFormatted());
   const [isChequeCalendarOpen, setIsChequeCalendarOpen] = useState(false);
@@ -199,6 +200,17 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
 
   // Current Selected Entry Account
   const currentEntryAccount = glAccounts.find((a) => a.id === selectedAccountId || a.code === selectedAccountId);
+
+  // Grouped and Search-Filtered GL Accounts
+  const filteredGlAccounts = glAccounts.filter((a) => {
+    if (!accountSearch.trim()) return true;
+    const q = accountSearch.trim().toLowerCase();
+    return a.title.toLowerCase().includes(q) || a.code.toLowerCase().includes(q) || a.type.toLowerCase().includes(q);
+  });
+  const filteredExpAccounts = filteredGlAccounts.filter((a) => a.type === 'Expense');
+  const filteredCustAccounts = filteredGlAccounts.filter((a) => a.type === 'Customer');
+  const filteredSuppAccounts = filteredGlAccounts.filter((a) => a.type === 'Supplier');
+  const filteredBankCashAccounts = filteredGlAccounts.filter((a) => a.type === 'Bank' || a.type === 'Cash');
 
   // Reset entry line
   const resetEntryLine = () => {
@@ -905,11 +917,29 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-12 gap-2 text-xs items-end">
                 {/* ACCOUNT / G/L ACCOUNT */}
                 <div className={activeTab.startsWith('bank') ? 'md:col-span-3' : activeTab === 'journalVoucher' || activeTab === 'cashBook' ? 'md:col-span-4' : 'md:col-span-4'}>
-                  <div className="flex items-center justify-between pb-1">
-                    <span className="font-bold text-slate-300 uppercase tracking-wider">
+                  <div className="flex items-center justify-between pb-1 gap-1">
+                    <span className="font-bold text-slate-300 uppercase tracking-wider shrink-0">
                       {activeTab.startsWith('bank') ? 'G/L ACCOUNT' : 'ACCOUNT'}
                     </span>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 ml-auto">
+                      <input
+                        type="text"
+                        value={accountSearch}
+                        onChange={(e) => setAccountSearch(e.target.value)}
+                        placeholder="Search A/c..."
+                        className="bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-[11px] text-white w-24 outline-none focus:border-sky-500 placeholder-slate-500"
+                        title="Search accounts by code or name"
+                      />
+                      {accountSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setAccountSearch('')}
+                          className="text-slate-400 hover:text-white text-[10px] px-1"
+                          title="Clear search"
+                        >
+                          ✕
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => setIsQuickAddOpen(true)}
@@ -935,12 +965,51 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                     required
                     className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white outline-none focus:border-sky-500 text-xs font-medium"
                   >
-                    <option value="">Select Account / Customer...</option>
-                    {glAccounts.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.code} - {a.title} ({a.type})
-                      </option>
-                    ))}
+                    <option value="">Nothing selected (Select Account...)</option>
+
+                    {/* 1. Expense Accounts */}
+                    {filteredExpAccounts.length > 0 && (
+                      <optgroup label="💼 Expense Accounts (اخراجات کے کھاتے)">
+                        {filteredExpAccounts.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.title} {a.code}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+
+                    {/* 2. Customers */}
+                    {filteredCustAccounts.length > 0 && (
+                      <optgroup label="👥 Customers (کسٹمرز / گاہک)">
+                        {filteredCustAccounts.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.title} {a.code}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+
+                    {/* 3. Suppliers */}
+                    {filteredSuppAccounts.length > 0 && (
+                      <optgroup label="🏢 Suppliers / Vendors (سپلائرز / کمپنیاں)">
+                        {filteredSuppAccounts.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.title} {a.code}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+
+                    {/* 4. Banks & Cash */}
+                    {filteredBankCashAccounts.length > 0 && (
+                      <optgroup label="🏦 Banks & Cash (بینک اور کیش)">
+                        {filteredBankCashAccounts.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.title} {a.code}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
 
                   {/* Account Live Balance Display (Under Account Dropdown as shown in Image 1, 3, 5) */}

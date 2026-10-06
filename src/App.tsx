@@ -72,12 +72,12 @@ export default function App() {
       if (typeof window !== 'undefined' && window.location.search) {
         const urlParams = new URLSearchParams(window.location.search);
         const urlTheme = urlParams.get('theme') as AppTheme;
-        if (urlTheme && ['cream', 'pearl', 'sand', 'dark'].includes(urlTheme)) {
+        if (urlTheme && ['cream', 'pearl', 'sand', 'dark', 'dark_blue', 'light_blue'].includes(urlTheme)) {
           return urlTheme;
         }
       }
       const saved = localStorage.getItem('erp_theme') as AppTheme;
-      if (saved && ['cream', 'pearl', 'sand', 'dark'].includes(saved)) {
+      if (saved && ['cream', 'pearl', 'sand', 'dark', 'dark_blue', 'light_blue'].includes(saved)) {
         return saved;
       }
     } catch (e) {

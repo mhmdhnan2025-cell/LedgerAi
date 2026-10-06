@@ -148,7 +148,10 @@ function cashMovementOn(ctx: LedgerContext, date: string): { cashIn: number; cas
   }
   for (const expense of ctx.expenses) {
     if (db.normalizeDateToYMD(expense.date) !== date) continue;
-    cashOut += Number(expense.amount) || 0;
+    const pm = (expense.paymentMethod || 'Cash').toLowerCase();
+    if (!pm.includes('bank') && !pm.includes('cheque') && !pm.includes('transfer')) {
+      cashOut += Number(expense.amount) || 0;
+    }
   }
 
   return { cashIn, cashOut };
@@ -165,6 +168,13 @@ function bankMovementOn(ctx: LedgerContext, date: string): { bankIn: number; ban
   for (const bill of ctx.purchaseBills) {
     if (db.normalizeDateToYMD(bill.date) !== date) continue;
     if (!bill.isCash) bankOut += Number(bill.paidAmount) || 0;
+  }
+  for (const expense of ctx.expenses) {
+    if (db.normalizeDateToYMD(expense.date) !== date) continue;
+    const pm = (expense.paymentMethod || 'Cash').toLowerCase();
+    if (pm.includes('bank') || pm.includes('cheque') || pm.includes('transfer')) {
+      bankOut += Number(expense.amount) || 0;
+    }
   }
 
   return { bankIn, bankOut };

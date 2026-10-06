@@ -33,6 +33,7 @@ import {
   VoucherFilterParams,
   CashRecoveredReportItem,
   CashPaidReportItem,
+  ExpenseAccount,
 } from '../types';
 import { OfflineStorageService } from './offlineStorage';
 import { setCurrency } from '../utils/currency';
@@ -1509,6 +1510,33 @@ export const api = {
       throw new Error(err.error || 'Failed to update cash account');
     }
     return res.json();
+  },
+
+  async getExpenseAccounts(): Promise<ExpenseAccount[]> {
+    const res = await fetch('/api/expense-accounts');
+    if (!res.ok) throw new Error('Failed to load expense accounts');
+    return res.json();
+  },
+
+  async createExpenseAccount(data: { expenseType: string; name: string; code?: string }): Promise<ExpenseAccount> {
+    const res = await fetch('/api/expense-accounts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to create expense account');
+    }
+    return res.json();
+  },
+
+  async deleteExpenseAccount(id: string): Promise<boolean> {
+    const res = await fetch(`/api/expense-accounts/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new Error('Failed to delete expense account');
+    return true;
   },
 
   async getGlAccounts(): Promise<GlAccountOption[]> {

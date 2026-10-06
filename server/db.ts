@@ -60,6 +60,7 @@ import {
   NextVoucherNumbers,
   CashRecoveredReportItem,
   CashPaidReportItem,
+  ExpenseAccount,
 } from '../src/types';
 
 export interface DatabaseSchema {
@@ -89,6 +90,7 @@ export interface DatabaseSchema {
   customerCountries: string[];
   banks?: BankAccount[];
   cashAccounts?: CashAccount[];
+  expenseAccounts?: ExpenseAccount[];
   vouchers?: Voucher[];
   nextJvNumber?: number;
   nextVoucherNumbers?: Record<string, number>;
@@ -1320,6 +1322,32 @@ export const DEFAULT_SEED_CASH_ACCOUNTS: CashAccount[] = [
   },
 ];
 
+export const DEFAULT_SEED_EXPENSE_ACCOUNTS: ExpenseAccount[] = [
+  // Administrative Expenses (030102...)
+  { id: 'exp-0301020001', expenseType: 'Administrative Expenses', name: 'Utility Bills', code: '030102001' },
+  { id: 'exp-0301020002', expenseType: 'Administrative Expenses', name: 'Entertanment', code: '030102002' },
+  { id: 'exp-0301020003', expenseType: 'Administrative Expenses', name: 'Travelling', code: '030102003' },
+  { id: 'exp-0301020006', expenseType: 'Administrative Expenses', name: 'Petrol', code: '030102006' },
+  { id: 'exp-0301020007', expenseType: 'Administrative Expenses', name: 'Rent', code: '0301020007' },
+  { id: 'exp-0301020008', expenseType: 'Administrative Expenses', name: 'Electricity Bill', code: '0301020008' },
+
+  // Others Expenses (030103...)
+  { id: 'exp-0301030001', expenseType: 'Others Expenses', name: 'Food Expense', code: '0301030001' },
+  { id: 'exp-0301030002', expenseType: 'Others Expenses', name: 'Electricity Bill', code: '0301030002' },
+  { id: 'exp-0301030003', expenseType: 'Others Expenses', name: 'Mobile Phone Expense', code: '0301030003' },
+  { id: 'exp-0301030004', expenseType: 'Others Expenses', name: 'Building Rent', code: '0301030004' },
+  { id: 'exp-0301030005', expenseType: 'Others Expenses', name: 'Visa Expense', code: '0301030005' },
+  { id: 'exp-0301030006', expenseType: 'Others Expenses', name: 'Repairing and Maintenance', code: '0301030006' },
+  { id: 'exp-0301030007', expenseType: 'Others Expenses', name: 'Fuel Expense', code: '0301030007' },
+  { id: 'exp-0301030008', expenseType: 'Others Expenses', name: 'Stationary Expense', code: '0301030008' },
+  { id: 'exp-0301030009', expenseType: 'Others Expenses', name: 'Miscellaneous Expense', code: '0301030009' },
+  { id: 'exp-0301030010', expenseType: 'Others Expenses', name: 'Salary', code: '0301030010' },
+
+  // Freight Expenses (030106...)
+  { id: 'exp-0301060001', expenseType: 'Freight Expenses', name: 'Purchase Freight', code: '030106001' },
+  { id: 'exp-0301060002', expenseType: 'Freight Expenses', name: 'Freight Expenses', code: '0301060002' },
+];
+
 export const DEFAULT_NEXT_JV_NUMBER = 19694;
 export const DEFAULT_NEXT_VOUCHER_NUMBERS: Record<VoucherType, number> = {
   BR: 1,
@@ -1360,6 +1388,7 @@ export function getCleanEmptyData(): DatabaseSchema {
     customerCountries: [...DEFAULT_CUSTOMER_COUNTRIES],
     banks: [...DEFAULT_SEED_BANKS],
     cashAccounts: [...DEFAULT_SEED_CASH_ACCOUNTS],
+    expenseAccounts: [...DEFAULT_SEED_EXPENSE_ACCOUNTS],
     vouchers: [],
     nextJvNumber: DEFAULT_NEXT_JV_NUMBER,
     nextVoucherNumbers: { ...DEFAULT_NEXT_VOUCHER_NUMBERS },
@@ -1839,6 +1868,10 @@ class DatabaseService {
           // Ensure Cash in Hand Accounts are initialized
           if (!Array.isArray(parsed.cashAccounts) || parsed.cashAccounts.length === 0) {
             parsed.cashAccounts = [...DEFAULT_SEED_CASH_ACCOUNTS];
+          }
+          // Ensure Expense Accounts are initialized
+          if (!Array.isArray(parsed.expenseAccounts) || parsed.expenseAccounts.length === 0) {
+            parsed.expenseAccounts = [...DEFAULT_SEED_EXPENSE_ACCOUNTS];
           }
           // Ensure Vouchers are initialized
           if (!Array.isArray(parsed.vouchers)) {
@@ -6861,30 +6894,21 @@ class DatabaseService {
     const absBalance = Number(Math.abs(netCashInHand).toFixed(2));
     const balanceType: 'DR' | 'CR' = netCashInHand >= 0 ? 'DR' : 'CR';
 
-    // Standard Real Main Cash in Hand
-    const mainAccount: CashAccount = {
+    // Single Real Cash in Hand Account (e.g. Hannan)
+    const nonAdminUser = (this.data.users || []).find((u) => u.name && u.name.toLowerCase() !== 'admin');
+    const cashTitle = nonAdminUser ? `Cash in Hand (${nonAdminUser.name})` : 'Cash in Hand (خزانہ)';
+
+    const singleCashAccount: CashAccount = {
       id: 'cash-0101010001',
       accountCode: '0101010001',
-      title: 'Cash in Hand (خزانہ / کیش رجسٹر)',
+      title: cashTitle,
       balance: absBalance,
-      balanceType,
+      balanceType: absBalance === 0 ? 'DR' : balanceType,
       createdAt: '2026-10-06T00:00:00.000Z',
       updatedAt: new Date().toISOString(),
     };
 
-    // Real users cash desk if configured
-    const userAccounts: CashAccount[] = (this.data.users || [])
-      .filter((u) => u.name && u.name.toLowerCase() !== 'admin')
-      .map((u, idx) => ({
-        id: `cash-usr-${u.id}`,
-        accountCode: `010101000${idx + 2}`,
-        title: `Cash in Hand (${u.name})`,
-        balance: 0,
-        balanceType: 'DR' as const,
-        createdAt: '2026-10-06T00:00:00.000Z',
-      }));
-
-    this.data.cashAccounts = [mainAccount, ...userAccounts];
+    this.data.cashAccounts = [singleCashAccount];
     return this.data.cashAccounts;
   }
 
@@ -6900,6 +6924,56 @@ class DatabaseService {
     list[idx] = updated;
     this.persist();
     return updated;
+  }
+
+  public getExpenseAccounts(): ExpenseAccount[] {
+    if (!Array.isArray(this.data.expenseAccounts) || this.data.expenseAccounts.length === 0) {
+      this.data.expenseAccounts = [...DEFAULT_SEED_EXPENSE_ACCOUNTS];
+    }
+    return this.data.expenseAccounts;
+  }
+
+  public createExpenseAccount(data: { expenseType: string; name: string; code?: string }): ExpenseAccount {
+    const list = this.getExpenseAccounts();
+    const type = data.expenseType.trim() || 'Others Expenses';
+    const name = data.name.trim();
+    if (!name) throw new Error('Account name is required');
+
+    // Auto-generate code if not specified
+    let code = data.code?.trim();
+    if (!code) {
+      let prefix = '030103';
+      if (type.toLowerCase().includes('admin')) prefix = '030102';
+      else if (type.toLowerCase().includes('freight')) prefix = '030106';
+
+      const maxNum = list
+        .filter((a) => a.code.startsWith(prefix))
+        .map((a) => parseInt(a.code.slice(prefix.length), 10) || 0)
+        .reduce((max, n) => Math.max(max, n), 0);
+
+      code = `${prefix}${String(maxNum + 1).padStart(4, '0')}`;
+    }
+
+    const newAcc: ExpenseAccount = {
+      id: `exp-${code}-${Date.now()}`,
+      expenseType: type,
+      name,
+      code,
+      createdAt: new Date().toISOString(),
+    };
+
+    list.push(newAcc);
+    this.persist();
+    return newAcc;
+  }
+
+  public deleteExpenseAccount(id: string): boolean {
+    const list = this.getExpenseAccounts();
+    const idx = list.findIndex((a) => a.id === id || a.code === id);
+    if (idx === -1) return false;
+    list.splice(idx, 1);
+    this.persist();
+    return true;
   }
 
   public getGlAccounts(): GlAccountOption[] {
@@ -6948,7 +7022,7 @@ class DatabaseService {
       });
     });
 
-    // Cash Accounts
+    // Cash Accounts (Single real cash till)
     this.getCashAccounts().forEach((c) => {
       accounts.push({
         id: c.id,
@@ -6961,25 +7035,36 @@ class DatabaseService {
       });
     });
 
-    // Standard Expense Accounts
-    const standardExpenses = [
-      { code: '0501010001', title: 'Petrol & Vehicle Fuel Expense' },
-      { code: '0501010002', title: 'Vehicle Repair & Maintenance' },
-      { code: '0501010003', title: 'Shop & Warehouse Rent' },
-      { code: '0501010004', title: 'Electricity & Utilities' },
-      { code: '0501010005', title: 'Staff Tea & Food Expense' },
-      { code: '0501010006', title: 'Printing & Stationery' },
-      { code: '0501010007', title: 'General & Miscellaneous Expense' },
-    ];
-    standardExpenses.forEach((exp) => {
+    // Real Expense Accounts (Expense Accounts Management)
+    this.getExpenseAccounts().forEach((exp) => {
+      // Calculate total spent on this expense account from vouchers & expenses
+      const spentVouchers = (this.data.vouchers || []).reduce((sum, v) => {
+        const ent = v.entries.find((e) => e.accountId === exp.id || e.accountCode === exp.code || e.accountTitle.toLowerCase().includes(exp.name.toLowerCase()));
+        if (ent) {
+          if (v.voucherType === 'CP' || v.voucherType === 'BP') return sum + (ent.amount || 0);
+          if (v.voucherType === 'CB') return sum + (ent.payment || 0);
+          if (v.voucherType === 'JV') return sum + (ent.debit || 0);
+        }
+        return sum;
+      }, 0);
+
+      const spentExpenses = (this.data.expenses || []).reduce((sum, e) => {
+        if (e.title?.toLowerCase() === exp.name.toLowerCase() || e.category?.toLowerCase() === exp.name.toLowerCase()) {
+          return sum + (e.amount || 0);
+        }
+        return sum;
+      }, 0);
+
+      const totalSpent = Number((spentVouchers + spentExpenses).toFixed(2));
+
       accounts.push({
-        id: `exp-${exp.code}`,
+        id: exp.id,
         code: exp.code,
-        title: exp.title,
+        title: `${exp.name} (${exp.expenseType})`,
         type: 'Expense',
-        balance: 0,
+        balance: totalSpent,
         balanceType: 'DR',
-        balanceFormatted: '0.00 DR',
+        balanceFormatted: `${totalSpent.toFixed(2)} DR (Expense / خرچہ)`,
       });
     });
 
@@ -7277,6 +7362,35 @@ class DatabaseService {
       description: `Posted ${voucherType} Voucher #${voucherNumberFormatted} (JV# ${jvNumber}) for ${currencySymbol()} ${totalAmount.toLocaleString()} by ${userName}`,
     });
 
+    // Sync any Expense line items into this.data.expenses so Daily Master Audit Report & Expenses tab immediately record them!
+    newVoucher.entries.forEach((e, idx) => {
+      const isExpense = e.accountType === 'Expense' || e.accountCode.startsWith('0301') || e.accountId.startsWith('exp-');
+      const amt = Number((e.amount || e.payment || e.debit || 0).toFixed(2));
+      if (isExpense && amt > 0) {
+        const isBank = newVoucher.voucherType === 'BP' || Boolean(newVoucher.bankAccountId);
+        const expCategory = e.accountTitle.includes('(') ? e.accountTitle.split('(')[1].replace(')', '').trim() : 'Operational';
+        const newExp: Expense = {
+          id: `exp-${newVoucher.id}-${idx}`,
+          expenseNumber: `EXP-${newVoucher.voucherNumberFormatted}`,
+          category: expCategory as any,
+          title: e.accountTitle,
+          amount: amt,
+          date: newVoucher.date,
+          scope: 'business_wide',
+          notes: e.narration || `${newVoucher.voucherType} Voucher #${newVoucher.voucherNumberFormatted}`,
+          recordedBy: newVoucher.salesmanTitle || userName,
+          source: 'manual',
+          paymentMethod: isBank ? 'Bank' : 'Cash',
+          bankId: newVoucher.bankAccountId,
+          bankTitle: newVoucher.bankAccountTitle,
+          voucherId: newVoucher.id,
+          createdAt: newVoucher.createdAt,
+        };
+        if (!this.data.expenses) this.data.expenses = [];
+        this.data.expenses.push(newExp);
+      }
+    });
+
     this.recalculateAllLedgers();
     this.persist();
     return newVoucher;
@@ -7353,6 +7467,11 @@ class DatabaseService {
       source: 'manual',
       description: `Deleted Voucher #${voucher.voucherNumberFormatted} (JV# ${voucher.jvNumber}) by ${userName}. Reverted ledger balances.`,
     });
+
+    // Clean up any synced expenses
+    if (this.data.expenses) {
+      this.data.expenses = this.data.expenses.filter((e) => e.voucherId !== voucher.id && !e.id.startsWith(`exp-${voucher.id}`));
+    }
 
     this.recalculateAllLedgers();
     this.persist();

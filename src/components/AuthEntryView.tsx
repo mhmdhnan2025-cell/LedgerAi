@@ -41,10 +41,12 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
     { id: 'pearl', name: 'Pearl Slate', urdu: 'پرل سلور (کول لائٹ)', icon: '💎' },
     { id: 'sand', name: 'Warm Sand', urdu: 'وارم سینڈ (لیٹے)', icon: '☕' },
     { id: 'dark', name: 'Midnight Slate', urdu: 'مڈ نائٹ (ڈارک موڈ)', icon: '🌙' },
+    { id: 'dark_blue', name: 'Royal Dark Blue', urdu: 'گہرا نیلا (ڈارک نائٹ)', icon: '🌌' },
+    { id: 'light_blue', name: 'Sky Ice Blue', urdu: 'ہلکا نیلا (لائٹ ڈے)', icon: '❄️' },
   ];
 
   const activeThemeObj = themeOptions.find((t) => t.id === currentTheme) || themeOptions[0];
-  const isDark = currentTheme === 'dark';
+  const isDark = currentTheme === 'dark' || currentTheme === 'dark_blue';
 
   // Theme-aware styles for crisp contrast in both Light (Cream/Pearl/Sand) and Dark (Midnight)
   const inputWithIconClass = isDark
