@@ -44,6 +44,7 @@ import { SupplierManagementView } from './SupplierManagementView';
 import { ReportsView } from './ReportsView';
 import { CustomerManagementView } from './CustomerManagementView';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
+import { CashBankManagementView } from './CashBankManagementView';
 import { api } from '../services/api';
 
 interface SettingsViewProps {
@@ -69,6 +70,7 @@ type SettingsSubSection =
   | 'suppliers'
   | 'customers'
   | 'employees'
+  | 'cashbank'
   | 'company'
   | 'users'
   | 'password'
@@ -641,6 +643,46 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           companyProfile={companyProfile}
           currentRole={currentUser?.role || 'Admin'}
           onNavigateTab={onNavigateTab}
+        />
+      </div>
+    );
+  }
+
+  // If the user selected Cash / Bank & Vouchers management
+  if (activeSection === 'cashbank' || activeSection === 'banks') {
+    return (
+      <div className="space-y-4">
+        {/* Navigation bar between Settings Hub and sub-views */}
+        <div className="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-xs">
+          <div className="flex items-center gap-2 text-slate-400">
+            <button
+              onClick={() => setActiveSection('overview')}
+              className="hover:text-white transition flex items-center gap-1 font-semibold cursor-pointer"
+            >
+              <Settings className="w-3.5 h-3.5 text-sky-400" />
+              Settings Hub
+            </button>
+            <span>/</span>
+            <span className="text-sky-300 font-bold">
+              {activeSection === 'banks' ? 'Banks Management (بینک کھاتے)' : 'Cash / Bank & Vouchers (کیش اور بینک واؤچرز)'}
+            </span>
+          </div>
+
+          <button
+            onClick={() => setActiveSection('overview')}
+            className="text-xs text-slate-400 hover:text-white px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 transition cursor-pointer"
+          >
+            All Settings Options
+          </button>
+        </div>
+
+        <CashBankManagementView
+          companyProfile={companyProfile}
+          currentUser={currentUser}
+          initialTab={activeSection === 'banks' ? 'banks' : 'cashReceipt'}
+          onBackToSettings={() => setActiveSection('overview')}
+          onNavigateTab={onNavigateTab}
+          onDataMutated={onRefreshData}
         />
       </div>
     );
@@ -1464,6 +1506,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           {/* Quick Sub-Navigation Pills */}
           <div className="flex flex-wrap items-center gap-2">
             <button
+              onClick={() => setActiveSection('cashbank')}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold rounded-xl shadow-md transition cursor-pointer"
+            >
+              <Banknote className="w-3.5 h-3.5" />
+              <span>Cash / Bank &amp; Vouchers (کیش اور بینک)</span>
+            </button>
+
+            <button
               onClick={() => setActiveSection('database')}
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold rounded-xl shadow-md transition cursor-pointer"
             >
@@ -1802,29 +1852,63 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         </div>
 
-        {/* 5. Banks */}
+        {/* 5. Cash / Bank & Vouchers */}
         <div
-          id="setting-card-banks"
-          onClick={() => setActiveSection('banks')}
-          className="bg-slate-900/90 border border-slate-800 hover:border-indigo-500/60 rounded-xl p-4 transition-all duration-150 hover:bg-slate-800/60 cursor-pointer group shadow-sm flex flex-col justify-between"
+          id="setting-card-cashbank"
+          onClick={() => setActiveSection('cashbank')}
+          className="bg-slate-900/90 border border-slate-800 hover:border-emerald-500/60 rounded-xl p-4 transition-all duration-150 hover:bg-slate-800/60 cursor-pointer group shadow-sm flex flex-col justify-between"
         >
           <div>
             <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition-transform">
-                <Landmark className="w-5 h-5" />
+              <div className="w-10 h-10 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition-transform">
+                <Banknote className="w-5 h-5" />
               </div>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
-                {banks.length} Accounts
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-mono">
+                Cash &amp; Bank
               </span>
             </div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors">
-              Banks &amp; Accounts
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-emerald-400 transition-colors flex items-center gap-1.5">
+              <span>Cash / Bank &amp; Vouchers</span>
+              <span className="text-[10px] px-1.5 py-0.2 bg-emerald-500/15 text-emerald-300 rounded font-semibold font-urdu border border-emerald-500/30">
+                کیش اور بینک واؤچرز
+              </span>
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Registered business bank accounts, IBANs, and cash-in-hand vaults.
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+              Cash Receipt, Cash Payment, Bank Receipt, Bank Payment, Cash Book, Journal Voucher &amp; Search.
             </p>
           </div>
-          <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-xs text-indigo-400 font-semibold">
+          <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-xs text-emerald-400 font-semibold">
+            <span>Open Cash / Bank Hub</span>
+            <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+          </div>
+        </div>
+
+        {/* 5b. Banks Management */}
+        <div
+          id="setting-card-banks"
+          onClick={() => setActiveSection('banks')}
+          className="bg-slate-900/90 border border-slate-800 hover:border-sky-500/60 rounded-xl p-4 transition-all duration-150 hover:bg-slate-800/60 cursor-pointer group shadow-sm flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-lg bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-400 group-hover:scale-105 transition-transform">
+                <Landmark className="w-5 h-5" />
+              </div>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30 font-mono">
+                Banks Master
+              </span>
+            </div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-sky-400 transition-colors flex items-center gap-1.5">
+              <span>Banks Management</span>
+              <span className="text-[10px] px-1.5 py-0.2 bg-sky-500/15 text-sky-300 rounded font-semibold font-urdu border border-sky-500/30">
+                بینک کھاتے
+              </span>
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+              Emirates Islamic, Mashreq, Dubai First, RAK Bank, Ajman Bank &amp; add new bank accounts.
+            </p>
+          </div>
+          <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-xs text-sky-400 font-semibold">
             <span>Manage Banks</span>
             <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
           </div>

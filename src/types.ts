@@ -983,6 +983,130 @@ export interface AiLedgerAuditReport {
   };
 }
 
+// -------------------------------------------------------------
+// CASH & BANK MANAGEMENT, VOUCHERS AND ACCOUNTS
+// -------------------------------------------------------------
+export type VoucherType = 'BR' | 'BP' | 'CR' | 'CP' | 'CB' | 'JV';
 
+export interface BankAccount {
+  id: string;
+  companyId?: string;
+  accountCode: string;
+  bankTitle: string;
+  bankType: string;
+  description: string;
+  balance: number;
+  balanceType: 'DR' | 'CR';
+  createdAt?: string;
+  updatedAt?: string;
+}
 
+export interface CashAccount {
+  id: string;
+  companyId?: string;
+  accountCode: string;
+  title: string;
+  balance: number;
+  balanceType: 'DR' | 'CR';
+  createdAt?: string;
+  updatedAt?: string;
+}
 
+export interface GlAccountOption {
+  id: string;
+  code: string;
+  title: string;
+  type: 'Customer' | 'Supplier' | 'Bank' | 'Cash' | 'Expense' | 'General';
+  balance: number;
+  balanceType: 'DR' | 'CR';
+  balanceFormatted: string; // e.g. "148.61 DR"
+}
+
+export interface VoucherEntry {
+  id: string;
+  accountId: string;
+  accountCode: string;
+  accountTitle: string;
+  accountType?: 'Customer' | 'Supplier' | 'Bank' | 'Cash' | 'Expense' | 'General';
+  chequeNo?: string;
+  chequeDate?: string;
+  chequeBank?: string;
+  narration: string;
+  amount: number;
+  debit?: number;
+  credit?: number;
+  receipt?: number;
+  payment?: number;
+}
+
+export interface Voucher {
+  id: string;
+  companyId?: string;
+  voucherType: VoucherType;
+  jvNumber: number;
+  voucherNumber: number;
+  voucherNumberFormatted: string;
+  date: string; // DD-MM-YYYY or YYYY-MM-DD
+  poNumber?: string;
+  bankAccountId?: string;
+  bankAccountTitle?: string;
+  cashAccountId?: string;
+  cashAccountTitle?: string;
+  salesmanId?: string;
+  salesmanTitle?: string;
+  totalAmount: number;
+  entries: VoucherEntry[];
+  status: 'POSTED' | 'DRAFT';
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VoucherFilterParams {
+  voucherType?: string;
+  fromDate?: string;
+  toDate?: string;
+  fromJv?: number | string;
+  toJv?: number | string;
+  search?: string;
+}
+
+export interface CashRecoveredReportItem {
+  srNo: number;
+  voucherId: string;
+  voucherType: VoucherType;
+  voucherNumberFormatted: string;
+  jvNumber: number;
+  date: string;
+  accountCode: string;
+  accountTitle: string;
+  paymentMode: string;
+  narration: string;
+  amount: number;
+}
+
+export interface CashPaidReportItem {
+  srNo: number;
+  voucherId: string;
+  voucherType: VoucherType;
+  voucherNumberFormatted: string;
+  jvNumber: number;
+  date: string;
+  accountCode: string;
+  accountTitle: string;
+  paymentMode: string;
+  narration: string;
+  amount: number;
+}
+
+export interface NextVoucherNumbers {
+  jvNumber: number;
+  voucherNumbers: {
+    BR: number;
+    BP: number;
+    CR: number;
+    CP: number;
+    CB: number;
+    JV: number;
+  };
+}

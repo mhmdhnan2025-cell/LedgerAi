@@ -51,12 +51,13 @@ import { PurchasingView } from './components/PurchasingView';
 import { ReportsView } from './components/ReportsView';
 import { SalesView } from './components/SalesView';
 import { CustomerManagementView } from './components/CustomerManagementView';
+import { CashBankManagementView } from './components/CashBankManagementView';
 import { GeminiApiKeyModal } from './components/GeminiApiKeyModal';
 import { DatabaseBackupModal } from './components/DatabaseBackupModal';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<
-    'aimunshi' | 'sales' | 'purchasing' | 'reports' | 'inventory' | 'restaurants' | 'customers' | 'expenses' | 'suppliers' | 'settings' | 'employees'
+    'aimunshi' | 'sales' | 'purchasing' | 'reports' | 'cashbank' | 'inventory' | 'restaurants' | 'customers' | 'expenses' | 'suppliers' | 'settings' | 'employees'
   >('aimunshi');
   const [currentRole, setCurrentRole] = useState<UserRole>('Admin');
   const [authUser, setAuthUser] = useState<User | null>(() => OfflineStorageService.loadActiveUser());
@@ -601,6 +602,15 @@ export default function App() {
             currentRole={currentRole}
             onRefreshData={() => loadBusinessData(true)}
             onNavigateTab={(tab) => setCurrentTab(tab as any)}
+          />
+        )}
+
+        {currentTab === 'cashbank' && (
+          <CashBankManagementView
+            companyProfile={companyProfile}
+            currentUser={authUser}
+            onNavigateTab={(tab) => setCurrentTab(tab as any)}
+            onDataMutated={() => loadBusinessData(true)}
           />
         )}
 

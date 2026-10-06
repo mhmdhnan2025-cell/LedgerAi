@@ -1320,6 +1320,173 @@ app.put('/api/cash-register', (req, res) => {
 });
 
 // -------------------------------------------------------------
+// CASH & BANK MANAGEMENT, VOUCHERS AND ACCOUNTS ENDPOINTS
+// -------------------------------------------------------------
+app.get('/api/banks', (req, res) => {
+  try {
+    res.json(db.getBanks());
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/banks/:id', (req, res) => {
+  try {
+    const bank = db.getBankById(req.params.id);
+    if (!bank) return res.status(404).json({ error: 'Bank not found' });
+    res.json(bank);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/banks', (req, res) => {
+  try {
+    const userName = (req as any).user?.name || req.body.userName || 'Admin';
+    const bank = db.createBank(req.body, userName);
+    res.status(201).json(bank);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.put('/api/banks/:id', (req, res) => {
+  try {
+    const userName = (req as any).user?.name || req.body.userName || 'Admin';
+    const bank = db.updateBank(req.params.id, req.body, userName);
+    res.json(bank);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete('/api/banks/:id', (req, res) => {
+  try {
+    const userName = (req as any).user?.name || 'Admin';
+    const ok = db.deleteBank(req.params.id, userName);
+    res.json({ success: ok });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/cash-accounts', (req, res) => {
+  try {
+    res.json(db.getCashAccounts());
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/cash-accounts/:id', (req, res) => {
+  try {
+    const account = db.updateCashAccount(req.params.id, req.body);
+    res.json(account);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.get('/api/accounts/gl', (req, res) => {
+  try {
+    res.json(db.getGlAccounts());
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/vouchers/next-numbers', (req, res) => {
+  try {
+    res.json(db.getNextVoucherNumbers());
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/vouchers', (req, res) => {
+  try {
+    const { voucherType, fromDate, toDate, fromJv, toJv, search } = req.query;
+    const vouchers = db.getVouchers({
+      voucherType: voucherType ? String(voucherType) : undefined,
+      fromDate: fromDate ? String(fromDate) : undefined,
+      toDate: toDate ? String(toDate) : undefined,
+      fromJv: fromJv ? String(fromJv) : undefined,
+      toJv: toJv ? String(toJv) : undefined,
+      search: search ? String(search) : undefined,
+    });
+    res.json(vouchers);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/vouchers/:id', (req, res) => {
+  try {
+    const voucher = db.getVoucherById(req.params.id);
+    if (!voucher) return res.status(404).json({ error: 'Voucher not found' });
+    res.json(voucher);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/vouchers', (req, res) => {
+  try {
+    const userName = (req as any).user?.name || req.body.userName || 'Admin';
+    const voucher = db.createVoucher(req.body, userName);
+    res.status(201).json(voucher);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.put('/api/vouchers/:id', (req, res) => {
+  try {
+    const userName = (req as any).user?.name || req.body.userName || 'Admin';
+    const voucher = db.updateVoucher(req.params.id, req.body, userName);
+    res.json(voucher);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete('/api/vouchers/:id', (req, res) => {
+  try {
+    const userName = (req as any).user?.name || 'Admin';
+    const ok = db.deleteVoucher(req.params.id, userName);
+    res.json({ success: ok });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/reports/cash-recovered', (req, res) => {
+  try {
+    const { fromDate, toDate } = req.query;
+    const report = db.getCashRecoveredReport(
+      fromDate ? String(fromDate) : undefined,
+      toDate ? String(toDate) : undefined
+    );
+    res.json(report);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/reports/cash-paid', (req, res) => {
+  try {
+    const { fromDate, toDate } = req.query;
+    const report = db.getCashPaidReport(
+      fromDate ? String(fromDate) : undefined,
+      toDate ? String(toDate) : undefined
+    );
+    res.json(report);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// -------------------------------------------------------------
 // AI LEDGER MASTER BUSINESS AUDIT REPORT
 // -------------------------------------------------------------
 app.get('/api/reports/ledger-audit', (req, res) => {

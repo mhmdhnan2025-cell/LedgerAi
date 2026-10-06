@@ -30,6 +30,8 @@ import { StockHistoryLedgerSection } from './StockHistoryLedgerSection';
 import { CustomerReceivablesReportSection } from './CustomerReceivablesReportSection';
 import { AiLedgerAuditReportSection } from './AiLedgerAuditReportSection';
 import { PurchaseBillVoucherModal } from './PurchaseBillVoucherModal';
+import { CashRecoveredReportSection } from './CashRecoveredReportSection';
+import { CashPaidReportSection } from './CashPaidReportSection';
 
 interface ReportsViewProps {
   suppliers: Supplier[];
@@ -50,7 +52,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 }) => {
   // Breadcrumb / Report sub-tabs
   const [activeReportTab, setActiveReportTab] = useState<
-    'purchases' | 'sales' | 'profit' | 'stockHistory' | 'aiLedgerAudit'
+    'purchases' | 'sales' | 'profit' | 'stockHistory' | 'aiLedgerAudit' | 'cashRecovered' | 'cashPaid'
   >('purchases');
 
   // Filter States (matching Image 3 & 4)
@@ -290,6 +292,28 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               <span>Stock Movement History (اسٹاک کھاتہ)</span>
             </button>
             <button
+              onClick={() => setActiveReportTab('cashRecovered')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                activeReportTab === 'cashRecovered'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Receipt className="w-3.5 h-3.5 text-emerald-300" />
+              <span>Cash Recovered Report (وصولی رپورٹ)</span>
+            </button>
+            <button
+              onClick={() => setActiveReportTab('cashPaid')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                activeReportTab === 'cashPaid'
+                  ? 'bg-rose-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Receipt className="w-3.5 h-3.5 text-rose-300" />
+              <span>Cash Paid Report (ادائیگی رپورٹ)</span>
+            </button>
+            <button
               onClick={() => setActiveReportTab('aiLedgerAudit')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                 activeReportTab === 'aiLedgerAudit'
@@ -305,7 +329,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {onNavigateTab && activeReportTab !== 'aiLedgerAudit' && (
+          {onNavigateTab && activeReportTab !== 'aiLedgerAudit' && activeReportTab !== 'cashRecovered' && activeReportTab !== 'cashPaid' && (
             <button
               onClick={() => onNavigateTab(activeReportTab === 'purchases' ? 'purchasing' : 'sales')}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg border border-slate-700 text-xs font-semibold transition"
@@ -375,6 +399,16 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           companyProfile={companyProfile}
           currentRole={currentRole}
           onRefreshData={onRefreshData}
+        />
+      ) : activeReportTab === 'cashRecovered' ? (
+        <CashRecoveredReportSection
+          companyProfile={companyProfile}
+          onNavigateTab={onNavigateTab}
+        />
+      ) : activeReportTab === 'cashPaid' ? (
+        <CashPaidReportSection
+          companyProfile={companyProfile}
+          onNavigateTab={onNavigateTab}
         />
       ) : (
         <>

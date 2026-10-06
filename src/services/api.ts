@@ -25,6 +25,14 @@ import {
   StockMovementReport,
   AiLedgerAuditReport,
   CashRegister,
+  BankAccount,
+  CashAccount,
+  GlAccountOption,
+  Voucher,
+  NextVoucherNumbers,
+  VoucherFilterParams,
+  CashRecoveredReportItem,
+  CashPaidReportItem,
 } from '../types';
 import { OfflineStorageService } from './offlineStorage';
 import { setCurrency } from '../utils/currency';
@@ -1435,6 +1443,154 @@ export const api = {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to pull from PostgreSQL');
     return data;
+  },
+
+  // -----------------------------------------------------------
+  // CASH & BANK MANAGEMENT, VOUCHERS AND ACCOUNTS
+  // -----------------------------------------------------------
+  async getBanks(): Promise<BankAccount[]> {
+    const res = await fetch('/api/banks');
+    if (!res.ok) throw new Error('Failed to load banks');
+    return res.json();
+  },
+
+  async getBankById(id: string): Promise<BankAccount> {
+    const res = await fetch(`/api/banks/${id}`);
+    if (!res.ok) throw new Error('Bank not found');
+    return res.json();
+  },
+
+  async createBank(data: Partial<BankAccount>): Promise<BankAccount> {
+    const res = await fetch('/api/banks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to create bank');
+    }
+    return res.json();
+  },
+
+  async updateBank(id: string, updates: Partial<BankAccount>): Promise<BankAccount> {
+    const res = await fetch(`/api/banks/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to update bank');
+    }
+    return res.json();
+  },
+
+  async deleteBank(id: string): Promise<{ success: boolean }> {
+    const res = await fetch(`/api/banks/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to delete bank');
+    return res.json();
+  },
+
+  async getCashAccounts(): Promise<CashAccount[]> {
+    const res = await fetch('/api/cash-accounts');
+    if (!res.ok) throw new Error('Failed to load cash accounts');
+    return res.json();
+  },
+
+  async updateCashAccount(id: string, updates: Partial<CashAccount>): Promise<CashAccount> {
+    const res = await fetch(`/api/cash-accounts/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to update cash account');
+    }
+    return res.json();
+  },
+
+  async getGlAccounts(): Promise<GlAccountOption[]> {
+    const res = await fetch('/api/accounts/gl');
+    if (!res.ok) throw new Error('Failed to load GL accounts');
+    return res.json();
+  },
+
+  async getNextVoucherNumbers(): Promise<NextVoucherNumbers> {
+    const res = await fetch('/api/vouchers/next-numbers');
+    if (!res.ok) throw new Error('Failed to fetch voucher sequence numbers');
+    return res.json();
+  },
+
+  async getVouchers(params?: VoucherFilterParams): Promise<Voucher[]> {
+    const query = new URLSearchParams();
+    if (params?.voucherType) query.set('voucherType', params.voucherType);
+    if (params?.fromDate) query.set('fromDate', params.fromDate);
+    if (params?.toDate) query.set('toDate', params.toDate);
+    if (params?.fromJv !== undefined && params?.fromJv !== '') query.set('fromJv', String(params.fromJv));
+    if (params?.toJv !== undefined && params?.toJv !== '') query.set('toJv', String(params.toJv));
+    if (params?.search) query.set('search', params.search);
+
+    const res = await fetch(`/api/vouchers?${query.toString()}`);
+    if (!res.ok) throw new Error('Failed to load vouchers');
+    return res.json();
+  },
+
+  async getVoucherById(id: string): Promise<Voucher> {
+    const res = await fetch(`/api/vouchers/${id}`);
+    if (!res.ok) throw new Error('Voucher not found');
+    return res.json();
+  },
+
+  async createVoucher(voucher: Partial<Voucher>): Promise<Voucher> {
+    const res = await fetch('/api/vouchers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(voucher),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to post voucher');
+    }
+    return res.json();
+  },
+
+  async updateVoucher(id: string, voucher: Partial<Voucher>): Promise<Voucher> {
+    const res = await fetch(`/api/vouchers/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(voucher),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to update voucher');
+    }
+    return res.json();
+  },
+
+  async deleteVoucher(id: string): Promise<{ success: boolean }> {
+    const res = await fetch(`/api/vouchers/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to delete voucher');
+    return res.json();
+  },
+
+  async getCashRecoveredReport(fromDate?: string, toDate?: string): Promise<{ items: CashRecoveredReportItem[]; totalAmount: number }> {
+    const query = new URLSearchParams();
+    if (fromDate) query.set('fromDate', fromDate);
+    if (toDate) query.set('toDate', toDate);
+    const res = await fetch(`/api/reports/cash-recovered?${query.toString()}`);
+    if (!res.ok) throw new Error('Failed to load cash recovered report');
+    return res.json();
+  },
+
+  async getCashPaidReport(fromDate?: string, toDate?: string): Promise<{ items: CashPaidReportItem[]; totalAmount: number }> {
+    const query = new URLSearchParams();
+    if (fromDate) query.set('fromDate', fromDate);
+    if (toDate) query.set('toDate', toDate);
+    const res = await fetch(`/api/reports/cash-paid?${query.toString()}`);
+    if (!res.ok) throw new Error('Failed to load cash paid report');
+    return res.json();
   },
 };
 

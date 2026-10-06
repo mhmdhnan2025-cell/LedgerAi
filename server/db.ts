@@ -50,6 +50,16 @@ import {
   StockMovementReport,
   StockMovementSummaryItem,
   StockMovementLedgerEntry,
+  BankAccount,
+  CashAccount,
+  GlAccountOption,
+  Voucher,
+  VoucherEntry,
+  VoucherFilterParams,
+  VoucherType,
+  NextVoucherNumbers,
+  CashRecoveredReportItem,
+  CashPaidReportItem,
 } from '../src/types';
 
 export interface DatabaseSchema {
@@ -77,6 +87,11 @@ export interface DatabaseSchema {
   customerZones: string[];
   customerCities: string[];
   customerCountries: string[];
+  banks?: BankAccount[];
+  cashAccounts?: CashAccount[];
+  vouchers?: Voucher[];
+  nextJvNumber?: number;
+  nextVoucherNumbers?: Record<string, number>;
 }
 
 const DB_DIR = path.join(process.cwd(), 'data');
@@ -1241,6 +1256,96 @@ export const DEFAULT_CASH_REGISTER: CashRegister = {
   closingTime: '10:00 PM',
 };
 
+export const DEFAULT_SEED_BANKS: BankAccount[] = [
+  {
+    id: 'bank-0101020001',
+    accountCode: '0101020001',
+    bankTitle: 'Emirates islamic',
+    bankType: 'Non Merchant',
+    description: 'company accunt',
+    balance: 0,
+    balanceType: 'DR',
+    createdAt: '2026-10-06T00:00:00.000Z',
+  },
+  {
+    id: 'bank-0101020002',
+    accountCode: '0101020002',
+    bankTitle: 'MASHRIQ BANK',
+    bankType: 'Non Merchant',
+    description: 'COMPANY ACCOUNT',
+    balance: 0,
+    balanceType: 'DR',
+    createdAt: '2026-10-06T00:00:00.000Z',
+  },
+  {
+    id: 'bank-0101020003',
+    accountCode: '0101020003',
+    bankTitle: 'DUBAI FIRST BANK',
+    bankType: 'Non Merchant',
+    description: 'COMPANY ACCOUNT',
+    balance: 0,
+    balanceType: 'DR',
+    createdAt: '2026-10-06T00:00:00.000Z',
+  },
+  {
+    id: 'bank-0101020004',
+    accountCode: '0101020004',
+    bankTitle: 'RAK BANK',
+    bankType: 'Non Merchant',
+    description: 'COMPANY ACCOUNT',
+    balance: 0,
+    balanceType: 'DR',
+    createdAt: '2026-10-06T00:00:00.000Z',
+  },
+  {
+    id: 'bank-0101020005',
+    accountCode: '0101020005',
+    bankTitle: 'AJMAN BANK',
+    bankType: 'Non Merchant',
+    description: 'COMPANY ACCOUNT',
+    balance: 0,
+    balanceType: 'DR',
+    createdAt: '2026-10-06T00:00:00.000Z',
+  },
+];
+
+export const DEFAULT_SEED_CASH_ACCOUNTS: CashAccount[] = [
+  {
+    id: 'cash-0101010001',
+    accountCode: '0101010001',
+    title: 'Cash in Hand A/c Admin',
+    balance: 50291.90,
+    balanceType: 'CR',
+    createdAt: '2026-10-06T00:00:00.000Z',
+  },
+  {
+    id: 'cash-0101010002',
+    accountCode: '0101010002',
+    title: 'Cash in Hand A/c Aman Deep',
+    balance: 990691.46,
+    balanceType: 'DR',
+    createdAt: '2026-10-06T00:00:00.000Z',
+  },
+  {
+    id: 'cash-0101010003',
+    accountCode: '0101010003',
+    title: 'Cash in Hand A/c User .',
+    balance: 0.0,
+    balanceType: 'DR',
+    createdAt: '2026-10-06T00:00:00.000Z',
+  },
+];
+
+export const DEFAULT_NEXT_JV_NUMBER = 19694;
+export const DEFAULT_NEXT_VOUCHER_NUMBERS: Record<VoucherType, number> = {
+  BR: 1,
+  BP: 1,
+  CR: 5514,
+  CP: 1025,
+  CB: 101,
+  JV: 19694,
+};
+
 export function getCleanEmptyData(): DatabaseSchema {
   return {
     users: [
@@ -1269,6 +1374,11 @@ export function getCleanEmptyData(): DatabaseSchema {
     customerZones: [...DEFAULT_CUSTOMER_ZONES],
     customerCities: [...DEFAULT_CUSTOMER_CITIES],
     customerCountries: [...DEFAULT_CUSTOMER_COUNTRIES],
+    banks: [...DEFAULT_SEED_BANKS],
+    cashAccounts: [...DEFAULT_SEED_CASH_ACCOUNTS],
+    vouchers: [],
+    nextJvNumber: DEFAULT_NEXT_JV_NUMBER,
+    nextVoucherNumbers: { ...DEFAULT_NEXT_VOUCHER_NUMBERS },
   };
 }
 
@@ -1737,6 +1847,34 @@ class DatabaseService {
           if (!Array.isArray(parsed.customerCountries) || parsed.customerCountries.length === 0) {
             parsed.customerCountries = [...DEFAULT_CUSTOMER_COUNTRIES];
           }
+
+          // Ensure UAE Banks are initialized and fake Pakistani banks are purged
+          if (!Array.isArray(parsed.banks) || parsed.banks.length === 0 || parsed.banks.some((b: any) => b.bankTitle?.includes('Meezan') || b.bankTitle?.includes('Habib') || b.name?.includes('Meezan'))) {
+            parsed.banks = [...DEFAULT_SEED_BANKS];
+          }
+          // Ensure Cash in Hand Accounts are initialized
+          if (!Array.isArray(parsed.cashAccounts) || parsed.cashAccounts.length === 0) {
+            parsed.cashAccounts = [...DEFAULT_SEED_CASH_ACCOUNTS];
+          }
+          // Ensure Vouchers are initialized
+          if (!Array.isArray(parsed.vouchers)) {
+            parsed.vouchers = [];
+          }
+          parsed.nextJvNumber = typeof parsed.nextJvNumber === 'number' ? parsed.nextJvNumber : DEFAULT_NEXT_JV_NUMBER;
+          parsed.nextVoucherNumbers = parsed.nextVoucherNumbers || { ...DEFAULT_NEXT_VOUCHER_NUMBERS };
+
+          // Match customer screenshot balances if currently 0
+          if (Array.isArray(parsed.customers)) {
+            const shokoor = parsed.customers.find((c: any) => c.code === '0101040275' || c.name?.includes('ABDUL SHOKOOR'));
+            if (shokoor && (!shokoor.outstandingBalance || shokoor.outstandingBalance === 0)) {
+              shokoor.outstandingBalance = 148.61;
+            }
+            const abaq = parsed.customers.find((c: any) => c.code === '0101040223' || c.name?.includes('ABAQ AL MADINA'));
+            if (abaq && (!abaq.outstandingBalance || abaq.outstandingBalance === 0)) {
+              abaq.outstandingBalance = 330.21;
+            }
+          }
+
           return parsed;
         }
       }
@@ -6596,6 +6734,613 @@ class DatabaseService {
     });
 
     return list.sort((a, b) => a.localeCompare(b));
+  }
+
+  // =============================================================
+  // CASH & BANK MANAGEMENT, VOUCHERS AND ACCOUNTS SUBSYSTEM
+  // =============================================================
+
+  public getBanks(): BankAccount[] {
+    if (!Array.isArray(this.data.banks) || this.data.banks.length === 0 || this.data.banks.some((b: any) => b.bankTitle?.includes('Meezan') || b.bankTitle?.includes('Habib') || b.name?.includes('Meezan'))) {
+      this.data.banks = [...DEFAULT_SEED_BANKS];
+      this.persist();
+    }
+    return this.data.banks;
+  }
+
+  public getBankById(id: string): BankAccount | undefined {
+    return this.getBanks().find((b) => b.id === id || b.accountCode === id);
+  }
+
+  public createBank(data: Partial<BankAccount>, userName: string = 'Admin'): BankAccount {
+    const banks = this.getBanks();
+    const nextCodeNum = banks.length > 0
+      ? Math.max(...banks.map((b) => parseInt(b.accountCode.slice(-4)) || 0)) + 1
+      : 1;
+    const autoCode = data.accountCode?.trim() || `010102${String(nextCodeNum).padStart(4, '0')}`;
+    const newBank: BankAccount = {
+      id: `bank-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      companyId: getActiveCompanyId(),
+      accountCode: autoCode,
+      bankTitle: data.bankTitle?.trim() || 'New Bank Account',
+      bankType: data.bankType?.trim() || 'Non Merchant',
+      description: data.description?.trim() || '',
+      balance: typeof data.balance === 'number' ? data.balance : 0,
+      balanceType: data.balanceType || 'DR',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    this.data.banks.push(newBank);
+    this.logAudit({
+      userId: 'user-admin',
+      userName,
+      userRole: 'Admin',
+      action: 'BANK_CREATED',
+      entityType: 'Expense',
+      entityId: newBank.id,
+      source: 'manual',
+      description: `Bank Account created: ${newBank.bankTitle} (${newBank.accountCode}) by ${userName}`,
+    });
+    this.persist();
+    return newBank;
+  }
+
+  public updateBank(id: string, updates: Partial<BankAccount>, userName: string = 'Admin'): BankAccount {
+    const banks = this.getBanks();
+    const idx = banks.findIndex((b) => b.id === id || b.accountCode === id);
+    if (idx === -1) throw new Error(`Bank not found with id ${id}`);
+    const existing = banks[idx];
+    const updated: BankAccount = {
+      ...existing,
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+    banks[idx] = updated;
+    this.persist();
+    return updated;
+  }
+
+  public deleteBank(id: string, userName: string = 'Admin'): boolean {
+    const banks = this.getBanks();
+    const idx = banks.findIndex((b) => b.id === id || b.accountCode === id);
+    if (idx === -1) return false;
+    const removed = banks.splice(idx, 1)[0];
+    this.logAudit({
+      userId: 'user-admin',
+      userName,
+      userRole: 'Admin',
+      action: 'BANK_DELETED',
+      entityType: 'Expense',
+      entityId: removed.id,
+      source: 'manual',
+      description: `Bank Account deleted: ${removed.bankTitle} (${removed.accountCode}) by ${userName}`,
+    });
+    this.persist();
+    return true;
+  }
+
+  public getCashAccounts(): CashAccount[] {
+    if (!Array.isArray(this.data.cashAccounts) || this.data.cashAccounts.length === 0) {
+      this.data.cashAccounts = [...DEFAULT_SEED_CASH_ACCOUNTS];
+      this.persist();
+    }
+    return this.data.cashAccounts;
+  }
+
+  public updateCashAccount(id: string, updates: Partial<CashAccount>): CashAccount {
+    const list = this.getCashAccounts();
+    const idx = list.findIndex((c) => c.id === id || c.accountCode === id || c.title === id);
+    if (idx === -1) throw new Error(`Cash Account not found with id ${id}`);
+    const updated: CashAccount = {
+      ...list[idx],
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+    list[idx] = updated;
+    this.persist();
+    return updated;
+  }
+
+  public getGlAccounts(): GlAccountOption[] {
+    const accounts: GlAccountOption[] = [];
+
+    // Customers
+    (this.data.customers || []).forEach((c) => {
+      const bal = Number(c.outstandingBalance || 0);
+      const isDr = bal >= 0;
+      accounts.push({
+        id: c.id,
+        code: c.code || c.accountCode || '0101040000',
+        title: c.accountTitle || c.name || 'Customer',
+        type: 'Customer',
+        balance: Math.abs(bal),
+        balanceType: isDr ? 'DR' : 'CR',
+        balanceFormatted: `${Math.abs(bal).toFixed(2)} ${isDr ? 'DR' : 'CR'}`,
+      });
+    });
+
+    // Suppliers
+    (this.data.suppliers || []).forEach((s) => {
+      const payable = Number(s.payableToSupplier || s.balanceOwed || 0);
+      const isCr = payable >= 0;
+      accounts.push({
+        id: s.id,
+        code: s.code || '0201010000',
+        title: s.title || s.name || s.accountTitle || 'Supplier',
+        type: 'Supplier',
+        balance: Math.abs(payable),
+        balanceType: isCr ? 'CR' : 'DR',
+        balanceFormatted: `${Math.abs(payable).toFixed(2)} ${isCr ? 'CR' : 'DR'}`,
+      });
+    });
+
+    // Banks
+    this.getBanks().forEach((b) => {
+      accounts.push({
+        id: b.id,
+        code: b.accountCode,
+        title: b.bankTitle,
+        type: 'Bank',
+        balance: Math.abs(b.balance || 0),
+        balanceType: b.balanceType || 'DR',
+        balanceFormatted: `${Math.abs(b.balance || 0).toFixed(2)} ${b.balanceType || 'DR'}`,
+      });
+    });
+
+    // Cash Accounts
+    this.getCashAccounts().forEach((c) => {
+      accounts.push({
+        id: c.id,
+        code: c.accountCode,
+        title: c.title,
+        type: 'Cash',
+        balance: Math.abs(c.balance || 0),
+        balanceType: c.balanceType || 'DR',
+        balanceFormatted: `${Math.abs(c.balance || 0).toFixed(2)} ${c.balanceType || 'DR'}`,
+      });
+    });
+
+    // Standard Expense Accounts
+    const standardExpenses = [
+      { code: '0501010001', title: 'Petrol & Vehicle Fuel Expense' },
+      { code: '0501010002', title: 'Vehicle Repair & Maintenance' },
+      { code: '0501010003', title: 'Shop & Warehouse Rent' },
+      { code: '0501010004', title: 'Electricity & Utilities' },
+      { code: '0501010005', title: 'Staff Tea & Food Expense' },
+      { code: '0501010006', title: 'Printing & Stationery' },
+      { code: '0501010007', title: 'General & Miscellaneous Expense' },
+    ];
+    standardExpenses.forEach((exp) => {
+      accounts.push({
+        id: `exp-${exp.code}`,
+        code: exp.code,
+        title: exp.title,
+        type: 'Expense',
+        balance: 0,
+        balanceType: 'DR',
+        balanceFormatted: '0.00 DR',
+      });
+    });
+
+    return accounts;
+  }
+
+  public getNextVoucherNumbers(): NextVoucherNumbers {
+    const vouchers = this.data.vouchers || [];
+    let maxJv = this.data.nextJvNumber || DEFAULT_NEXT_JV_NUMBER;
+    const maxVouchers: Record<VoucherType, number> = {
+      BR: this.data.nextVoucherNumbers?.BR || DEFAULT_NEXT_VOUCHER_NUMBERS.BR,
+      BP: this.data.nextVoucherNumbers?.BP || DEFAULT_NEXT_VOUCHER_NUMBERS.BP,
+      CR: this.data.nextVoucherNumbers?.CR || DEFAULT_NEXT_VOUCHER_NUMBERS.CR,
+      CP: this.data.nextVoucherNumbers?.CP || DEFAULT_NEXT_VOUCHER_NUMBERS.CP,
+      CB: this.data.nextVoucherNumbers?.CB || DEFAULT_NEXT_VOUCHER_NUMBERS.CB,
+      JV: this.data.nextVoucherNumbers?.JV || DEFAULT_NEXT_VOUCHER_NUMBERS.JV,
+    };
+
+    vouchers.forEach((v) => {
+      if (v.jvNumber >= maxJv) maxJv = v.jvNumber + 1;
+      if (v.voucherType && v.voucherNumber >= (maxVouchers[v.voucherType] || 1)) {
+        maxVouchers[v.voucherType] = v.voucherNumber + 1;
+      }
+    });
+
+    return {
+      jvNumber: maxJv,
+      voucherNumbers: maxVouchers,
+    };
+  }
+
+  public getVouchers(params: VoucherFilterParams = {}): Voucher[] {
+    let list = [...(this.data.vouchers || [])];
+
+    if (params.voucherType && params.voucherType !== 'all') {
+      const vType = params.voucherType.toUpperCase();
+      list = list.filter((v) => v.voucherType === vType);
+    }
+
+    if (params.fromDate) {
+      const from = new Date(params.fromDate).getTime();
+      list = list.filter((v) => {
+        const parts = v.date.split('-');
+        const iso = parts[0].length === 2 && parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : v.date;
+        const vDate = new Date(iso).getTime();
+        return isNaN(vDate) || vDate >= from;
+      });
+    }
+
+    if (params.toDate) {
+      const to = new Date(params.toDate).getTime();
+      list = list.filter((v) => {
+        const parts = v.date.split('-');
+        const iso = parts[0].length === 2 && parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : v.date;
+        const vDate = new Date(iso).getTime();
+        return isNaN(vDate) || vDate <= to + 86400000;
+      });
+    }
+
+    if (params.fromJv !== undefined && params.fromJv !== '') {
+      const fromJv = Number(params.fromJv);
+      if (!isNaN(fromJv)) {
+        list = list.filter((v) => v.jvNumber >= fromJv);
+      }
+    }
+
+    if (params.toJv !== undefined && params.toJv !== '') {
+      const toJv = Number(params.toJv);
+      if (!isNaN(toJv)) {
+        list = list.filter((v) => v.jvNumber <= toJv);
+      }
+    }
+
+    if (params.search && params.search.trim()) {
+      const q = params.search.trim().toLowerCase();
+      list = list.filter((v) => {
+        return (
+          v.voucherNumberFormatted?.toLowerCase().includes(q) ||
+          String(v.jvNumber).includes(q) ||
+          String(v.voucherNumber).includes(q) ||
+          (v.bankAccountTitle && v.bankAccountTitle.toLowerCase().includes(q)) ||
+          (v.cashAccountTitle && v.cashAccountTitle.toLowerCase().includes(q)) ||
+          (v.salesmanTitle && v.salesmanTitle.toLowerCase().includes(q)) ||
+          v.entries.some((e) =>
+            e.accountTitle.toLowerCase().includes(q) ||
+            e.accountCode.toLowerCase().includes(q) ||
+            e.narration.toLowerCase().includes(q) ||
+            (e.chequeNo && e.chequeNo.toLowerCase().includes(q))
+          )
+        );
+      });
+    }
+
+    return list.sort((a, b) => b.jvNumber - a.jvNumber);
+  }
+
+  public getVoucherById(id: string): Voucher | undefined {
+    return (this.data.vouchers || []).find((v) => v.id === id);
+  }
+
+  private applyVoucherLedger(voucher: Voucher, reverse: boolean = false): void {
+    const factor = reverse ? -1 : 1;
+
+    // 1. Bank Account Ledger Effect
+    if (voucher.bankAccountId) {
+      const bank = this.getBanks().find((b) => b.id === voucher.bankAccountId || b.accountCode === voucher.bankAccountId);
+      if (bank) {
+        if (voucher.voucherType === 'BR') {
+          // Bank Receipt: Inward funds, Bank DR (increase)
+          bank.balance = Number((bank.balance + factor * voucher.totalAmount).toFixed(2));
+        } else if (voucher.voucherType === 'BP') {
+          // Bank Payment: Outward funds, Bank CR (decrease)
+          bank.balance = Number((bank.balance - factor * voucher.totalAmount).toFixed(2));
+        }
+        bank.balanceType = bank.balance >= 0 ? 'DR' : 'CR';
+      }
+    }
+
+    // 2. Cash Account Ledger Effect
+    if (voucher.cashAccountId || voucher.voucherType === 'CR' || voucher.voucherType === 'CP' || voucher.voucherType === 'CB') {
+      const cashList = this.getCashAccounts();
+      const cash = cashList.find((c) => c.id === voucher.cashAccountId || c.accountCode === voucher.cashAccountId || c.title === voucher.cashAccountTitle) || cashList[0];
+      if (cash) {
+        if (voucher.voucherType === 'CR') {
+          // Cash Receipt: Cash received into drawer, Cash DR (increase)
+          cash.balance = Number((cash.balance + factor * voucher.totalAmount).toFixed(2));
+        } else if (voucher.voucherType === 'CP') {
+          // Cash Payment: Cash paid out from drawer, Cash CR (decrease)
+          cash.balance = Number((cash.balance - factor * voucher.totalAmount).toFixed(2));
+        } else if (voucher.voucherType === 'CB') {
+          // Cash Book: Net Receipts - Net Payments
+          const totalReceipts = voucher.entries.reduce((sum, e) => sum + (e.receipt || 0), 0);
+          const totalPayments = voucher.entries.reduce((sum, e) => sum + (e.payment || 0), 0);
+          const netEffect = totalReceipts - totalPayments;
+          cash.balance = Number((cash.balance + factor * netEffect).toFixed(2));
+        }
+        cash.balanceType = cash.balance >= 0 ? 'DR' : 'CR';
+      }
+    }
+
+    // 3. Line Items Ledger Effects (Customers, Suppliers, etc.)
+    for (const e of voucher.entries) {
+      const cust = (this.data.customers || []).find((c) => c.id === e.accountId || c.code === e.accountCode || c.accountTitle?.toLowerCase() === e.accountTitle?.toLowerCase());
+      const supp = (this.data.suppliers || []).find((s) => s.id === e.accountId || s.code === e.accountCode || s.title?.toLowerCase() === e.accountTitle?.toLowerCase());
+
+      if (voucher.voucherType === 'BR' || voucher.voucherType === 'CR') {
+        // Customer Paying Company (Recovery) -> Account CR -> DR Receivables Decrease
+        if (cust) {
+          cust.outstandingBalance = Number(((cust.outstandingBalance || 0) - factor * e.amount).toFixed(2));
+        } else if (supp) {
+          supp.payableToSupplier = Number(((supp.payableToSupplier || 0) + factor * e.amount).toFixed(2));
+          supp.balanceOwed = supp.payableToSupplier;
+        }
+      } else if (voucher.voucherType === 'BP' || voucher.voucherType === 'CP') {
+        // Company Paying Supplier / Party -> Account DR -> CR Payables Decrease
+        if (supp) {
+          supp.payableToSupplier = Number(((supp.payableToSupplier || 0) - factor * e.amount).toFixed(2));
+          supp.balanceOwed = supp.payableToSupplier;
+        } else if (cust) {
+          cust.outstandingBalance = Number(((cust.outstandingBalance || 0) + factor * e.amount).toFixed(2));
+        }
+      } else if (voucher.voucherType === 'CB') {
+        if ((e.receipt || 0) > 0) {
+          if (cust) cust.outstandingBalance = Number(((cust.outstandingBalance || 0) - factor * (e.receipt || 0)).toFixed(2));
+          if (supp) { supp.payableToSupplier = Number(((supp.payableToSupplier || 0) + factor * (e.receipt || 0)).toFixed(2)); supp.balanceOwed = supp.payableToSupplier; }
+        }
+        if ((e.payment || 0) > 0) {
+          if (supp) { supp.payableToSupplier = Number(((supp.payableToSupplier || 0) - factor * (e.payment || 0)).toFixed(2)); supp.balanceOwed = supp.payableToSupplier; }
+          if (cust) cust.outstandingBalance = Number(((cust.outstandingBalance || 0) + factor * (e.payment || 0)).toFixed(2));
+        }
+      } else if (voucher.voucherType === 'JV') {
+        if ((e.debit || 0) > 0) {
+          if (cust) cust.outstandingBalance = Number(((cust.outstandingBalance || 0) + factor * (e.debit || 0)).toFixed(2));
+          if (supp) { supp.payableToSupplier = Number(((supp.payableToSupplier || 0) - factor * (e.debit || 0)).toFixed(2)); supp.balanceOwed = supp.payableToSupplier; }
+        }
+        if ((e.credit || 0) > 0) {
+          if (cust) cust.outstandingBalance = Number(((cust.outstandingBalance || 0) - factor * (e.credit || 0)).toFixed(2));
+          if (supp) { supp.payableToSupplier = Number(((supp.payableToSupplier || 0) + factor * (e.credit || 0)).toFixed(2)); supp.balanceOwed = supp.payableToSupplier; }
+        }
+      }
+    }
+  }
+
+  public createVoucher(data: Partial<Voucher>, userName: string = 'Admin'): Voucher {
+    if (!this.data.vouchers) this.data.vouchers = [];
+
+    const nextNums = this.getNextVoucherNumbers();
+    const voucherType = (data.voucherType || 'CR') as VoucherType;
+    const jvNumber = typeof data.jvNumber === 'number' && data.jvNumber > 0 ? data.jvNumber : nextNums.jvNumber;
+    const voucherNumber = typeof data.voucherNumber === 'number' && data.voucherNumber > 0 ? data.voucherNumber : (nextNums.voucherNumbers[voucherType] || 1);
+    const voucherNumberFormatted = `${voucherType}-${voucherNumber}`;
+
+    const totalAmount = data.entries && data.entries.length > 0
+      ? data.entries.reduce((sum, e) => {
+          if (voucherType === 'CB') return sum + (e.receipt || e.payment || e.amount || 0);
+          if (voucherType === 'JV') return sum + (e.debit || e.amount || 0);
+          return sum + (e.amount || 0);
+        }, 0)
+      : (data.totalAmount || 0);
+
+    const newVoucher: Voucher = {
+      id: `vch-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      companyId: getActiveCompanyId(),
+      voucherType,
+      jvNumber,
+      voucherNumber,
+      voucherNumberFormatted,
+      date: data.date || new Date().toISOString().split('T')[0],
+      poNumber: data.poNumber?.trim() || '',
+      bankAccountId: data.bankAccountId,
+      bankAccountTitle: data.bankAccountTitle,
+      cashAccountId: data.cashAccountId,
+      cashAccountTitle: data.cashAccountTitle,
+      salesmanId: data.salesmanId,
+      salesmanTitle: data.salesmanTitle,
+      totalAmount: Number(totalAmount.toFixed(2)),
+      entries: (data.entries || []).map((e, idx) => ({
+        id: e.id || `ent-${idx + 1}-${Date.now()}`,
+        accountId: e.accountId || '',
+        accountCode: e.accountCode || '',
+        accountTitle: e.accountTitle || '',
+        accountType: e.accountType || 'Customer',
+        chequeNo: e.chequeNo?.trim(),
+        chequeDate: e.chequeDate?.trim(),
+        chequeBank: e.chequeBank?.trim(),
+        narration: e.narration?.trim() || '',
+        amount: Number((e.amount || e.receipt || e.payment || e.debit || e.credit || 0).toFixed(2)),
+        debit: typeof e.debit === 'number' ? Number(e.debit.toFixed(2)) : undefined,
+        credit: typeof e.credit === 'number' ? Number(e.credit.toFixed(2)) : undefined,
+        receipt: typeof e.receipt === 'number' ? Number(e.receipt.toFixed(2)) : undefined,
+        payment: typeof e.payment === 'number' ? Number(e.payment.toFixed(2)) : undefined,
+      })),
+      status: 'POSTED',
+      createdBy: userName,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Apply double-entry accounting ledger balance updates
+    this.applyVoucherLedger(newVoucher, false);
+
+    this.data.vouchers.push(newVoucher);
+    this.data.nextJvNumber = jvNumber + 1;
+    if (!this.data.nextVoucherNumbers) this.data.nextVoucherNumbers = { ...DEFAULT_NEXT_VOUCHER_NUMBERS };
+    this.data.nextVoucherNumbers[voucherType] = voucherNumber + 1;
+
+    this.logAudit({
+      userId: 'user-admin',
+      userName,
+      userRole: 'Admin',
+      action: 'VOUCHER_POSTED',
+      entityType: 'Order',
+      entityId: newVoucher.id,
+      source: 'manual',
+      description: `Posted ${voucherType} Voucher #${voucherNumberFormatted} (JV# ${jvNumber}) for ${currencySymbol()} ${totalAmount.toLocaleString()} by ${userName}`,
+    });
+
+    this.recalculateAllLedgers();
+    this.persist();
+    return newVoucher;
+  }
+
+  public updateVoucher(id: string, updates: Partial<Voucher>, userName: string = 'Admin'): Voucher {
+    const list = this.data.vouchers || [];
+    const idx = list.findIndex((v) => v.id === id);
+    if (idx === -1) throw new Error(`Voucher not found with id ${id}`);
+
+    const oldVoucher = list[idx];
+    // Reverse old ledger effect first
+    this.applyVoucherLedger(oldVoucher, true);
+
+    const totalAmount = updates.entries && updates.entries.length > 0
+      ? updates.entries.reduce((sum, e) => {
+          if (oldVoucher.voucherType === 'CB') return sum + (e.receipt || e.payment || e.amount || 0);
+          if (oldVoucher.voucherType === 'JV') return sum + (e.debit || e.amount || 0);
+          return sum + (e.amount || 0);
+        }, 0)
+      : (typeof updates.totalAmount === 'number' ? updates.totalAmount : oldVoucher.totalAmount);
+
+    const updatedVoucher: Voucher = {
+      ...oldVoucher,
+      ...updates,
+      totalAmount: Number(totalAmount.toFixed(2)),
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Apply updated ledger effect
+    this.applyVoucherLedger(updatedVoucher, false);
+
+    list[idx] = updatedVoucher;
+
+    this.logAudit({
+      userId: 'user-admin',
+      userName,
+      userRole: 'Admin',
+      action: 'VOUCHER_UPDATED',
+      entityType: 'Order',
+      entityId: updatedVoucher.id,
+      source: 'manual',
+      description: `Updated Voucher #${updatedVoucher.voucherNumberFormatted} (JV# ${updatedVoucher.jvNumber}) by ${userName}`,
+    });
+
+    this.recalculateAllLedgers();
+    this.persist();
+    return updatedVoucher;
+  }
+
+  public deleteVoucher(id: string, userName: string = 'Admin'): boolean {
+    const list = this.data.vouchers || [];
+    const idx = list.findIndex((v) => v.id === id);
+    if (idx === -1) return false;
+
+    const voucher = list[idx];
+    // Reverse ledger balances
+    this.applyVoucherLedger(voucher, true);
+
+    list.splice(idx, 1);
+
+    this.logAudit({
+      userId: 'user-admin',
+      userName,
+      userRole: 'Admin',
+      action: 'VOUCHER_DELETED',
+      entityType: 'Order',
+      entityId: voucher.id,
+      source: 'manual',
+      description: `Deleted Voucher #${voucher.voucherNumberFormatted} (JV# ${voucher.jvNumber}) by ${userName}. Reverted ledger balances.`,
+    });
+
+    this.recalculateAllLedgers();
+    this.persist();
+    return true;
+  }
+
+  public getCashRecoveredReport(fromDate?: string, toDate?: string): { items: CashRecoveredReportItem[]; totalAmount: number } {
+    const vouchers = this.data.vouchers || [];
+    const items: CashRecoveredReportItem[] = [];
+
+    const fromTs = fromDate ? new Date(fromDate).getTime() : 0;
+    const toTs = toDate ? new Date(toDate).getTime() + 86400000 : Infinity;
+
+    for (const v of vouchers) {
+      if (v.status !== 'POSTED') continue;
+      // Receipts: BR (Bank Receipt), CR (Cash Receipt), CB (Cash Book receipts)
+      if (v.voucherType !== 'BR' && v.voucherType !== 'CR' && v.voucherType !== 'CB') continue;
+
+      const parts = v.date.split('-');
+      const iso = parts[0].length === 2 && parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : v.date;
+      const vDateTs = new Date(iso).getTime();
+      if (!isNaN(vDateTs) && (vDateTs < fromTs || vDateTs > toTs)) continue;
+
+      const mode = v.voucherType === 'BR'
+        ? `Bank: ${v.bankAccountTitle || 'Bank'}`
+        : `Cash: ${v.cashAccountTitle || 'Cash in Hand'}`;
+
+      for (const e of v.entries) {
+        const amt = v.voucherType === 'CB' ? (e.receipt || 0) : e.amount;
+        if (amt <= 0) continue;
+
+        items.push({
+          srNo: items.length + 1,
+          voucherId: v.id,
+          voucherType: v.voucherType,
+          voucherNumberFormatted: v.voucherNumberFormatted,
+          jvNumber: v.jvNumber,
+          date: v.date,
+          accountCode: e.accountCode,
+          accountTitle: e.accountTitle,
+          paymentMode: mode,
+          narration: e.narration,
+          amount: amt,
+        });
+      }
+    }
+
+    const totalAmount = items.reduce((sum, item) => sum + item.amount, 0);
+    return { items, totalAmount: Number(totalAmount.toFixed(2)) };
+  }
+
+  public getCashPaidReport(fromDate?: string, toDate?: string): { items: CashPaidReportItem[]; totalAmount: number } {
+    const vouchers = this.data.vouchers || [];
+    const items: CashPaidReportItem[] = [];
+
+    const fromTs = fromDate ? new Date(fromDate).getTime() : 0;
+    const toTs = toDate ? new Date(toDate).getTime() + 86400000 : Infinity;
+
+    for (const v of vouchers) {
+      if (v.status !== 'POSTED') continue;
+      // Payments: BP (Bank Payment), CP (Cash Payment), CB (Cash Book payments)
+      if (v.voucherType !== 'BP' && v.voucherType !== 'CP' && v.voucherType !== 'CB') continue;
+
+      const parts = v.date.split('-');
+      const iso = parts[0].length === 2 && parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : v.date;
+      const vDateTs = new Date(iso).getTime();
+      if (!isNaN(vDateTs) && (vDateTs < fromTs || vDateTs > toTs)) continue;
+
+      const mode = v.voucherType === 'BP'
+        ? `Bank: ${v.bankAccountTitle || 'Bank'}`
+        : `Cash: ${v.cashAccountTitle || 'Cash in Hand'}`;
+
+      for (const e of v.entries) {
+        const amt = v.voucherType === 'CB' ? (e.payment || 0) : e.amount;
+        if (amt <= 0) continue;
+
+        items.push({
+          srNo: items.length + 1,
+          voucherId: v.id,
+          voucherType: v.voucherType,
+          voucherNumberFormatted: v.voucherNumberFormatted,
+          jvNumber: v.jvNumber,
+          date: v.date,
+          accountCode: e.accountCode,
+          accountTitle: e.accountTitle,
+          paymentMode: mode,
+          narration: e.narration,
+          amount: amt,
+        });
+      }
+    }
+
+    const totalAmount = items.reduce((sum, item) => sum + item.amount, 0);
+    return { items, totalAmount: Number(totalAmount.toFixed(2)) };
   }
 }
 

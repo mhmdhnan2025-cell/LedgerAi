@@ -189,6 +189,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'aimunshi', label: '🤖 AI Munshi (Accountant)' },
     { id: 'sales', label: '💰 Sales Bill' },
     { id: 'purchasing', label: '🧾 Purchase Bill' },
+    { id: 'cashbank', label: '💵 Cash / Bank' },
     { id: 'reports', label: '📑 Reports' },
     { id: 'inventory', label: '📦 Inventory & Stock' },
     { id: 'customers', label: '🏢 Customers & Khata' },
