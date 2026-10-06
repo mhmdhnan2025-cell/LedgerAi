@@ -861,7 +861,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                     <div className="bg-slate-800/90 border border-slate-700 px-3 py-1 rounded font-bold text-slate-200">
                       {currentCashAccount
                         ? `${currentCashAccount.balance.toFixed(2)} ${currentCashAccount.balanceType}`
-                        : '50291.90 CR'}
+                        : '0.00 DR'}
                     </div>
                   </div>
 
@@ -1101,7 +1101,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                 <div className="md:col-span-1">
                   <button
                     type="submit"
-                    className="w-full bg-slate-800 hover:bg-sky-600 text-white font-bold py-1.5 px-3 rounded transition cursor-pointer text-xs"
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-black py-2 px-3 rounded-lg transition cursor-pointer text-xs shadow-md border border-emerald-400/40 uppercase tracking-wider flex items-center justify-center gap-1"
                   >
                     {editingEntryIndex !== null ? 'Save' : 'Enter'}
                   </button>
@@ -1192,7 +1192,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handleEditEntry(idx)}
-                                className="p-1 text-sky-400 hover:text-white hover:bg-sky-600 rounded transition cursor-pointer"
+                                className="p-1.5 bg-sky-500/15 hover:bg-sky-600 text-sky-600 dark:text-sky-400 hover:text-white rounded-lg border border-sky-500/30 transition cursor-pointer shadow-2xs"
                                 title="Edit Line"
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
@@ -1200,7 +1200,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handleDeleteEntry(idx)}
-                                className="p-1 text-rose-400 hover:text-white hover:bg-rose-600 rounded transition cursor-pointer"
+                                className="p-1.5 bg-rose-500/15 hover:bg-rose-600 text-rose-600 dark:text-rose-400 hover:text-white rounded-lg border border-rose-500/30 transition cursor-pointer shadow-2xs"
                                 title="Remove Line"
                               >
                                 <X className="w-3.5 h-3.5" />
@@ -1440,30 +1440,30 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                       <button
                         type="button"
                         onClick={() => setViewingVoucherSlip(v)}
-                        className="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded text-xs font-semibold transition cursor-pointer flex items-center gap-1"
+                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-sm border border-blue-400/40"
                         title="Print / View Voucher Slip"
                       >
-                        <Printer className="w-3.5 h-3.5 text-sky-400" />
+                        <Printer className="w-3.5 h-3.5 text-white" />
                         <span>Slip</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => handleEditVoucherFromSearch(v)}
-                        className="px-2.5 py-1 bg-sky-600/30 hover:bg-sky-600 text-sky-300 hover:text-white border border-sky-500/40 rounded text-xs font-semibold transition cursor-pointer flex items-center gap-1"
+                        className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-white rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-sm border border-amber-300/40"
                         title="Edit voucher details & repost"
                       >
-                        <Edit2 className="w-3.5 h-3.5" />
+                        <Edit2 className="w-3.5 h-3.5 text-white" />
                         <span>Edit</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => handleDeleteVoucher(v)}
-                        className="px-2.5 py-1 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/40 rounded text-xs font-semibold transition cursor-pointer flex items-center gap-1"
+                        className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-sm border border-rose-400/40"
                         title="Delete voucher and revert account balances"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-3.5 h-3.5 text-white" />
                         <span>Delete</span>
                       </button>
                     </div>

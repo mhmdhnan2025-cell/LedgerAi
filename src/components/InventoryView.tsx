@@ -63,6 +63,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   const [filterCustomField1, setFilterCustomField1] = useState<string>('Nothing selected');
   const [filterCustomField2, setFilterCustomField2] = useState<string>('Nothing selected');
   const [filterOrderBy, setFilterOrderBy] = useState<string>('Nothing selected');
+  const [filterPurchaseDate, setFilterPurchaseDate] = useState<string>('');
 
   // Checkbox options matching Image 3
   const [colUpdateMCode, setColUpdateMCode] = useState<boolean>(false);
@@ -349,6 +350,12 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         if (!mbc.includes(filterManualBarcode.trim().toLowerCase())) return false;
       }
 
+      // Purchase Date filter
+      if (filterPurchaseDate) {
+        const pDate = p.lastPurchaseDate || p.purchaseDate || p.createdAt?.split('T')[0] || '';
+        if (!pDate.startsWith(filterPurchaseDate)) return false;
+      }
+
       return true;
     });
 
@@ -393,6 +400,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     filterBarcode,
     filterManualBarcode,
     filterOrderBy,
+    filterPurchaseDate,
     zeroStockHide,
   ]);
 
@@ -452,6 +460,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     setFilterCustomField1('Nothing selected');
     setFilterCustomField2('Nothing selected');
     setFilterOrderBy('Nothing selected');
+    setFilterPurchaseDate('');
     setZeroStockHide(false);
   };
 
@@ -894,6 +903,33 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
           </div>
         </div>
 
+        {/* Row 6: Purchase Date Filter */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center text-xs">
+          <label className="md:col-span-2 text-slate-300 font-semibold text-right pr-2">
+            Purchase Date :
+          </label>
+          <div className="md:col-span-4 flex items-center gap-2">
+            <input
+              type="date"
+              value={filterPurchaseDate}
+              onChange={(e) => setFilterPurchaseDate(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+            />
+            {filterPurchaseDate && (
+              <button
+                type="button"
+                onClick={() => setFilterPurchaseDate('')}
+                className="px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-semibold cursor-pointer transition"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          <div className="md:col-span-6 text-slate-400 text-[11px] font-medium">
+            {filterPurchaseDate ? `Filtering stock items purchased on ${filterPurchaseDate}` : 'Filter inventory items by purchase date'}
+          </div>
+        </div>
+
         {/* Checkbox Matrix (Matching Image 3) */}
         <div className="pt-2 border-t border-slate-800/80">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-y-2 gap-x-4 text-xs text-slate-300">
@@ -1117,9 +1153,9 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         </div>
 
         {/* Main Stock Position Table (Matching Image 3 Columns + Amount) */}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[650px] overflow-y-auto">
           <table className="w-full text-left text-xs text-slate-300 border-collapse">
-            <thead className="bg-slate-950 text-slate-400 font-bold border-b border-slate-800 uppercase tracking-wider text-[10px]">
+            <thead className="sticky top-0 z-10 bg-slate-950 text-slate-400 font-bold border-b border-slate-800 uppercase tracking-wider text-[10px] shadow-sm">
               <tr>
                 <th className="py-2.5 px-3 text-center w-12">SR#</th>
                 <th className="py-2.5 px-3">M.CODE</th>
@@ -1128,6 +1164,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                 {showCompany && <th className="py-2.5 px-3">COMPANY</th>}
                 <th className="py-2.5 px-3 min-w-[180px]">ITEM</th>
                 <th className="py-2.5 px-3">TYPE</th>
+                <th className="py-2.5 px-3">PURCHASE DATE</th>
                 <th className="py-2.5 px-3 text-right">P.RATE</th>
                 <th className="py-2.5 px-3 text-right">S.RATE</th>
                 <th className="py-2.5 px-3 text-right">DISC</th>
@@ -1143,7 +1180,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               {filteredProducts.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={13 + (showArticle ? 1 : 0) + (showCategory ? 1 : 0) + (showCompany ? 1 : 0)}
+                    colSpan={14 + (showArticle ? 1 : 0) + (showCategory ? 1 : 0) + (showCompany ? 1 : 0)}
                     className="py-12 text-center text-slate-500 font-sans"
                   >
                     No stock items found matching your filters.
@@ -1249,6 +1286,11 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
                       {/* TYPE (Image 5: Kilo grams, Liter, Grams, KG) */}
                       <td className="py-2.5 px-3 text-slate-300 font-sans">{prod.measure || prod.unit || 'Kilo grams'}</td>
+
+                      {/* PURCHASE DATE */}
+                      <td className="py-2.5 px-3 font-mono text-slate-400 text-[11px]">
+                        {prod.lastPurchaseDate || prod.purchaseDate || prod.createdAt?.split('T')[0] || '-'}
+                      </td>
 
                       {/* P.RATE (Image 5: 2.51) */}
                       <td className="py-2.5 px-3 text-right text-slate-200 font-mono font-semibold">

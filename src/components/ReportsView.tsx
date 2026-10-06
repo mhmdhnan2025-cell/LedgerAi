@@ -526,8 +526,6 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             >
               <option value="">Nothing selected</option>
               <option value="Admin">Admin</option>
-              <option value="Aman Deep">Aman Deep</option>
-              <option value="User .">User .</option>
             </select>
           </div>
 

@@ -28,6 +28,7 @@ import {
   AlertTriangle,
   Info,
   Settings,
+  ShoppingBag,
 } from 'lucide-react';
 import {
   Customer,
@@ -449,8 +450,20 @@ export const SalesView: React.FC<SalesViewProps> = ({
       return;
     }
 
-    // Calculate current item stock shortage
-    const itemShortage = itemStock >= 0 && numericQty > itemStock ? Number((numericQty - itemStock).toFixed(1)) : 0;
+    // Strictly prevent selling more than available physical stock
+    const alreadyInBill = billItems
+      .filter((b) => b.productId === selectedProductId || (selectedProductId && b.productId === selectedProductId) || (b.itemTitle.toLowerCase() === itemTitle.trim().toLowerCase()))
+      .reduce((sum, b) => sum + (Number(b.qty) || 0), 0);
+    const availablePhysicalStock = itemStock > 0 ? itemStock : (activeProduct?.currentQuantity || 0);
+    const netAvailableStock = Math.max(0, Number((availablePhysicalStock - alreadyInBill).toFixed(2)));
+
+    if (itemTitle.trim() && numericQty > netAvailableStock) {
+      const shortage = Number((numericQty - netAvailableStock).toFixed(2));
+      setErrorMsg(
+        `⚠️ اسٹاک ناکافی ہے! دستیاب اسٹاک: ${netAvailableStock} ${resolvedBaseUnit} ہے۔ آپ نے ${numericQty} ${resolvedBaseUnit} درج کیا ہے (${shortage} ${resolvedBaseUnit} کم ہے)۔ برائے مہربانی پہلے مال خریدیں (Restock کریں)۔`
+      );
+      return;
+    }
 
     const newItem: SaleBillItem = {
       id: `sbi-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
@@ -1275,9 +1288,22 @@ export const SalesView: React.FC<SalesViewProps> = ({
                     ⚠️ Stock Shortage Alert: Selected sale quantity is <strong className="text-white underline">{numericQty}</strong>, but godown only has <strong className="text-amber-300 underline">{itemStock}</strong> {unitLabel} available. You are SHORT by <strong className="text-white bg-rose-600 px-2 py-0.5 rounded text-sm font-black">{shortageCtnText} ({shortUnits} {unitLabel}) kam hain</strong>!
                   </span>
                 </div>
-                <span className="text-xs font-urdu text-rose-200 font-black bg-rose-900/80 px-2.5 py-1 rounded border border-rose-700 whitespace-nowrap">
-                  اسٹاک میں {isCartonItem ? `${shortCtnInt}.${shortPcs} کاٹن` : `${shortUnits} ${unitLabel}`} ({shortUnits} یونٹ) کم ہے
-                </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-urdu text-rose-200 font-black bg-rose-900/80 px-2.5 py-1 rounded border border-rose-700 whitespace-nowrap">
+                    اسٹاک میں {isCartonItem ? `${shortCtnInt}.${shortPcs} کاٹن` : `${shortUnits} ${unitLabel}`} ({shortUnits} یونٹ) کم ہے
+                  </span>
+                  {onNavigateTab && (
+                    <button
+                      type="button"
+                      onClick={() => onNavigateTab('purchasing')}
+                      className="px-3 py-1 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black rounded-lg text-xs shadow-md transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                      title="Open Purchasing tab to restock"
+                    >
+                      <ShoppingBag className="w-3.5 h-3.5" />
+                      <span>Restock / Purchase (خریداری کریں)</span>
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })()}
@@ -1418,13 +1444,30 @@ export const SalesView: React.FC<SalesViewProps> = ({
               </div>
             </div>
 
-            <button
-              type="submit"
-              className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs shadow-md transition flex items-center gap-1.5 cursor-pointer ml-auto"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add Line Item</span>
-            </button>
+            <div className="flex items-center gap-2 ml-auto flex-wrap">
+              {itemTitle.trim() && numericQty > itemStock && onNavigateTab && (
+                <button
+                  type="button"
+                  onClick={() => onNavigateTab('purchasing')}
+                  className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-lg text-xs shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <ShoppingBag className="w-3.5 h-3.5" />
+                  <span>+ Restock / Purchase Now (پہلے مال خریدیں)</span>
+                </button>
+              )}
+              <button
+                type="submit"
+                disabled={Boolean(itemTitle.trim() && numericQty > itemStock)}
+                className={`px-4 py-1.5 font-bold rounded-lg text-xs shadow-md transition flex items-center gap-1.5 ${
+                  itemTitle.trim() && numericQty > itemStock
+                    ? 'bg-rose-950 border border-rose-600 text-rose-300 cursor-not-allowed opacity-80'
+                    : 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer'
+                }`}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>{itemTitle.trim() && numericQty > itemStock ? 'Stock Short (Cannot Add)' : 'Add Line Item'}</span>
+              </button>
+            </div>
           </div>
         </form>
       </div>

@@ -127,11 +127,11 @@ export const DEFAULT_SEED_EMPLOYEES: Employee[] = [
     id: 'emp-2',
     code: '0401040007',
     salesmanAcc: '',
-    accountTitle: 'Aman Deep',
+    accountTitle: 'Accountant',
     prefixTitle: 'Mr',
-    firstName: 'Aman',
-    lastName: 'Deep',
-    fullName: 'Aman Deep',
+    firstName: 'Company',
+    lastName: 'Accountant',
+    fullName: 'Company Accountant',
     designation: 'Accountant',
     salaryType: 'MONTHLY',
     salary: 2000.0,
@@ -1313,23 +1313,7 @@ export const DEFAULT_SEED_CASH_ACCOUNTS: CashAccount[] = [
   {
     id: 'cash-0101010001',
     accountCode: '0101010001',
-    title: 'Cash in Hand A/c Admin',
-    balance: 50291.90,
-    balanceType: 'CR',
-    createdAt: '2026-10-06T00:00:00.000Z',
-  },
-  {
-    id: 'cash-0101010002',
-    accountCode: '0101010002',
-    title: 'Cash in Hand A/c Aman Deep',
-    balance: 990691.46,
-    balanceType: 'DR',
-    createdAt: '2026-10-06T00:00:00.000Z',
-  },
-  {
-    id: 'cash-0101010003',
-    accountCode: '0101010003',
-    title: 'Cash in Hand A/c User .',
+    title: 'Cash in Hand (خزانہ / کیش رجسٹر)',
     balance: 0.0,
     balanceType: 'DR',
     createdAt: '2026-10-06T00:00:00.000Z',
@@ -6820,10 +6804,87 @@ class DatabaseService {
   }
 
   public getCashAccounts(): CashAccount[] {
-    if (!Array.isArray(this.data.cashAccounts) || this.data.cashAccounts.length === 0) {
-      this.data.cashAccounts = [...DEFAULT_SEED_CASH_ACCOUNTS];
-      this.persist();
-    }
+    // Calculate real dynamic Cash In Hand from actual ledger
+    const openingCash = Number(this.data.cashRegister?.openingCashBalance) || 0;
+
+    // Cash received from sale bills
+    const cashFromSales = (this.data.saleBills || []).reduce((sum, s) => {
+      if (s.paymentType === 'Cash') return sum + (Number(s.netTotal) || 0);
+      return sum + (Number(s.cashReceived) || 0);
+    }, 0);
+
+    // Cash received from orders
+    const cashFromOrders = (this.data.orders || []).reduce((sum, o) => {
+      return sum + (Number(o.paidAmount) || 0);
+    }, 0);
+
+    // Cash payments received directly
+    const cashFromPayments = (this.data.payments || []).reduce((sum, p) => {
+      if (p.paymentMethod === 'Cash') return sum + (Number(p.amount) || 0);
+      return sum;
+    }, 0);
+
+    // Cash received from Vouchers (CR vouchers + CB receipts)
+    const cashFromVouchers = (this.data.vouchers || []).reduce((sum, v) => {
+      if (v.voucherType === 'CR') return sum + (v.totalAmount || 0);
+      if (v.voucherType === 'CB') {
+        const rTotal = v.entries.reduce((acc, e) => acc + (e.receipt || 0), 0);
+        return sum + rTotal;
+      }
+      return sum;
+    }, 0);
+
+    // Cash paid out for purchase bills
+    const cashOutPurchases = (this.data.purchaseBills || []).reduce((sum, b) => {
+      if (b.isCash) return sum + (Number(b.netTotal) || 0);
+      return sum + (Number(b.paidAmount) || 0);
+    }, 0);
+
+    // Cash paid out for daily expenses
+    const cashOutExpenses = (this.data.expenses || []).reduce((sum, e) => {
+      const pm = (e.paymentMethod || '').toLowerCase();
+      if (!pm || pm === 'cash' || pm === 'hand') return sum + (e.amount || 0);
+      return sum;
+    }, 0);
+
+    // Cash paid out via Vouchers (CP vouchers + CB payments)
+    const cashOutVouchers = (this.data.vouchers || []).reduce((sum, v) => {
+      if (v.voucherType === 'CP') return sum + (v.totalAmount || 0);
+      if (v.voucherType === 'CB') {
+        const pTotal = v.entries.reduce((acc, e) => acc + (e.payment || 0), 0);
+        return sum + pTotal;
+      }
+      return sum;
+    }, 0);
+
+    const netCashInHand = openingCash + cashFromSales + cashFromOrders + cashFromPayments + cashFromVouchers - cashOutPurchases - cashOutExpenses - cashOutVouchers;
+    const absBalance = Number(Math.abs(netCashInHand).toFixed(2));
+    const balanceType: 'DR' | 'CR' = netCashInHand >= 0 ? 'DR' : 'CR';
+
+    // Standard Real Main Cash in Hand
+    const mainAccount: CashAccount = {
+      id: 'cash-0101010001',
+      accountCode: '0101010001',
+      title: 'Cash in Hand (خزانہ / کیش رجسٹر)',
+      balance: absBalance,
+      balanceType,
+      createdAt: '2026-10-06T00:00:00.000Z',
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Real users cash desk if configured
+    const userAccounts: CashAccount[] = (this.data.users || [])
+      .filter((u) => u.name && u.name.toLowerCase() !== 'admin')
+      .map((u, idx) => ({
+        id: `cash-usr-${u.id}`,
+        accountCode: `010101000${idx + 2}`,
+        title: `Cash in Hand (${u.name})`,
+        balance: 0,
+        balanceType: 'DR' as const,
+        createdAt: '2026-10-06T00:00:00.000Z',
+      }));
+
+    this.data.cashAccounts = [mainAccount, ...userAccounts];
     return this.data.cashAccounts;
   }
 
@@ -6855,7 +6916,7 @@ class DatabaseService {
         type: 'Customer',
         balance: Math.abs(bal),
         balanceType: isDr ? 'DR' : 'CR',
-        balanceFormatted: `${Math.abs(bal).toFixed(2)} ${isDr ? 'DR' : 'CR'}`,
+        balanceFormatted: `${Math.abs(bal).toFixed(2)} ${isDr ? 'DR (Udhaar / Receivable)' : 'CR (Advance)'}`,
       });
     });
 
@@ -6870,7 +6931,7 @@ class DatabaseService {
         type: 'Supplier',
         balance: Math.abs(payable),
         balanceType: isCr ? 'CR' : 'DR',
-        balanceFormatted: `${Math.abs(payable).toFixed(2)} ${isCr ? 'CR' : 'DR'}`,
+        balanceFormatted: `${Math.abs(payable).toFixed(2)} ${isCr ? 'CR (Dena Hai / Payable)' : 'DR (Advance)'}`,
       });
     });
 
@@ -6952,6 +7013,46 @@ class DatabaseService {
 
   public getVouchers(params: VoucherFilterParams = {}): Voucher[] {
     let list = [...(this.data.vouchers || [])];
+
+    // Map daily expenses as vouchers (CP for Cash, BP for Bank) so they appear in Voucher Search!
+    const expenseVouchers: Voucher[] = (this.data.expenses || []).map((exp, idx) => {
+      const pm = (exp.paymentMethod || '').toLowerCase();
+      const isBank = pm.includes('bank') || pm.includes('cheque') || pm.includes('chq') || pm.includes('transfer');
+      const vType: VoucherType = isBank ? 'BP' : 'CP';
+      const cleanNum = parseInt((exp.expenseNumber || '').replace(/\D/g, '') || String(idx + 100), 10);
+      const vNum = cleanNum || (idx + 100);
+      return {
+        id: `exp-vch-${exp.id}`,
+        companyId: getActiveCompanyId(),
+        voucherType: vType,
+        jvNumber: 20000 + idx + 1,
+        voucherNumber: vNum,
+        voucherNumberFormatted: `${vType}-EXP-${vNum}`,
+        date: exp.date,
+        poNumber: '',
+        bankAccountId: isBank ? exp.bankId : undefined,
+        bankAccountTitle: isBank ? (exp.bankTitle || 'Bank Account') : undefined,
+        cashAccountId: !isBank ? 'cash-0101010001' : undefined,
+        cashAccountTitle: !isBank ? 'Cash in Hand (خزانہ)' : undefined,
+        salesmanTitle: exp.recordedBy || 'Admin',
+        totalAmount: Number((exp.amount || 0).toFixed(2)),
+        status: 'POSTED' as const,
+        entries: [
+          {
+            id: `exp-ent-${exp.id}`,
+            accountId: 'acc-0501010007',
+            accountCode: '0501010007',
+            accountTitle: `${exp.category} Expense (${exp.title})`,
+            narration: exp.notes || exp.title || `${exp.category} Expense`,
+            amount: Number((exp.amount || 0).toFixed(2)),
+          },
+        ],
+        createdAt: exp.createdAt || new Date().toISOString(),
+        updatedAt: exp.createdAt || new Date().toISOString(),
+      };
+    });
+
+    list = [...list, ...expenseVouchers];
 
     if (params.voucherType && params.voucherType !== 'all') {
       const vType = params.voucherType.toUpperCase();
@@ -7227,6 +7328,11 @@ class DatabaseService {
   }
 
   public deleteVoucher(id: string, userName: string = 'Admin'): boolean {
+    if (id.startsWith('exp-vch-')) {
+      const expId = id.replace('exp-vch-', '');
+      return this.deleteExpense(expId, { id: 'admin', name: userName, role: 'Admin' });
+    }
+
     const list = this.data.vouchers || [];
     const idx = list.findIndex((v) => v.id === id);
     if (idx === -1) return false;

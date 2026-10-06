@@ -567,10 +567,11 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
               </span>
             </div>
 
-            <div className="overflow-x-auto rounded-xl border border-slate-800">
+            <div className="overflow-x-auto rounded-xl border border-slate-800 max-h-[600px] overflow-y-auto">
               <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-950 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                <thead className="sticky top-0 z-10 bg-slate-950 shadow-sm">
+                  <tr className="bg-slate-950 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-800">
+                    <th className="py-2.5 px-3 text-center w-12">SR#</th>
                     <th className="py-2.5 px-3">M.Code</th>
                     <th className="py-2.5 px-3">Item Name</th>
                     <th className="py-2.5 px-3">Category</th>
@@ -588,13 +589,14 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
                 <tbody className="divide-y divide-slate-800/60 font-mono">
                   {filteredSummaryItems.length === 0 ? (
                     <tr>
-                      <td colSpan={12} className="text-center py-8 text-slate-500 font-sans">
+                      <td colSpan={13} className="text-center py-8 text-slate-500 font-sans">
                         No products match your criteria.
                       </td>
                     </tr>
                   ) : (
-                    filteredSummaryItems.map((it) => (
+                    filteredSummaryItems.map((it, idx) => (
                       <tr key={it.productId} className="hover:bg-slate-800/40 transition">
+                        <td className="py-2.5 px-3 text-center text-slate-500 font-mono font-semibold">{idx + 1}</td>
                         <td className="py-2.5 px-3 text-slate-400">{it.mcode}</td>
                         <td className="py-2.5 px-3 font-sans font-bold text-white">
                           {it.name}
@@ -672,10 +674,11 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
               Chronological log of every item movement. Shows exactly which salesman sold which item in what bill, protecting against unauthorized leakage.
             </div>
 
-            <div className="overflow-x-auto rounded-xl border border-slate-800">
+            <div className="overflow-x-auto rounded-xl border border-slate-800 max-h-[600px] overflow-y-auto">
               <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-950 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                <thead className="sticky top-0 z-10 bg-slate-950 shadow-sm">
+                  <tr className="bg-slate-950 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-800">
+                    <th className="py-2.5 px-3 text-center w-12">SR#</th>
                     <th className="py-2.5 px-3">Date</th>
                     <th className="py-2.5 px-3">Item Description</th>
                     <th className="py-2.5 px-3">Type</th>
@@ -692,13 +695,14 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
                 <tbody className="divide-y divide-slate-800/60 font-mono">
                   {filteredTransactions.length === 0 ? (
                     <tr>
-                      <td colSpan={11} className="text-center py-8 text-slate-500 font-sans">
+                      <td colSpan={12} className="text-center py-8 text-slate-500 font-sans">
                         No transactions recorded for the selected filter.
                       </td>
                     </tr>
                   ) : (
-                    filteredTransactions.map((tx) => (
+                    filteredTransactions.map((tx, idx) => (
                       <tr key={tx.id} className="hover:bg-slate-800/40 transition">
+                        <td className="py-2.5 px-3 text-center text-slate-500 font-mono font-semibold">{idx + 1}</td>
                         <td className="py-2.5 px-3 text-slate-400">{tx.date}</td>
                         <td className="py-2.5 px-3 font-sans font-bold text-white">
                           <div>{tx.productName}</div>

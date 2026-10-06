@@ -398,6 +398,9 @@ export interface Expense {
   allocations?: ExpenseAllocationItem[];
   recordedBy: string;
   source: 'manual' | 'ai_chat' | 'voice' | 'image_ocr';
+  paymentMethod?: string;
+  bankId?: string;
+  bankTitle?: string;
   createdAt: string;
 }
 
