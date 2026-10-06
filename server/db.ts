@@ -6744,8 +6744,17 @@ class DatabaseService {
     (this.data.employees || []).forEach((e) => {
       if (e.status === 'NO') return; // exclude inactive
       const name = (e.accountTitle || e.fullName || `${e.firstName || ''} ${e.lastName || ''}`).trim();
-      if (name && !seen.has(name.toLowerCase())) {
-        seen.add(name.toLowerCase());
+      const lower = name.toLowerCase();
+      // Hannan is till/account owner, Admin is system role - NOT salesmen
+      if (lower === 'hanan' || lower === 'hannan' || lower === 'admin' || lower.includes('accountant') || lower.includes('ceo')) {
+        return;
+      }
+      const isSalesman =
+        (e.designation && e.designation.toLowerCase().includes('sales')) ||
+        (e.salesmanAcc && e.salesmanAcc.trim() !== '') ||
+        (lower.includes('bhai') || lower.includes('ashiq') || lower.includes('sales'));
+      if (isSalesman && !seen.has(lower)) {
+        seen.add(lower);
         list.push(name);
       }
     });
@@ -7119,7 +7128,7 @@ class DatabaseService {
         bankAccountTitle: isBank ? (exp.bankTitle || 'Bank Account') : undefined,
         cashAccountId: !isBank ? 'cash-0101010001' : undefined,
         cashAccountTitle: !isBank ? 'Cash in Hand (خزانہ)' : undefined,
-        salesmanTitle: exp.recordedBy || 'Admin',
+        salesmanTitle: undefined,
         totalAmount: Number((exp.amount || 0).toFixed(2)),
         status: 'POSTED' as const,
         entries: [

@@ -555,14 +555,20 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
 
       setItemsList(rows);
 
-      // Payments initialization from slip
+      // Payments initialization from slip (including handwritten "Paid" / "Ashiq Paid" notes)
       const billTotal = rows.reduce((s, r) => s + r.total, 0);
-      if (result.paidAmount) {
-        setPurchasePaidAmount(result.paidAmount);
-        setSaleCashReceived(result.paidAmount);
+      const isPaidSlip = Boolean(result.isCash) || (result.paidAmount !== undefined && result.paidAmount !== null && result.paidAmount > 0);
+      if (isPaidSlip) {
+        setIsCashPurchase(true);
+        setIsCashSale(true);
+        const paidAmt = result.paidAmount !== undefined && result.paidAmount !== null && result.paidAmount > 0 ? result.paidAmount : billTotal;
+        setPurchasePaidAmount(paidAmt);
+        setSaleCashReceived(paidAmt);
       } else {
-        setPurchasePaidAmount(billTotal);
-        setSaleCashReceived(billTotal);
+        setIsCashPurchase(false);
+        setIsCashSale(false);
+        setPurchasePaidAmount(0);
+        setSaleCashReceived(0);
       }
     } catch (err: any) {
       setErrorMsg(err.message || 'Heavy OCR parsing failed. Baraye meherbani tasweer dobara check karein.');
@@ -835,6 +841,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
           isCash: isCashPurchase,
           paidAmount: isCashPurchase ? displayTotal : purchasePaidAmount,
           loadExp: 0,
+          addToStock: addToStockInventory,
           items: selectedItems.map((it) => ({
             id: it.id,
             productId: it.matchedProductId,

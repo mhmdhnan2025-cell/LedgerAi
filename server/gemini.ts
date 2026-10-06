@@ -2455,13 +2455,16 @@ export async function parseDocumentImage(
   const specializedInstructions = isPurchase
     ? `SPECIALIZED MODE: SUPPLIER PURCHASE BILL & STOCK INTAKE (اسٹاک / پرچیز بل)
 CRITICAL INSTRUCTIONS FOR PURCHASE BILL:
-1. Identify the Supplier / Vendor Name accurately (e.g., Mandi commission agent, rice mill, wholesale trader, distributor).
-2. Check for Previous Payable Balance (Sabqa Baqaya / پچھلا بقایا) if written on the bill.
-3. Detect Cash Paid Amount (Wasool / Naqad Ada / ادا رقم / Advance).
+1. Identify the Supplier / Vendor Name accurately (e.g., Mandi commission agent, rice mill, wholesale trader, distributor):
+   - CRITICAL UAE / GULF WHOLESALE TAX INVOICE RULE: The Supplier / Vendor is ALWAYS the header company printed at the very top (company letterhead, logo, seller TRN at top) - e.g. "GLAMS INTERNATIONAL GENERAL TRADING LLC", "AL RAFAH FOODSTUFF TRADING L.L.C", "AL ARABAH FLOUR MILL LLC", etc.
+   - The party printed under "Customer / Buyer / Bill To / M/s" (e.g. "ZAHRAT AL FAJR FOODSTUFF TR LLC") is the BUYER (the client enterprise receiving goods). NEVER report the buyer as supplierName! Always set supplierName to the header company at the top!
+2. Check for Previous Payable Balance (Sabqa Baqaya / پچھلا بقایا / Balance B/F / Prev Bal) if written or printed on the bill (e.g., "3580.75" on invoice).
+3. Detect Cash Paid Amount (Wasool / Naqad Ada / ادا رقم / Advance / handwritten "Paid", "Paid - 1217", "Ashiq Paid", "pushpa Paid"):
+   - If handwritten "Paid" or "Paid - XXX" or "[Person] Paid" is written on the invoice, mark isCash=true and paidAmount=amount paid (or full invoice total if no separate amount specified). Also note payer in notes (e.g., "Ashiq Paid" or "pushpa Paid").
 4. Detect the Grand Total on the bill (Total / Net Amount).
 5. Detect Each Item's Detailed Measurement Breakdown:
-   - Item Name: Clean, standardized wholesale title.
-   - Category: Auto-assign wholesale category (Rice & Grains, Pulses & Daal, Flour & Atta, Cooking Oil & Ghee, Spices & Masala, Sugar & Sweeteners, Meat & Poultry, Dairy, Vegetables & Fresh, Packaging & Containers, Cleaning & Hygiene, Kitchen Supplies).
+   - Item Name: Clean, standardized wholesale title (e.g., "Mala Black Tea 24x400g", "VEAL CUBE GOLDEN FRESH", "Red Chilly Crushed 5kg", "Khaleej Sugar 50kg", "Sonamasoori Rice 35kg", "Green Tea 5kg", "Indomie Noodles").
+   - Category: Auto-assign wholesale category (Tea & Coffee, Rice & Grains, Pulses & Daal, Flour & Atta, Cooking Oil & Ghee, Spices & Masala, Sugar & Sweeteners, Meat & Poultry, Dairy, Noodles & Pasta, Vegetables & Fresh, Packaging & Containers, Cleaning & Hygiene, Kitchen Supplies).
    - M-Code / SKU if written on the slip.
    - Cartons (ctn): Carton / bori count if specified.
    - Qty per Carton (qtyPerCtn): Units inside 1 carton (e.g. 12 bottles, 24 packs, 4 tins).
@@ -2477,7 +2480,7 @@ CRITICAL INSTRUCTIONS FOR SALE BILL:
 1. Identify Customer / Restaurant Name and Customer Account Code (look for 10-digit code e.g. 010104XXXX, or customer title).
 2. Identify Salesman / Order Taker if mentioned.
 3. Check for Previous Receivable Balance (Sabqa Baqaya / پچھلا بقایا) if printed on the slip.
-4. Detect Cash Received on slip (Wasool Shuda / Naqad).
+4. Detect Cash Received on slip (Wasool Shuda / Naqad / handwritten "Paid").
 5. Detect the Grand Total printed on the slip (Kul Raqam).
 6. Detect Each Sold Item's Measurement & Pricing:
    - Item Name & Category.
@@ -2535,6 +2538,8 @@ Output JSON strictly adhering to schema.
               invoiceNumber: { type: Type.STRING },
               totalAmount: { type: Type.NUMBER },
               previousBalance: { type: Type.NUMBER, description: 'Previous balance / sabqa baqaya if printed on slip' },
+              previousPayable: { type: Type.NUMBER, description: 'Previous payable to supplier if printed on slip' },
+              previousReceivable: { type: Type.NUMBER, description: 'Previous receivable from customer if printed on slip' },
               loadExp: { type: Type.NUMBER },
               isLoadExpDeduction: { type: Type.BOOLEAN },
               discountTotal: { type: Type.NUMBER },

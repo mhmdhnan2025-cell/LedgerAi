@@ -36,6 +36,7 @@ import {
 import { api } from '../services/api';
 import { currencySymbol } from '../utils/currency';
 import { CalendarModalPicker } from './CalendarModalPicker';
+import { SearchableAccountSelect } from './SearchableAccountSelect';
 
 export interface CashBankManagementViewProps {
   companyProfile?: CompanyProfile | null;
@@ -922,24 +923,6 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                       {activeTab.startsWith('bank') ? 'G/L ACCOUNT' : 'ACCOUNT'}
                     </span>
                     <div className="flex items-center gap-1 ml-auto">
-                      <input
-                        type="text"
-                        value={accountSearch}
-                        onChange={(e) => setAccountSearch(e.target.value)}
-                        placeholder="Search A/c..."
-                        className="bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-[11px] text-white w-24 outline-none focus:border-sky-500 placeholder-slate-500"
-                        title="Search accounts by code or name"
-                      />
-                      {accountSearch && (
-                        <button
-                          type="button"
-                          onClick={() => setAccountSearch('')}
-                          className="text-slate-400 hover:text-white text-[10px] px-1"
-                          title="Clear search"
-                        >
-                          ✕
-                        </button>
-                      )}
                       <button
                         type="button"
                         onClick={() => setIsQuickAddOpen(true)}
@@ -959,58 +942,13 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                     </div>
                   </div>
 
-                  <select
-                    value={selectedAccountId}
-                    onChange={(e) => setSelectedAccountId(e.target.value)}
+                  <SearchableAccountSelect
+                    accounts={glAccounts}
+                    selectedAccountId={selectedAccountId}
+                    onSelectAccount={(id) => setSelectedAccountId(id)}
+                    placeholder="Search account name or code (e.g. Al Najm, Petrol, 0101...)..."
                     required
-                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white outline-none focus:border-sky-500 text-xs font-medium"
-                  >
-                    <option value="">Nothing selected (Select Account...)</option>
-
-                    {/* 1. Expense Accounts */}
-                    {filteredExpAccounts.length > 0 && (
-                      <optgroup label="💼 Expense Accounts (اخراجات کے کھاتے)">
-                        {filteredExpAccounts.map((a) => (
-                          <option key={a.id} value={a.id}>
-                            {a.title} {a.code}
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-
-                    {/* 2. Customers */}
-                    {filteredCustAccounts.length > 0 && (
-                      <optgroup label="👥 Customers (کسٹمرز / گاہک)">
-                        {filteredCustAccounts.map((a) => (
-                          <option key={a.id} value={a.id}>
-                            {a.title} {a.code}
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-
-                    {/* 3. Suppliers */}
-                    {filteredSuppAccounts.length > 0 && (
-                      <optgroup label="🏢 Suppliers / Vendors (سپلائرز / کمپنیاں)">
-                        {filteredSuppAccounts.map((a) => (
-                          <option key={a.id} value={a.id}>
-                            {a.title} {a.code}
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-
-                    {/* 4. Banks & Cash */}
-                    {filteredBankCashAccounts.length > 0 && (
-                      <optgroup label="🏦 Banks & Cash (بینک اور کیش)">
-                        {filteredBankCashAccounts.map((a) => (
-                          <option key={a.id} value={a.id}>
-                            {a.title} {a.code}
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-                  </select>
+                  />
 
                   {/* Account Live Balance Display (Under Account Dropdown as shown in Image 1, 3, 5) */}
                   <div className="pt-1 text-[11px] font-bold text-amber-400">
@@ -1496,7 +1434,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                       {v.cashAccountTitle && (
                         <span className="text-slate-400">Cash: <strong className="text-emerald-300">{v.cashAccountTitle}</strong></span>
                       )}
-                      {v.salesmanTitle && (
+                      {v.salesmanTitle && !['admin', 'hanan', 'hannan', 'user'].includes(v.salesmanTitle.toLowerCase()) && (
                         <span className="text-slate-400">Salesman: <strong className="text-indigo-300">{v.salesmanTitle}</strong></span>
                       )}
                     </div>
@@ -1911,7 +1849,9 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                   <p><strong>Date:</strong> {viewingVoucherSlip.date}</p>
                   {viewingVoucherSlip.bankAccountTitle && <p><strong>Bank Account:</strong> {viewingVoucherSlip.bankAccountTitle}</p>}
                   {viewingVoucherSlip.cashAccountTitle && <p><strong>Cash Till:</strong> {viewingVoucherSlip.cashAccountTitle}</p>}
-                  {viewingVoucherSlip.salesmanTitle && <p><strong>Salesman:</strong> {viewingVoucherSlip.salesmanTitle}</p>}
+                  {viewingVoucherSlip.salesmanTitle && !['admin', 'hanan', 'hannan', 'user'].includes(viewingVoucherSlip.salesmanTitle.toLowerCase()) && (
+                    <p><strong>Salesman:</strong> {viewingVoucherSlip.salesmanTitle}</p>
+                  )}
                 </div>
               </div>
 
