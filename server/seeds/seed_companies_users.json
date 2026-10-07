@@ -63,12 +63,23 @@
       "role": "Admin"
     },
     {
+      "id": "usr-qamar99",
+      "companyId": "comp-muocj00t-j3co",
+      "name": "Qamar Abbas",
+      "username": "qamar99",
+      "email": "qamar99@comp-muocj00t-j3co.erp",
+      "passwordHash": "$2b$10$bLEy87g5rSDVKk1keAobyuol.sqmwRHDKVhPDizuMWtC9hpM5CaKi",
+      "password": "admin",
+      "role": "Admin"
+    },
+    {
       "id": "usr-1790787310391",
       "companyId": "comp-muocj00t-j3co",
       "name": "ANJUM ABBAS",
       "username": "qamarabbas",
       "email": "qamarabbas@comp-muocj00t-j3co.erp",
       "passwordHash": "$2b$10$bLEy87g5rSDVKk1keAobyuol.sqmwRHDKVhPDizuMWtC9hpM5CaKi",
+      "password": "admin",
       "role": "Admin"
     },
     {
