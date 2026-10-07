@@ -154,17 +154,24 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
         api.getSalesmen().catch(() => []),
       ]);
 
-      setBanks(banksData || []);
-      setCashAccounts(cashData || []);
-      setGlAccounts(glData || []);
-      setNextNumbers(numsData);
-      setSalesmen(salesData || []);
+      setBanks(Array.isArray(banksData) ? banksData.filter(Boolean) : []);
+      setCashAccounts(Array.isArray(cashData) ? cashData.filter(Boolean) : []);
+      setGlAccounts(Array.isArray(glData) ? glData.filter(Boolean) : []);
+      setNextNumbers(
+        numsData && numsData.voucherNumbers
+          ? numsData
+          : {
+              jvNumber: 19694,
+              voucherNumbers: { BR: 1, BP: 1, CR: 5514, CP: 1025, CB: 101, JV: 19694 },
+            }
+      );
+      setSalesmen(Array.isArray(salesData) ? salesData.filter(Boolean) : []);
 
       // Default selected bank & cash account
-      if (banksData && banksData.length > 0 && !selectedBankId) {
+      if (Array.isArray(banksData) && banksData.length > 0 && !selectedBankId) {
         setSelectedBankId(banksData[0].id);
       }
-      if (cashData && cashData.length > 0 && !selectedCashAccountId) {
+      if (Array.isArray(cashData) && cashData.length > 0 && !selectedCashAccountId) {
         setSelectedCashAccountId(cashData[0].id);
       }
     } catch (err: any) {
@@ -195,23 +202,31 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
     }
   }, [activeTab]);
 
+  // Safe collections
+  const safeBanks = Array.isArray(banks) ? banks.filter(Boolean) : [];
+  const safeCashAccounts = Array.isArray(cashAccounts) ? cashAccounts.filter(Boolean) : [];
+  const safeGlAccounts = Array.isArray(glAccounts) ? glAccounts.filter(Boolean) : [];
+
   // Current Selected Bank & Cash Account Objects
-  const currentBank = banks.find((b) => b.id === selectedBankId || b.accountCode === selectedBankId);
-  const currentCashAccount = cashAccounts.find((c) => c.id === selectedCashAccountId || c.accountCode === selectedCashAccountId);
+  const currentBank = safeBanks.find((b) => b && (b.id === selectedBankId || b.accountCode === selectedBankId));
+  const currentCashAccount = safeCashAccounts.find((c) => c && (c.id === selectedCashAccountId || c.accountCode === selectedCashAccountId));
 
   // Current Selected Entry Account
-  const currentEntryAccount = glAccounts.find((a) => a.id === selectedAccountId || a.code === selectedAccountId);
+  const currentEntryAccount = safeGlAccounts.find((a) => a && (a.id === selectedAccountId || a.code === selectedAccountId));
 
   // Grouped and Search-Filtered GL Accounts
-  const filteredGlAccounts = glAccounts.filter((a) => {
+  const filteredGlAccounts = safeGlAccounts.filter((a) => {
     if (!accountSearch.trim()) return true;
     const q = accountSearch.trim().toLowerCase();
-    return a.title.toLowerCase().includes(q) || a.code.toLowerCase().includes(q) || a.type.toLowerCase().includes(q);
+    const title = String(a.title || '').toLowerCase();
+    const code = String(a.code || '').toLowerCase();
+    const type = String(a.type || '').toLowerCase();
+    return title.includes(q) || code.includes(q) || type.includes(q);
   });
-  const filteredExpAccounts = filteredGlAccounts.filter((a) => a.type === 'Expense');
-  const filteredCustAccounts = filteredGlAccounts.filter((a) => a.type === 'Customer');
-  const filteredSuppAccounts = filteredGlAccounts.filter((a) => a.type === 'Supplier');
-  const filteredBankCashAccounts = filteredGlAccounts.filter((a) => a.type === 'Bank' || a.type === 'Cash');
+  const filteredExpAccounts = filteredGlAccounts.filter((a) => a && a.type === 'Expense');
+  const filteredCustAccounts = filteredGlAccounts.filter((a) => a && a.type === 'Customer');
+  const filteredSuppAccounts = filteredGlAccounts.filter((a) => a && a.type === 'Supplier');
+  const filteredBankCashAccounts = filteredGlAccounts.filter((a) => a && (a.type === 'Bank' || a.type === 'Cash'));
 
   // Reset entry line
   const resetEntryLine = () => {
@@ -742,7 +757,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                 <input
                   type="text"
                   readOnly
-                  value={editingVoucherId ? 'EDIT' : nextNumbers.jvNumber}
+                  value={editingVoucherId ? 'EDIT' : (nextNumbers?.jvNumber ?? 19694)}
                   className="w-20 bg-slate-800/80 border border-slate-700 rounded px-2.5 py-1 text-center font-bold text-slate-200 outline-none"
                 />
               </div>
@@ -754,7 +769,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                   <input
                     type="text"
                     readOnly
-                    value={nextNumbers.voucherNumbers.BR}
+                    value={nextNumbers?.voucherNumbers?.BR ?? 1}
                     className="w-16 bg-slate-800/80 border border-slate-700 rounded px-2.5 py-1 text-center font-bold text-slate-200 outline-none"
                   />
                 </div>
@@ -766,7 +781,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                   <input
                     type="text"
                     readOnly
-                    value={nextNumbers.voucherNumbers.BP}
+                    value={nextNumbers?.voucherNumbers?.BP ?? 1}
                     className="w-16 bg-slate-800/80 border border-slate-700 rounded px-2.5 py-1 text-center font-bold text-slate-200 outline-none"
                   />
                 </div>
@@ -778,7 +793,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                   <input
                     type="text"
                     readOnly
-                    value={nextNumbers.voucherNumbers.CR}
+                    value={nextNumbers?.voucherNumbers?.CR ?? 5514}
                     className="w-20 bg-slate-800/80 border border-slate-700 rounded px-2.5 py-1 text-center font-bold text-slate-200 outline-none"
                   />
                 </div>
@@ -790,7 +805,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                   <input
                     type="text"
                     readOnly
-                    value={nextNumbers.voucherNumbers.CP}
+                    value={nextNumbers?.voucherNumbers?.CP ?? 1025}
                     className="w-20 bg-slate-800/80 border border-slate-700 rounded px-2.5 py-1 text-center font-bold text-slate-200 outline-none"
                   />
                 </div>
@@ -802,7 +817,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                   <input
                     type="text"
                     readOnly
-                    value={nextNumbers.voucherNumbers.CB}
+                    value={nextNumbers?.voucherNumbers?.CB ?? 101}
                     className="w-16 bg-slate-800/80 border border-slate-700 rounded px-2.5 py-1 text-center font-bold text-slate-200 outline-none"
                   />
                 </div>
@@ -854,14 +869,14 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                     className="bg-slate-800/80 border border-slate-700 rounded px-2.5 py-1 text-white text-xs outline-none focus:border-sky-500 max-w-[200px]"
                   >
                     <option value="">Nothing selected</option>
-                    {banks.map((b) => (
+                    {safeBanks.map((b) => (
                       <option key={b.id} value={b.id}>
                         {b.bankTitle} ({b.accountCode})
                       </option>
                     ))}
                   </select>
                   <span className="font-bold text-amber-400 ml-1">
-                    Balance : {currentBank ? `${currentBank.balance.toFixed(2)} ${currentBank.balanceType}` : '0.00 DR'}
+                    Balance : {currentBank ? `${Number(currentBank.balance || 0).toFixed(2)} ${currentBank.balanceType || 'DR'}` : '0.00 DR'}
                   </span>
                 </div>
               )}
@@ -873,7 +888,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                     <span className="font-bold text-slate-400">Cash</span>
                     <div className="bg-slate-800/90 border border-slate-700 px-3 py-1 rounded font-bold text-slate-200">
                       {currentCashAccount
-                        ? `${currentCashAccount.balance.toFixed(2)} ${currentCashAccount.balanceType}`
+                        ? `${Number(currentCashAccount.balance || 0).toFixed(2)} ${currentCashAccount.balanceType || 'DR'}`
                         : '0.00 DR'}
                     </div>
                   </div>
@@ -885,7 +900,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                       onChange={(e) => setSelectedCashAccountId(e.target.value)}
                       className="bg-slate-800/80 border border-slate-700 rounded px-2.5 py-1 text-white text-xs outline-none focus:border-sky-500"
                     >
-                      {cashAccounts.map((c) => (
+                      {safeCashAccounts.map((c) => (
                         <option key={c.id} value={c.id}>
                           {c.title}
                         </option>
@@ -904,7 +919,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                   className="bg-slate-800/80 border border-slate-700 rounded px-2 py-1 text-white text-xs outline-none focus:border-sky-500 max-w-[150px]"
                 >
                   <option value="">Nothing selected</option>
-                  {salesmen.map((s) => (
+                  {(Array.isArray(salesmen) ? salesmen : []).map((s) => (
                     <option key={s} value={s}>
                       {s}
                     </option>
@@ -943,7 +958,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                   </div>
 
                   <SearchableAccountSelect
-                    accounts={glAccounts}
+                    accounts={safeGlAccounts}
                     selectedAccountId={selectedAccountId}
                     onSelectAccount={(id) => setSelectedAccountId(id)}
                     placeholder="Search account name or code (e.g. Al Najm, Petrol, 0101...)..."
@@ -1174,24 +1189,24 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                           {activeTab === 'journalVoucher' ? (
                             <>
                               <td className="px-3 py-2 text-right font-bold text-emerald-400">
-                                {item.debit ? item.debit.toFixed(2) : '-'}
+                                {item.debit ? Number(item.debit || 0).toFixed(2) : '-'}
                               </td>
                               <td className="px-3 py-2 text-right font-bold text-rose-400">
-                                {item.credit ? item.credit.toFixed(2) : '-'}
+                                {item.credit ? Number(item.credit || 0).toFixed(2) : '-'}
                               </td>
                             </>
                           ) : activeTab === 'cashBook' ? (
                             <>
                               <td className="px-3 py-2 text-right font-bold text-emerald-400">
-                                {item.receipt ? item.receipt.toFixed(2) : '-'}
+                                {item.receipt ? Number(item.receipt || 0).toFixed(2) : '-'}
                               </td>
                               <td className="px-3 py-2 text-right font-bold text-rose-400">
-                                {item.payment ? item.payment.toFixed(2) : '-'}
+                                {item.payment ? Number(item.payment || 0).toFixed(2) : '-'}
                               </td>
                             </>
                           ) : (
                             <td className="px-3 py-2 text-right font-bold text-emerald-400">
-                              {item.amount.toFixed(2)}
+                              {Number(item.amount || 0).toFixed(2)}
                             </td>
                           )}
                           <td className="px-3 py-2 text-center">
@@ -1227,20 +1242,20 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                 <div className="flex items-center gap-4 font-bold">
                   {activeTab === 'journalVoucher' ? (
                     <>
-                      <span className="text-slate-300">Total Debit: <span className="text-emerald-400 font-mono">{jvTotalDebit.toFixed(2)}</span></span>
-                      <span className="text-slate-300">Total Credit: <span className="text-rose-400 font-mono">{jvTotalCredit.toFixed(2)}</span></span>
-                      {jvDifference > 0.01 && (
-                        <span className="text-amber-400">Diff: {jvDifference.toFixed(2)}</span>
+                      <span className="text-slate-300">Total Debit: <span className="text-emerald-400 font-mono">{Number(jvTotalDebit || 0).toFixed(2)}</span></span>
+                      <span className="text-slate-300">Total Credit: <span className="text-rose-400 font-mono">{Number(jvTotalCredit || 0).toFixed(2)}</span></span>
+                      {(jvDifference || 0) > 0.01 && (
+                        <span className="text-amber-400">Diff: {Number(jvDifference || 0).toFixed(2)}</span>
                       )}
                     </>
                   ) : activeTab === 'cashBook' ? (
                     <>
-                      <span className="text-slate-300">Total Receipts: <span className="text-emerald-400 font-mono">{entries.reduce((sum, e) => sum + (e.receipt || 0), 0).toFixed(2)}</span></span>
-                      <span className="text-slate-300">Total Payments: <span className="text-rose-400 font-mono">{entries.reduce((sum, e) => sum + (e.payment || 0), 0).toFixed(2)}</span></span>
+                      <span className="text-slate-300">Total Receipts: <span className="text-emerald-400 font-mono">{(Array.isArray(entries) ? entries : []).reduce((sum, e) => sum + (Number(e.receipt) || 0), 0).toFixed(2)}</span></span>
+                      <span className="text-slate-300">Total Payments: <span className="text-rose-400 font-mono">{(Array.isArray(entries) ? entries : []).reduce((sum, e) => sum + (Number(e.payment) || 0), 0).toFixed(2)}</span></span>
                     </>
                   ) : (
                     <span className="text-slate-300">
-                      Total: <span className="text-white font-mono text-sm ml-1">{gridTotal.toFixed(2)}</span>
+                      Total: <span className="text-white font-mono text-sm ml-1">{Number(gridTotal || 0).toFixed(2)}</span>
                     </span>
                   )}
                 </div>
@@ -1507,7 +1522,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/40">
-                        {v.entries.map((e) => (
+                        {(Array.isArray(v.entries) ? v.entries : []).map((e) => (
                           <tr key={e.id} className="hover:bg-slate-800/20">
                             <td className="py-1.5 px-2 font-mono text-sky-400">{e.accountCode}</td>
                             <td className="py-1.5 px-2 font-medium text-white">{e.accountTitle}</td>
@@ -1522,24 +1537,24 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                             {v.voucherType === 'JV' ? (
                               <>
                                 <td className="py-1.5 px-2 text-right text-emerald-400 font-mono font-bold">
-                                  {e.debit ? `${currencySymbol()} ${e.debit.toFixed(2)}` : '-'}
+                                  {e.debit ? `${currencySymbol()} ${Number(e.debit || 0).toFixed(2)}` : '-'}
                                 </td>
                                 <td className="py-1.5 px-2 text-right text-rose-400 font-mono font-bold">
-                                  {e.credit ? `${currencySymbol()} ${e.credit.toFixed(2)}` : '-'}
+                                  {e.credit ? `${currencySymbol()} ${Number(e.credit || 0).toFixed(2)}` : '-'}
                                 </td>
                               </>
                             ) : v.voucherType === 'CB' ? (
                               <>
                                 <td className="py-1.5 px-2 text-right text-emerald-400 font-mono font-bold">
-                                  {e.receipt ? `${currencySymbol()} ${e.receipt.toFixed(2)}` : '-'}
+                                  {e.receipt ? `${currencySymbol()} ${Number(e.receipt || 0).toFixed(2)}` : '-'}
                                 </td>
                                 <td className="py-1.5 px-2 text-right text-rose-400 font-mono font-bold">
-                                  {e.payment ? `${currencySymbol()} ${e.payment.toFixed(2)}` : '-'}
+                                  {e.payment ? `${currencySymbol()} ${Number(e.payment || 0).toFixed(2)}` : '-'}
                                 </td>
                               </>
                             ) : (
                               <td className="py-1.5 px-2 text-right text-emerald-400 font-mono font-bold">
-                                {currencySymbol()} {e.amount.toFixed(2)}
+                                {currencySymbol()} {Number(e.amount || 0).toFixed(2)}
                               </td>
                             )}
                           </tr>
@@ -1608,7 +1623,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/80 font-medium">
-                  {banks.map((b, idx) => (
+                  {safeBanks.map((b, idx) => (
                     <tr key={b.id} className="hover:bg-slate-800/40 transition">
                       <td className="px-3 py-3 text-slate-400 font-bold">{idx + 1}</td>
                       <td className="px-4 py-3 font-mono text-sky-400 font-bold">{b.accountCode}</td>
@@ -1772,7 +1787,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
               <div className="flex justify-between py-1.5 border-b border-slate-800">
                 <span className="text-slate-400 font-bold">Current Running Balance:</span>
                 <span className="font-mono text-base font-bold text-emerald-400">
-                  {currencySymbol()} {viewingBank.balance.toFixed(2)} {viewingBank.balanceType}
+                  {currencySymbol()} {Number(viewingBank?.balance || 0).toFixed(2)} {viewingBank?.balanceType || 'DR'}
                 </span>
               </div>
               <div className="flex justify-between py-1.5 border-b border-slate-800">
@@ -1866,19 +1881,19 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
-                  {viewingVoucherSlip.entries.map((e, idx) => (
+                  {(Array.isArray(viewingVoucherSlip?.entries) ? viewingVoucherSlip.entries : []).map((e, idx) => (
                     <tr key={idx}>
                       <td className="py-1 px-2 font-mono">{e.accountCode}</td>
                       <td className="py-1 px-2 font-semibold">{e.accountTitle}</td>
                       <td className="py-1 px-2 text-slate-600">{e.narration}</td>
-                      <td className="py-1 px-2 text-right font-bold font-mono">{e.amount.toFixed(2)}</td>
+                      <td className="py-1 px-2 text-right font-bold font-mono">{Number(e.amount || 0).toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr className="bg-slate-100 font-bold border-t border-slate-300">
                     <td colSpan={3} className="py-1.5 px-2 text-right">Total Amount:</td>
-                    <td className="py-1.5 px-2 text-right font-mono text-sm">{currencySymbol()} {viewingVoucherSlip.totalAmount.toFixed(2)}</td>
+                    <td className="py-1.5 px-2 text-right font-mono text-sm">{currencySymbol()} {Number(viewingVoucherSlip?.totalAmount || 0).toFixed(2)}</td>
                   </tr>
                 </tfoot>
               </table>

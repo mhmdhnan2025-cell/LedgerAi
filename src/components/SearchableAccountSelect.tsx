@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Search, X, Check, Building2, Users, Landmark, Wallet, Receipt } from 'lucide-react';
+import { Search, X, Building2, Users, Landmark, Wallet, Receipt } from 'lucide-react';
 import { GlAccountOption } from '../types';
 
 interface SearchableAccountSelectProps {
-  accounts: GlAccountOption[];
-  selectedAccountId: string;
+  accounts?: GlAccountOption[];
+  selectedAccountId?: string;
   onSelectAccount: (accountId: string) => void;
   placeholder?: string;
   label?: string;
@@ -14,7 +14,7 @@ interface SearchableAccountSelectProps {
 
 export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = ({
   accounts = [],
-  selectedAccountId,
+  selectedAccountId = '',
   onSelectAccount,
   placeholder = 'Type account name or code (e.g. Al Najm, Petrol, 0101...)...',
   label,
@@ -26,11 +26,18 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Guarantee valid array
+  const safeAccounts = useMemo(() => {
+    return Array.isArray(accounts) ? accounts.filter((a): a is GlAccountOption => Boolean(a && a.id)) : [];
+  }, [accounts]);
+
+  // Safely find selected account
   const selectedAccount = useMemo(() => {
-    return accounts.find(
-      (a) => a.id === selectedAccountId || a.code === selectedAccountId
+    if (!selectedAccountId) return undefined;
+    return safeAccounts.find(
+      (a) => a && (a.id === selectedAccountId || a.code === selectedAccountId)
     );
-  }, [accounts, selectedAccountId]);
+  }, [safeAccounts, selectedAccountId]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -43,30 +50,33 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
 
-  // Filter accounts in real-time
+  // Filter accounts in real-time with null-safe lowercasing
   const filteredAccounts = useMemo(() => {
-    if (!searchTerm.trim()) return accounts;
+    if (!searchTerm.trim()) return safeAccounts;
     const q = searchTerm.trim().toLowerCase();
-    return accounts.filter(
-      (a) =>
-        a.title.toLowerCase().includes(q) ||
-        a.code.toLowerCase().includes(q) ||
-        a.type.toLowerCase().includes(q)
-    );
-  }, [accounts, searchTerm]);
+    return safeAccounts.filter((a) => {
+      if (!a) return false;
+      const title = String(a.title || '').toLowerCase();
+      const code = String(a.code || '').toLowerCase();
+      const type = String(a.type || '').toLowerCase();
+      return title.includes(q) || code.includes(q) || type.includes(q);
+    });
+  }, [safeAccounts, searchTerm]);
 
-  // Group accounts
+  // Group accounts safely
   const grouped = useMemo(() => {
-    const exp = filteredAccounts.filter((a) => a.type === 'Expense');
-    const cust = filteredAccounts.filter((a) => a.type === 'Customer');
-    const supp = filteredAccounts.filter((a) => a.type === 'Supplier');
-    const bank = filteredAccounts.filter((a) => a.type === 'Bank');
-    const cash = filteredAccounts.filter((a) => a.type === 'Cash');
+    const exp = filteredAccounts.filter((a) => a && a.type === 'Expense');
+    const cust = filteredAccounts.filter((a) => a && a.type === 'Customer');
+    const supp = filteredAccounts.filter((a) => a && a.type === 'Supplier');
+    const bank = filteredAccounts.filter((a) => a && a.type === 'Bank');
+    const cash = filteredAccounts.filter((a) => a && a.type === 'Cash');
     return { exp, cust, supp, bank, cash };
   }, [filteredAccounts]);
 
   const handleSelect = (account: GlAccountOption) => {
-    onSelectAccount(account.id);
+    if (account && account.id) {
+      onSelectAccount(account.id);
+    }
     setSearchTerm('');
     setIsOpen(false);
   };
@@ -78,7 +88,7 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
     if (inputRef.current) inputRef.current.focus();
   };
 
-  const getTypeIcon = (type: string) => {
+  const getTypeIcon = (type?: string) => {
     switch (type) {
       case 'Expense':
         return <Receipt className="w-3.5 h-3.5 text-amber-400 shrink-0" />;
@@ -91,7 +101,7 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
       case 'Cash':
         return <Wallet className="w-3.5 h-3.5 text-teal-400 shrink-0" />;
       default:
-        return null;
+        return <Receipt className="w-3.5 h-3.5 text-slate-400 shrink-0" />;
     }
   };
 
@@ -110,24 +120,26 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
             setIsOpen(true);
             setTimeout(() => inputRef.current?.focus(), 50);
           }}
-          className="flex items-center justify-between w-full bg-slate-900 hover:bg-slate-850 border border-slate-700 hover:border-sky-500 rounded-lg px-3 py-2 text-xs cursor-pointer shadow-xs transition-all group"
+          className="flex items-center justify-between w-full bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-sky-500 rounded-lg px-3 py-2 text-xs cursor-pointer transition-all group"
         >
           <div className="flex items-center gap-2 overflow-hidden">
             {getTypeIcon(selectedAccount.type)}
             <span className="font-mono font-bold text-sky-400 shrink-0">
-              {selectedAccount.code}
+              {selectedAccount.code || ''}
             </span>
             <span className="font-semibold text-white truncate">
-              {selectedAccount.title}
+              {selectedAccount.title || 'Selected Account'}
             </span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 shrink-0 font-medium">
-              {selectedAccount.type}
-            </span>
+            {selectedAccount.type && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 shrink-0 font-medium">
+                {selectedAccount.type}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2 shrink-0 ml-2">
             <span className="text-[11px] font-bold text-amber-400 font-mono">
-              {selectedAccount.balanceFormatted}
+              {selectedAccount.balanceFormatted || '0.00'}
             </span>
             <button
               type="button"
@@ -155,7 +167,7 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
             onFocus={() => setIsOpen(true)}
             placeholder={placeholder}
             required={required && !selectedAccountId}
-            className="w-full bg-slate-900 border border-slate-700 focus:border-sky-500 rounded-lg pl-9 pr-8 py-2 text-xs text-white placeholder:text-slate-400 outline-none shadow-xs font-medium transition-all"
+            className="w-full bg-slate-900 border border-slate-700 focus:border-sky-500 rounded-lg pl-9 pr-8 py-2 text-xs text-white placeholder:text-slate-400 outline-none font-medium transition-all"
           />
           {searchTerm && (
             <button
@@ -196,14 +208,14 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
                     >
                       <div className="flex items-center gap-2 overflow-hidden">
                         <span className="font-mono font-bold text-sky-400 shrink-0 text-[11px]">
-                          {acc.code}
+                          {acc.code || ''}
                         </span>
                         <span className="font-medium text-white truncate">
-                          {acc.title}
+                          {acc.title || ''}
                         </span>
                       </div>
                       <span className="font-mono text-[11px] text-amber-400 font-bold shrink-0 ml-2">
-                        {acc.balanceFormatted}
+                        {acc.balanceFormatted || ''}
                       </span>
                     </div>
                   ))}
@@ -228,14 +240,14 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
                     >
                       <div className="flex items-center gap-2 overflow-hidden">
                         <span className="font-mono font-bold text-sky-400 shrink-0 text-[11px]">
-                          {acc.code}
+                          {acc.code || ''}
                         </span>
                         <span className="font-medium text-white truncate">
-                          {acc.title}
+                          {acc.title || ''}
                         </span>
                       </div>
                       <span className="font-mono text-[11px] text-amber-400 font-bold shrink-0 ml-2">
-                        {acc.balanceFormatted}
+                        {acc.balanceFormatted || ''}
                       </span>
                     </div>
                   ))}
@@ -260,14 +272,14 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
                     >
                       <div className="flex items-center gap-2 overflow-hidden">
                         <span className="font-mono font-bold text-sky-400 shrink-0 text-[11px]">
-                          {acc.code}
+                          {acc.code || ''}
                         </span>
                         <span className="font-medium text-white truncate">
-                          {acc.title}
+                          {acc.title || ''}
                         </span>
                       </div>
                       <span className="font-mono text-[11px] text-amber-400 font-bold shrink-0 ml-2">
-                        {acc.balanceFormatted}
+                        {acc.balanceFormatted || ''}
                       </span>
                     </div>
                   ))}
@@ -275,13 +287,13 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
               )}
 
               {/* Group 4: Banks & Cash */}
-              {(grouped.bank.length > 0 || grouped.cash.length > 0) && (
+              {((grouped.bank && grouped.bank.length > 0) || (grouped.cash && grouped.cash.length > 0)) && (
                 <div>
                   <div className="px-3 py-1.5 bg-slate-950/70 text-[10px] font-bold text-emerald-300 uppercase tracking-wider flex items-center gap-1.5 sticky top-0">
                     <Landmark className="w-3 h-3 text-emerald-400" />
                     <span>Banks &amp; Cash in Hand (بینک اور کیش)</span>
                   </div>
-                  {[...grouped.bank, ...grouped.cash].map((acc) => (
+                  {[...(grouped.bank || []), ...(grouped.cash || [])].map((acc) => (
                     <div
                       key={acc.id}
                       onClick={() => handleSelect(acc)}
@@ -291,14 +303,14 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
                     >
                       <div className="flex items-center gap-2 overflow-hidden">
                         <span className="font-mono font-bold text-emerald-400 shrink-0 text-[11px]">
-                          {acc.code}
+                          {acc.code || ''}
                         </span>
                         <span className="font-medium text-white truncate">
-                          {acc.title}
+                          {acc.title || ''}
                         </span>
                       </div>
                       <span className="font-mono text-[11px] text-amber-400 font-bold shrink-0 ml-2">
-                        {acc.balanceFormatted}
+                        {acc.balanceFormatted || ''}
                       </span>
                     </div>
                   ))}

@@ -6868,9 +6868,10 @@ class DatabaseService {
 
     // Cash received from Vouchers (CR vouchers + CB receipts)
     const cashFromVouchers = (this.data.vouchers || []).reduce((sum, v) => {
-      if (v.voucherType === 'CR') return sum + (v.totalAmount || 0);
-      if (v.voucherType === 'CB') {
-        const rTotal = v.entries.reduce((acc, e) => acc + (e.receipt || 0), 0);
+      if (!v) return sum;
+      if (v.voucherType === 'CR') return sum + (Number(v.totalAmount) || 0);
+      if (v.voucherType === 'CB' && Array.isArray(v.entries)) {
+        const rTotal = v.entries.reduce((acc, e) => acc + (Number(e?.receipt) || 0), 0);
         return sum + rTotal;
       }
       return sum;
@@ -6878,22 +6879,25 @@ class DatabaseService {
 
     // Cash paid out for purchase bills
     const cashOutPurchases = (this.data.purchaseBills || []).reduce((sum, b) => {
+      if (!b) return sum;
       if (b.isCash) return sum + (Number(b.netTotal) || 0);
       return sum + (Number(b.paidAmount) || 0);
     }, 0);
 
     // Cash paid out for daily expenses
     const cashOutExpenses = (this.data.expenses || []).reduce((sum, e) => {
+      if (!e) return sum;
       const pm = (e.paymentMethod || '').toLowerCase();
-      if (!pm || pm === 'cash' || pm === 'hand') return sum + (e.amount || 0);
+      if (!pm || pm === 'cash' || pm === 'hand') return sum + (Number(e.amount) || 0);
       return sum;
     }, 0);
 
     // Cash paid out via Vouchers (CP vouchers + CB payments)
     const cashOutVouchers = (this.data.vouchers || []).reduce((sum, v) => {
-      if (v.voucherType === 'CP') return sum + (v.totalAmount || 0);
-      if (v.voucherType === 'CB') {
-        const pTotal = v.entries.reduce((acc, e) => acc + (e.payment || 0), 0);
+      if (!v) return sum;
+      if (v.voucherType === 'CP') return sum + (Number(v.totalAmount) || 0);
+      if (v.voucherType === 'CB' && Array.isArray(v.entries)) {
+        const pTotal = v.entries.reduce((acc, e) => acc + (Number(e?.payment) || 0), 0);
         return sum + pTotal;
       }
       return sum;
@@ -7046,20 +7050,29 @@ class DatabaseService {
 
     // Real Expense Accounts (Expense Accounts Management)
     this.getExpenseAccounts().forEach((exp) => {
+      if (!exp || !exp.name) return;
+      const expNameLower = (exp.name || '').toLowerCase();
+
       // Calculate total spent on this expense account from vouchers & expenses
       const spentVouchers = (this.data.vouchers || []).reduce((sum, v) => {
-        const ent = v.entries.find((e) => e.accountId === exp.id || e.accountCode === exp.code || e.accountTitle.toLowerCase().includes(exp.name.toLowerCase()));
+        if (!v || !Array.isArray(v.entries)) return sum;
+        const ent = v.entries.find((e) =>
+          e && (e.accountId === exp.id || e.accountCode === exp.code || (e.accountTitle && e.accountTitle.toLowerCase().includes(expNameLower)))
+        );
         if (ent) {
-          if (v.voucherType === 'CP' || v.voucherType === 'BP') return sum + (ent.amount || 0);
-          if (v.voucherType === 'CB') return sum + (ent.payment || 0);
-          if (v.voucherType === 'JV') return sum + (ent.debit || 0);
+          if (v.voucherType === 'CP' || v.voucherType === 'BP') return sum + (Number(ent.amount) || 0);
+          if (v.voucherType === 'CB') return sum + (Number(ent.payment) || 0);
+          if (v.voucherType === 'JV') return sum + (Number(ent.debit) || 0);
         }
         return sum;
       }, 0);
 
       const spentExpenses = (this.data.expenses || []).reduce((sum, e) => {
-        if (e.title?.toLowerCase() === exp.name.toLowerCase() || e.category?.toLowerCase() === exp.name.toLowerCase()) {
-          return sum + (e.amount || 0);
+        if (!e) return sum;
+        const titleLower = (e.title || '').toLowerCase();
+        const catLower = (e.category || '').toLowerCase();
+        if (titleLower === expNameLower || catLower === expNameLower) {
+          return sum + (Number(e.amount) || 0);
         }
         return sum;
       }, 0);
@@ -7068,8 +7081,8 @@ class DatabaseService {
 
       accounts.push({
         id: exp.id,
-        code: exp.code,
-        title: `${exp.name} (${exp.expenseType})`,
+        code: exp.code || '0501010001',
+        title: `${exp.name} (${exp.expenseType || 'Expense'})`,
         type: 'Expense',
         balance: totalSpent,
         balanceType: 'DR',
@@ -7093,8 +7106,8 @@ class DatabaseService {
     };
 
     vouchers.forEach((v) => {
-      if (v.jvNumber >= maxJv) maxJv = v.jvNumber + 1;
-      if (v.voucherType && v.voucherNumber >= (maxVouchers[v.voucherType] || 1)) {
+      if (v && typeof v.jvNumber === 'number' && v.jvNumber >= maxJv) maxJv = v.jvNumber + 1;
+      if (v && v.voucherType && typeof v.voucherNumber === 'number' && v.voucherNumber >= (maxVouchers[v.voucherType] || 1)) {
         maxVouchers[v.voucherType] = v.voucherNumber + 1;
       }
     });
@@ -7156,7 +7169,8 @@ class DatabaseService {
     if (params.fromDate) {
       const from = new Date(params.fromDate).getTime();
       list = list.filter((v) => {
-        const parts = v.date.split('-');
+        if (!v || !v.date) return false;
+        const parts = String(v.date).split('-');
         const iso = parts[0].length === 2 && parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : v.date;
         const vDate = new Date(iso).getTime();
         return isNaN(vDate) || vDate >= from;
@@ -7166,7 +7180,8 @@ class DatabaseService {
     if (params.toDate) {
       const to = new Date(params.toDate).getTime();
       list = list.filter((v) => {
-        const parts = v.date.split('-');
+        if (!v || !v.date) return false;
+        const parts = String(v.date).split('-');
         const iso = parts[0].length === 2 && parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : v.date;
         const vDate = new Date(iso).getTime();
         return isNaN(vDate) || vDate <= to + 86400000;
@@ -7192,17 +7207,18 @@ class DatabaseService {
       list = list.filter((v) => {
         return (
           v.voucherNumberFormatted?.toLowerCase().includes(q) ||
-          String(v.jvNumber).includes(q) ||
-          String(v.voucherNumber).includes(q) ||
+          String(v.jvNumber || '').includes(q) ||
+          String(v.voucherNumber || '').includes(q) ||
           (v.bankAccountTitle && v.bankAccountTitle.toLowerCase().includes(q)) ||
           (v.cashAccountTitle && v.cashAccountTitle.toLowerCase().includes(q)) ||
           (v.salesmanTitle && v.salesmanTitle.toLowerCase().includes(q)) ||
-          v.entries.some((e) =>
-            e.accountTitle.toLowerCase().includes(q) ||
-            e.accountCode.toLowerCase().includes(q) ||
-            e.narration.toLowerCase().includes(q) ||
-            (e.chequeNo && e.chequeNo.toLowerCase().includes(q))
-          )
+          (Array.isArray(v.entries) && v.entries.some((e) =>
+            e &&
+            ((e.accountTitle && e.accountTitle.toLowerCase().includes(q)) ||
+             (e.accountCode && e.accountCode.toLowerCase().includes(q)) ||
+             (e.narration && e.narration.toLowerCase().includes(q)) ||
+             (e.chequeNo && e.chequeNo.toLowerCase().includes(q)))
+          ))
         );
       });
     }
@@ -7245,8 +7261,9 @@ class DatabaseService {
           cash.balance = Number((cash.balance - factor * voucher.totalAmount).toFixed(2));
         } else if (voucher.voucherType === 'CB') {
           // Cash Book: Net Receipts - Net Payments
-          const totalReceipts = voucher.entries.reduce((sum, e) => sum + (e.receipt || 0), 0);
-          const totalPayments = voucher.entries.reduce((sum, e) => sum + (e.payment || 0), 0);
+          const voucherEntries = Array.isArray(voucher.entries) ? voucher.entries : [];
+          const totalReceipts = voucherEntries.reduce((sum, e) => sum + (Number(e?.receipt) || 0), 0);
+          const totalPayments = voucherEntries.reduce((sum, e) => sum + (Number(e?.payment) || 0), 0);
           const netEffect = totalReceipts - totalPayments;
           cash.balance = Number((cash.balance + factor * netEffect).toFixed(2));
         }
@@ -7255,9 +7272,11 @@ class DatabaseService {
     }
 
     // 3. Line Items Ledger Effects (Customers, Suppliers, etc.)
-    for (const e of voucher.entries) {
-      const cust = (this.data.customers || []).find((c) => c.id === e.accountId || c.code === e.accountCode || c.accountTitle?.toLowerCase() === e.accountTitle?.toLowerCase());
-      const supp = (this.data.suppliers || []).find((s) => s.id === e.accountId || s.code === e.accountCode || s.title?.toLowerCase() === e.accountTitle?.toLowerCase());
+    const safeEntries = Array.isArray(voucher.entries) ? voucher.entries : [];
+    for (const e of safeEntries) {
+      if (!e) continue;
+      const cust = (this.data.customers || []).find((c) => c && (c.id === e.accountId || c.code === e.accountCode || c.accountTitle?.toLowerCase() === e.accountTitle?.toLowerCase()));
+      const supp = (this.data.suppliers || []).find((s) => s && (s.id === e.accountId || s.code === e.accountCode || s.title?.toLowerCase() === e.accountTitle?.toLowerCase()));
 
       if (voucher.voucherType === 'BR' || voucher.voucherType === 'CR') {
         // Customer Paying Company (Recovery) -> Account CR -> DR Receivables Decrease

@@ -46,6 +46,7 @@ import { CustomerManagementView } from './CustomerManagementView';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import { CashBankManagementView } from './CashBankManagementView';
 import { ExpenseAccountsManagementView } from './ExpenseAccountsManagementView';
+import { ErrorBoundary } from './ErrorBoundary';
 import { api } from '../services/api';
 
 interface SettingsViewProps {
@@ -678,14 +679,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </button>
         </div>
 
-        <CashBankManagementView
-          companyProfile={companyProfile}
-          currentUser={currentUser}
-          initialTab={activeSection === 'banks' ? 'banks' : 'cashReceipt'}
-          onBackToSettings={() => setActiveSection('overview')}
-          onNavigateTab={onNavigateTab}
-          onDataMutated={onRefreshData}
-        />
+        <ErrorBoundary fallbackTitle="Cash / Bank & Vouchers">
+          <CashBankManagementView
+            companyProfile={companyProfile}
+            currentUser={currentUser}
+            initialTab={activeSection === 'banks' ? 'banks' : 'cashReceipt'}
+            onBackToSettings={() => setActiveSection('overview')}
+            onNavigateTab={onNavigateTab}
+            onDataMutated={onRefreshData}
+          />
+        </ErrorBoundary>
       </div>
     );
   }

@@ -54,6 +54,7 @@ import { CustomerManagementView } from './components/CustomerManagementView';
 import { CashBankManagementView } from './components/CashBankManagementView';
 import { GeminiApiKeyModal } from './components/GeminiApiKeyModal';
 import { DatabaseBackupModal } from './components/DatabaseBackupModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<
@@ -606,12 +607,14 @@ export default function App() {
         )}
 
         {currentTab === 'cashbank' && (
-          <CashBankManagementView
-            companyProfile={companyProfile}
-            currentUser={authUser}
-            onNavigateTab={(tab) => setCurrentTab(tab as any)}
-            onDataMutated={() => loadBusinessData(true)}
-          />
+          <ErrorBoundary fallbackTitle="Cash / Bank & Vouchers Module">
+            <CashBankManagementView
+              companyProfile={companyProfile}
+              currentUser={authUser}
+              onNavigateTab={(tab) => setCurrentTab(tab as any)}
+              onDataMutated={() => loadBusinessData(true)}
+            />
+          </ErrorBoundary>
         )}
 
         {currentTab === 'restaurants' && (
