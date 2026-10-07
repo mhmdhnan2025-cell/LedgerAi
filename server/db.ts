@@ -1509,6 +1509,22 @@ class DatabaseService {
       if (cid === 'comp_default_01') {
         this.tenants.set(cid, this._defaultData);
       } else {
+        const tenantFile = path.join(DB_DIR, `database_${cid}.json`);
+        const isQamar = cid === this.getQamarCompanyId() || cid === 'comp-muocj00t-j3co';
+        if (fs.existsSync(tenantFile)) {
+          try {
+            const parsed = JSON.parse(fs.readFileSync(tenantFile, 'utf-8'));
+            if (isQamar && (!parsed.products || parsed.products.length < 300)) {
+              parsed.products = getQamarStockSeed().map((p) => ({ ...p, companyId: cid }));
+              this.persist(parsed, cid);
+            }
+            this.tenants.set(cid, parsed);
+            return parsed;
+          } catch (e) {
+            console.warn(`Error reading tenant file for ${cid}:`, e);
+          }
+        }
+
         const comp = this.companies.get(cid);
         const fresh = getCleanEmptyData();
         if (comp) {
@@ -1527,7 +1543,6 @@ class DatabaseService {
         }
         fresh.customers = [...DEFAULT_SEED_CUSTOMERS];
         fresh.suppliers = [...DEFAULT_SEED_SUPPLIERS];
-        const isQamar = cid === this.getQamarCompanyId() || cid === 'comp-muocj00t-j3co';
         fresh.products = isQamar
           ? getQamarStockSeed().map((p) => ({ ...p, companyId: cid }))
           : [...DEFAULT_INITIAL_PRODUCTS];
@@ -1544,6 +1559,7 @@ class DatabaseService {
         fresh.saleBills = [];
         fresh.auditLogs = [];
         this.tenants.set(cid, fresh);
+        this.persist(fresh, cid);
       }
     }
     return this.tenants.get(cid)!;
