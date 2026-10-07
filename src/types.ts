@@ -76,11 +76,15 @@ export interface Product {
   unit: UnitType | string;
   companyBrand?: string;          // Company Brands
   packageType?: string;           // Package Type: Carton, Bag, Box, Tin, Pack
-  qtyInCarton?: number;           // Qty In Carton
+  qtyInCarton?: number;           // Qty In Carton (e.g. 15 kg/ctn, 25 kg/ctn)
+  carton?: number;                // Carton count
+  ctn?: number;                   // Carton count alias
+  extraKg?: number;               // Extra loose KG / loose units
+  pcs?: number;                   // Loose extra kg/pcs alias
   ctnPurchaseRate?: number;       // CTN Purchase Rate
   ctnSaleRate?: number;           // CTN Sale Rate
   ctnMinSaleRate?: number;        // CTN Min Sale Rate
-  totalStock?: number;            // Total Stock
+  totalStock?: number;            // Total Stock = (Carton * QtyInCarton) + ExtraKg
   currentQuantity: number;
   minStockLevel: number;
   minQuantity?: number;           // Min Quantity for generate demand list

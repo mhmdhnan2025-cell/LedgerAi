@@ -63,27 +63,63 @@ function normalizeUnit(type, name) {
   const t = (type || '').trim().toLowerCase();
   const n = name.toLowerCase();
 
-  if (t === 'kilo grams' || t === 'kg') return 'kg';
-  if (t === 'liter' || t === 'litre' || t === 'lt') return 'liter';
-  if (t === 'grams' || t === 'g' || t === 'gm') return 'gram';
+  if (t === 'kilo grams' || t === 'kg') return 'Kilo grams';
+  if (t === 'liter' || t === 'litre' || t === 'lt') return 'Liter';
+  if (t === 'grams' || t === 'g' || t === 'gm') return 'Grams';
 
-  if (n.includes('kg')) return 'kg';
-  if (n.includes('ltr') || n.includes('liter') || n.includes('lt')) return 'liter';
-  if (n.includes('gm') || n.includes('gram')) return 'gram';
-  if (n.includes('tin')) return 'tin';
-  if (n.includes('ctn') || n.includes('cartan') || n.includes('carton')) return 'carton';
-  if (n.includes('bag') || n.includes('bori')) return 'bag';
-  if (n.includes('can')) return 'can';
-  if (n.includes('bottle') || n.includes('jar')) return 'bottle';
-  if (n.includes('packet') || n.includes('pkt') || n.includes('pouch') || n.includes('pack')) return 'packet';
+  if (n.includes('kg')) return 'Kilo grams';
+  if (n.includes('ltr') || n.includes('liter') || n.includes('lt')) return 'Liter';
+  if (n.includes('gm') || n.includes('gram')) return 'Grams';
+  if (n.includes('cartan') || n.includes('carton') || n.includes('ctn')) return 'Carton';
+  if (n.includes('bag') || n.includes('bori')) return 'Bag';
+  if (n.includes('tin')) return 'Tin';
+  if (n.includes('can')) return 'Can';
+  if (n.includes('bottle') || n.includes('jar')) return 'Bottle';
+  if (n.includes('packet') || n.includes('pkt') || n.includes('pack')) return 'Packet';
 
-  return 'piece';
+  return 'Kilo grams';
+}
+
+// User-specified Qty In Carton lookup
+function getQtyInCarton(sr, name) {
+  const n = name.toLowerCase();
+  // 1. Black Chana: 15 kg
+  if (sr === 6 || n.includes('black chana')) return 15;
+  // 2. Sugar (RENUKA) 50 kg: 50 kg
+  if (sr === 11 || n.includes('sugar')) return 50;
+  // 3. Haldi No 1: 25 kg
+  if (sr === 86 || n.includes('haldi no 1')) return 25;
+  // 4. SEMOLINA (SUJI): 25 kg
+  if (sr === 88 || n.includes('semolina') || n.includes('suji')) return 25;
+  // 5. rice sona masoori: 18 kg
+  if (sr === 89 || n.includes('sona masoori')) return 18;
+  // 6. red chilly (919): 25 kg
+  if (sr === 103 || n.includes('red chilly')) return 25;
+  // 7. AL FAJR STEAM RICE: 35 kg
+  if (sr === 118 || n.includes('al fajr steam rice')) return 35;
+  // 8. White chana 12mm 25kg: 25 kg
+  if (sr === 129 || n.includes('white chana 12mm')) return 25;
+  // 9. Sella Rice: 37 kg
+  if (sr === 165 || n === 'sella rice') return 37;
+  // 10. green peas: 20 kg
+  if (sr === 185 || n.includes('green peas')) return 20;
+  // 11. Cream fresh: 25 kg
+  if (sr === 240 || n.includes('cream fresh')) return 25;
+  // 12. Carry Bag Large: 20
+  if (sr === 305 || n.includes('carry bag large')) return 20;
+  // 13. GOLDEN SELLA RICE: 35 kg
+  if (sr === 360 || n.includes('golden sella rice')) return 35;
+
+  // Row 363 (teaa):
+  if (sr === 363) return 1;
+
+  // 14. "baqi jonahi bataye jin main pcs ki value likhi thi aur ni bola un sab main qty 15 hai"
+  return 15;
 }
 
 const products = [];
 
 for (const line of dataLines) {
-  // Parse CSV line handling potential quotes
   const cols = line.split(',');
   const sr = parseInt(cols[0], 10);
   if (isNaN(sr)) continue;
@@ -95,13 +131,35 @@ for (const line of dataLines) {
   const pRate = parseFloat(cols[5]) || 0;
   const sRate = parseFloat(cols[6]) || 0;
   const disc = parseFloat(cols[7]) || 0;
-  const tStock = parseFloat(cols[8]) || 0;
-  const carton = cols[9]?.trim() ? parseInt(cols[9], 10) : undefined;
-  const pcs = cols[10]?.trim() ? parseInt(cols[10], 10) : undefined;
+  const rawTStock = parseFloat(cols[8]) || 0;
+  
+  const hasCartonCol = cols[9] !== undefined && cols[9].trim() !== '';
+  const hasPcsCol = cols[10] !== undefined && cols[10].trim() !== '';
 
   const unit = normalizeUnit(type, itemName);
   const category = categorize(itemName);
   const sellingPrice = sRate;
+
+  let qtyInCarton = 1;
+  let carton = undefined;
+  let extraKg = undefined;
+  let totalStock = rawTStock;
+
+  if (hasCartonCol || hasPcsCol) {
+    carton = parseInt(cols[9], 10);
+    if (isNaN(carton)) carton = 0;
+
+    qtyInCarton = getQtyInCarton(sr, itemName);
+
+    // Calculate extraKg so (carton * qtyInCarton) + extraKg = rawTStock
+    const ctnTotal = carton * qtyInCarton;
+    extraKg = Number((rawTStock - ctnTotal).toFixed(2));
+    totalStock = Number((ctnTotal + extraKg).toFixed(2));
+  }
+
+  const pkgType = carton !== undefined
+    ? 'Carton'
+    : (unit === 'Kilo grams' || unit === 'Bag' ? 'Bag' : (unit === 'Liter' ? 'Can' : 'Carton'));
 
   const prod = {
     id: `prod-qmr-${sr}`,
@@ -112,21 +170,23 @@ for (const line of dataLines) {
     category: category,
     unit: unit,
     measure: unit,
-    packageType: carton ? 'Carton' : (unit === 'kg' ? 'Bag' : (unit === 'liter' ? 'Can' : 'Carton')),
-    qtyInCarton: pcs !== undefined && pcs > 0 ? pcs : 1,
+    packageType: pkgType,
+    qtyInCarton: qtyInCarton,
+    carton: carton,
     ctn: carton,
-    pcs: pcs,
+    extraKg: extraKg,
+    pcs: extraKg, // alias for backwards compatibility
     purchasePrice: pRate,
     salePrice: sellingPrice,
     sellingPrice: sellingPrice,
     saleDiscount: disc,
-    currentQuantity: tStock,
-    totalStock: tStock,
+    currentQuantity: totalStock,
+    totalStock: totalStock,
     minStockLevel: 5,
     minQuantity: 5,
-    stockValue: Number((tStock * pRate).toFixed(2)),
-    profitMargin: sellingPrice > 0 ? Number((((sellingPrice - pRate) / sellingPrice) * 100).toFixed(1)) : 0,
-    lowStockAlert: tStock <= 5,
+    stockValue: Number((totalStock * pRate).toFixed(2)),
+    profitMargin: (sellingPrice > 0 && pRate > 0) ? Number((((sellingPrice - pRate) / sellingPrice) * 100).toFixed(1)) : 0,
+    lowStockAlert: totalStock <= 5,
     status: true,
     companyId: 'comp-muocj00t-j3co',
     createdAt: '2026-10-07T00:00:00.000Z',
@@ -137,6 +197,15 @@ for (const line of dataLines) {
 }
 
 console.log(`Parsed ${products.length} products successfully!`);
+
+// Print sample verifications
+const testItems = [6, 11, 86, 88, 89, 103, 118, 129, 165, 185, 240, 305, 360, 7, 8, 9, 10];
+for (const id of testItems) {
+  const p = products.find(x => x.id === `prod-qmr-${id}`);
+  if (p) {
+    console.log(`[Item ${id}] ${p.name} | Ctn: ${p.carton} x ${p.qtyInCarton} + ExtraKg: ${p.extraKg} = Total: ${p.totalStock}`);
+  }
+}
 
 const outPath = path.join(__dirname, 'qamar_stock_items.json');
 fs.writeFileSync(outPath, JSON.stringify(products, null, 2), 'utf8');

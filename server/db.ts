@@ -1742,9 +1742,11 @@ class DatabaseService {
                 for (const seed of qamarStock) {
                   const sKey = (seed.name || '').trim().toLowerCase();
                   if (existingProdMap.has(sKey)) {
+                    const existing = existingProdMap.get(sKey);
                     mergedProducts.push({
+                      ...existing,
                       ...seed,
-                      ...existingProdMap.get(sKey),
+                      id: existing.id || seed.id,
                       companyId: cid,
                     });
                     existingProdMap.delete(sKey);

@@ -408,7 +408,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   const summaryTotals = useMemo(() => {
     let totalStockSum = 0;
     let totalCartonSum = 0;
-    let totalPcsSum = 0;
+    let totalExtraKgSum = 0;
     let totalStockValue = 0;
 
     filteredProducts.forEach((p) => {
@@ -416,34 +416,37 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
       const stock = Number(rawStock) || 0;
       const qCtn = Number(p.qtyInCarton) && Number(p.qtyInCarton) > 0 ? Number(p.qtyInCarton) : 1;
       let ctn = 0;
-      let pcs = 0;
+      let extraKg = 0;
 
-      if (qCtn > 1) {
+      if (p.carton !== undefined) {
+        ctn = Number(p.carton) || 0;
+        extraKg = p.extraKg !== undefined ? Number(p.extraKg) || 0 : (p.pcs !== undefined ? Number(p.pcs) || 0 : 0);
+      } else if (qCtn > 1) {
         if (stock >= 0) {
           ctn = Math.floor(stock / qCtn);
-          pcs = Math.round(stock % qCtn);
+          extraKg = Number((stock % qCtn).toFixed(2));
         } else {
           ctn = Math.ceil(stock / qCtn);
-          pcs = Math.round(stock % qCtn);
+          extraKg = Number((stock % qCtn).toFixed(2));
         }
       } else {
         ctn = Math.floor(stock);
-        pcs = 0;
+        extraKg = 0;
       }
 
       if (isNaN(ctn)) ctn = 0;
-      if (isNaN(pcs)) pcs = 0;
+      if (isNaN(extraKg)) extraKg = 0;
 
       totalStockSum += stock;
       totalCartonSum += ctn;
-      totalPcsSum += pcs;
+      totalExtraKgSum += extraKg;
       totalStockValue += (Number(stock) || 0) * (Number(p.purchasePrice) || 0);
     });
 
     return {
       totalStockSum: isNaN(totalStockSum) ? 0 : totalStockSum,
       totalCartonSum: isNaN(totalCartonSum) ? 0 : totalCartonSum,
-      totalPcsSum: isNaN(totalPcsSum) ? 0 : totalPcsSum,
+      totalExtraKgSum: isNaN(totalExtraKgSum) ? 0 : Number(totalExtraKgSum.toFixed(2)),
       totalStockValue: isNaN(totalStockValue) ? 0 : totalStockValue,
       count: filteredProducts.length,
     };
@@ -544,25 +547,31 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
       'DISC',
       'T.STOCK',
       'CARTON',
-      'PCS',
+      'EXTRA KG',
       'STATUS',
     ];
 
     const rows = filteredProducts.map((p, idx) => {
       const stock = p.totalStock !== undefined ? p.totalStock : p.currentQuantity;
       const qCtn = p.qtyInCarton && p.qtyInCarton > 0 ? p.qtyInCarton : 1;
-      let ctn = 0;
-      let pcs = 0;
-      if (qCtn > 1) {
+      let ctn: number | string = 0;
+      let extraKg: number | string = 0;
+
+      if (p.carton !== undefined) {
+        ctn = p.carton;
+        const ex = p.extraKg !== undefined ? p.extraKg : (p.pcs !== undefined ? p.pcs : 0);
+        extraKg = typeof ex === 'number' ? (ex % 1 === 0 ? ex : Number(ex.toFixed(2))) : ex;
+      } else if (qCtn > 1) {
         if (stock >= 0) {
           ctn = Math.floor(stock / qCtn);
-          pcs = Math.round(stock % qCtn);
+          extraKg = Number((stock % qCtn).toFixed(2));
         } else {
           ctn = Math.ceil(stock / qCtn);
-          pcs = Math.round(stock % qCtn);
+          extraKg = Number((stock % qCtn).toFixed(2));
         }
       } else {
-        ctn = Math.floor(stock);
+        ctn = '-';
+        extraKg = '-';
       }
 
       const pRate = (p.ctnPurchaseRate || p.purchasePrice * qCtn).toFixed(2);
@@ -583,7 +592,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         disc,
         stock.toFixed(2),
         ctn,
-        pcs,
+        extraKg,
         statusText,
       ].join(',');
     });
@@ -1170,7 +1179,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                 <th className="py-2.5 px-3 text-right">DISC</th>
                 <th className="py-2.5 px-3 text-right font-black">T.STOCK</th>
                 <th className="py-2.5 px-3 text-right">CARTON</th>
-                <th className="py-2.5 px-3 text-right">PCS</th>
+                <th className="py-2.5 px-3 text-right">EXTRA KG</th>
                 <th className="py-2.5 px-3 text-right text-emerald-400">STOCK VALUE ({currencySymbol()})</th>
                 <th className="py-2.5 px-3 text-center">STATUS</th>
                 <th className="py-2.5 px-3 text-center print:hidden">ACTION</th>
@@ -1192,22 +1201,22 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                   const stock = Number(rawStock) || 0;
                   const qCtn = Number(prod.qtyInCarton) && Number(prod.qtyInCarton) > 0 ? Number(prod.qtyInCarton) : 1;
 
-                  let cartons = 0;
-                  let pcs = 0;
-                  if (qCtn > 1) {
-                    if (stock >= 0) {
-                      cartons = Math.floor(stock / qCtn);
-                      pcs = Math.round(stock % qCtn);
-                    } else {
-                      cartons = Math.ceil(stock / qCtn);
-                      pcs = Math.round(stock % qCtn);
-                    }
+                  let displayCarton: string | number = '-';
+                  let displayExtraKg: string | number = '-';
+
+                  if (prod.carton !== undefined) {
+                    displayCarton = prod.carton;
+                    const ex = prod.extraKg !== undefined ? prod.extraKg : (prod.pcs !== undefined ? prod.pcs : 0);
+                    displayExtraKg = typeof ex === 'number' ? (ex % 1 === 0 ? ex : Number(ex.toFixed(2))) : ex;
+                  } else if (qCtn > 1) {
+                    const ctnCalc = stock >= 0 ? Math.floor(stock / qCtn) : Math.ceil(stock / qCtn);
+                    const looseCalc = Number((stock % qCtn).toFixed(2));
+                    displayCarton = isNaN(ctnCalc) ? 0 : ctnCalc;
+                    displayExtraKg = isNaN(looseCalc) ? 0 : (looseCalc % 1 === 0 ? looseCalc : looseCalc);
                   } else {
-                    cartons = Math.floor(stock);
-                    pcs = 0;
+                    displayCarton = '-';
+                    displayExtraKg = '-';
                   }
-                  if (isNaN(cartons)) cartons = 0;
-                  if (isNaN(pcs)) pcs = 0;
 
                   const rawMeasure = (prod.measure || prod.unit || 'CTN').toString().trim();
                   const isKg = rawMeasure.toLowerCase().includes('kg') || rawMeasure.toLowerCase().includes('kilo') || rawMeasure.toLowerCase().includes('gram');
@@ -1216,23 +1225,6 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                   const isBag = rawMeasure.toLowerCase().includes('bag') || rawMeasure.toLowerCase().includes('bori');
                   const isCtn = !isKg && !isLtr && !isBox && !isBag;
                   const displayUnit = isKg ? 'KG' : isLtr ? 'Litter' : isBox ? 'Box' : isBag ? 'Bag' : 'CTN';
-
-                  let formattedStockDisplay = '';
-                  if (qCtn > 1) {
-                    if (pcs > 0) {
-                      formattedStockDisplay = `${cartons}.${pcs}`;
-                    } else {
-                      formattedStockDisplay = `${cartons}`;
-                    }
-                  } else {
-                    if (isCtn) {
-                      formattedStockDisplay = Number.isInteger(stock) ? `${stock}` : `${stock}`;
-                    } else if (isKg || isLtr) {
-                      formattedStockDisplay = Number.isInteger(stock) ? `${stock}.00` : `${stock.toFixed(2)}`;
-                    } else {
-                      formattedStockDisplay = Number.isInteger(stock) ? `${stock}` : `${stock.toFixed(2)}`;
-                    }
-                  }
 
                   const pRate = (Number(prod.ctnPurchaseRate) || (Number(prod.purchasePrice || 0) * qCtn)).toFixed(2);
                   const sRate = (Number(prod.ctnSaleRate) || (Number(prod.sellingPrice || 0) * qCtn)).toFixed(2);
@@ -1314,14 +1306,14 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                         {Number(stock).toFixed(2)}
                       </td>
 
-                      {/* CARTON (Image 5: 17, 24, 29, 15, 218) */}
+                      {/* CARTON */}
                       <td className={`py-2.5 px-3 text-right font-mono ${isNegative ? 'text-rose-400 font-bold' : 'text-slate-300 font-semibold'}`}>
-                        {cartons > 0 ? cartons : (stock > 0 && qCtn <= 1 ? cartons : '-')}
+                        {displayCarton}
                       </td>
 
-                      {/* PCS (Image 5: 18, 9, 13, 12, 7, 0) */}
+                      {/* EXTRA KG */}
                       <td className={`py-2.5 px-3 text-right font-mono ${isNegative ? 'text-rose-400 font-bold' : 'text-slate-300'}`}>
-                        {qCtn > 1 ? (pcs % 1 === 0 ? pcs : pcs.toFixed(1)) : '-'}
+                        {displayExtraKg}
                       </td>
 
                       {/* STOCK VALUE (AMOUNT) */}
@@ -1407,8 +1399,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                   </td>
                   {/* PKG/CTN/BAG */}
                   <td className="py-3 px-3 text-right text-blue-300 text-sm">{summaryTotals.totalCartonSum}</td>
-                  {/* LOOSE/PCS */}
-                  <td className="py-3 px-3 text-right text-blue-300 text-sm">{summaryTotals.totalPcsSum}</td>
+                  {/* EXTRA KG */}
+                  <td className="py-3 px-3 text-right text-blue-300 text-sm">{summaryTotals.totalExtraKgSum}</td>
                   {/* STOCK VALUE (RS) */}
                   <td className="py-3 px-3 text-right text-emerald-400 font-extrabold text-sm">
                     {currencySymbol()}{' '}
