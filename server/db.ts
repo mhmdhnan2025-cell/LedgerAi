@@ -5101,11 +5101,19 @@ class DatabaseService {
       if (product) {
         if (shouldAddToStock) {
           const newQty = product.currentQuantity + qty;
+          const qCtn = (product.qtyInCarton && product.qtyInCarton > 0) ? product.qtyInCarton : (qtyPerCtn > 0 ? qtyPerCtn : 1);
+          const newCarton = qCtn > 1 ? Math.floor(newQty / qCtn) : product.carton;
+          const newExtraKg = qCtn > 1 ? Number((newQty % qCtn).toFixed(2)) : product.extraKg;
           this.updateProduct(
             product.id,
             {
               currentQuantity: newQty,
               totalStock: newQty,
+              carton: newCarton,
+              ctn: newCarton,
+              extraKg: newExtraKg,
+              pcs: newExtraKg,
+              qtyInCarton: qCtn,
               purchasePrice: rate > 0 ? rate : product.purchasePrice,
               lastPurchasePrice: rate > 0 ? rate : product.purchasePrice,
               ctnPurchaseRate: ratePerCtn > 0 ? ratePerCtn : product.ctnPurchaseRate,
@@ -6059,6 +6067,15 @@ class DatabaseService {
 
         product.currentQuantity = newQty;
         product.totalStock = newQty;
+        if (product.qtyInCarton && product.qtyInCarton > 1) {
+          const qCtn = product.qtyInCarton;
+          const newCarton = Math.floor(newQty / qCtn);
+          const newExtraKg = Number((newQty % qCtn).toFixed(2));
+          product.carton = newCarton;
+          product.ctn = newCarton;
+          product.extraKg = newExtraKg;
+          product.pcs = newExtraKg;
+        }
         product.stockValue = Number((newQty * (product.purchasePrice || 0)).toFixed(2));
         product.lowStockAlert = newQty <= (product.minStockLevel || 10);
         product.updatedAt = new Date().toISOString();

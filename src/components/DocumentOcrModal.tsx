@@ -22,16 +22,21 @@ import {
   ShoppingCart,
   Sparkles,
   Store,
+  Receipt,
   Trash2,
   Truck,
   Upload,
   UserCheck,
+  Wallet,
+  Banknote,
   X,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { currencySymbol } from '../utils/currency';
 import {
+  CashAccount,
   Customer,
+  ExpenseAccount,
   ExtractedDocumentData,
   Product,
   ProductCategory,
@@ -40,6 +45,7 @@ import {
   SaleBill,
   Supplier,
   UserRole,
+  Voucher,
 } from '../types';
 
 interface DocumentOcrModalProps {
@@ -67,7 +73,8 @@ export interface OCRItemRow {
   packageType?: string;
   ctn: number;
   qtyPerCtn: number;
-  quantity: number;
+  looseExtra?: number; // Extra loose kg / extra loose units
+  quantity: number; // Total quantity to add/deduct
   unit: string;
   isLumpSum?: boolean;
   ratePerCtn: number;
@@ -77,6 +84,8 @@ export interface OCRItemRow {
   confidence: number;
   matchedProductId?: string;
   existingStock?: number;
+  existingCtn?: number;
+  existingExtraKg?: number;
   isManualRow?: boolean;
 }
 
@@ -221,9 +230,8 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
   onCreateProduct,
   onOpenGeminiKeyModal,
 }) => {
-  // CRITICAL USER MANDATE:
-  // "ocr image add krny sy phly option ho stock and purchase bill hai ya customer sale bill hai phr imagr addkrny pr usk hi section main details aye gi dusry main kuch show ni hona chhye bcz client confuse na ho jaye. genral expense ka tab del krdo is main."
-  const [ocrMode, setOcrMode] = useState<'purchase' | 'sale'>('purchase');
+  // Modes: 'purchase' (Stock & Purchase Bill), 'sale' (Customer Sale Bill), 'receipt' (Cash Slip / Payment Voucher)
+  const [ocrMode, setOcrMode] = useState<'purchase' | 'sale' | 'receipt'>('purchase');
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -243,6 +251,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
   const [supplierName, setSupplierName] = useState<string>('Wholesale Mandi / Supplier');
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
+  const [supplierSearch, setSupplierSearch] = useState('');
   const [isCashPurchase, setIsCashPurchase] = useState<boolean>(false);
   const [purchasePaidAmount, setPurchasePaidAmount] = useState<number>(0);
   const [addToStockInventory, setAddToStockInventory] = useState<boolean>(true);
@@ -251,12 +260,25 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
   const [isCashSale, setIsCashSale] = useState<boolean>(false);
   const [saleCashReceived, setSaleCashReceived] = useState<number>(0);
 
+  // Cash Slip & Voucher state
+  const [receiptSubtype, setReceiptSubtype] = useState<'expense' | 'customer_payment'>('expense');
+  const [receiptVendor, setReceiptVendor] = useState<string>('');
+  const [receiptCategory, setReceiptCategory] = useState<string>('Petrol & Vehicle Fuel');
+  const [receiptVehicleNo, setReceiptVehicleNo] = useState<string>('');
+  const [receiptAmount, setReceiptAmount] = useState<number>(0);
+  const [receiptNumber, setReceiptNumber] = useState<string>('');
+  const [receiptDate, setReceiptDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [receiptNotes, setReceiptNotes] = useState<string>('');
+  const [receiptCashAccountId, setReceiptCashAccountId] = useState<string>('');
+  const [cashAccounts, setCashAccounts] = useState<CashAccount[]>([]);
+  const [expenseAccounts, setExpenseAccounts] = useState<ExpenseAccount[]>([]);
+
   // Items table
   const [itemsList, setItemsList] = useState<OCRItemRow[]>([]);
   const [invoiceDate, setInvoiceDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [billNumber, setBillNumber] = useState<string>('');
 
-  // Fetch full customer directory on open
+  // Fetch full customer directory, cash accounts & expense accounts on open
   useEffect(() => {
     if (isOpen) {
       api
@@ -267,6 +289,27 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
           }
         })
         .catch((e) => console.warn('Could not load customer directory for OCR:', e));
+
+      api
+        .getCashAccounts()
+        .then((cashes) => {
+          if (Array.isArray(cashes) && cashes.length > 0) {
+            setCashAccounts(cashes);
+            if (!receiptCashAccountId) {
+              setReceiptCashAccountId(cashes[0].id);
+            }
+          }
+        })
+        .catch((e) => console.warn('Could not load cash accounts for OCR:', e));
+
+      api
+        .getExpenseAccounts()
+        .then((exps) => {
+          if (Array.isArray(exps) && exps.length > 0) {
+            setExpenseAccounts(exps);
+          }
+        })
+        .catch((e) => console.warn('Could not load expense accounts for OCR:', e));
     }
   }, [isOpen]);
 
@@ -401,15 +444,60 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
       const result = await api.parseDocumentImage(base64Data, mimeType, ocrMode);
       setOcrResult(result);
 
-      if (result.date) setInvoiceDate(result.date);
-      if (result.invoiceNumber) setBillNumber(result.invoiceNumber);
+      if (result.date) {
+        setInvoiceDate(result.date);
+        setReceiptDate(result.date);
+      }
+      if (result.invoiceNumber) {
+        setBillNumber(result.invoiceNumber);
+        setReceiptNumber(result.invoiceNumber);
+      }
+
+      // Handle Cash Slip & Voucher Mode
+      if (ocrMode === 'receipt' || result.documentType === 'expense_receipt' || result.documentType === 'payment_receipt') {
+        const isCustPayment = result.receiptSubtype === 'customer_payment' || result.documentType === 'payment_receipt';
+        if (isCustPayment) {
+          setReceiptSubtype('customer_payment');
+          const codeClean = (result.customerAccountCode || result.customerCode || '').trim().toLowerCase();
+          const nameClean = (result.customerName || result.restaurantName || result.partyName || '').toLowerCase().trim();
+
+          const matchedCust = (customersList || []).find(
+            (c) =>
+              c &&
+              ((codeClean && (c.code?.toLowerCase() === codeClean || c.accountCode?.toLowerCase() === codeClean)) ||
+                (nameClean &&
+                  ((c.accountTitle && c.accountTitle.toLowerCase().includes(nameClean)) ||
+                    (c.name && c.name.toLowerCase().includes(nameClean)) ||
+                    (nameClean.length > 3 && c.accountTitle && nameClean.includes(c.accountTitle.toLowerCase())))))
+          );
+          if (matchedCust) {
+            setSelectedCustomerId(matchedCust.id);
+            setSelectedCustomer(matchedCust);
+          }
+        } else {
+          setReceiptSubtype('expense');
+          const vName = (result.supplierName || result.restaurantName || result.partyName || '').trim();
+          setReceiptVendor(vName);
+          if (result.vehicleNo) setReceiptVehicleNo(result.vehicleNo);
+          if (result.expenseCategory) {
+            setReceiptCategory(result.expenseCategory);
+          } else if (result.vehicleNo || vName.toLowerCase().includes('emarat') || vName.toLowerCase().includes('petrol')) {
+            setReceiptCategory('Petrol & Vehicle Fuel');
+          }
+        }
+
+        if (result.totalAmount) setReceiptAmount(result.totalAmount);
+        if (result.notes) setReceiptNotes(result.notes);
+      }
 
       // In Purchase Mode: match supplier
       if (ocrMode === 'purchase') {
         const detectedSup = (result.supplierName || result.partyName || '').trim();
         if (detectedSup) {
           setSupplierName(detectedSup);
-          const cleanSupplier = detectedSup.toLowerCase();
+          const cleanSupplier = detectedSup.toLowerCase()
+            .replace(/\b(llc|l\.l\.c\.|trading|general|tr\.|co|ltd|fze)\b/gi, '')
+            .trim();
           const matched = (suppliers || []).find(
             (s) =>
               s &&
@@ -459,14 +547,29 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
         }
       }
 
-      // Items parsing with SKU detection vs generation, cartons, pieces, lump-sum, and sale price
+      // Items parsing with SKU detection vs generation, cartons, pieces, loose extra kg, and sale price
       const rows: OCRItemRow[] = (result.items || []).map((it: any, idx: number) => {
         const itemName = (it.itemTitle || it.name || `Item ${idx + 1}`).trim();
         const matched = matchProductInCatalog(itemName, it.mcode);
 
-        const ctn = Number(it.ctn) || 0;
-        const qtyPerCtn = Number(it.qtyPerCtn) || (ctn > 0 ? Math.round((Number(it.quantity) || 1) / ctn) || 1 : 1);
-        let qty = Number(it.quantity) || (ctn > 0 ? ctn * qtyPerCtn : 1);
+        const catalogQtyPerCtn = (matched && matched.qtyInCarton && matched.qtyInCarton > 0)
+          ? matched.qtyInCarton
+          : undefined;
+
+        let ctn = Number(it.ctn) || 0;
+        let qtyPerCtn = Number(it.qtyPerCtn) || catalogQtyPerCtn || (ctn > 0 ? Math.round((Number(it.quantity) || 1) / ctn) || 1 : 1);
+        let looseExtra = Number((it as any).extraKg || (it as any).pcs || (it as any).looseExtra) || 0;
+
+        let qty = Number(it.quantity) || 0;
+        if (ctn > 0 && qty <= 0) {
+          qty = (ctn * qtyPerCtn) + looseExtra;
+        } else if (qty > 0 && ctn <= 0 && qtyPerCtn > 1) {
+          ctn = Math.floor(qty / qtyPerCtn);
+          looseExtra = Number((qty % qtyPerCtn).toFixed(2));
+        } else if (qty <= 0 && ctn <= 0) {
+          qty = 1;
+        }
+
         let ratePerCtn = Number(it.ratePerCtn) || 0;
         let rate = Number(it.price || it.rate) || 0;
         let lineTotal = Number(it.totalAmount || it.amount || it.total || it.purchaseCost) || 0;
@@ -490,7 +593,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
           // Calculate line total
           if (lineTotal <= 0) {
             if (ctn > 0 && ratePerCtn > 0) {
-              lineTotal = Number((ctn * ratePerCtn).toFixed(2));
+              lineTotal = Number(((ctn * ratePerCtn) + (looseExtra * rate)).toFixed(2));
             } else if (rate > 0 && qty > 0) {
               lineTotal = Number((rate * qty).toFixed(2));
             }
@@ -530,6 +633,10 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
           'Carton'
         );
 
+        const existingStock = matched ? (matched.totalStock !== undefined ? matched.totalStock : matched.currentQuantity) : undefined;
+        const existingCtn = matched ? (matched.carton !== undefined ? matched.carton : (qtyPerCtn > 1 && existingStock !== undefined ? Math.floor(existingStock / qtyPerCtn) : undefined)) : undefined;
+        const existingExtraKg = matched ? (matched.extraKg !== undefined ? matched.extraKg : (qtyPerCtn > 1 && existingStock !== undefined ? Number((existingStock % qtyPerCtn).toFixed(2)) : undefined)) : undefined;
+
         return {
           id: it.id || `ocr-item-${Date.now()}-${idx + 1}`,
           selected: true,
@@ -540,6 +647,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
           packageType,
           ctn,
           qtyPerCtn,
+          looseExtra,
           quantity: qty,
           unit,
           isLumpSum,
@@ -549,7 +657,9 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
           total: lineTotal,
           confidence: it.confidence || 0.9,
           matchedProductId: matched ? matched.id : undefined,
-          existingStock: matched ? matched.currentQuantity : undefined,
+          existingStock,
+          existingCtn,
+          existingExtraKg,
         };
       });
 
@@ -594,11 +704,19 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
           const m = matchProductInCatalog(String(value));
           if (m) {
             updated.matchedProductId = m.id;
-            updated.existingStock = m.currentQuantity;
+            updated.existingStock = m.totalStock !== undefined ? m.totalStock : m.currentQuantity;
             updated.mcode = m.sku || m.mcode || updated.mcode;
             updated.isNewItem = false;
             if (m.category) updated.category = m.category;
             if (m.sellingPrice) updated.salePrice = m.sellingPrice;
+            if (m.qtyInCarton && m.qtyInCarton > 0) {
+              updated.qtyPerCtn = m.qtyInCarton;
+              if (updated.ctn > 0) {
+                updated.quantity = (updated.ctn * m.qtyInCarton) + (updated.looseExtra || 0);
+              }
+            }
+            updated.existingCtn = m.carton !== undefined ? m.carton : (updated.qtyPerCtn > 1 && updated.existingStock !== undefined ? Math.floor(updated.existingStock / updated.qtyPerCtn) : undefined);
+            updated.existingExtraKg = m.extraKg !== undefined ? m.extraKg : (updated.qtyPerCtn > 1 && updated.existingStock !== undefined ? Number((updated.existingStock % updated.qtyPerCtn).toFixed(2)) : undefined);
           } else {
             updated.matchedProductId = undefined;
             updated.isNewItem = true;
@@ -606,30 +724,39 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
         }
 
         // Auto-recalculate quantities, rates, and line total
-        if (field === 'ctn' || field === 'qtyPerCtn') {
+        if (field === 'ctn' || field === 'qtyPerCtn' || field === 'looseExtra') {
           const c = Number(field === 'ctn' ? value : updated.ctn) || 0;
           const qpc = Number(field === 'qtyPerCtn' ? value : updated.qtyPerCtn) || 1;
-          if (c > 0) {
-            updated.quantity = c * qpc;
+          const extra = Number(field === 'looseExtra' ? value : updated.looseExtra) || 0;
+          if (c > 0 || extra > 0) {
+            updated.quantity = (c * qpc) + extra;
           }
           if (updated.ratePerCtn > 0) {
-            updated.total = Number((c * updated.ratePerCtn).toFixed(2));
-            if (qpc > 0) updated.price = Number((updated.ratePerCtn / qpc).toFixed(2));
+            const pieceRate = qpc > 0 ? updated.ratePerCtn / qpc : 0;
+            updated.total = Number(((c * updated.ratePerCtn) + (extra * pieceRate)).toFixed(2));
+            if (qpc > 0) updated.price = Number(pieceRate.toFixed(2));
+          } else if (updated.price > 0) {
+            updated.total = Number((updated.quantity * updated.price).toFixed(2));
           }
         } else if (field === 'ratePerCtn') {
           const rpc = Number(value) || 0;
           const c = Number(updated.ctn) || 0;
           const qpc = Number(updated.qtyPerCtn) || 1;
-          if (c > 0) {
-            updated.total = Number((c * rpc).toFixed(2));
+          const extra = Number(updated.looseExtra) || 0;
+          const pieceRate = qpc > 0 ? rpc / qpc : 0;
+          if (c > 0 || extra > 0) {
+            updated.total = Number(((c * rpc) + (extra * pieceRate)).toFixed(2));
           }
           if (qpc > 0) {
-            updated.price = Number((rpc / qpc).toFixed(2));
+            updated.price = Number(pieceRate.toFixed(2));
           }
         } else if (field === 'price' || field === 'quantity') {
           const q = Number(field === 'quantity' ? value : updated.quantity) || 0;
           const p = Number(field === 'price' ? value : updated.price) || 0;
           updated.total = Number((q * p).toFixed(2));
+          if (field === 'price' && updated.qtyPerCtn > 1 && (!updated.ratePerCtn || updated.ratePerCtn <= 0)) {
+            updated.ratePerCtn = Number((p * updated.qtyPerCtn).toFixed(2));
+          }
         } else if (field === 'total') {
           const t = Number(value) || 0;
           const q = Number(updated.quantity) || 1;
@@ -778,6 +905,22 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
           list.push(`Item "${it.name || `#${i + 1}`}" ka Selling Rate (Price) > 0 hona laazmi hai`);
         }
       });
+    } else if (ocrMode === 'receipt') {
+      if (!receiptAmount || receiptAmount <= 0) {
+        list.push('Raqam (Total Amount) > 0 hona laazmi hai');
+      }
+      if (!receiptCashAccountId) {
+        list.push('Cash Account (Tijory / Drawer Khata) select karna laazmi hai');
+      }
+      if (receiptSubtype === 'expense') {
+        if (!receiptVendor.trim() && !receiptCategory.trim()) {
+          list.push('Expense ka unwan / vendor name ya category laazmi hai');
+        }
+      } else if (receiptSubtype === 'customer_payment') {
+        if (!selectedCustomerId && !selectedCustomer) {
+          list.push('Customer / Gahak select karna laazmi hai');
+        }
+      }
     }
 
     return list;
@@ -788,6 +931,11 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
     selectedCustomer,
     selectedCount,
     selectedItems,
+    receiptAmount,
+    receiptCashAccountId,
+    receiptSubtype,
+    receiptVendor,
+    receiptCategory,
   ]);
 
   const handleConfirmImport = async () => {
@@ -856,6 +1004,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
             ctn: it.ctn,
             ratePerCtn: it.ratePerCtn,
             qtyPerCtn: it.qtyPerCtn,
+            extraPiece: it.looseExtra,
             discount: 0,
             vatPercent: 0,
             vatAmount: 0,
@@ -899,6 +1048,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
             ctn: it.ctn,
             ratePerCtn: it.ratePerCtn,
             qtyPerCtn: it.qtyPerCtn,
+            extraPiece: it.looseExtra,
             discount: 0,
             vatPercent: 0,
             vatAmount: 0,
@@ -912,6 +1062,81 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
         setSuccessMsg(
           `Kamyabi! Sale Bill #${createdSale.billNumber} ban gaya. Gahak (${custTitle}) ka khata update ho gaya aur inventory me se stock minus ho chuka hai!`
         );
+      } else if (ocrMode === 'receipt') {
+        // =====================================================================
+        // OPERATION 3: CREATE CASH SLIP & PAYMENT VOUCHER (CP / CR) & AUDIT REPORT
+        // =====================================================================
+        const cashAcc = cashAccounts.find((c) => c.id === receiptCashAccountId) || cashAccounts[0];
+        const cashTitle = cashAcc ? cashAcc.title : 'Cash in Hand';
+
+        if (receiptSubtype === 'expense') {
+          // CP (Cash Payment) Voucher for Fuel / Vehicle / Store Expense
+          const categoryTitle = receiptCategory.trim() || 'Petrol & Vehicle Fuel';
+          const titleWithVehicle = `${receiptVendor ? receiptVendor.trim() + ' - ' : ''}${categoryTitle}${
+            receiptVehicleNo ? ' (Vehicle ' + receiptVehicleNo.trim() + ')' : ''
+          }`;
+
+          const voucherPayload: Partial<Voucher> = {
+            voucherType: 'CP',
+            date: receiptDate || invoiceDate,
+            cashAccountId: receiptCashAccountId || cashAcc?.id,
+            cashAccountTitle: cashTitle,
+            poNumber: receiptNumber || undefined,
+            totalAmount: receiptAmount,
+            entries: [
+              {
+                id: `ent-exp-${Date.now()}`,
+                accountId: `exp-${categoryTitle.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+                accountCode: '030101',
+                accountTitle: titleWithVehicle,
+                accountType: 'Expense',
+                narration: receiptNotes || `Expense paid via Cash Slip #${receiptNumber || ''}`,
+                amount: receiptAmount,
+                payment: receiptAmount,
+              },
+            ],
+          };
+
+          const createdVch = await api.createVoucher(voucherPayload);
+
+          setSuccessMsg(
+            `Kamyabi! Cash Payment Voucher #${createdVch.voucherNumberFormatted} ban gaya. Cash drawer se ${currencySymbol()} ${receiptAmount.toLocaleString()} deduct ho gaye, Expense (${titleWithVehicle}) record ho gaya aur Daily Master Audit Report me entry ho chuki hai!`
+          );
+        } else {
+          // CR (Cash Receipt) Voucher for Customer Recovery
+          const custTitle = selectedCustomer
+            ? selectedCustomer.accountTitle || selectedCustomer.name
+            : 'Customer Recovery';
+          const custId = selectedCustomer ? selectedCustomer.id : 'cust-cash';
+          const custCode = selectedCustomer ? selectedCustomer.code : '0101040001';
+
+          const voucherPayload: Partial<Voucher> = {
+            voucherType: 'CR',
+            date: receiptDate || invoiceDate,
+            cashAccountId: receiptCashAccountId || cashAcc?.id,
+            cashAccountTitle: cashTitle,
+            poNumber: receiptNumber || undefined,
+            totalAmount: receiptAmount,
+            entries: [
+              {
+                id: `ent-cr-${Date.now()}`,
+                accountId: custId,
+                accountCode: custCode,
+                accountTitle: custTitle,
+                accountType: 'Customer',
+                narration: receiptNotes || `Cash recovery received against receipt #${receiptNumber || ''}`,
+                amount: receiptAmount,
+                receipt: receiptAmount,
+              },
+            ],
+          };
+
+          const createdVch = await api.createVoucher(voucherPayload);
+
+          setSuccessMsg(
+            `Kamyabi! Cash Receipt Voucher #${createdVch.voucherNumberFormatted} ban gaya. Cash drawer me ${currencySymbol()} ${receiptAmount.toLocaleString()} jama ho gaye aur Customer (${custTitle}) ka khata update ho gaya!`
+          );
+        }
       }
 
       onDataMutated();
@@ -1008,7 +1233,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
               {/* Option 1: Stock & Purchase Bill */}
               <button
                 type="button"
@@ -1016,32 +1241,32 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                   setOcrMode('purchase');
                   setErrorMsg(null);
                 }}
-                className={`p-4 rounded-xl border text-left transition flex items-start gap-3.5 cursor-pointer relative ${
+                className={`p-3.5 rounded-xl border text-left transition flex items-start gap-3 cursor-pointer relative ${
                   ocrMode === 'purchase'
                     ? 'bg-emerald-950/80 border-emerald-500 text-white ring-2 ring-emerald-500/50 shadow-xl shadow-emerald-950/60'
                     : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
                 }`}
               >
                 <div
-                  className={`p-2.5 rounded-xl shrink-0 ${
+                  className={`p-2 rounded-xl shrink-0 ${
                     ocrMode === 'purchase' ? 'bg-emerald-500 text-white' : 'bg-slate-800 text-slate-400'
                   }`}
                 >
-                  <PackagePlus className="w-6 h-6" />
+                  <PackagePlus className="w-5 h-5" />
                 </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-extrabold text-sm text-white">Stock &amp; Purchase Bill</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                      اسٹاک / پرچیز بل
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="font-extrabold text-xs text-white truncate">Stock &amp; Purchase Bill</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 whitespace-nowrap">
+                      اسٹاک / پرچیز
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-300 mt-1 leading-snug">
-                    Supplier bill, Mandi parcha, factory intake &amp; warehouse stock entry.
+                  <p className="text-[11px] text-slate-300 mt-1 leading-snug line-clamp-2">
+                    Supplier bill, Mandi parcha, cartons, loose extra kg &amp; warehouse stock entry.
                   </p>
-                  <div className="text-[10px] text-emerald-400 font-semibold mt-2 flex items-center gap-1">
-                    <Check className="w-3.5 h-3.5" />
-                    Supplier Ledger + Cartons + Pieces + Stock Barhana
+                  <div className="text-[10px] text-emerald-400 font-semibold mt-1.5 flex items-center gap-1">
+                    <Check className="w-3 h-3 shrink-0" />
+                    <span>Cartons + Extra KG + Stock Add</span>
                   </div>
                 </div>
               </button>
@@ -1053,32 +1278,69 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                   setOcrMode('sale');
                   setErrorMsg(null);
                 }}
-                className={`p-4 rounded-xl border text-left transition flex items-start gap-3.5 cursor-pointer relative ${
+                className={`p-3.5 rounded-xl border text-left transition flex items-start gap-3 cursor-pointer relative ${
                   ocrMode === 'sale'
                     ? 'bg-indigo-950/80 border-indigo-500 text-white ring-2 ring-indigo-500/50 shadow-xl shadow-indigo-950/60'
                     : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
                 }`}
               >
                 <div
-                  className={`p-2.5 rounded-xl shrink-0 ${
+                  className={`p-2 rounded-xl shrink-0 ${
                     ocrMode === 'sale' ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-400'
                   }`}
                 >
-                  <ShoppingCart className="w-6 h-6" />
+                  <ShoppingCart className="w-5 h-5" />
                 </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-extrabold text-sm text-white">Customer Sale Bill</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                      کسٹمر سیل بل
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="font-extrabold text-xs text-white truncate">Customer Sale Bill</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 whitespace-nowrap">
+                      کسٹمر سیل
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-300 mt-1 leading-snug">
+                  <p className="text-[11px] text-slate-300 mt-1 leading-snug line-clamp-2">
                     Customer sale memo, delivery note, khata update &amp; inventory deduction.
                   </p>
-                  <div className="text-[10px] text-indigo-400 font-semibold mt-2 flex items-center gap-1">
-                    <Check className="w-3.5 h-3.5" />
-                    Customer Khata + Sale Report + Stock Minus
+                  <div className="text-[10px] text-indigo-400 font-semibold mt-1.5 flex items-center gap-1">
+                    <Check className="w-3 h-3 shrink-0" />
+                    <span>Gahak Khata + Stock Minus</span>
+                  </div>
+                </div>
+              </button>
+
+              {/* Option 3: Cash Slip & Voucher */}
+              <button
+                type="button"
+                onClick={() => {
+                  setOcrMode('receipt');
+                  setErrorMsg(null);
+                }}
+                className={`p-3.5 rounded-xl border text-left transition flex items-start gap-3 cursor-pointer relative ${
+                  ocrMode === 'receipt'
+                    ? 'bg-amber-950/80 border-amber-500 text-white ring-2 ring-amber-500/50 shadow-xl shadow-amber-950/60'
+                    : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                }`}
+              >
+                <div
+                  className={`p-2 rounded-xl shrink-0 ${
+                    ocrMode === 'receipt' ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-400'
+                  }`}
+                >
+                  <Receipt className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="font-extrabold text-xs text-white truncate">Cash Slip &amp; Voucher</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 whitespace-nowrap">
+                      کیش سلپ / واؤچر
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 mt-1 leading-snug line-clamp-2">
+                    Petrol/Fuel receipt, Cash Payment (CP) &amp; Customer Recovery (CR) vouchers.
+                  </p>
+                  <div className="text-[10px] text-amber-400 font-semibold mt-1.5 flex items-center gap-1">
+                    <Check className="w-3 h-3 shrink-0" />
+                    <span>Vouchers + Khata + Daily Audit Report</span>
                   </div>
                 </div>
               </button>
@@ -1098,7 +1360,9 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                 <span className="font-bold text-slate-200 text-sm">
                   {ocrMode === 'purchase'
                     ? 'Upload Supplier Purchase Bill / Mandi Slip Photo'
-                    : 'Upload Customer Sale Bill / Memo Photo'}
+                    : ocrMode === 'sale'
+                    ? 'Upload Customer Sale Bill / Memo Photo'
+                    : 'Upload Petrol / Cash Receipt / Voucher Slip Photo'}
                 </span>
                 <span className="text-[11px] text-slate-500 mt-1">
                   Urdu, Arabic &amp; English handwritten or printed slips supported (JPG, PNG, WEBP)
@@ -1137,7 +1401,12 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                         <Sparkles className="w-4 h-4" />
                         <span>
                           Run Heavy AI OCR Extraction (
-                          {ocrMode === 'purchase' ? 'پرچیز بل پڑھیں' : 'کسٹمر سیل بل پڑھیں'})
+                          {ocrMode === 'purchase'
+                            ? 'پرچیز بل پڑھیں'
+                            : ocrMode === 'sale'
+                            ? 'کسٹمر سیل بل پڑھیں'
+                            : 'کیش سلپ / واؤچر پڑھیں'}
+                          )
                         </span>
                       </>
                     )}
@@ -1163,9 +1432,23 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                   <CheckCircle2 className="w-5 h-5 text-emerald-400" />
                   <div>
                     <h4 className="font-extrabold text-white text-sm">
-                      OCR Extracted Details ({itemsList.length} items detected) &bull;{' '}
-                      <span className={ocrMode === 'purchase' ? 'text-emerald-400' : 'text-indigo-400'}>
-                        {ocrMode === 'purchase' ? 'Stock & Purchase Bill' : 'Customer Sale Bill'}
+                      {ocrMode === 'receipt'
+                        ? 'Cash Slip / Voucher Details'
+                        : `OCR Extracted Details (${itemsList.length} items detected)`} &bull;{' '}
+                      <span
+                        className={
+                          ocrMode === 'purchase'
+                            ? 'text-emerald-400'
+                            : ocrMode === 'sale'
+                            ? 'text-indigo-400'
+                            : 'text-amber-400'
+                        }
+                      >
+                        {ocrMode === 'purchase'
+                          ? 'Stock & Purchase Bill'
+                          : ocrMode === 'sale'
+                          ? 'Customer Sale Bill'
+                          : 'Cash Slip & Voucher'}
                       </span>
                     </h4>
                     <p className="text-[11px] text-slate-400">
@@ -1175,7 +1458,11 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="px-2.5 py-0.5 rounded text-[10px] font-bold uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                    {ocrMode === 'purchase' ? 'Purchase Invoice' : 'Customer Sale Invoice'}
+                    {ocrMode === 'purchase'
+                      ? 'Purchase Invoice'
+                      : ocrMode === 'sale'
+                      ? 'Customer Sale Invoice'
+                      : 'Cash Slip / Voucher'}
                   </span>
                   <span className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                     AI Verified
@@ -1184,7 +1471,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
               </div>
 
               {/* CRITICAL TOTAL COMPARISON & ALERT BANNER */}
-              {slipGrandTotal > 0 && (
+              {ocrMode !== 'receipt' && slipGrandTotal > 0 && (
                 <div
                   className={`p-4 rounded-xl border flex items-center justify-between flex-wrap gap-3 ${
                     hasTotalMismatch
@@ -1557,262 +1844,683 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
               )}
 
               {/* ------------------------------------------------------------- */}
-              {/* RECOGNIZED ITEMS TABLE WITH INLINE EDIT & MANDATORY CHECKS   */}
+              {/* SECTION C: CASH SLIP & VOUCHER (ONLY SHOWN IN RECEIPT MODE)   */}
               {/* ------------------------------------------------------------- */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-xs font-bold text-slate-300 flex-wrap gap-2">
-                  <div className="flex items-center gap-2.5">
-                    <button
-                      type="button"
-                      onClick={handleToggleAll}
-                      className="text-[11px] text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer underline"
-                    >
-                      {allSelected ? 'Deselect All' : 'Select All'}
-                    </button>
-                    <span>&bull;</span>
-                    <span className="text-slate-400">
-                      {selectedCount} of {itemsList.length} items included
-                    </span>
-                  </div>
+              {ocrMode === 'receipt' && (
+                <div className="bg-slate-900 border border-amber-900/60 rounded-2xl p-5 space-y-4">
+                  {/* Subtype toggle */}
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-800 flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <Receipt className="w-4 h-4 text-amber-400" />
+                      <span className="font-bold text-xs text-white">
+                        Cash Voucher Slip Type (واؤچر کی نوعیت منتخب کریں):
+                      </span>
+                    </div>
 
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={handleAddItemRow}
-                      className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-indigo-300 hover:text-white rounded-lg border border-slate-700 text-xs font-bold flex items-center gap-1 transition cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>+ Naya Item Shamil Karein</span>
-                    </button>
-                    <div className="text-emerald-400 font-mono font-bold text-xs bg-slate-900 px-3 py-1 rounded-lg border border-slate-800">
-                      Items Total: {currencySymbol()} {totalSelectedAmount.toLocaleString()}
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setReceiptSubtype('expense')}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                          receiptSubtype === 'expense'
+                            ? 'bg-amber-500 text-slate-950 font-extrabold shadow-md shadow-amber-500/20'
+                            : 'bg-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <Wallet className="w-3.5 h-3.5" />
+                        <span>Petrol / General Expense (Cash Payment - CP)</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setReceiptSubtype('customer_payment')}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                          receiptSubtype === 'customer_payment'
+                            ? 'bg-emerald-500 text-slate-950 font-extrabold shadow-md shadow-emerald-500/20'
+                            : 'bg-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <Banknote className="w-3.5 h-3.5" />
+                        <span>Customer Recovery (Cash Receipt - CR)</span>
+                      </button>
                     </div>
                   </div>
-                </div>
 
-                <div className="bg-slate-900/90 rounded-2xl p-2 border border-slate-800 divide-y divide-slate-800/80 max-h-96 overflow-y-auto">
-                  {itemsList.map((item, index) => {
-                    const isInvalidPrice = item.selected && (!item.price || item.price <= 0);
-                    const isInvalidQty = item.selected && (!item.quantity || item.quantity <= 0);
-                    const isInvalidTitle = item.selected && !item.name.trim();
-
-                    return (
-                      <div
-                        key={item.id}
-                        className={`py-3 px-3 flex flex-col gap-2.5 text-xs transition rounded-xl ${
-                          item.selected ? 'bg-slate-900/80 hover:bg-slate-850' : 'opacity-40'
-                        } ${isInvalidPrice || isInvalidQty || isInvalidTitle ? 'border border-rose-500/40 bg-rose-950/10' : ''}`}
-                      >
-                        {/* Row Header: Checkbox, Name, SKU Badge, Category, Delete */}
-                        <div className="flex items-center gap-2.5 flex-wrap">
-                          <input
-                            type="checkbox"
-                            checked={item.selected}
-                            onChange={() => handleToggleItem(index)}
-                            className="w-4 h-4 rounded border-slate-700 text-emerald-600 focus:ring-emerald-500 bg-slate-800 shrink-0 cursor-pointer"
-                          />
-
+                  {/* Form Fields: Expense (CP) */}
+                  {receiptSubtype === 'expense' && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                            Vendor / Filling Station Name:
+                          </label>
                           <input
                             type="text"
-                            value={item.name}
-                            onChange={(e) => handleUpdateItemField(index, 'name', e.target.value)}
-                            placeholder="Item name / title"
-                            className={`px-2.5 py-1 bg-slate-950 rounded-lg text-xs font-bold text-white flex-1 min-w-[200px] outline-none border ${
-                              isInvalidTitle ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-700 focus:border-indigo-500'
-                            }`}
+                            value={receiptVendor}
+                            onChange={(e) => setReceiptVendor(e.target.value)}
+                            placeholder="e.g. Emarat - Al Wojhah / ADNOC"
+                            className="w-full px-3 py-2 bg-slate-950 rounded-xl border border-slate-700 text-xs text-white outline-none focus:ring-1 focus:ring-amber-500 font-semibold"
                           />
-
-                          {/* SKU / M-Code Status Badge */}
-                          {item.matchedProductId ? (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono">
-                              ✓ Existing Code: {item.mcode} (In Stock: {item.existingStock || 0} {item.unit})
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30 font-mono">
-                              ✨ New Item (Code: {item.mcode})
-                            </span>
-                          )}
-
-                          <input
-                            type="text"
-                            value={item.mcode}
-                            onChange={(e) => handleUpdateItemField(index, 'mcode', e.target.value)}
-                            placeholder="SKU / M-Code"
-                            className="w-24 px-2 py-1 bg-slate-950 rounded-lg text-[11px] text-slate-300 font-mono border border-slate-700"
-                            title="SKU / Item Code"
-                          />
-
-                          <input
-                            type="text"
-                            value={item.category}
-                            onChange={(e) => handleUpdateItemField(index, 'category', e.target.value)}
-                            placeholder="Category"
-                            className="w-28 px-2 py-1 bg-slate-950 rounded-lg text-[11px] text-slate-300 border border-slate-700"
-                          />
-
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteItemRow(index)}
-                            className="ml-auto text-slate-500 hover:text-rose-400 p-1 rounded hover:bg-slate-800 transition cursor-pointer"
-                            title="Delete item row"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
                         </div>
 
-                        {/* Measurement & Rates Row: Cartons, Qty/Ctn, Quantity, Unit, Rate/Ctn, Rate/Piece, Sale Price, Total */}
-                        <div className="flex items-center gap-3 flex-wrap pl-6 text-slate-300">
-                          {/* Cartons */}
-                          <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-slate-400 font-medium">Ctns (کارٹن):</span>
-                            <input
-                              type="number"
-                              min="0"
-                              value={item.ctn || ''}
-                              onChange={(e) =>
-                                handleUpdateItemField(index, 'ctn', parseFloat(e.target.value) || 0)
-                              }
-                              placeholder="0"
-                              className="w-14 px-2 py-1 text-xs bg-slate-950 rounded-lg text-white font-mono border border-slate-700 text-center"
-                            />
-                          </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                            Expense Category:
+                          </label>
+                          <input
+                            type="text"
+                            value={receiptCategory}
+                            onChange={(e) => setReceiptCategory(e.target.value)}
+                            placeholder="e.g. Petrol & Vehicle Fuel"
+                            className="w-full px-3 py-2 bg-slate-950 rounded-xl border border-slate-700 text-xs text-white outline-none focus:ring-1 focus:ring-amber-500 font-semibold"
+                          />
+                        </div>
 
-                          {/* Pcs per Carton */}
-                          <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-slate-400 font-medium">Pcs/Ctn (فی کارٹن پیس):</span>
-                            <input
-                              type="number"
-                              min="1"
-                              value={item.qtyPerCtn || ''}
-                              onChange={(e) =>
-                                handleUpdateItemField(index, 'qtyPerCtn', parseFloat(e.target.value) || 1)
-                              }
-                              placeholder="1"
-                              className="w-14 px-2 py-1 text-xs bg-slate-950 rounded-lg text-white font-mono border border-slate-700 text-center"
-                            />
-                          </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                            Vehicle # (گاڑی نمبر):
+                          </label>
+                          <input
+                            type="text"
+                            value={receiptVehicleNo}
+                            onChange={(e) => setReceiptVehicleNo(e.target.value)}
+                            placeholder="e.g. 72540"
+                            className="w-full px-3 py-2 bg-slate-950 rounded-xl border border-slate-700 text-xs text-amber-300 font-mono font-bold outline-none focus:ring-1 focus:ring-amber-500"
+                          />
+                        </div>
 
-                          {/* Total Quantity */}
-                          <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-slate-400 font-medium">Total Qty (کل تعداد):</span>
-                            <input
-                              type="number"
-                              min="0.1"
-                              step="any"
-                              value={item.quantity || ''}
-                              onChange={(e) =>
-                                handleUpdateItemField(index, 'quantity', parseFloat(e.target.value) || 0)
-                              }
-                              className={`w-16 px-2 py-1 text-xs bg-slate-950 rounded-lg text-white font-mono border ${
-                                isInvalidQty ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-700'
-                              } text-center`}
-                            />
-                          </div>
-
-                          {/* Unit */}
-                          <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-slate-400 font-medium">Unit:</span>
-                            <input
-                              type="text"
-                              value={item.unit}
-                              onChange={(e) => handleUpdateItemField(index, 'unit', e.target.value)}
-                              className="w-16 px-2 py-1 text-xs bg-slate-950 rounded-lg text-white font-mono border border-slate-700 uppercase text-center"
-                            />
-                          </div>
-
-                          {/* Rate per Carton */}
-                          <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-slate-400 font-medium">Rate/Ctn (کارٹن ریٹ):</span>
-                            <input
-                              type="number"
-                              min="0"
-                              step="any"
-                              value={item.ratePerCtn || ''}
-                              onChange={(e) =>
-                                handleUpdateItemField(index, 'ratePerCtn', parseFloat(e.target.value) || 0)
-                              }
-                              placeholder="0"
-                              className="w-20 px-2 py-1 text-xs bg-slate-950 rounded-lg font-mono border border-slate-700 text-white text-right"
-                            />
-                          </div>
-
-                          {/* Rate per Piece / Unit (Khareed Price) */}
-                          <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-slate-400 font-medium">
-                              {ocrMode === 'purchase' ? 'Khareed Rate (خرید):' : 'Sale Rate (سیل ریٹ):'}
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                            Total Amount (کل خرچہ):
+                          </label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-2 text-xs font-bold text-emerald-400">
+                              {currencySymbol()}
                             </span>
                             <input
                               type="number"
                               min="0"
                               step="any"
-                              value={item.price || ''}
-                              onChange={(e) =>
-                                handleUpdateItemField(index, 'price', parseFloat(e.target.value) || 0)
-                              }
-                              placeholder="Rate"
-                              className={`w-20 px-2 py-1 text-xs bg-slate-950 rounded-lg font-mono border ${
-                                isInvalidPrice
-                                  ? 'border-rose-500 text-rose-300 ring-1 ring-rose-500'
-                                  : 'border-slate-700 text-white'
-                              } text-right`}
+                              value={receiptAmount || ''}
+                              onChange={(e) => setReceiptAmount(Number(e.target.value) || 0)}
+                              placeholder="100"
+                              className="w-full pl-12 pr-3 py-2 bg-slate-950 rounded-xl border border-emerald-500/80 text-xs text-emerald-300 font-mono font-extrabold outline-none focus:ring-2 focus:ring-emerald-500"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                            Slip / Receipt / Tax Invoice #:
+                          </label>
+                          <input
+                            type="text"
+                            value={receiptNumber}
+                            onChange={(e) => setReceiptNumber(e.target.value)}
+                            placeholder="e.g. 367531"
+                            className="w-full px-3 py-2 bg-slate-950 rounded-xl border border-slate-700 text-xs text-white font-mono"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                            Date:
+                          </label>
+                          <input
+                            type="date"
+                            value={receiptDate}
+                            onChange={(e) => setReceiptDate(e.target.value)}
+                            className="w-full px-3 py-2 bg-slate-950 rounded-xl border border-slate-700 text-xs text-white font-mono"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                            Paid From Cash Drawer (کھاتہ):
+                          </label>
+                          <select
+                            value={receiptCashAccountId}
+                            onChange={(e) => setReceiptCashAccountId(e.target.value)}
+                            className="w-full px-3 py-2 bg-slate-950 rounded-xl border border-slate-700 text-xs text-white outline-none focus:ring-1 focus:ring-amber-500 font-semibold"
+                          >
+                            {cashAccounts.map((ca) => (
+                              <option key={ca.id} value={ca.id}>
+                                {ca.title} (Bal: {currencySymbol()} {ca.balance})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                          Narration / Fuel Quantity / Details:
+                        </label>
+                        <input
+                          type="text"
+                          value={receiptNotes}
+                          onChange={(e) => setReceiptNotes(e.target.value)}
+                          placeholder="e.g. Special (C) 23.36 Ltr @ 4.28"
+                          className="w-full px-3 py-2 bg-slate-950 rounded-xl border border-slate-700 text-xs text-slate-200 outline-none focus:ring-1 focus:ring-amber-500"
+                        />
+                      </div>
+
+                      {/* Detected Item Lines preview if available */}
+                      {ocrResult.items && ocrResult.items.length > 0 && (
+                        <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800 text-xs space-y-1.5">
+                          <span className="font-bold text-[11px] text-amber-400 block uppercase">
+                            ⛽ Slip Line Items Detected by AI:
+                          </span>
+                          <div className="divide-y divide-slate-800">
+                            {ocrResult.items.map((it, idx) => (
+                              <div key={idx} className="py-1 flex items-center justify-between text-slate-300 text-[11px]">
+                                <span>
+                                  <strong>{it.itemTitle || it.name}</strong>
+                                  {it.quantity ? ` &bull; ${it.quantity} ${it.unit || 'Ltr'}` : ''}
+                                  {it.price ? ` @ ${currencySymbol()} ${it.price}` : ''}
+                                </span>
+                                <span className="font-mono font-bold text-emerald-400">
+                                  {currencySymbol()} {(it.totalAmount || it.amount || (it.quantity || 1) * (it.price || 0)).toLocaleString()}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Double Entry Accounting Ledger Effect Preview */}
+                      <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="bg-rose-950/30 p-2.5 rounded-lg border border-rose-900/50">
+                          <span className="text-[10px] text-rose-300 block font-bold uppercase">Debit (خرچہ اضافہ)</span>
+                          <span className="font-bold text-xs text-white block mt-0.5">
+                            {receiptCategory} {receiptVehicleNo ? `(${receiptVehicleNo})` : ''}
+                          </span>
+                          <span className="font-mono font-extrabold text-rose-400 text-sm mt-1 block">
+                            + {currencySymbol()} {receiptAmount.toLocaleString()}
+                          </span>
+                        </div>
+
+                        <div className="bg-amber-950/30 p-2.5 rounded-lg border border-amber-900/50">
+                          <span className="text-[10px] text-amber-300 block font-bold uppercase">Credit (کیش دراز سے منہا)</span>
+                          <span className="font-bold text-xs text-white block mt-0.5">
+                            {cashAccounts.find((c) => c.id === receiptCashAccountId)?.title || 'Cash in Hand'}
+                          </span>
+                          <span className="font-mono font-extrabold text-amber-400 text-sm mt-1 block">
+                            - {currencySymbol()} {receiptAmount.toLocaleString()}
+                          </span>
+                        </div>
+
+                        <div className="bg-indigo-950/30 p-2.5 rounded-lg border border-indigo-900/50">
+                          <span className="text-[10px] text-indigo-300 block font-bold uppercase">Reports &amp; Audit Trail</span>
+                          <span className="text-[11px] text-slate-300 block mt-0.5 leading-snug">
+                            Automatically logs to <strong>Daily Master Audit Report</strong> under Cash Paid, Search Voucher (CP), and Tijory Register.
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Form Fields: Customer Payment / Recovery (CR) */}
+                  {receiptSubtype === 'customer_payment' && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="sm:col-span-2">
+                          <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                            Select Customer / Gahak (Directory se muntakhib karein):
+                          </label>
+                          <div className="relative mb-2">
+                            <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
+                            <input
+                              type="text"
+                              value={customerSearch}
+                              onChange={(e) => setCustomerSearch(e.target.value)}
+                              placeholder="Search customer code (e.g. 0101040001), restaurant name..."
+                              className="w-full pl-9 pr-3 py-2 bg-slate-950 rounded-xl border border-slate-700 text-xs text-white outline-none focus:ring-1 focus:ring-emerald-500"
                             />
                           </div>
 
-                          {/* CRITICAL USER REQUIREMENT: Ask Sale Price during Purchase Bill */}
-                          {ocrMode === 'purchase' && (
-                            <div className="flex items-center gap-1 bg-emerald-950/40 px-2 py-0.5 rounded-lg border border-emerald-800/60">
-                              <span className="text-[10px] text-emerald-300 font-bold">Sale Price (سیل ریٹ):</span>
+                          <select
+                            value={selectedCustomerId}
+                            onChange={(e) => {
+                              setSelectedCustomerId(e.target.value);
+                              const found = customersList.find((c) => c.id === e.target.value);
+                              if (found) setSelectedCustomer(found);
+                            }}
+                            className={`w-full px-3 py-2 bg-slate-950 rounded-xl border text-xs text-white outline-none focus:ring-1 focus:ring-emerald-500 ${
+                              !selectedCustomerId ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-700'
+                            }`}
+                          >
+                            <option value="">-- Choose Customer from Directory --</option>
+                            {filteredCustomers.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                [{c.code}] {c.accountTitle} &bull; {c.contactPerson || c.area || ''} (Bal: {currencySymbol()}{' '}
+                                {c.outstandingBalance || 0})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                            Received Cash Amount (وصول شدہ رقم):
+                          </label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-2 text-xs font-bold text-emerald-400">
+                              {currencySymbol()}
+                            </span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="any"
+                              value={receiptAmount || ''}
+                              onChange={(e) => setReceiptAmount(Number(e.target.value) || 0)}
+                              placeholder="0"
+                              className="w-full pl-12 pr-3 py-2 bg-slate-950 rounded-xl border border-emerald-500/80 text-xs text-emerald-300 font-mono font-extrabold outline-none focus:ring-2 focus:ring-emerald-500"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Customer Balance Calculation Row */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs">
+                        <div>
+                          <span className="text-[10px] text-slate-400 block uppercase">Previous Receivable (پچھلا بقایا)</span>
+                          <span className="font-mono font-bold text-amber-400 text-sm mt-0.5 block">
+                            {currencySymbol()} {customerPrevReceivable.toLocaleString()}
+                          </span>
+                        </div>
+
+                        <div>
+                          <span className="text-[10px] text-slate-400 block uppercase">Cash Received (وصولی)</span>
+                          <span className="font-mono font-bold text-emerald-400 text-sm mt-0.5 block">
+                            - {currencySymbol()} {receiptAmount.toLocaleString()}
+                          </span>
+                        </div>
+
+                        <div>
+                          <span className="text-[10px] text-slate-400 block uppercase">Remaining Balance (باقی کھاتہ)</span>
+                          <span className="font-mono font-bold text-cyan-400 text-sm mt-0.5 block">
+                            = {currencySymbol()} {Math.max(0, customerPrevReceivable - receiptAmount).toLocaleString()}
+                          </span>
+                        </div>
+
+                        <div>
+                          <span className="text-[10px] text-slate-400 block uppercase">Deposit To (کیش دراز)</span>
+                          <select
+                            value={receiptCashAccountId}
+                            onChange={(e) => setReceiptCashAccountId(e.target.value)}
+                            className="w-full px-2 py-1 bg-slate-900 rounded border border-slate-700 text-xs text-white outline-none mt-0.5"
+                          >
+                            {cashAccounts.map((ca) => (
+                              <option key={ca.id} value={ca.id}>
+                                {ca.title}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-300 mb-1">Receipt / Slip #:</label>
+                          <input
+                            type="text"
+                            value={receiptNumber}
+                            onChange={(e) => setReceiptNumber(e.target.value)}
+                            placeholder="e.g. REC-1029"
+                            className="w-full px-3 py-2 bg-slate-950 rounded-xl border border-slate-700 text-xs text-white font-mono"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-300 mb-1">Date:</label>
+                          <input
+                            type="date"
+                            value={receiptDate}
+                            onChange={(e) => setReceiptDate(e.target.value)}
+                            className="w-full px-3 py-2 bg-slate-950 rounded-xl border border-slate-700 text-xs text-white font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-300 mb-1">Narration / Remarks:</label>
+                        <input
+                          type="text"
+                          value={receiptNotes}
+                          onChange={(e) => setReceiptNotes(e.target.value)}
+                          placeholder="e.g. Cash received by salesman against bill"
+                          className="w-full px-3 py-2 bg-slate-950 rounded-xl border border-slate-700 text-xs text-slate-200 outline-none focus:ring-1 focus:ring-emerald-500"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ------------------------------------------------------------- */}
+              {/* RECOGNIZED ITEMS TABLE WITH INLINE EDIT & MANDATORY CHECKS   */}
+              {/* (ONLY SHOWN FOR PURCHASE & SALE BILLS)                       */}
+              {/* ------------------------------------------------------------- */}
+              {ocrMode !== 'receipt' && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-300 flex-wrap gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <button
+                        type="button"
+                        onClick={handleToggleAll}
+                        className="text-[11px] text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer underline"
+                      >
+                        {allSelected ? 'Deselect All' : 'Select All'}
+                      </button>
+                      <span>&bull;</span>
+                      <span className="text-slate-400">
+                        {selectedCount} of {itemsList.length} items included
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={handleAddItemRow}
+                        className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-indigo-300 hover:text-white rounded-lg border border-slate-700 text-xs font-bold flex items-center gap-1 transition cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>+ Naya Item Shamil Karein</span>
+                      </button>
+                      <div className="text-emerald-400 font-mono font-bold text-xs bg-slate-900 px-3 py-1 rounded-lg border border-slate-800">
+                        Items Total: {currencySymbol()} {totalSelectedAmount.toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-900/90 rounded-2xl p-2 border border-slate-800 divide-y divide-slate-800/80 max-h-96 overflow-y-auto">
+                    {itemsList.map((item, index) => {
+                      const isInvalidPrice = item.selected && (!item.price || item.price <= 0);
+                      const isInvalidQty = item.selected && (!item.quantity || item.quantity <= 0);
+                      const isInvalidTitle = item.selected && !item.name.trim();
+
+                      return (
+                        <div
+                          key={item.id}
+                          className={`py-3 px-3 flex flex-col gap-2.5 text-xs transition rounded-xl ${
+                            item.selected ? 'bg-slate-900/80 hover:bg-slate-850' : 'opacity-40'
+                          } ${isInvalidPrice || isInvalidQty || isInvalidTitle ? 'border border-rose-500/40 bg-rose-950/10' : ''}`}
+                        >
+                          {/* Row Header: Checkbox, Name, SKU Badge, Category, Delete */}
+                          <div className="flex items-center gap-2.5 flex-wrap">
+                            <input
+                              type="checkbox"
+                              checked={item.selected}
+                              onChange={() => handleToggleItem(index)}
+                              className="w-4 h-4 rounded border-slate-700 text-emerald-600 focus:ring-emerald-500 bg-slate-800 shrink-0 cursor-pointer"
+                            />
+
+                            <input
+                              type="text"
+                              value={item.name}
+                              onChange={(e) => handleUpdateItemField(index, 'name', e.target.value)}
+                              placeholder="Item name / title"
+                              className={`px-2.5 py-1 bg-slate-950 rounded-lg text-xs font-bold text-white flex-1 min-w-[200px] outline-none border ${
+                                isInvalidTitle ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-700 focus:border-indigo-500'
+                              }`}
+                            />
+
+                            {/* Catalog Link Picker */}
+                            <select
+                              value={item.matchedProductId || ''}
+                              onChange={(e) => {
+                                const prodId = e.target.value;
+                                if (!prodId) {
+                                  handleUpdateItemField(index, 'name', item.name);
+                                  return;
+                                }
+                                const p = (products || []).find((pr) => pr.id === prodId);
+                                if (p) {
+                                  handleUpdateItemField(index, 'name', p.name);
+                                }
+                              }}
+                              className="px-2 py-1 bg-slate-950 rounded-lg text-[11px] text-slate-300 border border-slate-700 max-w-[150px] outline-none"
+                              title="Link this item to a product in catalog"
+                            >
+                              <option value="">-- Match Catalog --</option>
+                              {(products || []).map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.name} ({p.currentQuantity || 0} {p.unit})
+                                </option>
+                              ))}
+                            </select>
+
+                            {/* SKU / M-Code Status Badge */}
+                            {item.matchedProductId ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono">
+                                ✓ Code: {item.mcode}
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30 font-mono">
+                                ✨ New: {item.mcode}
+                              </span>
+                            )}
+
+                            <input
+                              type="text"
+                              value={item.category}
+                              onChange={(e) => handleUpdateItemField(index, 'category', e.target.value)}
+                              placeholder="Category"
+                              className="w-24 px-2 py-1 bg-slate-950 rounded-lg text-[11px] text-slate-300 border border-slate-700"
+                            />
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteItemRow(index)}
+                              className="ml-auto text-slate-500 hover:text-rose-400 p-1 rounded hover:bg-slate-800 transition cursor-pointer"
+                              title="Delete item row"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+
+                          {/* Measurement & Rates Row: Cartons, Qty/Ctn, Extra Loose, Quantity, Unit, Rate/Ctn, Rate/Piece, Sale Price, Total */}
+                          <div className="flex items-center gap-3 flex-wrap pl-6 text-slate-300">
+                            {/* Cartons */}
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-slate-400 font-medium">Ctns (کارٹن):</span>
+                              <input
+                                type="number"
+                                min="0"
+                                value={item.ctn || ''}
+                                onChange={(e) =>
+                                  handleUpdateItemField(index, 'ctn', parseFloat(e.target.value) || 0)
+                                }
+                                placeholder="0"
+                                className="w-14 px-2 py-1 text-xs bg-slate-950 rounded-lg text-white font-mono border border-slate-700 text-center"
+                              />
+                            </div>
+
+                            {/* Pcs per Carton */}
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-slate-400 font-medium">Qty/Ctn (فی کارٹن):</span>
+                              <input
+                                type="number"
+                                min="1"
+                                value={item.qtyPerCtn || ''}
+                                onChange={(e) =>
+                                  handleUpdateItemField(index, 'qtyPerCtn', parseFloat(e.target.value) || 1)
+                                }
+                                placeholder="1"
+                                className="w-14 px-2 py-1 text-xs bg-slate-950 rounded-lg text-white font-mono border border-slate-700 text-center"
+                              />
+                            </div>
+
+                            {/* Extra Loose KG */}
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-amber-300 font-medium">+ Extra Loose (اضافی):</span>
                               <input
                                 type="number"
                                 min="0"
                                 step="any"
-                                value={item.salePrice || ''}
+                                value={item.looseExtra || ''}
                                 onChange={(e) =>
-                                  handleUpdateItemField(index, 'salePrice', parseFloat(e.target.value) || 0)
+                                  handleUpdateItemField(index, 'looseExtra', parseFloat(e.target.value) || 0)
                                 }
-                                placeholder="Sale"
-                                className="w-20 px-2 py-1 text-xs bg-slate-950 rounded-lg font-mono border border-emerald-700 text-emerald-300 font-bold text-right"
-                                title="Set selling price for this product in catalog"
+                                placeholder="0"
+                                className="w-14 px-2 py-1 text-xs bg-slate-950 rounded-lg text-amber-300 font-mono border border-amber-600/70 text-center font-bold"
+                                title="Extra loose kg or pieces (e.g. 7 kg or 28 kg)"
                               />
+                            </div>
+
+                            {/* Total Quantity */}
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-slate-400 font-medium">= Total Qty (کل تعداد):</span>
+                              <input
+                                type="number"
+                                min="0.1"
+                                step="any"
+                                value={item.quantity || ''}
+                                onChange={(e) =>
+                                  handleUpdateItemField(index, 'quantity', parseFloat(e.target.value) || 0)
+                                }
+                                className={`w-16 px-2 py-1 text-xs bg-slate-950 rounded-lg text-white font-mono border ${
+                                  isInvalidQty ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-700'
+                                } text-center font-bold`}
+                              />
+                            </div>
+
+                            {/* Unit */}
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-slate-400 font-medium">Unit:</span>
+                              <input
+                                type="text"
+                                value={item.unit}
+                                onChange={(e) => handleUpdateItemField(index, 'unit', e.target.value)}
+                                className="w-14 px-2 py-1 text-xs bg-slate-950 rounded-lg text-white font-mono border border-slate-700 uppercase text-center"
+                              />
+                            </div>
+
+                            {/* Rate per Carton */}
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-slate-400 font-medium">Rate/Ctn (کارٹن ریٹ):</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="any"
+                                value={item.ratePerCtn || ''}
+                                onChange={(e) =>
+                                  handleUpdateItemField(index, 'ratePerCtn', parseFloat(e.target.value) || 0)
+                                }
+                                placeholder="0"
+                                className="w-20 px-2 py-1 text-xs bg-slate-950 rounded-lg font-mono border border-slate-700 text-white text-right"
+                              />
+                            </div>
+
+                            {/* Rate per Piece / Unit (Khareed Price) */}
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-slate-400 font-medium">
+                                {ocrMode === 'purchase' ? 'Khareed Rate (خرید):' : 'Sale Rate (سیل ریٹ):'}
+                              </span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="any"
+                                value={item.price || ''}
+                                onChange={(e) =>
+                                  handleUpdateItemField(index, 'price', parseFloat(e.target.value) || 0)
+                                }
+                                placeholder="Rate"
+                                className={`w-20 px-2 py-1 text-xs bg-slate-950 rounded-lg font-mono border ${
+                                  isInvalidPrice
+                                    ? 'border-rose-500 text-rose-300 ring-1 ring-rose-500'
+                                    : 'border-slate-700 text-white'
+                                } text-right`}
+                              />
+                            </div>
+
+                            {/* CRITICAL USER REQUIREMENT: Ask Sale Price during Purchase Bill */}
+                            {ocrMode === 'purchase' && (
+                              <div className="flex items-center gap-1 bg-emerald-950/40 px-2 py-0.5 rounded-lg border border-emerald-800/60">
+                                <span className="text-[10px] text-emerald-300 font-bold">Sale Price (سیل ریٹ):</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="any"
+                                  value={item.salePrice || ''}
+                                  onChange={(e) =>
+                                    handleUpdateItemField(index, 'salePrice', parseFloat(e.target.value) || 0)
+                                  }
+                                  placeholder="Sale"
+                                  className="w-20 px-2 py-1 text-xs bg-slate-950 rounded-lg font-mono border border-emerald-700 text-emerald-300 font-bold text-right"
+                                  title="Set selling price for this product in catalog"
+                                />
+                              </div>
+                            )}
+
+                            {/* Line Total */}
+                            <div className="flex items-center gap-1 ml-auto">
+                              <span className="text-[10px] text-slate-400 font-medium">Total:</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="any"
+                                value={item.total || ''}
+                                onChange={(e) =>
+                                  handleUpdateItemField(index, 'total', parseFloat(e.target.value) || 0)
+                                }
+                                className="w-24 px-2 py-1 text-xs bg-slate-950 rounded-lg font-mono text-emerald-400 font-bold border border-slate-700 text-right"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Inventory Stock Verification Before & After Badge */}
+                          {item.matchedProductId && item.existingStock !== undefined && (
+                            <div className="pl-6 pt-1 flex items-center gap-2 flex-wrap text-[11px]">
+                              <span className="px-2 py-0.5 rounded bg-slate-950 text-slate-300 border border-slate-800">
+                                📦 Godown Stock: <strong>{item.existingCtn || 0} CTN</strong>{' '}
+                                {item.existingExtraKg ? `+ ${item.existingExtraKg} KG` : ''} ({item.existingStock} {item.unit})
+                              </span>
+                              <span className="px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-800/60 font-semibold">
+                                ➔ {ocrMode === 'purchase' ? 'After Purchase Entry' : 'After Sale Deduction'}:{' '}
+                                {ocrMode === 'purchase' ? (
+                                  <span>
+                                    <strong>{(item.existingCtn || 0) + (item.ctn || 0)} CTN</strong>{' '}
+                                    {((item.existingExtraKg || 0) + (item.looseExtra || 0)) > 0
+                                      ? `+ ${((item.existingExtraKg || 0) + (item.looseExtra || 0))} KG `
+                                      : ''}
+                                    ({Number(((item.existingStock || 0) + (item.quantity || 0)).toFixed(2))} {item.unit})
+                                  </span>
+                                ) : (
+                                  <span>
+                                    <strong>{Math.max(0, (item.existingCtn || 0) - (item.ctn || 0))} CTN</strong> (
+                                    {Math.max(0, Number(((item.existingStock || 0) - (item.quantity || 0)).toFixed(2)))}{' '}
+                                    {item.unit})
+                                  </span>
+                                )}
+                              </span>
                             </div>
                           )}
 
-                          {/* Line Total */}
-                          <div className="flex items-center gap-1 ml-auto">
-                            <span className="text-[10px] text-slate-400 font-medium">Total:</span>
-                            <input
-                              type="number"
-                              min="0"
-                              step="any"
-                              value={item.total || ''}
-                              onChange={(e) =>
-                                handleUpdateItemField(index, 'total', parseFloat(e.target.value) || 0)
-                              }
-                              className="w-24 px-2 py-1 text-xs bg-slate-950 rounded-lg font-mono text-emerald-400 font-bold border border-slate-700 text-right"
-                            />
-                          </div>
+                          {/* Warnings if mandatory fields empty */}
+                          {(isInvalidPrice || isInvalidQty) && (
+                            <div className="pl-6 flex items-center gap-2">
+                              {isInvalidPrice && (
+                                <span className="text-[10px] text-rose-400 font-bold bg-rose-500/10 px-2 py-0.5 rounded">
+                                  ⚠️ Rate (Price) laazmi hai
+                                </span>
+                              )}
+                              {isInvalidQty && (
+                                <span className="text-[10px] text-rose-400 font-bold bg-rose-500/10 px-2 py-0.5 rounded">
+                                  ⚠️ Quantity laazmi hai
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
-
-                        {/* Warnings if mandatory fields empty */}
-                        {(isInvalidPrice || isInvalidQty) && (
-                          <div className="pl-6 flex items-center gap-2">
-                            {isInvalidPrice && (
-                              <span className="text-[10px] text-rose-400 font-bold bg-rose-500/10 px-2 py-0.5 rounded">
-                                ⚠️ Rate (Price) laazmi hai
-                              </span>
-                            )}
-                            {isInvalidQty && (
-                              <span className="text-[10px] text-rose-400 font-bold bg-rose-500/10 px-2 py-0.5 rounded">
-                                ⚠️ Quantity laazmi hai
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* ACTION FOOTER */}
               <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-800">
@@ -1822,11 +2530,25 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                       Stock &amp; Purchase Bill with <strong>{selectedCount}</strong> items for <strong>{supplierName}</strong> (Total: {currencySymbol()}{' '}
                       {displayTotal.toLocaleString()})
                     </span>
-                  ) : (
+                  ) : ocrMode === 'sale' ? (
                     <span>
                       Customer Sale Bill with <strong>{selectedCount}</strong> items for{' '}
                       <strong>{selectedCustomer ? selectedCustomer.accountTitle : 'Selected Customer'}</strong> (Total: {currencySymbol()}{' '}
                       {displayTotal.toLocaleString()})
+                    </span>
+                  ) : (
+                    <span>
+                      {receiptSubtype === 'expense' ? (
+                        <span>
+                          Cash Payment Voucher: <strong>{receiptVendor || 'Expense'}</strong> ({receiptCategory}) &bull;{' '}
+                          {currencySymbol()} {receiptAmount.toLocaleString()}
+                        </span>
+                      ) : (
+                        <span>
+                          Cash Receipt Voucher: <strong>{selectedCustomer ? selectedCustomer.accountTitle : 'Customer Recovery'}</strong> &bull;{' '}
+                          {currencySymbol()} {receiptAmount.toLocaleString()}
+                        </span>
+                      )}
                     </span>
                   )}
                 </div>
@@ -1848,7 +2570,9 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                     className={`px-5 py-2.5 rounded-xl font-bold text-xs text-white shadow-lg transition flex items-center justify-center gap-2 cursor-pointer ${
                       ocrMode === 'purchase'
                         ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-600/30'
-                        : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-indigo-600/30'
+                        : ocrMode === 'sale'
+                        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-indigo-600/30'
+                        : 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-amber-600/30'
                     } disabled:opacity-40 disabled:cursor-not-allowed`}
                   >
                     {isImporting ? (
@@ -1863,11 +2587,25 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                           Save Purchase Bill &amp; Update Stock ({currencySymbol()} {displayTotal.toLocaleString()})
                         </span>
                       </>
-                    ) : (
+                    ) : ocrMode === 'sale' ? (
                       <>
                         <ShoppingCart className="w-4 h-4" />
                         <span>
                           Save Sale Bill &amp; Deduct Stock ({currencySymbol()} {displayTotal.toLocaleString()})
+                        </span>
+                      </>
+                    ) : receiptSubtype === 'expense' ? (
+                      <>
+                        <Wallet className="w-4 h-4" />
+                        <span>
+                          Post Cash Payment Voucher (CP) &amp; Record Expense ({currencySymbol()} {receiptAmount.toLocaleString()})
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Banknote className="w-4 h-4" />
+                        <span>
+                          Post Cash Receipt Voucher (CR) &amp; Update Khata ({currencySymbol()} {receiptAmount.toLocaleString()})
                         </span>
                       </>
                     )}

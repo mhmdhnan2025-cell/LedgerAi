@@ -2451,6 +2451,7 @@ export async function parseDocumentImage(
 
   const isPurchase = hintType === 'purchase';
   const isSale = hintType === 'sale';
+  const isReceipt = hintType === 'receipt' || hintType === 'voucher' || hintType === 'expense' || hintType === 'cash_slip';
 
   const specializedInstructions = isPurchase
     ? `SPECIALIZED MODE: SUPPLIER PURCHASE BILL & STOCK INTAKE (اسٹاک / پرچیز بل)
@@ -2489,12 +2490,34 @@ CRITICAL INSTRUCTIONS FOR SALE BILL:
      - If the slip has specific sale prices (rate per ctn or rate per piece), extract them in ratePerCtn or price.
      - CRITICAL: If the slip ONLY lists the item name / stock quantity WITHOUT price, leave price=null and ratePerCtn=null so the ERP auto-applies the product's catalog sale price!
    - Line Total: Line total amount if present.`
+    : isReceipt
+    ? `SPECIALIZED MODE: CASH RECEIPT, EXPENSE SLIP & PAYMENT VOUCHER (کیش سلپ / رسید / واؤچر)
+CRITICAL INSTRUCTIONS FOR RECEIPT / CASH VOUCHER:
+1. Detect Receipt Classification:
+   - If this is a Petrol/Fuel station receipt (e.g., Emarat, ADNOC, ENOC, petrol pump receipt), shop expense, utility bill, maintenance, vehicle repair, loading, or general company expenditure:
+     - Set documentType = 'expense_receipt'
+     - Set receiptSubtype = 'expense'
+     - Set supplierName to the vendor/header name (e.g. 'Emarat - Al Wojhah')
+     - Set expenseCategory (e.g. 'Petrol & Vehicle Fuel', 'Vehicle Maintenance', 'Loading Expense', 'General Expense')
+     - Extract vehicleNo if printed (e.g. '72540')
+     - Extract totalAmount (e.g. 100.00)
+     - Extract date (e.g. '05-10-2026' -> '2026-10-05')
+     - Extract invoiceNumber / receiptNumber (e.g. '367531' or '202610057500022367531')
+     - Set isCash = true, paymentMethod = 'Cash'
+     - Extract fuel items if present (e.g. 'Special (C)', qty 23.36, rate 4.28)
+   - If this is a Customer Payment / Cash Received receipt (money received from customer or restaurant):
+     - Set documentType = 'payment_receipt'
+     - Set receiptSubtype = 'customer_payment'
+     - Extract customerName, customerAccountCode
+     - Extract totalAmount / paidAmount
+     - Extract date and receiptNumber
+     - Set isCash = true, paymentMethod = 'Cash'`
     : `GENERAL SLIP & INVOICE DETECTION:
-Analyze English/Urdu/Arabic printed tax invoices, handwritten mandi receipts, and delivery slips.`;
+Analyze English/Urdu/Arabic printed tax invoices, handwritten mandi receipts, fuel/expense cash slips, and delivery slips.`;
 
   const prompt = `
 You are a Heavy-Duty Multi-Lingual Document & OCR Vision Specialist for a wholesale food & restaurant supply enterprise.
-Analyze this image (English/Urdu/Arabic printed invoice, handwritten mandi receipt, notebook order memo, delivery challan, or cash memo).
+Analyze this image (English/Urdu/Arabic printed invoice, fuel/petrol expense receipt, handwritten mandi receipt, notebook order memo, delivery challan, or cash memo).
 
 ${specializedInstructions}
 
@@ -2526,7 +2549,23 @@ Output JSON strictly adhering to schema.
             properties: {
               documentType: {
                 type: Type.STRING,
-                description: 'purchase_invoice, restaurant_order, inventory_sheet, expense_receipt, payment_receipt, or handwritten_note',
+                description: 'purchase_invoice, sales_invoice, expense_receipt, payment_receipt, or handwritten_note',
+              },
+              receiptSubtype: {
+                type: Type.STRING,
+                description: 'expense or customer_payment',
+              },
+              expenseCategory: {
+                type: Type.STRING,
+                description: 'e.g. Petrol & Vehicle Fuel, Vehicle Maintenance, Loading Expense, General Expense',
+              },
+              vehicleNo: {
+                type: Type.STRING,
+                description: 'Vehicle registration plate number if printed (e.g. 72540)',
+              },
+              paymentMethod: {
+                type: Type.STRING,
+                description: 'Cash or Bank',
               },
               restaurantName: { type: Type.STRING },
               customerName: { type: Type.STRING },
@@ -2603,21 +2642,33 @@ Output JSON strictly adhering to schema.
     const highConfidence = items.filter((i: any) => !i.needsConfirmation && i.confidence >= 0.85).length;
     const needsReview = items.length - highConfidence;
 
+    let cleanDate = parsed.date || new Date().toISOString().split('T')[0];
+    if (cleanDate && /^\d{2}[-/]\d{2}[-/]\d{4}/.test(cleanDate)) {
+      const parts = cleanDate.split(/[-/]/);
+      cleanDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    }
+
     const docType = isPurchase
       ? 'purchase_invoice'
       : isSale
       ? 'sales_invoice'
+      : isReceipt
+      ? (parsed.receiptSubtype === 'customer_payment' ? 'payment_receipt' : 'expense_receipt')
       : (parsed.documentType || 'purchase_invoice');
 
     return {
       documentType: docType,
+      receiptSubtype: parsed.receiptSubtype || (isReceipt ? 'expense' : undefined),
+      expenseCategory: parsed.expenseCategory || (parsed.vehicleNo ? 'Petrol & Vehicle Fuel' : undefined),
+      vehicleNo: parsed.vehicleNo,
+      paymentMethod: parsed.paymentMethod || 'Cash',
       restaurantName: parsed.restaurantName || parsed.customerName,
       customerName: parsed.customerName || parsed.restaurantName,
       customerCode: parsed.customerCode || parsed.customerAccountCode,
       customerAccountCode: parsed.customerAccountCode || parsed.customerCode,
       supplierName: parsed.supplierName,
       salesmanName: parsed.salesmanName,
-      date: parsed.date || new Date().toISOString().split('T')[0],
+      date: cleanDate,
       invoiceNumber: parsed.invoiceNumber,
       totalAmount: parsed.totalAmount,
       previousBalance: parsed.previousBalance,

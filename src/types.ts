@@ -591,6 +591,10 @@ export interface ExtractedDocumentData {
   vatTotal?: number;
   isCash?: boolean;
   paidAmount?: number;
+  receiptSubtype?: 'expense' | 'customer_payment';
+  expenseCategory?: string;
+  vehicleNo?: string;
+  paymentMethod?: string;
   items: ExtractedDocumentItem[];
   confidenceSummary: {
     totalItems: number;
