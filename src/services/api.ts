@@ -704,10 +704,16 @@ export const api = {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 28000);
 
+    const vaultKey = (typeof window !== 'undefined' ? localStorage.getItem('gemini_api_key_vault') : null) || '';
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (vaultKey && vaultKey.trim().length > 10) {
+      headers['x-gemini-key'] = vaultKey.trim();
+    }
+
     try {
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         signal: controller.signal,
         body: JSON.stringify({
           messages,
@@ -734,45 +740,106 @@ export const api = {
     mimeType: string = 'image/jpeg',
     hintType: string = 'general'
   ): Promise<ExtractedDocumentData> {
+    const vaultKey = (typeof window !== 'undefined' ? localStorage.getItem('gemini_api_key_vault') : null) || '';
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (vaultKey && vaultKey.trim().length > 10) {
+      headers['x-gemini-key'] = vaultKey.trim();
+    }
+
     const res = await fetch('/api/ai/parse-document', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ imageBase64, mimeType, hintType }),
     });
     if (!res.ok) {
-      const err = await res.json();
+      const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Document OCR parsing failed');
     }
     return res.json();
   },
 
   async getGeminiApiKeyStatus(): Promise<{ hasKey: boolean; maskedKey: string; aiStudioUrl: string }> {
+    const vaultKey = (typeof window !== 'undefined' ? (localStorage.getItem('gemini_api_key_vault') || '').trim() : '');
+    const headers: Record<string, string> = {};
+    if (vaultKey && vaultKey.length > 10) {
+      headers['x-gemini-key'] = vaultKey;
+    }
+
     try {
-      const res = await fetch('/api/settings/gemini-key');
-      if (!res.ok) return { hasKey: false, maskedKey: '', aiStudioUrl: 'https://aistudio.google.com/app/apikey' };
-      return res.json();
+      const res = await fetch('/api/settings/gemini-key', { headers });
+      if (!res.ok) {
+        if (vaultKey && vaultKey.length > 10) {
+          return {
+            hasKey: true,
+            maskedKey: vaultKey.slice(0, 6) + '...' + vaultKey.slice(-4),
+            aiStudioUrl: 'https://aistudio.google.com/app/apikey',
+          };
+        }
+        return { hasKey: false, maskedKey: '', aiStudioUrl: 'https://aistudio.google.com/app/apikey' };
+      }
+      const data = await res.json();
+
+      // Auto-Heal: If server doesn't have the key yet, but browser vault has it, restore it seamlessly!
+      if (!data.hasKey && vaultKey && vaultKey.length > 10) {
+        try {
+          const syncRes = await this.saveGeminiApiKey(vaultKey);
+          if (syncRes.success) {
+            return {
+              hasKey: true,
+              maskedKey: syncRes.maskedKey || (vaultKey.slice(0, 6) + '...' + vaultKey.slice(-4)),
+              aiStudioUrl: 'https://aistudio.google.com/app/apikey',
+            };
+          }
+        } catch {}
+      }
+
+      return data;
     } catch {
+      if (vaultKey && vaultKey.length > 10) {
+        return {
+          hasKey: true,
+          maskedKey: vaultKey.slice(0, 6) + '...' + vaultKey.slice(-4),
+          aiStudioUrl: 'https://aistudio.google.com/app/apikey',
+        };
+      }
       return { hasKey: false, maskedKey: '', aiStudioUrl: 'https://aistudio.google.com/app/apikey' };
     }
   },
 
   async saveGeminiApiKey(apiKey: string): Promise<{ success: boolean; message: string; maskedKey?: string }> {
+    const cleanKey = apiKey.trim();
+    if (typeof window !== 'undefined' && cleanKey.length > 5) {
+      try {
+        localStorage.setItem('gemini_api_key_vault', cleanKey);
+        localStorage.setItem('gemini_api_key_configured', 'true');
+      } catch {}
+    }
+
     const res = await fetch('/api/settings/gemini-key', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ apiKey }),
+      headers: {
+        'Content-Type': 'application/json',
+        'x-gemini-key': cleanKey,
+      },
+      body: JSON.stringify({ apiKey: cleanKey }),
     });
     if (!res.ok) {
-      const err = await res.json();
+      const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to save Gemini API Key');
     }
     return res.json();
   },
 
   async getDailyAiSummary(): Promise<{ summary: BusinessSummary; analysisText: string; generatedAt: string }> {
-    const res = await fetch('/api/ai/daily-summary');
+    const vaultKey = (typeof window !== 'undefined' ? localStorage.getItem('gemini_api_key_vault') : null) || '';
+    const headers: Record<string, string> = {};
+    if (vaultKey && vaultKey.trim().length > 10) {
+      headers['x-gemini-key'] = vaultKey.trim();
+    }
+
+    const res = await fetch('/api/ai/daily-summary', { headers });
     if (!res.ok) {
-      const err = await res.json();
+      const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to generate AI executive summary');
     }
     return res.json();

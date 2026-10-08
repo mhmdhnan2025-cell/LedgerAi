@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { Expense, ExpenseAllocationMethod, ExpenseCategory, Restaurant, UserRole } from '../types';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
+import { ExpenseAccountsManagementView } from './ExpenseAccountsManagementView';
 
 interface ExpensesViewProps {
   expenses: Expense[];
@@ -31,6 +32,7 @@ interface ExpensesViewProps {
   onAllocateExpense: (expenseId: string, method: ExpenseAllocationMethod, targetIds?: string[]) => Promise<void>;
   onDeleteExpense?: (expenseId: string) => Promise<void>;
   preselectedExpenseId?: string;
+  onRefreshData?: () => void;
 }
 
 export const ExpensesView: React.FC<ExpensesViewProps> = ({
@@ -41,7 +43,11 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
   onAllocateExpense,
   onDeleteExpense,
   preselectedExpenseId,
+  onRefreshData,
 }) => {
+  const [activeTab, setActiveTab] = useState<'accounts' | 'ledger'>(
+    preselectedExpenseId ? 'ledger' : 'accounts'
+  );
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -193,26 +199,73 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-extrabold text-white tracking-tight">
-            Operational Expenses & Intelligent Allocation Engine
-          </h2>
-          <p className="text-xs text-slate-400">
-            Track overhead costs and allocate delivery expenses (Petrol, Wages) across restaurants for true net profit.
-          </p>
-        </div>
+      {/* Sub-navigation Tabs: Expense Accounts Management vs Vouchers Ledger */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2.5 rounded-2xl shadow-xs">
         <div className="flex items-center gap-2">
           <button
+            type="button"
+            onClick={() => setActiveTab('accounts')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+              activeTab === 'accounts'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <Sliders className="w-4 h-4" />
+            <span>Expense Accounts Management (کھاتے بنائیں)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('ledger')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+              activeTab === 'ledger'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <Wallet className="w-4 h-4" />
+            <span>Expense Vouchers &amp; Ledger (واؤچرز اور لیجر)</span>
+          </button>
+        </div>
+
+        {activeTab === 'ledger' && (
+          <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold shadow-md shadow-indigo-600/30 transition"
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold shadow-md shadow-indigo-600/30 transition cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Record Expense</span>
           </button>
-        </div>
+        )}
       </div>
+
+      {activeTab === 'accounts' ? (
+        <ExpenseAccountsManagementView
+          onDataMutated={onRefreshData}
+          isStandalone={true}
+        />
+      ) : (
+        <>
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-extrabold text-white tracking-tight">
+                Operational Expenses &amp; Intelligent Allocation Engine
+              </h2>
+              <p className="text-xs text-slate-400">
+                Track overhead costs and allocate delivery expenses (Petrol, Wages) across restaurants for true net profit.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold shadow-md shadow-indigo-600/30 transition cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Record Expense</span>
+              </button>
+            </div>
+          </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -534,6 +587,8 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
 
       {/* RECORD EXPENSE MODAL */}

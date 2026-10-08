@@ -94,6 +94,7 @@ export interface DatabaseSchema {
   vouchers?: Voucher[];
   nextJvNumber?: number;
   nextVoucherNumbers?: Record<string, number>;
+  geminiApiKey?: string;
 }
 
 const DB_DIR = path.join(process.cwd(), 'data');
@@ -1344,10 +1345,10 @@ export const DEFAULT_SEED_CASH_ACCOUNTS: CashAccount[] = [
 
 export const DEFAULT_SEED_EXPENSE_ACCOUNTS: ExpenseAccount[] = [
   // Administrative Expenses (030102...)
-  { id: 'exp-0301020001', expenseType: 'Administrative Expenses', name: 'Utility Bills', code: '030102001' },
-  { id: 'exp-0301020002', expenseType: 'Administrative Expenses', name: 'Entertanment', code: '030102002' },
-  { id: 'exp-0301020003', expenseType: 'Administrative Expenses', name: 'Travelling', code: '030102003' },
-  { id: 'exp-0301020006', expenseType: 'Administrative Expenses', name: 'Petrol', code: '030102006' },
+  { id: 'exp-0301020001', expenseType: 'Administrative Expenses', name: 'Utility Bills', code: '0301020001' },
+  { id: 'exp-0301020002', expenseType: 'Administrative Expenses', name: 'Entertanment', code: '0301020002' },
+  { id: 'exp-0301020003', expenseType: 'Administrative Expenses', name: 'Travelling', code: '0301020003' },
+  { id: 'exp-0301020006', expenseType: 'Administrative Expenses', name: 'Petrol', code: '0301020006' },
   { id: 'exp-0301020007', expenseType: 'Administrative Expenses', name: 'Rent', code: '0301020007' },
   { id: 'exp-0301020008', expenseType: 'Administrative Expenses', name: 'Electricity Bill', code: '0301020008' },
 
@@ -1364,7 +1365,7 @@ export const DEFAULT_SEED_EXPENSE_ACCOUNTS: ExpenseAccount[] = [
   { id: 'exp-0301030010', expenseType: 'Others Expenses', name: 'Salary', code: '0301030010' },
 
   // Freight Expenses (030106...)
-  { id: 'exp-0301060001', expenseType: 'Freight Expenses', name: 'Purchase Freight', code: '030106001' },
+  { id: 'exp-0301060001', expenseType: 'Freight Expenses', name: 'Purchase Freight', code: '0301060001' },
   { id: 'exp-0301060002', expenseType: 'Freight Expenses', name: 'Freight Expenses', code: '0301060002' },
 ];
 
@@ -2062,6 +2063,22 @@ class DatabaseService {
       d.customers = [...DEFAULT_SEED_CUSTOMERS];
     }
     return d;
+  }
+
+  // =============================================================
+  // GEMINI API KEY PERSISTENCE (PERMANENT SYSTEM VAULT)
+  // =============================================================
+  public getGeminiApiKey(): string {
+    return (this.data.geminiApiKey || '').trim();
+  }
+
+  public setGeminiApiKey(key: string): void {
+    const cleanKey = (key || '').trim();
+    this.data.geminiApiKey = cleanKey;
+    this.save();
+    if (cleanKey.length > 5) {
+      postgresService.setSystemSetting('gemini_api_key', cleanKey).catch(() => {});
+    }
   }
 
   // =============================================================

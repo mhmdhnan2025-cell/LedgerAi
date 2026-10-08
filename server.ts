@@ -11,7 +11,9 @@ import {
   processAiChat,
   setGeminiApiKey,
   testGeminiApiKey,
+  getActiveGeminiApiKey,
 } from './server/gemini';
+import { postgresService } from './server/postgres';
 import {
   generateBusinessMasterReportDoc,
   generateBusinessMasterReportHtml,
@@ -39,12 +41,46 @@ import {
 
 dotenv.config();
 
+// Auto-hydrate Gemini API Key on server boot from local stores
+const bootGeminiKey = getActiveGeminiApiKey();
+if (bootGeminiKey) {
+  process.env.GEMINI_API_KEY = bootGeminiKey;
+  setGeminiApiKey(bootGeminiKey);
+  console.log(`✅ [Gemini AI Boot] Auto-hydrated API key (${bootGeminiKey.slice(0, 6)}...${bootGeminiKey.slice(-4)})`);
+}
+
+// Background async hydration from PostgreSQL system_settings
+(async () => {
+  try {
+    const pgKey = await postgresService.getSystemSetting('gemini_api_key');
+    if (pgKey && pgKey.trim().length > 5) {
+      const cleanPgKey = pgKey.trim();
+      process.env.GEMINI_API_KEY = cleanPgKey;
+      setGeminiApiKey(cleanPgKey);
+      console.log(`✅ [Gemini AI PostgreSQL] Active key synced from system_settings table`);
+    }
+  } catch {}
+})();
+
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 // Increase payload limit for image OCR uploads (photos of handwritten notes, invoices)
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Intercept x-gemini-key header from client browser vault
+app.use((req, res, next) => {
+  const headerKey = (req.headers['x-gemini-key'] as string || '').trim();
+  if (headerKey && headerKey.length > 10) {
+    if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY.length < 5) {
+      process.env.GEMINI_API_KEY = headerKey;
+      setGeminiApiKey(headerKey);
+      console.log('🔑 [Gemini AI Header] Activated API Key on the fly from request header');
+    }
+  }
+  next();
+});
 
 // Tenant Context Middleware (preserves company isolation across all requests)
 app.use(tenantContextMiddleware);
@@ -1650,10 +1686,32 @@ app.get('/api/reports/download', (req, res) => {
 });
 
 // -------------------------------------------------------------
-// GEMINI API KEY MANAGEMENT (AI Studio Integration)
+// GEMINI API KEY MANAGEMENT (Multi-Tier Permanent Auto-Vault)
 // -------------------------------------------------------------
-app.get('/api/settings/gemini-key', (req, res) => {
-  const currentKey = process.env.GEMINI_API_KEY || '';
+app.get('/api/settings/gemini-key', async (req, res) => {
+  let currentKey = (process.env.GEMINI_API_KEY || '').trim();
+
+  // 1. Fallback: check local active stores
+  if (!currentKey || currentKey.length < 5) {
+    currentKey = getActiveGeminiApiKey();
+    if (currentKey) {
+      process.env.GEMINI_API_KEY = currentKey;
+      setGeminiApiKey(currentKey);
+    }
+  }
+
+  // 2. Fallback: check PostgreSQL system_settings table
+  if (!currentKey || currentKey.length < 5) {
+    try {
+      const pgKey = await postgresService.getSystemSetting('gemini_api_key');
+      if (pgKey && pgKey.trim().length > 5) {
+        currentKey = pgKey.trim();
+        process.env.GEMINI_API_KEY = currentKey;
+        setGeminiApiKey(currentKey);
+      }
+    } catch {}
+  }
+
   const hasKey = Boolean(currentKey && currentKey.length > 5);
   let maskedKey = '';
   if (hasKey) {
@@ -1686,10 +1744,48 @@ app.post('/api/settings/gemini-key', async (req, res) => {
       });
     }
 
-    // Set the key in environment and runtime client
+    // 1. Set runtime environment and memory client
     setGeminiApiKey(cleanKey);
+    process.env.GEMINI_API_KEY = cleanKey;
 
-    // Persist to .env file
+    // 2. Persist to PostgreSQL system_settings table (Permanent across Railway rebuilds/deploys)
+    try {
+      await postgresService.setSystemSetting('gemini_api_key', cleanKey);
+      console.log('✅ [Gemini AI] Saved key to PostgreSQL system_settings');
+    } catch (pgErr) {
+      console.warn('Could not save to PostgreSQL system_settings:', pgErr);
+    }
+
+    // 3. Persist to database schema (data/database.json)
+    try {
+      db.setGeminiApiKey(cleanKey);
+      console.log('✅ [Gemini AI] Saved key to DB schema');
+    } catch (dbErr) {
+      console.warn('Could not save to DB schema:', dbErr);
+    }
+
+    // 4. Persist to data/settings.json
+    try {
+      const dataDir = path.join(process.cwd(), 'data');
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+      const settingsPath = path.join(dataDir, 'settings.json');
+      let settings: any = {};
+      if (fs.existsSync(settingsPath)) {
+        try {
+          settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+        } catch {}
+      }
+      settings.geminiApiKey = cleanKey;
+      settings.updatedAt = new Date().toISOString();
+      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
+      console.log('✅ [Gemini AI] Saved key to data/settings.json');
+    } catch (settErr) {
+      console.warn('Could not write to data/settings.json:', settErr);
+    }
+
+    // 5. Persist to .env file
     try {
       const envPath = path.join(process.cwd(), '.env');
       let envContent = '';
@@ -1702,27 +1798,14 @@ app.post('/api/settings/gemini-key', async (req, res) => {
         envContent += `\nGEMINI_API_KEY="${cleanKey}"\n`;
       }
       fs.writeFileSync(envPath, envContent, 'utf8');
+      console.log('✅ [Gemini AI] Saved key to .env');
     } catch (envErr) {
       console.warn('Could not write to .env file:', envErr);
     }
 
-    // Also persist in data/settings.json
-    try {
-      const settingsPath = path.join(process.cwd(), 'data', 'settings.json');
-      let settings: any = {};
-      if (fs.existsSync(settingsPath)) {
-        settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-      }
-      settings.geminiApiKey = cleanKey;
-      settings.updatedAt = new Date().toISOString();
-      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
-    } catch (settErr) {
-      console.warn('Could not write to data/settings.json:', settErr);
-    }
-
     res.json({
       success: true,
-      message: 'Gemini API Key successfully verified and activated across system!',
+      message: 'Gemini API Key successfully verified and permanently saved across all databases and vaults!',
       maskedKey: cleanKey.slice(0, 6) + '...' + cleanKey.slice(-4),
     });
   } catch (err: any) {

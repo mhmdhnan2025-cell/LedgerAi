@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import { currencySymbol } from './currency';
 import { GoogleGenAI, Type } from '@google/genai';
 import { executeTool, toolsDeclarations } from './tools';
@@ -16,11 +18,56 @@ import {
 import { ExtractedDocumentData } from '../src/types';
 
 let genAIClient: GoogleGenAI | null = null;
+let currentClientKey: string | null = null;
+
+export function getActiveGeminiApiKey(): string {
+  let key = (process.env.GEMINI_API_KEY || process.env.API_KEY || '').trim();
+  if (key && key.length > 5) return key;
+
+  // 1. Fallback: db.getGeminiApiKey()
+  try {
+    const dbKey = db.getGeminiApiKey();
+    if (dbKey && dbKey.length > 5) {
+      process.env.GEMINI_API_KEY = dbKey;
+      return dbKey;
+    }
+  } catch (e) {}
+
+  // 2. Fallback: data/settings.json
+  try {
+    const settingsPath = path.join(process.cwd(), 'data', 'settings.json');
+    if (fs.existsSync(settingsPath)) {
+      const sett = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+      if (sett && sett.geminiApiKey && typeof sett.geminiApiKey === 'string' && sett.geminiApiKey.trim().length > 5) {
+        const k = sett.geminiApiKey.trim();
+        process.env.GEMINI_API_KEY = k;
+        return k;
+      }
+    }
+  } catch (e) {}
+
+  // 3. Fallback: data/database.json
+  try {
+    const dbPath = path.join(process.cwd(), 'data', 'database.json');
+    if (fs.existsSync(dbPath)) {
+      const rawDb = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+      if (rawDb && rawDb.geminiApiKey && typeof rawDb.geminiApiKey === 'string' && rawDb.geminiApiKey.trim().length > 5) {
+        const k = rawDb.geminiApiKey.trim();
+        process.env.GEMINI_API_KEY = k;
+        return k;
+      }
+    }
+  } catch (e) {}
+
+  return '';
+}
 
 export function getGeminiClient(): GoogleGenAI {
-  if (!genAIClient) {
+  const activeKey = getActiveGeminiApiKey();
+  if (!genAIClient || (activeKey && activeKey !== currentClientKey)) {
+    currentClientKey = activeKey;
     genAIClient = new GoogleGenAI({
-      apiKey: process.env.GEMINI_API_KEY,
+      apiKey: activeKey,
       httpOptions: {
         headers: {
           'User-Agent': 'aistudio-build',
@@ -34,6 +81,7 @@ export function getGeminiClient(): GoogleGenAI {
 export function setGeminiApiKey(newKey: string): void {
   const cleanKey = (newKey || '').trim();
   process.env.GEMINI_API_KEY = cleanKey;
+  currentClientKey = cleanKey;
   genAIClient = new GoogleGenAI({
     apiKey: cleanKey,
     httpOptions: {

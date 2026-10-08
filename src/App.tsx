@@ -132,6 +132,25 @@ export default function App() {
   const [preselectedExpenseId, setPreselectedExpenseId] = useState<string | undefined>();
   const [initialAiQuery, setInitialAiQuery] = useState<string | undefined>();
 
+  // Self-Healing Gemini Key Auto-Hydration on Boot
+  useEffect(() => {
+    const autoHealGeminiKey = async () => {
+      try {
+        const vaultKey = (typeof window !== 'undefined' ? (localStorage.getItem('gemini_api_key_vault') || '').trim() : '');
+        if (vaultKey && vaultKey.length > 10) {
+          const status = await api.getGeminiApiKeyStatus();
+          if (!status.hasKey) {
+            console.log('🛡️ [Gemini AI Vault] Restoring saved API key to server...');
+            await api.saveGeminiApiKey(vaultKey);
+          }
+        }
+      } catch (err) {
+        console.warn('Gemini auto-heal warning:', err);
+      }
+    };
+    autoHealGeminiKey();
+  }, []);
+
   // Fetch all core business data for the authenticated tenant
   const loadBusinessData = async (silent = false) => {
     if (!silent) setIsLoading(true);
@@ -656,6 +675,7 @@ export default function App() {
             onAllocateExpense={handleAllocateExpense}
             onDeleteExpense={handleDeleteExpense}
             preselectedExpenseId={preselectedExpenseId}
+            onRefreshData={() => loadBusinessData(true)}
           />
         )}
 

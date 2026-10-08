@@ -502,6 +502,15 @@ class PostgresService {
           );
         `);
 
+        // 17. System Settings (Permanent Gemini API Key & Core Config)
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS system_settings (
+            key VARCHAR(100) PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+          );
+        `);
+
         // -------------------------------------------------------------
         // MULTI-TENANT COLUMN ADDITIONS (Guarantees backwards-compatibility)
         // -------------------------------------------------------------
@@ -2023,6 +2032,37 @@ class PostgresService {
       process.env.DATABASE_URL = connectionUrl.trim();
     } catch (err) {
       console.warn('Failed to update .env file:', err);
+    }
+  }
+
+  // System Settings Persistence (Guarantees Gemini API Key & config survive cloud container restarts)
+  public async getSystemSetting(key: string): Promise<string | null> {
+    if (!this.pool) return null;
+    try {
+      const res = await this.pool.query('SELECT value FROM system_settings WHERE key = $1 LIMIT 1', [key]);
+      if (res.rows && res.rows.length > 0) {
+        return res.rows[0].value;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  public async setSystemSetting(key: string, value: string): Promise<boolean> {
+    if (!this.pool) return false;
+    try {
+      await this.pool.query(
+        `INSERT INTO system_settings (key, value, updated_at)
+         VALUES ($1, $2, NOW())
+         ON CONFLICT (key) DO UPDATE
+         SET value = EXCLUDED.value, updated_at = NOW();`,
+        [key, value]
+      );
+      return true;
+    } catch (err: any) {
+      console.warn(`[PostgreSQL] Failed to save system_setting for ${key}:`, err?.message || err);
+      return false;
     }
   }
 }

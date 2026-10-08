@@ -42,9 +42,20 @@ export const GeminiApiKeyModal: React.FC<GeminiApiKeyModalProps> = ({
 
   const loadCurrentKeyStatus = async () => {
     try {
+      const vaultKey = (typeof window !== 'undefined' ? (localStorage.getItem('gemini_api_key_vault') || '').trim() : '');
       const res = await api.getGeminiApiKeyStatus();
-      setHasExistingKey(res.hasKey);
-      setMaskedKey(res.maskedKey || '');
+      if (res.hasKey) {
+        setHasExistingKey(true);
+        setMaskedKey(res.maskedKey || '');
+      } else if (vaultKey && vaultKey.length > 10) {
+        // Auto-heal right away
+        setHasExistingKey(true);
+        setMaskedKey(vaultKey.slice(0, 6) + '...' + vaultKey.slice(-4));
+        api.saveGeminiApiKey(vaultKey).catch(() => {});
+      } else {
+        setHasExistingKey(false);
+        setMaskedKey('');
+      }
       if (res.aiStudioUrl) setAiStudioUrl(res.aiStudioUrl);
     } catch (e) {
       console.warn('Failed to load Gemini key status:', e);
@@ -55,7 +66,8 @@ export const GeminiApiKeyModal: React.FC<GeminiApiKeyModalProps> = ({
 
   const handleSaveKey = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!apiKey.trim()) {
+    const clean = apiKey.trim();
+    if (!clean) {
       setErrorMsg('Baraye meherbani valid Gemini API Key darj karein.');
       return;
     }
@@ -65,12 +77,16 @@ export const GeminiApiKeyModal: React.FC<GeminiApiKeyModalProps> = ({
     setSuccessMsg(null);
 
     try {
-      const res = await api.saveGeminiApiKey(apiKey.trim());
-      setSuccessMsg(res.message || 'Gemini API Key kamyabi se save aur activate ho gai hai!');
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('gemini_api_key_vault', clean);
+        localStorage.setItem('gemini_api_key_configured', 'true');
+      }
+      const res = await api.saveGeminiApiKey(clean);
+      setSuccessMsg(res.message || 'Gemini API Key kamyabi se permanent save aur activate ho gai hai!');
       setHasExistingKey(true);
       if (res.maskedKey) setMaskedKey(res.maskedKey);
-      localStorage.setItem('gemini_api_key_configured', 'true');
-      if (onKeyUpdated) onKeyUpdated(apiKey.trim());
+      else setMaskedKey(clean.slice(0, 6) + '...' + clean.slice(-4));
+      if (onKeyUpdated) onKeyUpdated(clean);
       setApiKey('');
     } catch (err: any) {
       setErrorMsg(err.message || 'API Key verification failed. Baraye meherbani AI Studio me key verify karein.');

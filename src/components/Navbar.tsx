@@ -208,7 +208,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'inventory', label: '📦 Inventory & Stock' },
     { id: 'customers', label: '🏢 Customers & Khata' },
     { id: 'employees', label: '👥 Employees (ملازمین)' },
-    { id: 'expenses', label: '⛽ Expenses & Petrol' },
+    { id: 'expenses', label: '💳 Expense Management' },
     { id: 'settings', label: '⚙️ Settings' },
   ];
 
