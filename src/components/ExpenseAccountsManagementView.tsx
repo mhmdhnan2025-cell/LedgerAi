@@ -171,13 +171,13 @@ export const ExpenseAccountsManagementView: React.FC<ExpenseAccountsManagementVi
       )}
 
       {/* Main Form & Table Split Layout Matching Screenshot 1, 2, 3 */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+      <div className="expense-mgmt-card grid grid-cols-1 lg:grid-cols-12 gap-8 rounded-2xl p-6 shadow-sm border">
         {/* Left Form: Expense Types & Add Input */}
         <div className="lg:col-span-5 space-y-4">
           <form onSubmit={handleSave} className="space-y-4">
             {/* Expense Types Selector */}
             <div className="flex items-center gap-3">
-              <label className="font-bold text-xs text-slate-800 dark:text-slate-200 whitespace-nowrap min-w-[95px]">
+              <label className="expense-mgmt-label font-bold text-xs whitespace-nowrap min-w-[95px]">
                 Expense Types
               </label>
 
@@ -188,7 +188,7 @@ export const ExpenseAccountsManagementView: React.FC<ExpenseAccountsManagementVi
                     value={customTypeInput}
                     onChange={(e) => setCustomTypeInput(e.target.value)}
                     placeholder="Enter new expense type..."
-                    className="flex-1 bg-white dark:bg-slate-950 border border-slate-700 dark:border-slate-600 rounded px-2.5 py-1.5 text-xs text-slate-900 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 font-semibold"
+                    className="expense-mgmt-input flex-1 rounded px-2.5 py-1.5 text-xs font-semibold outline-none border focus:ring-1 focus:ring-blue-500"
                   />
                   <button
                     type="button"
@@ -203,10 +203,10 @@ export const ExpenseAccountsManagementView: React.FC<ExpenseAccountsManagementVi
                   <select
                     value={selectedType}
                     onChange={(e) => setSelectedType(e.target.value)}
-                    className="flex-1 bg-white dark:bg-slate-950 border border-slate-800 dark:border-slate-600 rounded px-3 py-1.5 text-xs text-slate-900 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 font-semibold shadow-2xs"
+                    className="expense-mgmt-select flex-1 rounded px-3 py-1.5 text-xs font-semibold outline-none border focus:ring-1 focus:ring-blue-500 shadow-2xs"
                   >
                     {allTypes.map((t) => (
-                      <option key={t} value={t}>
+                      <option key={t} value={t} className="expense-mgmt-option font-semibold">
                         {t}
                       </option>
                     ))}
@@ -229,9 +229,9 @@ export const ExpenseAccountsManagementView: React.FC<ExpenseAccountsManagementVi
                 type="text"
                 value={accountName}
                 onChange={(e) => setAccountName(e.target.value)}
-                placeholder=""
+                placeholder="Enter account title..."
                 required
-                className="w-full bg-white dark:bg-slate-950 border border-slate-400 dark:border-slate-700 rounded px-3 py-1.5 text-slate-900 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 text-xs font-semibold shadow-inner"
+                className="expense-mgmt-input w-full rounded px-3 py-1.5 text-xs font-semibold outline-none border focus:ring-1 focus:ring-blue-500 shadow-inner"
               />
             </div>
 
@@ -248,8 +248,8 @@ export const ExpenseAccountsManagementView: React.FC<ExpenseAccountsManagementVi
             </div>
           </form>
 
-          <div className="pt-4 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
-            <p className="font-semibold text-slate-700 dark:text-slate-300">
+          <div className="expense-mgmt-guidance pt-4 border-t text-[11px] space-y-1">
+            <p className="font-semibold">
               💡 Account Creation Guidance:
             </p>
             <p>
@@ -263,21 +263,21 @@ export const ExpenseAccountsManagementView: React.FC<ExpenseAccountsManagementVi
 
         {/* Right Table: List of Accounts Matching Original Screenshot 1, 2, 3 */}
         <div className="lg:col-span-7 space-y-3">
-          <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
+          <div className="expense-mgmt-table-header flex items-center justify-between border-b pb-2">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+              <span className="expense-mgmt-type-title text-xs font-bold uppercase tracking-wider">
                 {selectedType}
               </span>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-sky-400 border border-blue-500/20">
                 {currentAccounts.length} Accounts
               </span>
             </div>
-            <span className="text-[11px] text-slate-400">
+            <span className="expense-mgmt-subtitle text-[11px] text-slate-400">
               Available in Vouchers (CP/BP/JV) &amp; Daily Master Audit
             </span>
           </div>
 
-          <div className="border border-slate-300 dark:border-slate-700/80 rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-950/80 p-2 shadow-inner">
+          <div className="expense-mgmt-table-box border rounded-xl overflow-hidden p-2 shadow-inner">
             <div className="space-y-1.5 max-h-[520px] overflow-y-auto pr-1">
               {currentAccounts.length === 0 ? (
                 <div className="py-12 text-center text-slate-500 font-medium text-xs">
@@ -287,19 +287,19 @@ export const ExpenseAccountsManagementView: React.FC<ExpenseAccountsManagementVi
                 currentAccounts.map((acc, idx) => (
                   <div
                     key={acc.id}
-                    className="flex items-center justify-between px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700/80 bg-gradient-to-b from-white via-slate-50 to-slate-100 dark:from-slate-800 dark:via-slate-850 dark:to-slate-900 shadow-xs text-xs transition hover:shadow-sm"
+                    className="expense-mgmt-row flex items-center justify-between px-4 py-2.5 rounded-lg border shadow-xs text-xs transition hover:shadow-sm"
                   >
                     <div className="flex items-center gap-8 min-w-0">
-                      <span className="font-bold text-slate-600 dark:text-slate-400 w-6 text-center">
+                      <span className="expense-mgmt-row-index font-bold w-6 text-center">
                         {idx + 1}
                       </span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-100 truncate text-xs">
+                      <span className="expense-mgmt-row-name font-bold truncate text-xs">
                         {acc.name}
                       </span>
                     </div>
 
                     <div className="flex items-center gap-6 shrink-0">
-                      <span className="font-mono font-bold text-slate-800 dark:text-slate-200 tracking-wider text-xs">
+                      <span className="expense-mgmt-row-code font-mono font-bold tracking-wider text-xs">
                         {acc.code}
                       </span>
 

@@ -92,6 +92,14 @@ export default function App() {
     if (document.body) {
       document.body.setAttribute('data-theme', currentTheme);
     }
+    const isDarkTheme = currentTheme === 'dark' || currentTheme === 'dark_blue';
+    if (isDarkTheme) {
+      document.documentElement.classList.add('dark');
+      document.body?.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.body?.classList.remove('dark');
+    }
     try {
       localStorage.setItem('erp_theme', currentTheme);
     } catch (e) {

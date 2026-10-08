@@ -1413,4 +1413,332 @@ html[data-theme="dark"] .auth-card {
   color: #FFFFFF !important;
 }
 
+/* ============================================================= */
+/* EXPENSE ACCOUNTS MANAGEMENT - MULTI-THEME HIGH CONTRAST ENGINE */
+/* 100% visible, crystal-clear typography across all 6 themes    */
+/* ============================================================= */
+
+.expense-mgmt-row-name {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.expense-mgmt-row-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+}
+
+/* 1. CREAM THEME (Ivory light) */
+[data-theme="cream"] .expense-mgmt-card {
+  background-color: #FCFBF7 !important;
+  border-color: #DDD2BF !important;
+  color: #1E1B18 !important;
+}
+[data-theme="cream"] .expense-mgmt-label,
+[data-theme="cream"] .expense-mgmt-type-title {
+  color: #1E1B18 !important;
+  font-weight: 800 !important;
+}
+[data-theme="cream"] .expense-mgmt-subtitle {
+  color: #7D7364 !important;
+}
+[data-theme="cream"] .expense-mgmt-select,
+[data-theme="cream"] .expense-mgmt-input {
+  background-color: #FFFFFF !important;
+  color: #1E1B18 !important;
+  border-color: #B5A087 !important;
+  border-width: 1.5px !important;
+}
+[data-theme="cream"] .expense-mgmt-select option,
+[data-theme="cream"] .expense-mgmt-option {
+  background-color: #FFFFFF !important;
+  color: #1E1B18 !important;
+}
+[data-theme="cream"] .expense-mgmt-table-box {
+  background-color: #F8F3E5 !important;
+  border-color: #C4B29A !important;
+}
+[data-theme="cream"] .expense-mgmt-row {
+  background: linear-gradient(to bottom, #FFFFFF, #FAF7F2, #F5EFE6) !important;
+  border-color: #C4B29A !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+[data-theme="cream"] .expense-mgmt-row-index {
+  color: #5C5347 !important;
+  font-weight: 800 !important;
+}
+[data-theme="cream"] .expense-mgmt-row-name {
+  color: #1E1B18 !important;
+  font-weight: 800 !important;
+}
+[data-theme="cream"] .expense-mgmt-row-code {
+  color: #1E1B18 !important;
+  font-weight: 800 !important;
+}
+[data-theme="cream"] .expense-mgmt-guidance {
+  color: #5C5347 !important;
+  border-color: #DDD2BF !important;
+}
+
+/* 2. PEARL THEME (Cool slate off-white) */
+[data-theme="pearl"] .expense-mgmt-card {
+  background-color: #FFFFFF !important;
+  border-color: #E2E8F0 !important;
+  color: #0F172A !important;
+}
+[data-theme="pearl"] .expense-mgmt-label,
+[data-theme="pearl"] .expense-mgmt-type-title {
+  color: #0F172A !important;
+  font-weight: 800 !important;
+}
+[data-theme="pearl"] .expense-mgmt-subtitle {
+  color: #64748B !important;
+}
+[data-theme="pearl"] .expense-mgmt-select,
+[data-theme="pearl"] .expense-mgmt-input {
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
+  border-color: #CBD5E1 !important;
+  border-width: 1.5px !important;
+}
+[data-theme="pearl"] .expense-mgmt-select option,
+[data-theme="pearl"] .expense-mgmt-option {
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
+}
+[data-theme="pearl"] .expense-mgmt-table-box {
+  background-color: #F8FAFC !important;
+  border-color: #E2E8F0 !important;
+}
+[data-theme="pearl"] .expense-mgmt-row {
+  background: linear-gradient(to bottom, #FFFFFF, #F8FAFC, #F1F5F9) !important;
+  border-color: #CBD5E1 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+[data-theme="pearl"] .expense-mgmt-row-index {
+  color: #475569 !important;
+  font-weight: 800 !important;
+}
+[data-theme="pearl"] .expense-mgmt-row-name {
+  color: #0F172A !important;
+  font-weight: 800 !important;
+}
+[data-theme="pearl"] .expense-mgmt-row-code {
+  color: #0F172A !important;
+  font-weight: 800 !important;
+}
+[data-theme="pearl"] .expense-mgmt-guidance {
+  color: #475569 !important;
+  border-color: #E2E8F0 !important;
+}
+
+/* 3. SAND THEME (Warm Latte) */
+[data-theme="sand"] .expense-mgmt-card {
+  background-color: #FDFCFA !important;
+  border-color: #DFD5C6 !important;
+  color: #211C16 !important;
+}
+[data-theme="sand"] .expense-mgmt-label,
+[data-theme="sand"] .expense-mgmt-type-title {
+  color: #211C16 !important;
+  font-weight: 800 !important;
+}
+[data-theme="sand"] .expense-mgmt-subtitle {
+  color: #786C5E !important;
+}
+[data-theme="sand"] .expense-mgmt-select,
+[data-theme="sand"] .expense-mgmt-input {
+  background-color: #FFFFFF !important;
+  color: #211C16 !important;
+  border-color: #BAAB99 !important;
+  border-width: 1.5px !important;
+}
+[data-theme="sand"] .expense-mgmt-select option,
+[data-theme="sand"] .expense-mgmt-option {
+  background-color: #FFFFFF !important;
+  color: #211C16 !important;
+}
+[data-theme="sand"] .expense-mgmt-table-box {
+  background-color: #F5EFE6 !important;
+  border-color: #D2C4B2 !important;
+}
+[data-theme="sand"] .expense-mgmt-row {
+  background: linear-gradient(to bottom, #FFFFFF, #FAF6F0, #F3ECE2) !important;
+  border-color: #D2C4B2 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+[data-theme="sand"] .expense-mgmt-row-index {
+  color: #5C4B3A !important;
+  font-weight: 800 !important;
+}
+[data-theme="sand"] .expense-mgmt-row-name {
+  color: #211C16 !important;
+  font-weight: 800 !important;
+}
+[data-theme="sand"] .expense-mgmt-row-code {
+  color: #211C16 !important;
+  font-weight: 800 !important;
+}
+[data-theme="sand"] .expense-mgmt-guidance {
+  color: #5C4B3A !important;
+  border-color: #DFD5C6 !important;
+}
+
+/* 4. LIGHT BLUE THEME (Sky Ice Blue) */
+[data-theme="light_blue"] .expense-mgmt-card {
+  background-color: #F8FAFD !important;
+  border-color: #BFDBFE !important;
+  color: #0F172A !important;
+}
+[data-theme="light_blue"] .expense-mgmt-label,
+[data-theme="light_blue"] .expense-mgmt-type-title {
+  color: #0F172A !important;
+  font-weight: 800 !important;
+}
+[data-theme="light_blue"] .expense-mgmt-subtitle {
+  color: #3B82F6 !important;
+}
+[data-theme="light_blue"] .expense-mgmt-select,
+[data-theme="light_blue"] .expense-mgmt-input {
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
+  border-color: #93C5FD !important;
+  border-width: 1.5px !important;
+}
+[data-theme="light_blue"] .expense-mgmt-select option,
+[data-theme="light_blue"] .expense-mgmt-option {
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
+}
+[data-theme="light_blue"] .expense-mgmt-table-box {
+  background-color: #EBF3FC !important;
+  border-color: #BFDBFE !important;
+}
+[data-theme="light_blue"] .expense-mgmt-row {
+  background: linear-gradient(to bottom, #FFFFFF, #F1F6FB, #E5EEF7) !important;
+  border-color: #BFDBFE !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+[data-theme="light_blue"] .expense-mgmt-row-index {
+  color: #1E40AF !important;
+  font-weight: 800 !important;
+}
+[data-theme="light_blue"] .expense-mgmt-row-name {
+  color: #0F172A !important;
+  font-weight: 800 !important;
+}
+[data-theme="light_blue"] .expense-mgmt-row-code {
+  color: #0F172A !important;
+  font-weight: 800 !important;
+}
+[data-theme="light_blue"] .expense-mgmt-guidance {
+  color: #1E40AF !important;
+  border-color: #BFDBFE !important;
+}
+
+/* 5. MIDNIGHT DARK THEME */
+[data-theme="dark"] .expense-mgmt-card {
+  background-color: #0B1120 !important;
+  border-color: #1E293B !important;
+  color: #F8FAFC !important;
+}
+[data-theme="dark"] .expense-mgmt-label,
+[data-theme="dark"] .expense-mgmt-type-title {
+  color: #F8FAFC !important;
+  font-weight: 800 !important;
+}
+[data-theme="dark"] .expense-mgmt-subtitle {
+  color: #94A3B8 !important;
+}
+[data-theme="dark"] .expense-mgmt-select,
+[data-theme="dark"] .expense-mgmt-input {
+  background-color: #020617 !important;
+  color: #F8FAFC !important;
+  border-color: #334155 !important;
+  border-width: 1.5px !important;
+}
+[data-theme="dark"] .expense-mgmt-select option,
+[data-theme="dark"] .expense-mgmt-option {
+  background-color: #0B1120 !important;
+  color: #F8FAFC !important;
+}
+[data-theme="dark"] .expense-mgmt-table-box {
+  background-color: #020617 !important;
+  border-color: #1E293B !important;
+}
+[data-theme="dark"] .expense-mgmt-row {
+  background: linear-gradient(to bottom, #1E293B, #172033, #0F172A) !important;
+  border-color: #334155 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+[data-theme="dark"] .expense-mgmt-row-index {
+  color: #94A3B8 !important;
+  font-weight: 800 !important;
+}
+[data-theme="dark"] .expense-mgmt-row-name {
+  color: #F8FAFC !important;
+  font-weight: 800 !important;
+}
+[data-theme="dark"] .expense-mgmt-row-code {
+  color: #E2E8F0 !important;
+  font-weight: 800 !important;
+}
+[data-theme="dark"] .expense-mgmt-guidance {
+  color: #94A3B8 !important;
+  border-color: #1E293B !important;
+}
+
+/* 6. ROYAL DARK BLUE THEME */
+[data-theme="dark_blue"] .expense-mgmt-card {
+  background-color: #0B1528 !important;
+  border-color: #1D2E4D !important;
+  color: #FFFFFF !important;
+}
+[data-theme="dark_blue"] .expense-mgmt-label,
+[data-theme="dark_blue"] .expense-mgmt-type-title {
+  color: #FFFFFF !important;
+  font-weight: 800 !important;
+}
+[data-theme="dark_blue"] .expense-mgmt-subtitle {
+  color: #93C5FD !important;
+}
+[data-theme="dark_blue"] .expense-mgmt-select,
+[data-theme="dark_blue"] .expense-mgmt-input {
+  background-color: #060D1A !important;
+  color: #FFFFFF !important;
+  border-color: #243B63 !important;
+  border-width: 1.5px !important;
+}
+[data-theme="dark_blue"] .expense-mgmt-select option,
+[data-theme="dark_blue"] .expense-mgmt-option {
+  background-color: #0B1528 !important;
+  color: #FFFFFF !important;
+}
+[data-theme="dark_blue"] .expense-mgmt-table-box {
+  background-color: #050B16 !important;
+  border-color: #1D2E4D !important;
+}
+[data-theme="dark_blue"] .expense-mgmt-row {
+  background: linear-gradient(to bottom, #142340, #0E1A30, #0B1528) !important;
+  border-color: #243B63 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+}
+[data-theme="dark_blue"] .expense-mgmt-row-index {
+  color: #93C5FD !important;
+  font-weight: 800 !important;
+}
+[data-theme="dark_blue"] .expense-mgmt-row-name {
+  color: #FFFFFF !important;
+  font-weight: 800 !important;
+}
+[data-theme="dark_blue"] .expense-mgmt-row-code {
+  color: #93C5FD !important;
+  font-weight: 800 !important;
+}
+[data-theme="dark_blue"] .expense-mgmt-guidance {
+  color: #93C5FD !important;
+  border-color: #1D2E4D !important;
+}
+
 
