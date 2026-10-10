@@ -18,6 +18,7 @@ import {
   AlertCircle,
   Eye,
   CheckCircle2,
+  X,
 } from 'lucide-react';
 import {
   ComprehensiveProfitReport,
