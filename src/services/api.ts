@@ -413,9 +413,7 @@ export const api = {
   },
 
   async clearAllData(): Promise<{ success: boolean; message: string }> {
-    const res = await fetch('/api/clear-data', { method: 'POST' });
-    if (!res.ok) throw new Error('Failed to clear database');
-    return res.json();
+    throw new Error('Database wipe is permanently disabled to protect business records.');
   },
 
   async getProfitDiagnosis(): Promise<any> {

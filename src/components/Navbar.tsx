@@ -50,7 +50,6 @@ export interface NavbarProps {
   onOpenOcr?: () => void;
   onOpenDocumentOcr?: () => void;
   onOpenGeminiKey?: () => void;
-  onResetData?: () => void;
   onSearchSelect?: (type: string, id: string) => void;
   currentTheme?: AppTheme;
   onThemeChange?: (theme: AppTheme) => void;
@@ -78,7 +77,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenOcr,
   onOpenDocumentOcr,
   onOpenGeminiKey,
-  onResetData,
   onSearchSelect,
   currentTheme = 'cream',
   onThemeChange,
@@ -91,7 +89,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   } | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
-  const [resetConfirming, setResetConfirming] = useState(false);
 
   // Theme dropdown state
   const [isThemeDropdownOpen, setIsThemeDropdownOpen] = useState(false);

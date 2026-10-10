@@ -1935,13 +1935,11 @@ app.post('/api/settings/gemini-key', async (req, res) => {
 });
 
 app.post('/api/clear-data', (req, res) => {
-  const result = db.clearAllData();
-  res.json({ success: true, message: 'All data cleared successfully. Ready for real entries.', data: result });
+  res.status(403).json({ success: false, error: 'Database wipe is permanently disabled for production security and zero data loss.' });
 });
 
 app.post('/api/reset-data', (req, res) => {
-  const result = db.clearAllData();
-  res.json({ success: true, message: 'All data cleared successfully.', data: result });
+  res.status(403).json({ success: false, error: 'Database wipe is permanently disabled for production security and zero data loss.' });
 });
 
 app.get('/api/alerts', (req, res) => {

@@ -633,8 +633,6 @@ export const DEFAULT_ITEM_MEASURES: string[] = [
   'Meter',
 ];
 
-export const DEFAULT_INITIAL_PRODUCTS: Product[] = [];
-
 let QAMAR_STOCK_ITEMS: Product[] = [];
 try {
   const seedsRootPath = path.join(process.cwd(), 'server', 'seeds', 'qamar_stock_items.json');
@@ -651,6 +649,8 @@ try {
 export function getQamarStockSeed(): Product[] {
   return Array.isArray(QAMAR_STOCK_ITEMS) && QAMAR_STOCK_ITEMS.length > 0 ? QAMAR_STOCK_ITEMS : [];
 }
+
+export const DEFAULT_INITIAL_PRODUCTS: Product[] = getQamarStockSeed();
 
 export const DEFAULT_SEED_PURCHASE_BILLS: PurchaseBill[] = [];
 
@@ -1522,7 +1522,7 @@ class DatabaseService {
         if (fs.existsSync(tenantFile)) {
           try {
             const parsed = JSON.parse(fs.readFileSync(tenantFile, 'utf-8'));
-            if (isQamar && (!parsed.products || parsed.products.length < 300)) {
+            if (!parsed.products || parsed.products.length < 300) {
               parsed.products = getQamarStockSeed().map((p) => ({ ...p, companyId: cid }));
               this.persist(parsed, cid);
             }
@@ -1581,9 +1581,7 @@ class DatabaseService {
         }
         fresh.customers = [...DEFAULT_SEED_CUSTOMERS];
         fresh.suppliers = [...DEFAULT_SEED_SUPPLIERS];
-        fresh.products = isQamar
-          ? getQamarStockSeed().map((p) => ({ ...p, companyId: cid }))
-          : [...DEFAULT_INITIAL_PRODUCTS];
+        fresh.products = getQamarStockSeed().map((p) => ({ ...p, companyId: cid }));
         fresh.employees = DEFAULT_SEED_EMPLOYEES.map((e) => ({
           ...e,
           id: `emp_${cid}_${e.code}`,
@@ -2005,8 +2003,8 @@ class DatabaseService {
               }
             }
           }
-          if (!Array.isArray(parsed.products)) {
-            parsed.products = [];
+          if (!Array.isArray(parsed.products) || parsed.products.length < 300) {
+            parsed.products = getQamarStockSeed().map((p) => ({ ...p, companyId: 'comp_default_01' }));
           } else {
             // Remove legacy mock products
             parsed.products = parsed.products.filter(

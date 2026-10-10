@@ -407,17 +407,6 @@ export default function App() {
     }
   };
 
-  const handleResetData = async () => {
-    setIsLoading(true);
-    try {
-      await api.clearAllData();
-      await loadBusinessData(true);
-    } catch (err: any) {
-      setError(err.message || 'Failed to clear data');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleDeleteRestaurant = async (id: string) => {
     try {
@@ -533,7 +522,6 @@ export default function App() {
         isOffline={isOffline}
         summary={summary}
         alerts={alerts}
-        onResetData={handleResetData}
         onSearchSelect={handleSearchSelect}
         onOpenAi={() => {
           setInitialAiQuery(undefined);
