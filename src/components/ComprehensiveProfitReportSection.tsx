@@ -148,27 +148,27 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
       const q = searchQuery.toLowerCase();
       list = list.filter(
         (it) =>
-          it.itemTitle.toLowerCase().includes(q) ||
-          it.mcode.toLowerCase().includes(q) ||
-          it.category.toLowerCase().includes(q)
+          (it?.itemTitle || '').toLowerCase().includes(q) ||
+          (it?.mcode || '').toLowerCase().includes(q) ||
+          (it?.category || '').toLowerCase().includes(q)
       );
     }
     if (itemSearch.trim()) {
       const q = itemSearch.toLowerCase();
       list = list.filter(
         (it) =>
-          it.itemTitle.toLowerCase().includes(q) ||
-          it.mcode.toLowerCase().includes(q) ||
-          it.category.toLowerCase().includes(q)
+          (it?.itemTitle || '').toLowerCase().includes(q) ||
+          (it?.mcode || '').toLowerCase().includes(q) ||
+          (it?.category || '').toLowerCase().includes(q)
       );
     }
     if (itemSelectFilter !== 'ALL') {
       list = list.filter(
-        (it) => it.mcode === itemSelectFilter || it.itemTitle === itemSelectFilter
+        (it) => (it?.mcode || '') === itemSelectFilter || (it?.itemTitle || '') === itemSelectFilter
       );
     }
     if (statusFilter !== 'ALL') {
-      list = list.filter((it) => it.status === statusFilter);
+      list = list.filter((it) => it?.status === statusFilter);
     }
     return list;
   }, [reportData, searchQuery, itemSearch, itemSelectFilter, statusFilter]);
@@ -178,8 +178,8 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
     if (!reportData?.perItem) return [];
     const map = new Map<string, string>();
     for (const it of reportData.perItem) {
-      if (it.mcode && !map.has(it.mcode)) {
-        map.set(it.mcode, it.itemTitle);
+      if (it?.mcode && !map.has(it.mcode)) {
+        map.set(it.mcode, it.itemTitle || it.mcode);
       }
     }
     return Array.from(map.entries()).map(([mcode, title]) => ({ mcode, title }));
@@ -193,18 +193,18 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
       const q = searchQuery.toLowerCase();
       list = list.filter(
         (b) =>
-          b.billNumber.toLowerCase().includes(q) ||
-          b.customerAccountTitle.toLowerCase().includes(q) ||
-          b.salesmanName.toLowerCase().includes(q)
+          (b?.billNumber || '').toLowerCase().includes(q) ||
+          (b?.customerAccountTitle || '').toLowerCase().includes(q) ||
+          (b?.salesmanName || '').toLowerCase().includes(q)
       );
     }
     if (billSearch.trim()) {
       const q = billSearch.toLowerCase();
       list = list.filter(
         (b) =>
-          b.billNumber.toLowerCase().includes(q) ||
-          b.customerAccountTitle.toLowerCase().includes(q) ||
-          b.salesmanName.toLowerCase().includes(q)
+          (b?.billNumber || '').toLowerCase().includes(q) ||
+          (b?.customerAccountTitle || '').toLowerCase().includes(q) ||
+          (b?.salesmanName || '').toLowerCase().includes(q)
       );
     }
     return list;
@@ -218,20 +218,20 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
       const q = searchQuery.toLowerCase();
       list = list.filter(
         (r) =>
-          r.accountTitle.toLowerCase().includes(q) ||
-          r.city.toLowerCase().includes(q) ||
-          r.customerGroup.toLowerCase().includes(q) ||
-          (r.code && r.code.toLowerCase().includes(q))
+          (r?.accountTitle || '').toLowerCase().includes(q) ||
+          (r?.city || '').toLowerCase().includes(q) ||
+          (r?.customerGroup || '').toLowerCase().includes(q) ||
+          (r?.code ? String(r.code) : '').toLowerCase().includes(q)
       );
     }
     if (restaurantSearch.trim()) {
       const q = restaurantSearch.toLowerCase();
       list = list.filter(
         (r) =>
-          r.accountTitle.toLowerCase().includes(q) ||
-          r.city.toLowerCase().includes(q) ||
-          r.customerGroup.toLowerCase().includes(q) ||
-          (r.code && r.code.toLowerCase().includes(q))
+          (r?.accountTitle || '').toLowerCase().includes(q) ||
+          (r?.city || '').toLowerCase().includes(q) ||
+          (r?.customerGroup || '').toLowerCase().includes(q) ||
+          (r?.code ? String(r.code) : '').toLowerCase().includes(q)
       );
     }
     return list;
@@ -245,16 +245,16 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
       const q = searchQuery.toLowerCase();
       list = list.filter(
         (sm) =>
-          sm.salesmanName.toLowerCase().includes(q) ||
-          (sm.designation && sm.designation.toLowerCase().includes(q))
+          (sm?.salesmanName || '').toLowerCase().includes(q) ||
+          (sm?.designation ? String(sm.designation) : '').toLowerCase().includes(q)
       );
     }
     if (salesmanSearch.trim()) {
       const q = salesmanSearch.toLowerCase();
       list = list.filter(
         (sm) =>
-          sm.salesmanName.toLowerCase().includes(q) ||
-          (sm.designation && sm.designation.toLowerCase().includes(q))
+          (sm?.salesmanName || '').toLowerCase().includes(q) ||
+          (sm?.designation ? String(sm.designation) : '').toLowerCase().includes(q)
       );
     }
     return list;

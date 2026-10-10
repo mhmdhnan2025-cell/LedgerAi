@@ -40,6 +40,7 @@ import { CashPaidReportSection } from './CashPaidReportSection';
 import { CustomerLedgerReportSection } from './CustomerLedgerReportSection';
 import { SaleReturnReportSection } from './SaleReturnReportSection';
 import { PurchaseReturnReportSection } from './PurchaseReturnReportSection';
+import { ErrorBoundary } from './ErrorBoundary';
 
 interface ReportsViewProps {
   suppliers: Supplier[];
@@ -487,57 +488,75 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       )}
 
       {activeReportTab === 'sales' ? (
-        <SalesReportSection
-          companyProfile={companyProfile}
-          currentRole={currentRole}
-          onRefreshData={onRefreshData}
-          onNavigateTab={onNavigateTab}
-        />
+        <ErrorBoundary fallbackTitle="Sales Report">
+          <SalesReportSection
+            companyProfile={companyProfile}
+            currentRole={currentRole}
+            onRefreshData={onRefreshData}
+            onNavigateTab={onNavigateTab}
+          />
+        </ErrorBoundary>
       ) : activeReportTab === 'profit' ? (
-        <ComprehensiveProfitReportSection
-          onRefreshData={onRefreshData}
-          onNavigateTab={onNavigateTab}
-        />
+        <ErrorBoundary fallbackTitle="Comprehensive Profit Report">
+          <ComprehensiveProfitReportSection
+            onRefreshData={onRefreshData}
+            onNavigateTab={onNavigateTab}
+          />
+        </ErrorBoundary>
       ) : activeReportTab === 'stockHistory' ? (
-        <StockHistoryLedgerSection
-          products={products}
-          onRefreshData={onRefreshData}
-          onNavigateTab={onNavigateTab}
-        />
+        <ErrorBoundary fallbackTitle="Stock History Ledger">
+          <StockHistoryLedgerSection
+            products={products}
+            onRefreshData={onRefreshData}
+            onNavigateTab={onNavigateTab}
+          />
+        </ErrorBoundary>
       ) : activeReportTab === 'aiLedgerAudit' ? (
-        <AiLedgerAuditReportSection
-          companyProfile={companyProfile}
-          currentRole={currentRole}
-          onRefreshData={onRefreshData}
-        />
+        <ErrorBoundary fallbackTitle="AI Master Ledger Audit Report">
+          <AiLedgerAuditReportSection
+            companyProfile={companyProfile}
+            currentRole={currentRole}
+            onRefreshData={onRefreshData}
+          />
+        </ErrorBoundary>
       ) : activeReportTab === 'cashRecovered' ? (
-        <CashRecoveredReportSection
-          companyProfile={companyProfile}
-          onNavigateTab={onNavigateTab}
-        />
+        <ErrorBoundary fallbackTitle="Cash Recovered Report">
+          <CashRecoveredReportSection
+            companyProfile={companyProfile}
+            onNavigateTab={onNavigateTab}
+          />
+        </ErrorBoundary>
       ) : activeReportTab === 'cashPaid' ? (
-        <CashPaidReportSection
-          companyProfile={companyProfile}
-          onNavigateTab={onNavigateTab}
-        />
+        <ErrorBoundary fallbackTitle="Cash Paid Report">
+          <CashPaidReportSection
+            companyProfile={companyProfile}
+            onNavigateTab={onNavigateTab}
+          />
+        </ErrorBoundary>
       ) : activeReportTab === 'customerLedger' ? (
-        <CustomerLedgerReportSection
-          companyProfile={companyProfile}
-          onNavigateTab={onNavigateTab}
-        />
+        <ErrorBoundary fallbackTitle="Customer Ledger Report">
+          <CustomerLedgerReportSection
+            companyProfile={companyProfile}
+            onNavigateTab={onNavigateTab}
+          />
+        </ErrorBoundary>
       ) : activeReportTab === 'saleReturns' ? (
-        <SaleReturnReportSection
-          companyProfile={companyProfile}
-          products={products}
-          onNavigateTab={onNavigateTab}
-        />
+        <ErrorBoundary fallbackTitle="Sale Returns Report">
+          <SaleReturnReportSection
+            companyProfile={companyProfile}
+            products={products}
+            onNavigateTab={onNavigateTab}
+          />
+        </ErrorBoundary>
       ) : activeReportTab === 'purchaseReturns' ? (
-        <PurchaseReturnReportSection
-          companyProfile={companyProfile}
-          products={products}
-          suppliers={suppliers}
-          onNavigateTab={onNavigateTab}
-        />
+        <ErrorBoundary fallbackTitle="Purchase Returns Report">
+          <PurchaseReturnReportSection
+            companyProfile={companyProfile}
+            products={products}
+            suppliers={suppliers}
+            onNavigateTab={onNavigateTab}
+          />
+        </ErrorBoundary>
       ) : (
         <>
           {/* Filter Bar (Exact Match with Image 3 & Image 4) */}
