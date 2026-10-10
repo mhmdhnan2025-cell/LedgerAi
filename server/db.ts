@@ -629,12 +629,9 @@ export const DEFAULT_INITIAL_PRODUCTS: Product[] = [];
 
 let QAMAR_STOCK_ITEMS: Product[] = [];
 try {
-  const seedsPath = path.join(__dirname, 'seeds', 'qamar_stock_items.json');
   const seedsRootPath = path.join(process.cwd(), 'server', 'seeds', 'qamar_stock_items.json');
   const distSeedsPath = path.join(process.cwd(), 'dist', 'seeds', 'qamar_stock_items.json');
-  if (fs.existsSync(seedsPath)) {
-    QAMAR_STOCK_ITEMS = JSON.parse(fs.readFileSync(seedsPath, 'utf8'));
-  } else if (fs.existsSync(seedsRootPath)) {
+  if (fs.existsSync(seedsRootPath)) {
     QAMAR_STOCK_ITEMS = JSON.parse(fs.readFileSync(seedsRootPath, 'utf8'));
   } else if (fs.existsSync(distSeedsPath)) {
     QAMAR_STOCK_ITEMS = JSON.parse(fs.readFileSync(distSeedsPath, 'utf8'));
@@ -708,13 +705,13 @@ export const DEFAULT_CUSTOMER_COUNTRIES: string[] = [
 
 let ALL_329_CUSTOMERS: Customer[] = [];
 try {
-  const seedsPath = path.join(__dirname, 'seeds', 'all_329_customers.json');
   const seedsRootPath = path.join(process.cwd(), 'server', 'seeds', 'all_329_customers.json');
+  const distSeedsPath = path.join(process.cwd(), 'dist', 'seeds', 'all_329_customers.json');
   const dataPath = path.join(process.cwd(), 'data', 'all_329_customers.json');
-  if (fs.existsSync(seedsPath)) {
-    ALL_329_CUSTOMERS = JSON.parse(fs.readFileSync(seedsPath, 'utf8'));
-  } else if (fs.existsSync(seedsRootPath)) {
+  if (fs.existsSync(seedsRootPath)) {
     ALL_329_CUSTOMERS = JSON.parse(fs.readFileSync(seedsRootPath, 'utf8'));
+  } else if (fs.existsSync(distSeedsPath)) {
+    ALL_329_CUSTOMERS = JSON.parse(fs.readFileSync(distSeedsPath, 'utf8'));
   } else if (fs.existsSync(dataPath)) {
     ALL_329_CUSTOMERS = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
   }
@@ -1460,9 +1457,9 @@ class DatabaseService {
 
     // Seed known companies & users from seed file immediately into memory
     try {
-      const seedsFile = path.join(__dirname, 'seeds', 'seed_companies_users.json');
       const seedsRootFile = path.join(process.cwd(), 'server', 'seeds', 'seed_companies_users.json');
-      const seedFilePath = fs.existsSync(seedsFile) ? seedsFile : (fs.existsSync(seedsRootFile) ? seedsRootFile : null);
+      const distSeedsFile = path.join(process.cwd(), 'dist', 'seeds', 'seed_companies_users.json');
+      const seedFilePath = fs.existsSync(seedsRootFile) ? seedsRootFile : (fs.existsSync(distSeedsFile) ? distSeedsFile : null);
       if (seedFilePath) {
         const seedData = JSON.parse(fs.readFileSync(seedFilePath, 'utf8'));
         if (Array.isArray(seedData.companies)) {
@@ -1518,6 +1515,30 @@ class DatabaseService {
             if (isQamar && (!parsed.products || parsed.products.length < 300)) {
               parsed.products = getQamarStockSeed().map((p) => ({ ...p, companyId: cid }));
               this.persist(parsed, cid);
+            }
+            if (!Array.isArray(parsed.customers) || parsed.customers.length === 0) {
+              parsed.customers = DEFAULT_SEED_CUSTOMERS.map((c) => ({ ...c, companyId: cid }));
+            }
+            if (!Array.isArray(parsed.suppliers) || parsed.suppliers.length === 0) {
+              parsed.suppliers = DEFAULT_SEED_SUPPLIERS.map((s) => ({ ...s, companyId: cid }));
+            }
+            if (!Array.isArray(parsed.banks) || parsed.banks.length === 0) {
+              parsed.banks = [...DEFAULT_SEED_BANKS];
+            }
+            if (!Array.isArray(parsed.cashAccounts) || parsed.cashAccounts.length === 0) {
+              parsed.cashAccounts = [...DEFAULT_SEED_CASH_ACCOUNTS];
+            }
+            if (!Array.isArray(parsed.expenseAccounts) || parsed.expenseAccounts.length === 0) {
+              parsed.expenseAccounts = [...DEFAULT_SEED_EXPENSE_ACCOUNTS];
+            }
+            if (!Array.isArray(parsed.vouchers)) {
+              parsed.vouchers = [];
+            }
+            if (typeof parsed.nextJvNumber !== 'number') {
+              parsed.nextJvNumber = DEFAULT_NEXT_JV_NUMBER;
+            }
+            if (!parsed.nextVoucherNumbers) {
+              parsed.nextVoucherNumbers = { ...DEFAULT_NEXT_VOUCHER_NUMBERS };
             }
             this.tenants.set(cid, parsed);
             return parsed;
@@ -1584,9 +1605,9 @@ class DatabaseService {
 
         // 0. Seed companies & users from seed file to PostgreSQL
         try {
-          const seedsFile = path.join(__dirname, 'seeds', 'seed_companies_users.json');
           const seedsRootFile = path.join(process.cwd(), 'server', 'seeds', 'seed_companies_users.json');
-          const seedFilePath = fs.existsSync(seedsFile) ? seedsFile : (fs.existsSync(seedsRootFile) ? seedsRootFile : null);
+          const distSeedsFile = path.join(process.cwd(), 'dist', 'seeds', 'seed_companies_users.json');
+          const seedFilePath = fs.existsSync(seedsRootFile) ? seedsRootFile : (fs.existsSync(distSeedsFile) ? distSeedsFile : null);
           if (seedFilePath) {
             const seedData = JSON.parse(fs.readFileSync(seedFilePath, 'utf8'));
             if (Array.isArray(seedData.companies)) {
@@ -1713,7 +1734,41 @@ class DatabaseService {
 
             const suppliers = mergedSuppliers;
 
-            this.tenants.set(cid, { ...current, ...pgData, customers, restaurants, employees, suppliers });
+            // Merge vouchers from pgData and current
+            const tenantVouchers = Array.isArray(pgData.vouchers) ? pgData.vouchers : [];
+            const existingVoucherIds = new Set(tenantVouchers.map((v: any) => v.id));
+            const mergedVouchers: Voucher[] = [...tenantVouchers];
+            for (const v of (current.vouchers || [])) {
+              if (v && v.id && !existingVoucherIds.has(v.id)) {
+                mergedVouchers.push(v);
+                await postgresService.upsertVoucher(v, cid);
+              }
+            }
+            const vouchers = mergedVouchers;
+
+            // Merge banks
+            const tenantBanks = Array.isArray(pgData.banks) && pgData.banks.length > 0 
+              ? pgData.banks 
+              : (Array.isArray(current.banks) && current.banks.length > 0 ? current.banks : DEFAULT_SEED_BANKS);
+            if (!pgData.banks || pgData.banks.length === 0) {
+              for (const b of tenantBanks) {
+                await postgresService.upsertBankAccount(b, cid);
+              }
+            }
+            const banks = tenantBanks;
+
+            // Merge expense accounts
+            const tenantExpenseAccounts = Array.isArray(pgData.expenseAccounts) && pgData.expenseAccounts.length > 0
+              ? pgData.expenseAccounts
+              : (Array.isArray(current.expenseAccounts) && current.expenseAccounts.length > 0 ? current.expenseAccounts : DEFAULT_SEED_EXPENSE_ACCOUNTS);
+            if (!pgData.expenseAccounts || pgData.expenseAccounts.length === 0) {
+              for (const exp of tenantExpenseAccounts) {
+                await postgresService.upsertExpenseAccount(exp, cid);
+              }
+            }
+            const expenseAccounts = tenantExpenseAccounts;
+
+            this.tenants.set(cid, { ...current, ...pgData, customers, restaurants, employees, suppliers, vouchers, banks, expenseAccounts });
 
             // Backfill PostgreSQL customers table if missing or less than all 329 customers
             if (DEFAULT_SEED_CUSTOMERS.length > 0 && (!pgData.customers || pgData.customers.length < DEFAULT_SEED_CUSTOMERS.length)) {
@@ -7136,6 +7191,7 @@ class DatabaseService {
       description: `Bank Account created: ${newBank.bankTitle} (${newBank.accountCode}) by ${userName}`,
     });
     this.persist();
+    postgresService.upsertBankAccount(newBank, getActiveCompanyId()).catch(() => {});
     return newBank;
   }
 
@@ -7151,6 +7207,7 @@ class DatabaseService {
     };
     banks[idx] = updated;
     this.persist();
+    postgresService.upsertBankAccount(updated, getActiveCompanyId()).catch(() => {});
     return updated;
   }
 
@@ -7170,6 +7227,7 @@ class DatabaseService {
       description: `Bank Account deleted: ${removed.bankTitle} (${removed.accountCode}) by ${userName}`,
     });
     this.persist();
+    postgresService.deleteBankAccount(id, getActiveCompanyId()).catch(() => {});
     return true;
   }
 
@@ -7305,6 +7363,7 @@ class DatabaseService {
 
     list.push(newAcc);
     this.persist();
+    postgresService.upsertExpenseAccount(newAcc, getActiveCompanyId()).catch(() => {});
     return newAcc;
   }
 
@@ -7314,6 +7373,7 @@ class DatabaseService {
     if (idx === -1) return false;
     list.splice(idx, 1);
     this.persist();
+    postgresService.deleteExpenseAccount(id, getActiveCompanyId()).catch(() => {});
     return true;
   }
 
@@ -7455,7 +7515,7 @@ class DatabaseService {
       const isBank = pm.includes('bank') || pm.includes('cheque') || pm.includes('chq') || pm.includes('transfer');
       const vType: VoucherType = isBank ? 'BP' : 'CP';
       const cleanNum = parseInt((exp.expenseNumber || '').replace(/\D/g, '') || String(idx + 100), 10);
-      const vNum = cleanNum || (idx + 100);
+      const expAmt = Number(exp.amount) || 0;
       return {
         id: `exp-vch-${exp.id}`,
         companyId: getActiveCompanyId(),
@@ -7470,7 +7530,7 @@ class DatabaseService {
         cashAccountId: !isBank ? 'cash-0101010001' : undefined,
         cashAccountTitle: !isBank ? 'Cash in Hand (خزانہ)' : undefined,
         salesmanTitle: undefined,
-        totalAmount: Number((exp.amount || 0).toFixed(2)),
+        totalAmount: Number(expAmt.toFixed(2)),
         status: 'POSTED' as const,
         entries: [
           {
@@ -7479,7 +7539,7 @@ class DatabaseService {
             accountCode: '0501010007',
             accountTitle: `${exp.category} Expense (${exp.title})`,
             narration: exp.notes || exp.title || `${exp.category} Expense`,
-            amount: Number((exp.amount || 0).toFixed(2)),
+            amount: Number(expAmt.toFixed(2)),
           },
         ],
         createdAt: exp.createdAt || new Date().toISOString(),
@@ -7749,6 +7809,7 @@ class DatabaseService {
 
     this.recalculateAllLedgers();
     this.persist();
+    postgresService.upsertVoucher(newVoucher, getActiveCompanyId()).catch(() => {});
     return newVoucher;
   }
 
@@ -7794,6 +7855,7 @@ class DatabaseService {
 
     this.recalculateAllLedgers();
     this.persist();
+    postgresService.upsertVoucher(updatedVoucher, getActiveCompanyId()).catch(() => {});
     return updatedVoucher;
   }
 
@@ -7831,6 +7893,7 @@ class DatabaseService {
 
     this.recalculateAllLedgers();
     this.persist();
+    postgresService.deleteVoucher(id, getActiveCompanyId()).catch(() => {});
     return true;
   }
 
@@ -7838,25 +7901,24 @@ class DatabaseService {
     const vouchers = this.data.vouchers || [];
     const items: CashRecoveredReportItem[] = [];
 
-    const fromTs = fromDate ? new Date(fromDate).getTime() : 0;
-    const toTs = toDate ? new Date(toDate).getTime() + 86400000 : Infinity;
+    const normFrom = fromDate ? this.normalizeDateToYMD(fromDate) : '';
+    const normTo = toDate ? this.normalizeDateToYMD(toDate) : '';
 
+    // 1. Process Vouchers: BR (Bank Receipt), CR (Cash Receipt), CB (Cash Book receipts)
     for (const v of vouchers) {
       if (v.status !== 'POSTED') continue;
-      // Receipts: BR (Bank Receipt), CR (Cash Receipt), CB (Cash Book receipts)
       if (v.voucherType !== 'BR' && v.voucherType !== 'CR' && v.voucherType !== 'CB') continue;
 
-      const parts = v.date.split('-');
-      const iso = parts[0].length === 2 && parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : v.date;
-      const vDateTs = new Date(iso).getTime();
-      if (!isNaN(vDateTs) && (vDateTs < fromTs || vDateTs > toTs)) continue;
+      const vDateNorm = this.normalizeDateToYMD(v.date);
+      if (normFrom && vDateNorm < normFrom) continue;
+      if (normTo && vDateNorm > normTo) continue;
 
       const mode = v.voucherType === 'BR'
         ? `Bank: ${v.bankAccountTitle || 'Bank'}`
         : `Cash: ${v.cashAccountTitle || 'Cash in Hand'}`;
 
-      for (const e of v.entries) {
-        const amt = v.voucherType === 'CB' ? (e.receipt || 0) : e.amount;
+      for (const e of (v.entries || [])) {
+        const amt = v.voucherType === 'CB' ? (Number(e.receipt) || 0) : (Number(e.amount) || 0);
         if (amt <= 0) continue;
 
         items.push({
@@ -7866,14 +7928,70 @@ class DatabaseService {
           voucherNumberFormatted: v.voucherNumberFormatted,
           jvNumber: v.jvNumber,
           date: v.date,
-          accountCode: e.accountCode,
-          accountTitle: e.accountTitle,
+          accountCode: e.accountCode || '',
+          accountTitle: e.accountTitle || 'Customer / Account',
           paymentMode: mode,
-          narration: e.narration,
-          amount: amt,
+          narration: e.narration || `${v.voucherType} Voucher`,
+          amount: Number(amt.toFixed(2)),
         });
       }
     }
+
+    // 2. Process Customer Payments recorded directly in payments table
+    const existingPaymentIds = new Set(items.map((it) => it.voucherId));
+    for (const p of (this.data.payments || [])) {
+      if (existingPaymentIds.has(p.id)) continue;
+      const pDateNorm = this.normalizeDateToYMD(p.date || (p as any).paymentDate || (p as any).createdAt || '');
+      if (normFrom && pDateNorm < normFrom) continue;
+      if (normTo && pDateNorm > normTo) continue;
+      const amt = Number(p.amount) || 0;
+      if (amt <= 0) continue;
+
+      const isBank = (p.paymentMethod || '').toLowerCase().includes('bank') || (p.paymentMethod || '').toLowerCase().includes('online');
+      items.push({
+        srNo: items.length + 1,
+        voucherId: p.id,
+        voucherType: isBank ? 'BR' : 'CR',
+        voucherNumberFormatted: (p as any).referenceNo || `PAY-${p.id}`,
+        jvNumber: 0,
+        date: p.date || (p as any).paymentDate || (p as any).createdAt?.split('T')[0] || '',
+        accountCode: (p as any).restaurantId || '',
+        accountTitle: (p as any).restaurantName || 'Customer Payment',
+        paymentMode: p.paymentMethod || 'Cash',
+        narration: (p as any).receivedBy ? `Received by ${(p as any).receivedBy}` : 'Customer Payment',
+        amount: Number(amt.toFixed(2)),
+      });
+    }
+
+    // 3. Process Market Udhaar recoveries recorded on Sale Bills
+    for (const b of (this.data.saleBills || [])) {
+      if (!b.balanceRecovered) continue;
+      const recAmt = Number(b.balanceRecoveredAmount) || 0;
+      if (recAmt <= 0) continue;
+
+      const bDateNorm = this.normalizeDateToYMD(b.date);
+      if (normFrom && bDateNorm < normFrom) continue;
+      if (normTo && bDateNorm > normTo) continue;
+
+      items.push({
+        srNo: items.length + 1,
+        voucherId: `sb-rec-${b.id}`,
+        voucherType: 'CR',
+        voucherNumberFormatted: `REC-BILL-${b.billNumber}`,
+        jvNumber: 0,
+        date: b.date,
+        accountCode: b.customerId || '',
+        accountTitle: b.customerAccountTitle || b.customerName || 'Customer',
+        paymentMode: 'Cash (Market Udhaar Recovery)',
+        narration: `Udhaar Recovered on Bill #${b.billNumber} by ${b.salesmanName || 'Staff'}`,
+        amount: Number(recAmt.toFixed(2)),
+      });
+    }
+
+    // Re-index serial numbers
+    items.forEach((it, idx) => {
+      it.srNo = idx + 1;
+    });
 
     const totalAmount = items.reduce((sum, item) => sum + item.amount, 0);
     return { items, totalAmount: Number(totalAmount.toFixed(2)) };

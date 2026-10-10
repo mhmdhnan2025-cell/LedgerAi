@@ -21,6 +21,10 @@ import {
   SaleBill,
   SaleBillItem,
   CashRegister,
+  BankAccount,
+  CashAccount,
+  ExpenseAccount,
+  Voucher,
 } from '../src/types';
 
 dotenv.config();
@@ -500,6 +504,17 @@ class PostgresService {
             updated_at TIMESTAMPTZ DEFAULT NOW(),
             PRIMARY KEY (key, company_id)
           );
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_constraint 
+              WHERE conrelid = 'metadata_lookups'::regclass 
+                AND (conname = 'metadata_lookups_pkey' OR conname = 'metadata_lookups_key_company_id_uniq')
+            ) THEN
+              ALTER TABLE metadata_lookups DROP CONSTRAINT IF EXISTS metadata_lookups_pkey;
+              ALTER TABLE metadata_lookups ADD CONSTRAINT metadata_lookups_key_company_id_uniq UNIQUE (key, company_id);
+            END IF;
+          END $$;
         `);
 
         // 17. System Settings (Permanent Gemini API Key & Core Config)
@@ -507,6 +522,64 @@ class PostgresService {
           CREATE TABLE IF NOT EXISTS system_settings (
             key VARCHAR(100) PRIMARY KEY,
             value TEXT NOT NULL,
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+          );
+        `);
+
+        // 18. Vouchers (Cash & Bank Receipts, Payments, Contra & Journal Vouchers)
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS vouchers (
+            id VARCHAR(100) PRIMARY KEY,
+            company_id VARCHAR(100) DEFAULT 'comp_default_01',
+            voucher_type VARCHAR(20) NOT NULL,
+            jv_number INT NOT NULL,
+            voucher_number INT NOT NULL,
+            voucher_number_formatted VARCHAR(50) NOT NULL,
+            date VARCHAR(50) NOT NULL,
+            po_number VARCHAR(100),
+            bank_account_id VARCHAR(100),
+            bank_account_title VARCHAR(255),
+            cash_account_id VARCHAR(100),
+            cash_account_title VARCHAR(255),
+            salesman_id VARCHAR(100),
+            salesman_title VARCHAR(255),
+            total_amount NUMERIC(15,2) DEFAULT 0,
+            entries JSONB DEFAULT '[]',
+            status VARCHAR(50) DEFAULT 'POSTED',
+            created_by VARCHAR(150),
+            data JSONB NOT NULL DEFAULT '{}',
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+          );
+        `);
+
+        // 19. Bank Accounts (Company Bank Master)
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS bank_accounts (
+            id VARCHAR(100) PRIMARY KEY,
+            company_id VARCHAR(100) DEFAULT 'comp_default_01',
+            account_code VARCHAR(100) NOT NULL,
+            bank_title VARCHAR(255) NOT NULL,
+            bank_type VARCHAR(100) DEFAULT 'Non Merchant',
+            description TEXT,
+            balance NUMERIC(15,2) DEFAULT 0,
+            balance_type VARCHAR(10) DEFAULT 'DR',
+            data JSONB NOT NULL DEFAULT '{}',
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+          );
+        `);
+
+        // 20. Expense Accounts (Expense Category Heads / Chart of Accounts)
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS expense_accounts (
+            id VARCHAR(100) PRIMARY KEY,
+            company_id VARCHAR(100) DEFAULT 'comp_default_01',
+            expense_type VARCHAR(150) NOT NULL,
+            name VARCHAR(255) NOT NULL,
+            code VARCHAR(100) NOT NULL,
+            data JSONB NOT NULL DEFAULT '{}',
+            created_at TIMESTAMPTZ DEFAULT NOW(),
             updated_at TIMESTAMPTZ DEFAULT NOW()
           );
         `);
@@ -531,6 +604,9 @@ class PostgresService {
           'purchase_bills',
           'sale_bills',
           'metadata_lookups',
+          'vouchers',
+          'bank_accounts',
+          'expense_accounts',
         ];
 
         for (const tbl of tenantTables) {
@@ -548,6 +624,11 @@ class PostgresService {
           CREATE INDEX IF NOT EXISTS idx_sale_bills_customer ON sale_bills(customer_id);
           CREATE INDEX IF NOT EXISTS idx_purchase_bills_supplier ON purchase_bills(supplier_id);
           CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp);
+          CREATE INDEX IF NOT EXISTS idx_vouchers_type ON vouchers(voucher_type);
+          CREATE INDEX IF NOT EXISTS idx_vouchers_date ON vouchers(date);
+          CREATE INDEX IF NOT EXISTS idx_vouchers_jv ON vouchers(jv_number);
+          CREATE INDEX IF NOT EXISTS idx_bank_accounts_code ON bank_accounts(account_code);
+          CREATE INDEX IF NOT EXISTS idx_expense_accounts_code ON expense_accounts(code);
         `);
 
         // Seed default company 'comp_default_01' if empty and backfill nulls
@@ -607,6 +688,9 @@ class PostgresService {
       'audit_logs',
       'purchase_bills',
       'sale_bills',
+      'vouchers',
+      'bank_accounts',
+      'expense_accounts',
     ];
 
     try {
@@ -840,6 +924,9 @@ class PostgresService {
           pbRes,
           sbRes,
           metaRes,
+          vouchersRes,
+          banksRes,
+          expenseAccRes,
         ] = await Promise.all([
           client.query('SELECT * FROM users WHERE company_id = $1 ORDER BY id;', [companyId]),
           client.query('SELECT * FROM company_profile WHERE company_id = $1 LIMIT 1;', [companyId]),
@@ -864,6 +951,9 @@ class PostgresService {
           client.query('SELECT * FROM purchase_bills WHERE company_id = $1 ORDER BY id;', [companyId]),
           client.query('SELECT * FROM sale_bills WHERE company_id = $1 ORDER BY id;', [companyId]),
           client.query('SELECT * FROM metadata_lookups WHERE company_id = $1;', [companyId]),
+          client.query('SELECT * FROM vouchers WHERE company_id = $1 ORDER BY jv_number ASC;', [companyId]),
+          client.query('SELECT * FROM bank_accounts WHERE company_id = $1 ORDER BY id ASC;', [companyId]),
+          client.query('SELECT * FROM expense_accounts WHERE company_id = $1 ORDER BY id ASC;', [companyId]),
         ]);
 
         const extractItem = (row: any) => ({
@@ -1093,6 +1183,70 @@ class PostgresService {
         const purchaseBills: PurchaseBill[] = pbRes.rows.map(extractPurchaseBill);
         const saleBills: SaleBill[] = sbRes.rows.map(extractSaleBill);
 
+        const extractVoucher = (row: any): Voucher => {
+          const d = row.data || {};
+          return {
+            ...d,
+            ...row,
+            id: row.id || d.id,
+            companyId,
+            voucherType: row.voucher_type || d.voucherType || 'CR',
+            jvNumber: Number(row.jv_number ?? d.jvNumber ?? 0),
+            voucherNumber: Number(row.voucher_number ?? d.voucherNumber ?? 0),
+            voucherNumberFormatted: row.voucher_number_formatted || d.voucherNumberFormatted || '',
+            date: row.date || d.date || '',
+            poNumber: row.po_number ?? d.poNumber ?? '',
+            bankAccountId: row.bank_account_id ?? d.bankAccountId,
+            bankAccountTitle: row.bank_account_title ?? d.bankAccountTitle,
+            cashAccountId: row.cash_account_id ?? d.cashAccountId,
+            cashAccountTitle: row.cash_account_title ?? d.cashAccountTitle,
+            salesmanId: row.salesman_id ?? d.salesmanId,
+            salesmanTitle: row.salesman_title ?? d.salesmanTitle,
+            totalAmount: parseFloat(row.total_amount ?? d.totalAmount ?? 0),
+            entries: Array.isArray(row.entries) ? row.entries : (Array.isArray(d.entries) ? d.entries : []),
+            status: row.status || d.status || 'POSTED',
+            createdBy: row.created_by || d.createdBy || 'Admin',
+            createdAt: row.created_at ? new Date(row.created_at).toISOString() : (d.createdAt || new Date().toISOString()),
+            updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : (d.updatedAt || new Date().toISOString()),
+            data: undefined,
+          };
+        };
+
+        const extractBankAccount = (row: any): BankAccount => {
+          const d = row.data || {};
+          return {
+            ...d,
+            ...row,
+            id: row.id || d.id,
+            companyId,
+            accountCode: row.account_code || d.accountCode || '',
+            bankTitle: row.bank_title || d.bankTitle || '',
+            bankType: row.bank_type || d.bankType || 'Non Merchant',
+            description: row.description || d.description || '',
+            balance: parseFloat(row.balance ?? d.balance ?? 0),
+            balanceType: row.balance_type || d.balanceType || 'DR',
+            data: undefined,
+          };
+        };
+
+        const extractExpenseAccount = (row: any): ExpenseAccount => {
+          const d = row.data || {};
+          return {
+            ...d,
+            ...row,
+            id: row.id || d.id,
+            companyId,
+            expenseType: row.expense_type || d.expenseType || 'Administrative Expenses',
+            name: row.name || d.name || '',
+            code: row.code || d.code || '',
+            data: undefined,
+          };
+        };
+
+        const vouchers: Voucher[] = vouchersRes.rows.map(extractVoucher);
+        const banks: BankAccount[] = banksRes.rows.map(extractBankAccount);
+        const expenseAccounts: ExpenseAccount[] = expenseAccRes.rows.map(extractExpenseAccount);
+
         const lookups: Record<string, string[]> = {};
         for (const r of metaRes.rows) {
           lookups[r.key] = Array.isArray(r.values) ? r.values : [];
@@ -1114,6 +1268,9 @@ class PostgresService {
           auditLogs,
           purchaseBills,
           saleBills,
+          vouchers,
+          banks,
+          expenseAccounts,
           itemCategories: lookups['itemCategories'],
           itemBrands: lookups['itemBrands'],
           itemMeasures: lookups['itemMeasures'],
@@ -1744,14 +1901,14 @@ class PostgresService {
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          ON CONFLICT (id) DO NOTHING;`,
         [
-          l.id,
+          l.id || `audit-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
           companyId,
-          l.action,
-          l.entityType,
+          l.action || 'GENERAL_ACTION',
+          l.entityType || 'General',
           l.entityId || '',
-          l.userName,
+          l.userName || 'Admin',
           l.userRole || 'admin',
-          l.timestamp,
+          l.timestamp || new Date().toISOString(),
           JSON.stringify(l.details || l.metadata || {}),
           l.ipAddress || '',
         ]
@@ -1872,6 +2029,164 @@ class PostgresService {
       );
     } catch (err: any) {
       console.warn('[PostgreSQL saveLookup error]:', err.message);
+    }
+  }
+
+  // =========================================================================
+  // VOUCHERS PERSISTENCE (POSTGRESQL REAL-TIME SYNC)
+  // =========================================================================
+  public async upsertVoucher(voucher: Voucher, companyId = 'comp_default_01'): Promise<void> {
+    if (!this.pool) return;
+    try {
+      const v = voucher as any;
+      const cid = companyId || v.companyId || 'comp_default_01';
+      await this.pool.query(
+        `INSERT INTO vouchers (
+          id, company_id, voucher_type, jv_number, voucher_number, voucher_number_formatted,
+          date, po_number, bank_account_id, bank_account_title, cash_account_id, cash_account_title,
+          salesman_id, salesman_title, total_amount, entries, status, created_by, data, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, NOW())
+        ON CONFLICT (id) DO UPDATE SET
+          company_id = EXCLUDED.company_id,
+          voucher_type = EXCLUDED.voucher_type,
+          jv_number = EXCLUDED.jv_number,
+          voucher_number = EXCLUDED.voucher_number,
+          voucher_number_formatted = EXCLUDED.voucher_number_formatted,
+          date = EXCLUDED.date,
+          po_number = EXCLUDED.po_number,
+          bank_account_id = EXCLUDED.bank_account_id,
+          bank_account_title = EXCLUDED.bank_account_title,
+          cash_account_id = EXCLUDED.cash_account_id,
+          cash_account_title = EXCLUDED.cash_account_title,
+          salesman_id = EXCLUDED.salesman_id,
+          salesman_title = EXCLUDED.salesman_title,
+          total_amount = EXCLUDED.total_amount,
+          entries = EXCLUDED.entries,
+          status = EXCLUDED.status,
+          created_by = EXCLUDED.created_by,
+          data = EXCLUDED.data,
+          updated_at = NOW();`,
+        [
+          v.id,
+          cid,
+          v.voucherType || 'CR',
+          v.jvNumber || 0,
+          v.voucherNumber || 0,
+          v.voucherNumberFormatted || '',
+          v.date || '',
+          v.poNumber || '',
+          v.bankAccountId || null,
+          v.bankAccountTitle || null,
+          v.cashAccountId || null,
+          v.cashAccountTitle || null,
+          v.salesmanId || null,
+          v.salesmanTitle || null,
+          Number(v.totalAmount) || 0,
+          JSON.stringify(v.entries || []),
+          v.status || 'POSTED',
+          v.createdBy || 'Admin',
+          JSON.stringify(voucher),
+        ]
+      );
+    } catch (err: any) {
+      console.warn('[PostgreSQL upsertVoucher error]:', err.message);
+    }
+  }
+
+  public async deleteVoucher(id: string, companyId = 'comp_default_01'): Promise<void> {
+    if (!this.pool) return;
+    try {
+      await this.pool.query('DELETE FROM vouchers WHERE id = $1 AND (company_id = $2 OR company_id IS NULL)', [id, companyId]);
+    } catch (err: any) {
+      console.warn('[PostgreSQL deleteVoucher error]:', err.message);
+    }
+  }
+
+  // =========================================================================
+  // BANK ACCOUNTS PERSISTENCE
+  // =========================================================================
+  public async upsertBankAccount(bank: BankAccount, companyId = 'comp_default_01'): Promise<void> {
+    if (!this.pool) return;
+    try {
+      const b = bank as any;
+      const cid = companyId || b.companyId || 'comp_default_01';
+      await this.pool.query(
+        `INSERT INTO bank_accounts (id, company_id, account_code, bank_title, bank_type, description, balance, balance_type, data, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+         ON CONFLICT (id) DO UPDATE SET
+           company_id = EXCLUDED.company_id,
+           account_code = EXCLUDED.account_code,
+           bank_title = EXCLUDED.bank_title,
+           bank_type = EXCLUDED.bank_type,
+           description = EXCLUDED.description,
+           balance = EXCLUDED.balance,
+           balance_type = EXCLUDED.balance_type,
+           data = EXCLUDED.data,
+           updated_at = NOW();`,
+        [
+          b.id,
+          cid,
+          b.accountCode || '',
+          b.bankTitle || '',
+          b.bankType || 'Non Merchant',
+          b.description || '',
+          Number(b.balance) || 0,
+          b.balanceType || 'DR',
+          JSON.stringify(bank),
+        ]
+      );
+    } catch (err: any) {
+      console.warn('[PostgreSQL upsertBankAccount error]:', err.message);
+    }
+  }
+
+  public async deleteBankAccount(id: string, companyId = 'comp_default_01'): Promise<void> {
+    if (!this.pool) return;
+    try {
+      await this.pool.query('DELETE FROM bank_accounts WHERE (id = $1 OR account_code = $1) AND (company_id = $2 OR company_id IS NULL)', [id, companyId]);
+    } catch (err: any) {
+      console.warn('[PostgreSQL deleteBankAccount error]:', err.message);
+    }
+  }
+
+  // =========================================================================
+  // EXPENSE ACCOUNTS PERSISTENCE
+  // =========================================================================
+  public async upsertExpenseAccount(account: ExpenseAccount, companyId = 'comp_default_01'): Promise<void> {
+    if (!this.pool) return;
+    try {
+      const a = account as any;
+      const cid = companyId || a.companyId || 'comp_default_01';
+      await this.pool.query(
+        `INSERT INTO expense_accounts (id, company_id, expense_type, name, code, data, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW())
+         ON CONFLICT (id) DO UPDATE SET
+           company_id = EXCLUDED.company_id,
+           expense_type = EXCLUDED.expense_type,
+           name = EXCLUDED.name,
+           code = EXCLUDED.code,
+           data = EXCLUDED.data,
+           updated_at = NOW();`,
+        [
+          a.id,
+          cid,
+          a.expenseType || 'Administrative Expenses',
+          a.name || '',
+          a.code || '',
+          JSON.stringify(account),
+        ]
+      );
+    } catch (err: any) {
+      console.warn('[PostgreSQL upsertExpenseAccount error]:', err.message);
+    }
+  }
+
+  public async deleteExpenseAccount(id: string, companyId = 'comp_default_01'): Promise<void> {
+    if (!this.pool) return;
+    try {
+      await this.pool.query('DELETE FROM expense_accounts WHERE (id = $1 OR code = $1) AND (company_id = $2 OR company_id IS NULL)', [id, companyId]);
+    } catch (err: any) {
+      console.warn('[PostgreSQL deleteExpenseAccount error]:', err.message);
     }
   }
 
@@ -1997,6 +2312,24 @@ class PostgresService {
         if (Array.isArray(data[k])) {
           await this.saveLookup(k, data[k], companyId);
         }
+      }
+
+      // 17. Vouchers
+      if (Array.isArray(data.vouchers)) {
+        for (const v of data.vouchers) await this.upsertVoucher(v, companyId);
+        counts['vouchers'] = data.vouchers.length;
+      }
+
+      // 18. Bank Accounts
+      if (Array.isArray(data.banks)) {
+        for (const b of data.banks) await this.upsertBankAccount(b, companyId);
+        counts['bank_accounts'] = data.banks.length;
+      }
+
+      // 19. Expense Accounts
+      if (Array.isArray(data.expenseAccounts)) {
+        for (const exp of data.expenseAccounts) await this.upsertExpenseAccount(exp, companyId);
+        counts['expense_accounts'] = data.expenseAccounts.length;
       }
 
       return {

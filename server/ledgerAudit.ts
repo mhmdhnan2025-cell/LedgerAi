@@ -129,8 +129,10 @@ function saleCashKept(bill: SaleBill): number {
   const received = Math.max(0, Number(bill.cashReceived) || 0);
   const change = Math.max(0, Number(bill.changeGiven) || 0);
   const kept = received - change;
-  if (kept > 0) return kept;
-  return Math.max(0, (Number(bill.netTotal) || 0) - (Number(bill.balanceReceivable) || 0));
+  const billCash = Math.max(0, (Number(bill.netTotal) || 0) - (Number(bill.balanceReceivable) || 0));
+  const recovered = bill.balanceRecovered ? Math.max(0, Number(bill.balanceRecoveredAmount) || 0) : 0;
+  if (kept > 0) return Math.max(kept, billCash + recovered);
+  return billCash + recovered;
 }
 
 function cashMovementOn(ctx: LedgerContext, date: string): { cashIn: number; cashOut: number } {
@@ -723,8 +725,35 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
         0
       ) + ordersToday.reduce((s, o) => s + (Number(o.discount) || 0), 0);
 
+    // Calculate exact Market Udhaar Recovery vs Counter Cash Sales
+    let todayMarketWasooli = 0;
+    for (const v of vouchers) {
+      if (v.status !== 'POSTED') continue;
+      if (db.normalizeDateToYMD(v.date) !== auditDate) continue;
+      if (v.voucherType === 'CR') {
+        todayMarketWasooli += Number(v.totalAmount) || 0;
+      } else if (v.voucherType === 'CB' && Array.isArray(v.entries)) {
+        todayMarketWasooli += v.entries.reduce((acc, e) => acc + (Number(e?.receipt) || 0), 0);
+      }
+    }
+    for (const p of payments) {
+      if (db.normalizeDateToYMD(p.paymentDate || (p as any).date || '') !== auditDate) continue;
+      if ((p.paymentMethod || 'Cash').toLowerCase().includes('cash')) {
+        todayMarketWasooli += Number(p.amount) || 0;
+      }
+    }
+    for (const b of saleBillsToday) {
+      if (b.balanceRecovered) {
+        todayMarketWasooli += Number(b.balanceRecoveredAmount) || 0;
+      }
+    }
+
+    const todayCounterCashSales = Math.max(0, todayMove.cashIn - todayMarketWasooli);
+
     const inflows: AiLedgerAuditCashRow[] = [
-      { label: 'Today Received (Market Cash Wusooli)', value: todayMove.cashIn, tag: 'CASH IN', direction: 'in' },
+      { label: 'Total Cash Received (کل کیش ان / نقد وصولی)', value: todayMove.cashIn, tag: 'CASH IN', direction: 'in' },
+      { label: 'Market Udhaar Wasooli (مارکیٹ وصولی)', value: todayMarketWasooli, tag: 'WASOOLI', direction: 'in' },
+      { label: 'Counter Cash Sales (کاؤنٹر نقد فروخت)', value: todayCounterCashSales, tag: 'SALES', direction: 'in' },
       { label: 'Today Paid to Supplier (Mill / Vendor Cash)', value: todaySupplierCash, tag: 'SUPPLIER', direction: 'out' },
       { label: 'Daily Expense (Salaries, Petrol, Utilities, Misc)', value: todayExpenses, tag: 'EXPENSE', direction: 'out' },
       { label: 'Discount Given to Customers (adjusted in bill)', value: todayDiscount, tag: 'MEMO', direction: 'memo' },
