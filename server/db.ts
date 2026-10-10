@@ -8181,25 +8181,50 @@ class DatabaseService {
     toDate?: string,
     poNumber?: string
   ): CustomerLedgerReport {
+    const isAll = !customerId || customerId.trim() === '' || customerId.trim().toUpperCase() === 'ALL' || customerId.trim() === '*';
     const custSearch = (customerId || '').trim().toLowerCase();
-    const customer = (this.data.customers || []).find(
-      (c) =>
-        c.id?.toLowerCase() === custSearch ||
-        c.code?.toLowerCase() === custSearch ||
-        c.accountCode?.toLowerCase() === custSearch ||
-        (c.accountTitle && c.accountTitle.toLowerCase() === custSearch) ||
-        (c.name && c.name.toLowerCase() === custSearch)
-    );
+    const customer = isAll
+      ? undefined
+      : (this.data.customers || []).find(
+          (c) =>
+            c.id?.toLowerCase() === custSearch ||
+            c.code?.toLowerCase() === custSearch ||
+            c.accountCode?.toLowerCase() === custSearch ||
+            (c.accountTitle && c.accountTitle.toLowerCase() === custSearch) ||
+            (c.name && c.name.toLowerCase() === custSearch)
+        );
 
-    const custId = customer?.id || customerId;
-    const custCode = customer?.code || customer?.accountCode || '';
-    const custTitle = customer?.accountTitle || customer?.name || 'Customer';
+    const custId = isAll ? 'ALL' : (customer?.id || customerId);
+    const custCode = isAll ? 'ALL' : (customer?.code || customer?.accountCode || '');
+    const custTitle = isAll ? 'All Customer Accounts (تمام کھاتے)' : (customer?.accountTitle || customer?.name || 'Customer');
 
     const matchesCustomer = (id?: string, code?: string, title?: string) => {
+      if (isAll) return true;
       if (id && (id === custId || id === custCode)) return true;
       if (code && (code === custCode || code === custId)) return true;
       if (title && custTitle && title.trim().toLowerCase() === custTitle.trim().toLowerCase()) return true;
       return false;
+    };
+
+    const isCustomerVoucherEntry = (e: any, vType: string) => {
+      if (!isAll) {
+        return matchesCustomer(e.accountId, e.accountCode, e.accountTitle);
+      }
+      // When All accounts mode is selected, check if this is a customer-related entry
+      const typeLower = (e.accountType || '').toLowerCase();
+      const code = String(e.accountCode || '');
+      const titleLower = String(e.accountTitle || '').toLowerCase();
+      if (typeLower.includes('customer')) return true;
+      if (code.startsWith('01')) return true;
+      if (vType === 'CR' || vType === 'BR') return true;
+      return (this.data.customers || []).some(
+        (c) =>
+          c.id === e.accountId ||
+          c.code === code ||
+          c.accountCode === code ||
+          (c.accountTitle && c.accountTitle.toLowerCase() === titleLower) ||
+          (c.name && c.name.toLowerCase() === titleLower)
+      );
     };
 
     const normFrom = fromDate ? this.normalizeDateToYMD(fromDate) : '2000-01-01';
@@ -8225,7 +8250,7 @@ class DatabaseService {
       if (vDate >= normFrom) continue;
 
       for (const e of (v.entries || [])) {
-        if (!matchesCustomer(e.accountId, e.accountCode, e.accountTitle)) continue;
+        if (!isCustomerVoucherEntry(e, v.voucherType)) continue;
         if (v.voucherType === 'CR' || v.voucherType === 'BR') {
           calcOpening -= Number(e.amount || 0);
         } else if (v.voucherType === 'CB') {
@@ -8273,7 +8298,8 @@ class DatabaseService {
         const cat = it.category ? ` (${it.category} QTY=${it.qty} @${it.rate})` : ` (QTY=${it.qty} @${it.rate})`;
         return `${it.itemTitle || 'Item'}${cat}`;
       }).join('\n');
-      const narration = `Bill#${b.billNumber}${itemLines ? '\n' + itemLines : ''}`;
+      const partyTag = isAll ? `[${b.customerAccountTitle || b.customerName || 'Customer'}] ` : '';
+      const narration = `${partyTag}Bill#${b.billNumber}${itemLines ? '\n' + itemLines : ''}`;
 
       entries.push({
         id: b.id,
@@ -8288,6 +8314,8 @@ class DatabaseService {
         balanceType: 'DR',
         entityId: b.id,
         entityType: 'saleBill',
+        customerName: b.customerAccountTitle || b.customerName || 'Customer',
+        customerAccountTitle: b.customerAccountTitle || b.customerName || 'Customer',
       });
     }
 
@@ -8299,7 +8327,8 @@ class DatabaseService {
       if (poNumber && v.poNumber && !v.poNumber.toLowerCase().includes(poNumber.toLowerCase())) continue;
 
       for (const e of (v.entries || [])) {
-        if (!matchesCustomer(e.accountId, e.accountCode, e.accountTitle)) continue;
+        if (!isCustomerVoucherEntry(e, v.voucherType)) continue;
+        const partyTag = isAll ? `[${e.accountTitle || 'Customer'}] ` : '';
 
         if (v.voucherType === 'CR' || v.voucherType === 'BR') {
           const amt = Number(e.amount || 0);
@@ -8310,13 +8339,15 @@ class DatabaseService {
             refNumber: v.voucherNumber || v.voucherNumberFormatted,
             date: v.date,
             billNumber: v.poNumber || '',
-            narration: e.narration || `${v.voucherType === 'CR' ? 'Cash' : 'Bank'} Received${v.bankAccountTitle ? ' (' + v.bankAccountTitle + ')' : ''}`,
+            narration: `${partyTag}${e.narration || `${v.voucherType === 'CR' ? 'Cash' : 'Bank'} Received${v.bankAccountTitle ? ' (' + v.bankAccountTitle + ')' : ''}`}`,
             debit: 0,
             credit: amt,
             balance: 0,
             balanceType: 'DR',
             entityId: v.id,
             entityType: 'voucher',
+            customerName: e.accountTitle || 'Customer',
+            customerAccountTitle: e.accountTitle || 'Customer',
           });
         } else if (v.voucherType === 'CB') {
           const rec = Number(e.receipt || e.amount || 0);
@@ -8327,13 +8358,15 @@ class DatabaseService {
             refNumber: v.voucherNumber || v.voucherNumberFormatted,
             date: v.date,
             billNumber: v.poNumber || '',
-            narration: e.narration || 'Cash Book Receipt',
+            narration: `${partyTag}${e.narration || 'Cash Book Receipt'}`,
             debit: 0,
             credit: rec,
             balance: 0,
             balanceType: 'DR',
             entityId: v.id,
             entityType: 'voucher',
+            customerName: e.accountTitle || 'Customer',
+            customerAccountTitle: e.accountTitle || 'Customer',
           });
         } else if (v.voucherType === 'JV') {
           const dr = Number(e.debit || 0);
@@ -8345,13 +8378,15 @@ class DatabaseService {
             refNumber: v.jvNumber,
             date: v.date,
             billNumber: v.poNumber || '',
-            narration: e.narration || 'Journal Voucher',
+            narration: `${partyTag}${e.narration || 'Journal Voucher'}`,
             debit: dr,
             credit: cr,
             balance: 0,
             balanceType: 'DR',
             entityId: v.id,
             entityType: 'voucher',
+            customerName: e.accountTitle || 'Customer',
+            customerAccountTitle: e.accountTitle || 'Customer',
           });
         }
       }
@@ -8364,6 +8399,7 @@ class DatabaseService {
       const pDate = this.normalizeDateToYMD(p.paymentDate || p.date || (p as any).createdAt || '');
       if (pDate < normFrom || pDate > normTo) continue;
       if (entries.some((e) => e.entityId === p.id)) continue;
+      const partyTag = isAll ? `[${p.restaurantName || (p as any).customerName || 'Customer'}] ` : '';
 
       entries.push({
         id: p.id,
@@ -8371,13 +8407,15 @@ class DatabaseService {
         refNumber: (p as any).referenceNo || `PAY-${p.id}`,
         date: p.paymentDate || p.date || pDate,
         billNumber: p.orderId || '',
-        narration: p.notes || `Payment Received (${p.paymentMethod || 'Cash'})`,
+        narration: `${partyTag}${p.notes || `Payment Received (${p.paymentMethod || 'Cash'})`}`,
         debit: 0,
         credit: Number(p.amount || 0),
         balance: 0,
         balanceType: 'DR',
         entityId: p.id,
         entityType: 'payment',
+        customerName: p.restaurantName || (p as any).customerName || 'Customer',
+        customerAccountTitle: p.restaurantName || (p as any).customerName || 'Customer',
       });
     }
 
@@ -8391,7 +8429,8 @@ class DatabaseService {
       const retItemLines = (sr.items || []).map((it) => {
         return `${it.itemTitle || 'Item'} (QTY=${it.qty} @${it.rate})`;
       }).join('\n');
-      const narration = `${sr.reason || 'Sales Return'}${retItemLines ? '\n' + retItemLines : ''}`;
+      const partyTag = isAll ? `[${sr.customerAccountTitle || sr.customerName || 'Customer'}] ` : '';
+      const narration = `${partyTag}${sr.reason || 'Sales Return'}${retItemLines ? '\n' + retItemLines : ''}`;
 
       entries.push({
         id: sr.id,
@@ -8406,6 +8445,8 @@ class DatabaseService {
         balanceType: 'DR',
         entityId: sr.id,
         entityType: 'saleReturn',
+        customerName: sr.customerAccountTitle || sr.customerName || 'Customer',
+        customerAccountTitle: sr.customerAccountTitle || sr.customerName || 'Customer',
       });
     }
 
@@ -8437,8 +8478,8 @@ class DatabaseService {
       customerCode: custCode,
       customerName: custTitle,
       accountTitle: custTitle,
-      phone: customer?.mobile || customer?.telephones || '',
-      address: customer?.address || `${customer?.area || ''} ${customer?.city || ''}`.trim(),
+      phone: isAll ? 'All Customers Consolidated' : (customer?.mobile || customer?.telephones || ''),
+      address: isAll ? 'All Locations' : (customer?.address || `${customer?.area || ''} ${customer?.city || ''}`.trim()),
       fromDate: normFrom,
       toDate: normTo,
       generatedDate: new Date().toISOString(),

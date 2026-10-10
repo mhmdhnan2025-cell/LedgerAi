@@ -285,10 +285,11 @@ export const CashRecoveredReportSection: React.FC<CashRecoveredReportSectionProp
                     <td className="px-3 py-2.5 text-center print:hidden">
                       <button
                         onClick={() => setConfirmItem(row)}
-                        className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition"
+                        className="px-2.5 py-1 bg-rose-500/15 hover:bg-rose-600 border border-rose-500/30 hover:border-rose-600 text-rose-300 hover:text-white rounded-md text-[11px] font-bold inline-flex items-center gap-1 transition shadow-sm cursor-pointer group"
                         title="Delete Recovery Voucher"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-3.5 h-3.5 text-rose-400 group-hover:text-white" />
+                        <span>Del</span>
                       </button>
                     </td>
                   </tr>

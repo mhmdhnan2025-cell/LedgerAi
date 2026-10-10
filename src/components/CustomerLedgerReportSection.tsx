@@ -103,11 +103,13 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
             if (found) {
               setSelectedCustomer(found);
               setCustomerSearch('');
+              handleGenerateReport(found);
+              return;
             }
-          } else if (list.length > 0 && !selectedCustomer) {
-            setSelectedCustomer(list[0]);
-            setCustomerSearch('');
           }
+          // Default to Nothing selected / All accounts so all transactions show immediately
+          setSelectedCustomer(null);
+          handleGenerateReport(null);
         }
       } catch (err) {
         console.warn('Failed to load customers for ledger report:', err);
@@ -127,17 +129,18 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleGenerateReport = async (overrideCustomer?: Customer) => {
-    const targetCust = overrideCustomer || selectedCustomer;
-    if (!targetCust) {
-      setErrorMsg('Please select a customer account first.');
-      return;
-    }
+  const handleGenerateReport = async (overrideCustomer?: Customer | null) => {
+    const targetCust = overrideCustomer !== undefined ? overrideCustomer : selectedCustomer;
+    const customerIdParam =
+      !targetCust || targetCust.id === 'ALL' || targetCust.code === 'ALL'
+        ? 'ALL'
+        : (targetCust.id || targetCust.code || '');
+
     setIsLoading(true);
     setErrorMsg(null);
     try {
       const data = await api.getCustomerLedgerReport({
-        customerId: targetCust.id || targetCust.code || '',
+        customerId: customerIdParam,
         fromDate,
         toDate,
         poNumber: poNumber.trim() || undefined,
@@ -149,13 +152,6 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
       setIsLoading(false);
     }
   };
-
-  // Auto-generate when customer is set first time
-  useEffect(() => {
-    if (selectedCustomer && !report) {
-      handleGenerateReport(selectedCustomer);
-    }
-  }, [selectedCustomer]);
 
   const filteredCustomers = customers.filter((c) => {
     const q = customerSearch.trim().toLowerCase();
@@ -196,7 +192,7 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
     setHighlightedIndex(0);
   }, [customerSearch]);
 
-  const handleSelectCustomer = (c: Customer) => {
+  const handleSelectCustomer = (c: Customer | null) => {
     setSelectedCustomer(c);
     setCustomerSearch('');
     setIsDropdownOpen(false);
@@ -375,12 +371,27 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
               onClick={handleToggleDropdown}
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white flex items-center justify-between cursor-pointer hover:border-slate-600 transition"
             >
-              <span className="truncate">
+              <span className={`truncate ${selectedCustomer ? 'text-white font-semibold' : 'text-sky-300 font-bold'}`}>
                 {selectedCustomer
                   ? `${selectedCustomer.code || selectedCustomer.accountCode || ''} - ${selectedCustomer.accountTitle || selectedCustomer.name}`
-                  : 'Select Account...'}
+                  : 'All Accounts / Nothing Selected (تمام کسٹمرز / تمام کھاتے)'}
               </span>
-              <ChevronDown className={`w-4 h-4 text-slate-400 ml-2 shrink-0 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+              <div className="flex items-center gap-1.5 ml-2 shrink-0">
+                {selectedCustomer && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSelectCustomer(null);
+                    }}
+                    className="text-slate-400 hover:text-rose-400 p-0.5 rounded hover:bg-slate-700 transition"
+                    title="Clear account (Show All Customers)"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+              </div>
             </div>
 
             {isDropdownOpen && (
@@ -410,12 +421,33 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
                         className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-0.5"
                         title="Clear search"
                       >
-                        <X className="w-3 h-3" />
+                        <X className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
                 </div>
                 <div className="overflow-y-auto max-h-56 divide-y divide-slate-700/50">
+                  {/* Option 0: Nothing Selected / All Accounts */}
+                  <div
+                    onClick={() => handleSelectCustomer(null)}
+                    className={`p-2.5 text-xs cursor-pointer flex items-center justify-between transition border-b border-slate-700/80 ${
+                      selectedCustomer === null
+                        ? 'bg-sky-500/20 text-sky-200 font-bold border-l-4 border-l-sky-500'
+                        : 'text-slate-200 hover:bg-slate-700/60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sky-400 font-bold text-sm">★</span>
+                      <div>
+                        <div className="font-bold text-white">All Accounts / Nothing Selected (تمام کھاتے)</div>
+                        <div className="text-[11px] text-slate-400">تمام کسٹمرز کا مشترکہ لیجر اور تمام ٹرانزیکشنز ڈیلیٹ آپشنز کے ساتھ</div>
+                      </div>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold">
+                      ALL
+                    </span>
+                  </div>
+
                   {filteredCustomers.length === 0 ? (
                     <div className="p-4 text-xs text-slate-400 text-center">
                       No customer accounts found for "{customerSearch}"
@@ -486,8 +518,8 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
         <div className="flex flex-wrap items-center justify-between gap-2 mt-4 pt-3 border-t border-slate-800">
           <div className="flex items-center gap-2">
             <button
-              onClick={handleGenerateReport}
-              disabled={isLoading || !selectedCustomer}
+              onClick={() => handleGenerateReport(selectedCustomer)}
+              disabled={isLoading}
               className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition shadow-sm cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
@@ -725,10 +757,11 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
                         <button
                           type="button"
                           onClick={() => setConfirmEntry(entry)}
-                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition cursor-pointer"
+                          className="px-2 py-1 bg-rose-50 hover:bg-rose-600 border border-rose-300 hover:border-rose-600 text-rose-600 hover:text-white rounded-md text-[10px] font-bold inline-flex items-center gap-1 transition shadow-xs cursor-pointer group"
                           title={`Delete transaction ${entry.refType} #${entry.refNumber}`}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-3 h-3 text-rose-600 group-hover:text-white" />
+                          <span>Del</span>
                         </button>
                       </td>
                     </tr>

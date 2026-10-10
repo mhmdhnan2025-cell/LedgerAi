@@ -1206,6 +1206,8 @@ export interface CustomerLedgerEntry {
   balanceType: 'DR' | 'CR';
   entityId?: string;
   entityType?: 'saleBill' | 'voucher' | 'saleReturn' | 'payment';
+  customerName?: string;
+  customerAccountTitle?: string;
 }
 
 export interface CustomerLedgerReport {
