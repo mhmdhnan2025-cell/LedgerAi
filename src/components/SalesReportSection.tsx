@@ -477,7 +477,10 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
           <div className="relative" ref={customerDropdownRef}>
             <label className="block text-slate-400 font-semibold mb-1">Customer</label>
             <div
-              onClick={() => setIsCustomerDropdownOpen(!isCustomerDropdownOpen)}
+              onClick={() => {
+                setIsCustomerDropdownOpen(!isCustomerDropdownOpen);
+                setCustomerSearchQuery('');
+              }}
               className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white cursor-pointer flex items-center justify-between hover:border-emerald-500 truncate"
             >
               <span className="truncate">
@@ -499,6 +502,7 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
                 <div
                   onClick={() => {
                     setSelectedCustomerId('');
+                    setCustomerSearchQuery('');
                     setIsCustomerDropdownOpen(false);
                   }}
                   className="px-2 py-1 text-slate-300 hover:bg-slate-800 rounded cursor-pointer"
@@ -510,6 +514,7 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
                     key={c.id}
                     onClick={() => {
                       setSelectedCustomerId(c.id);
+                      setCustomerSearchQuery('');
                       setIsCustomerDropdownOpen(false);
                     }}
                     className="px-2 py-1 text-white hover:bg-slate-800 rounded cursor-pointer flex justify-between"

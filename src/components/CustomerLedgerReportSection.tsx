@@ -48,6 +48,9 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
   const [customerSearch, setCustomerSearch] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
 
   // Report Data & Loading
   const [report, setReport] = useState<CustomerLedgerReport | null>(null);
@@ -67,11 +70,11 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
             );
             if (found) {
               setSelectedCustomer(found);
-              setCustomerSearch(`${found.code || found.accountCode || ''} - ${found.accountTitle || found.name}`);
+              setCustomerSearch('');
             }
           } else if (list.length > 0 && !selectedCustomer) {
             setSelectedCustomer(list[0]);
-            setCustomerSearch(`${list[0].code || list[0].accountCode || ''} - ${list[0].accountTitle || list[0].name}`);
+            setCustomerSearch('');
           }
         }
       } catch (err) {
@@ -92,8 +95,9 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleGenerateReport = async () => {
-    if (!selectedCustomer) {
+  const handleGenerateReport = async (overrideCustomer?: Customer) => {
+    const targetCust = overrideCustomer || selectedCustomer;
+    if (!targetCust) {
       setErrorMsg('Please select a customer account first.');
       return;
     }
@@ -101,7 +105,7 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
     setErrorMsg(null);
     try {
       const data = await api.getCustomerLedgerReport({
-        customerId: selectedCustomer.id || selectedCustomer.code || '',
+        customerId: targetCust.id || targetCust.code || '',
         fromDate,
         toDate,
         poNumber: poNumber.trim() || undefined,
@@ -117,26 +121,89 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
   // Auto-generate when customer is set first time
   useEffect(() => {
     if (selectedCustomer && !report) {
-      handleGenerateReport();
+      handleGenerateReport(selectedCustomer);
     }
   }, [selectedCustomer]);
 
   const filteredCustomers = customers.filter((c) => {
     const q = customerSearch.trim().toLowerCase();
     if (!q) return true;
-    return (
-      (c.code && c.code.toLowerCase().includes(q)) ||
-      (c.accountCode && c.accountCode.toLowerCase().includes(q)) ||
-      (c.accountTitle && c.accountTitle.toLowerCase().includes(q)) ||
-      (c.name && c.name.toLowerCase().includes(q)) ||
-      (c.mobile && c.mobile.includes(q))
-    );
+    const code = (c.code || c.accountCode || '').toLowerCase();
+    const name = (c.accountTitle || c.name || '').toLowerCase();
+    const mobile = (c.mobile || '').toLowerCase();
+    const city = (c.city || c.area || '').toLowerCase();
+    const full = `${code} - ${name} ${mobile} ${city}`.toLowerCase();
+
+    if (full.includes(q) || code.includes(q) || name.includes(q)) return true;
+
+    const tokens = q.split(/\s+/).filter(Boolean);
+    return tokens.every((token) => full.includes(token));
   });
+
+  // Focus and sync highlighted index when dropdown opens
+  useEffect(() => {
+    if (isDropdownOpen) {
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      }, 50);
+
+      const idx = filteredCustomers.findIndex((c) => c.id === selectedCustomer?.id);
+      if (idx >= 0) {
+        setHighlightedIndex(idx);
+        setTimeout(() => {
+          itemRefs.current[idx]?.scrollIntoView({ block: 'nearest' });
+        }, 80);
+      } else {
+        setHighlightedIndex(0);
+      }
+    }
+  }, [isDropdownOpen]);
+
+  useEffect(() => {
+    setHighlightedIndex(0);
+  }, [customerSearch]);
 
   const handleSelectCustomer = (c: Customer) => {
     setSelectedCustomer(c);
-    setCustomerSearch(`${c.code || c.accountCode || ''} - ${c.accountTitle || c.name}`);
+    setCustomerSearch('');
     setIsDropdownOpen(false);
+    handleGenerateReport(c);
+  };
+
+  const handleToggleDropdown = () => {
+    setIsDropdownOpen((prev) => {
+      if (!prev) {
+        setCustomerSearch('');
+      }
+      return !prev;
+    });
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex((prev) => {
+        const next = prev < filteredCustomers.length - 1 ? prev + 1 : 0;
+        itemRefs.current[next]?.scrollIntoView({ block: 'nearest' });
+        return next;
+      });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex((prev) => {
+        const next = prev > 0 ? prev - 1 : Math.max(filteredCustomers.length - 1, 0);
+        itemRefs.current[next]?.scrollIntoView({ block: 'nearest' });
+        return next;
+      });
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (filteredCustomers[highlightedIndex]) {
+        handleSelectCustomer(filteredCustomers[highlightedIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setIsDropdownOpen(false);
+    }
   };
 
   const handlePrint = () => {
@@ -273,58 +340,88 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
               Account Title (گاہک کا کھاتہ)
             </label>
             <div
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white flex items-center justify-between cursor-pointer hover:border-slate-600"
+              onClick={handleToggleDropdown}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white flex items-center justify-between cursor-pointer hover:border-slate-600 transition"
             >
               <span className="truncate">
                 {selectedCustomer
                   ? `${selectedCustomer.code || selectedCustomer.accountCode || ''} - ${selectedCustomer.accountTitle || selectedCustomer.name}`
                   : 'Select Account...'}
               </span>
-              <ChevronDown className="w-4 h-4 text-slate-400 ml-2 shrink-0" />
+              <ChevronDown className={`w-4 h-4 text-slate-400 ml-2 shrink-0 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
             </div>
 
             {isDropdownOpen && (
-              <div className="absolute z-50 left-0 right-0 mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl max-h-64 overflow-hidden flex flex-col">
-                <div className="p-2 border-b border-slate-700">
+              <div className="absolute z-50 left-0 right-0 mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl max-h-72 overflow-hidden flex flex-col">
+                <div className="p-2 border-b border-slate-700 bg-slate-850">
                   <div className="relative">
                     <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                     <input
+                      ref={searchInputRef}
                       type="text"
-                      placeholder="Search code or customer name..."
+                      placeholder="Search code or customer name... (↓ / ↑ navigate)"
                       value={customerSearch}
                       onChange={(e) => setCustomerSearch(e.target.value)}
+                      onKeyDown={handleSearchKeyDown}
                       onClick={(e) => e.stopPropagation()}
                       autoFocus
-                      className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 pl-8 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 pl-8 pr-7 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
                     />
+                    {customerSearch && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCustomerSearch('');
+                          searchInputRef.current?.focus();
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-0.5"
+                        title="Clear search"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
                   </div>
                 </div>
-                <div className="overflow-y-auto max-h-52 divide-y divide-slate-700/50">
+                <div className="overflow-y-auto max-h-56 divide-y divide-slate-700/50">
                   {filteredCustomers.length === 0 ? (
-                    <div className="p-3 text-xs text-slate-400 text-center">No customer accounts found</div>
+                    <div className="p-4 text-xs text-slate-400 text-center">
+                      No customer accounts found for "{customerSearch}"
+                    </div>
                   ) : (
-                    filteredCustomers.map((c) => (
-                      <div
-                        key={c.id}
-                        onClick={() => handleSelectCustomer(c)}
-                        className={`p-2.5 text-xs hover:bg-slate-700 cursor-pointer flex items-center justify-between transition ${
-                          selectedCustomer?.id === c.id ? 'bg-sky-900/40 text-sky-200' : 'text-slate-200'
-                        }`}
-                      >
-                        <div>
-                          <div className="font-semibold text-white">
-                            {c.code || c.accountCode} - {c.accountTitle || c.name}
+                    filteredCustomers.map((c, index) => {
+                      const isSelected = selectedCustomer?.id === c.id;
+                      const isHighlighted = highlightedIndex === index;
+                      return (
+                        <div
+                          key={c.id}
+                          ref={(el) => {
+                            itemRefs.current[index] = el;
+                          }}
+                          onClick={() => handleSelectCustomer(c)}
+                          onMouseEnter={() => setHighlightedIndex(index)}
+                          className={`p-2.5 text-xs cursor-pointer flex items-center justify-between transition ${
+                            isHighlighted
+                              ? 'bg-sky-600/30 text-white'
+                              : isSelected
+                              ? 'bg-sky-900/40 text-sky-200'
+                              : 'text-slate-200 hover:bg-slate-700/60'
+                          }`}
+                        >
+                          <div>
+                            <div className="font-semibold text-white">
+                              {c.code || c.accountCode} - {c.accountTitle || c.name}
+                            </div>
+                            <div className="text-[11px] text-slate-400">{c.city || c.area || c.mobile || 'No contact'}</div>
                           </div>
-                          <div className="text-[11px] text-slate-400">{c.city || c.area || c.mobile || 'No contact'}</div>
+                          <div className="text-right shrink-0 ml-2">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-900 text-slate-300 font-mono">
+                              {currencySymbol()} {formatNumber(c.outstandingBalance)}
+                            </span>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-900 text-slate-300 font-mono">
-                            {currencySymbol()} {formatNumber(c.outstandingBalance)}
-                          </span>
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>
