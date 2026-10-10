@@ -97,10 +97,17 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isThemeDropdownOpen, setIsThemeDropdownOpen] = useState(false);
   const themeDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Navigation dropdown state (Sales & Purchasing)
+  const [openNavDropdown, setOpenNavDropdown] = useState<string | null>(null);
+  const navDropdownRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
       if (themeDropdownRef.current && !themeDropdownRef.current.contains(e.target as Node)) {
         setIsThemeDropdownOpen(false);
+      }
+      if (navDropdownRef.current && !navDropdownRef.current.contains(e.target as Node)) {
+        setOpenNavDropdown(null);
       }
     };
     document.addEventListener('mousedown', handleOutsideClick);
@@ -199,10 +206,35 @@ export const Navbar: React.FC<NavbarProps> = ({
     }
   };
 
-  const navItems = [
+  interface NavItem {
+    id: string;
+    label: string;
+    subItems?: {
+      id: string;
+      label: string;
+      urdu: string;
+      icon?: string;
+    }[];
+  }
+
+  const navItems: NavItem[] = [
     { id: 'aimunshi', label: '🤖 AI Munshi (Accountant)' },
-    { id: 'sales', label: '💰 Sales Bill' },
-    { id: 'purchasing', label: '🧾 Purchase Bill' },
+    {
+      id: 'sales-menu',
+      label: '💰 Sales',
+      subItems: [
+        { id: 'sales', label: 'Sale Bill', urdu: 'سیل بل', icon: '📝' },
+        { id: 'sales-return', label: 'Sale Return', urdu: 'سیل واپسی', icon: '🔄' },
+      ],
+    },
+    {
+      id: 'purchasing-menu',
+      label: '🧾 Purchasing',
+      subItems: [
+        { id: 'purchasing', label: 'Purchase Bill', urdu: 'خریداری بل', icon: '📥' },
+        { id: 'purchasing-return', label: 'Purchase Return', urdu: 'خریداری واپسی', icon: '↩️' },
+      ],
+    },
     { id: 'cashbank', label: '💵 Cash / Bank' },
     { id: 'reports', label: '📑 Reports' },
     { id: 'inventory', label: '📦 Inventory & Stock' },
@@ -559,8 +591,65 @@ export const Navbar: React.FC<NavbarProps> = ({
       </div>
 
       {/* Navigation Tabs Bar */}
-      <nav className="px-4 flex items-center space-x-1 border-t border-slate-800/90 bg-slate-900 overflow-x-auto no-scrollbar">
+      <nav ref={navDropdownRef} className="px-4 flex items-center space-x-1 border-t border-slate-800/90 bg-slate-900 overflow-x-auto md:overflow-visible no-scrollbar">
         {navItems.map((tab) => {
+          if (tab.subItems) {
+            const isParentActive = tab.subItems.some((s) => s.id === selectedTab);
+            const isDropdownOpen = openNavDropdown === tab.id;
+            return (
+              <div
+                key={tab.id}
+                className="relative"
+                onMouseEnter={() => setOpenNavDropdown(tab.id)}
+                onMouseLeave={() => setOpenNavDropdown(null)}
+              >
+                <button
+                  type="button"
+                  onClick={() => setOpenNavDropdown((prev) => (prev === tab.id ? null : tab.id))}
+                  className={`px-3.5 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer ${
+                    isParentActive
+                      ? 'border-indigo-500 text-white bg-slate-800/60 font-bold'
+                      : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180 text-white' : 'text-slate-400'}`} />
+                </button>
+
+                {isDropdownOpen && (
+                  <div className="absolute left-0 top-full mt-0.5 w-52 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl z-50 p-1.5 space-y-1">
+                    {tab.subItems.map((sub) => {
+                      const isSubActive = selectedTab === sub.id;
+                      return (
+                        <button
+                          key={sub.id}
+                          type="button"
+                          onClick={() => {
+                            handleTabChange(sub.id);
+                            setOpenNavDropdown(null);
+                          }}
+                          className={`w-full text-left px-3 py-2 rounded-md flex items-center justify-between text-xs transition cursor-pointer ${
+                            isSubActive
+                              ? 'bg-indigo-600 text-white font-bold shadow-xs'
+                              : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span>{sub.icon}</span>
+                            <span className="font-semibold">{sub.label}</span>
+                          </div>
+                          <span className={`text-[11px] font-urdu font-medium ${isSubActive ? 'text-indigo-200' : 'text-amber-400'}`}>
+                            {sub.urdu}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
           const isActive = selectedTab === tab.id;
           return (
             <button

@@ -8462,8 +8462,9 @@ class DatabaseService {
       }
     }
 
-    // 2. Reduce Customer Outstanding Balance
-    if (data.customerId) {
+    // 2. Reduce Customer Outstanding Balance (for Khata credit returns)
+    const isCash = Boolean(data.isCash);
+    if (!isCash && data.customerId) {
       const customer = (this.data.customers || []).find(
         (c) => c.id === data.customerId || c.code === data.customerId
       );
@@ -8485,6 +8486,8 @@ class DatabaseService {
       customerCode: data.customerCode || '',
       originalBillNumber: data.originalBillNumber || '',
       salesmanName: data.salesmanName || '',
+      isCash,
+      discount: Number(data.discount) || 0,
       items,
       totalAmount: netTotal,
       netTotal,
@@ -8726,8 +8729,9 @@ class DatabaseService {
       }
     }
 
-    // 2. Reduce Supplier Payable
-    if (data.supplierId) {
+    // 2. Reduce Supplier Payable (for Khata credit returns)
+    const isCash = Boolean(data.isCash);
+    if (!isCash && data.supplierId) {
       const supplier = (this.data.suppliers || []).find(
         (s) => s.id === data.supplierId || s.code === data.supplierId
       );
@@ -8748,6 +8752,10 @@ class DatabaseService {
       supplierAccountTitle: data.supplierAccountTitle || data.supplierName || 'Supplier',
       supplierCode: data.supplierCode || '',
       originalBillNumber: data.originalBillNumber || '',
+      isCash,
+      discount: Number(data.discount) || 0,
+      taxPercent: Number(data.taxPercent) || 0,
+      taxAmount: Number(data.taxAmount) || 0,
       items,
       totalAmount: netTotal,
       netTotal,

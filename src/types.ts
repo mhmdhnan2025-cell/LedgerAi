@@ -1180,17 +1180,24 @@ export interface SaleReturnItem {
   sku?: string;
   category?: string;
   unit?: string;
+  ctn?: number;
+  ratePerCtn?: number;
+  qtyPerCtn?: number;
   qty: number;
   rate: number;
+  disc?: number;
+  vatPct?: number;
+  vatAmt?: number;
   total: number;
+  stock?: number;
   reason?: string;
 }
 
 export interface SaleReturn {
   id: string;
   companyId?: string;
-  returnNumber: string; // e.g. "SR-1001"
-  returnNumberFormatted: string; // e.g. "SR-1001"
+  returnNumber: string; // e.g. "208" or "SR-208"
+  returnNumberFormatted: string; // e.g. "SR-208"
   date: string; // YYYY-MM-DD
   customerId: string;
   customerName: string;
@@ -1198,7 +1205,9 @@ export interface SaleReturn {
   customerCode?: string;
   originalBillNumber?: string;
   salesmanName?: string;
+  isCash?: boolean;
   items: SaleReturnItem[];
+  discount?: number;
   totalAmount: number;
   netTotal: number;
   reason?: string;
@@ -1215,24 +1224,35 @@ export interface PurchaseReturnItem {
   sku?: string;
   category?: string;
   unit?: string;
+  ctn?: number;
+  ratePerCtn?: number;
+  qtyPerCtn?: number;
   qty: number;
   rate: number;
+  disc?: number;
+  vatPct?: number;
+  vatAmt?: number;
   total: number;
+  stock?: number;
   reason?: string;
 }
 
 export interface PurchaseReturn {
   id: string;
   companyId?: string;
-  returnNumber: string; // e.g. "PR-1001"
-  returnNumberFormatted: string; // e.g. "PR-1001"
+  returnNumber: string; // e.g. "12" or "PR-12"
+  returnNumberFormatted: string; // e.g. "PR-12"
   date: string; // YYYY-MM-DD
   supplierId: string;
   supplierName: string;
   supplierAccountTitle: string;
   supplierCode?: string;
   originalBillNumber?: string;
+  isCash?: boolean;
   items: PurchaseReturnItem[];
+  discount?: number;
+  taxPercent?: number;
+  taxAmount?: number;
   totalAmount: number;
   netTotal: number;
   reason?: string;

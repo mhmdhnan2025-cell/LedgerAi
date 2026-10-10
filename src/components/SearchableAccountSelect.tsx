@@ -178,12 +178,38 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
             onKeyDown={(e) => {
               if (e.key === 'ArrowDown') {
                 e.preventDefault();
-                if (!isOpen) setIsOpen(true);
-                setHighlightedIndex((prev) => Math.min(prev + 1, Math.max(0, filteredAccounts.length - 1)));
+                if (!isOpen) {
+                  setIsOpen(true);
+                  return;
+                }
+                setHighlightedIndex((prev) => {
+                  const nextIdx = Math.min(prev + 1, Math.max(0, filteredAccounts.length - 1));
+                  const targetAcc = filteredAccounts[nextIdx];
+                  if (targetAcc) {
+                    setTimeout(() => {
+                      const el = containerRef.current?.querySelector(`[data-acc-id="${targetAcc.id}"]`);
+                      el?.scrollIntoView({ block: 'nearest' });
+                    }, 10);
+                  }
+                  return nextIdx;
+                });
               } else if (e.key === 'ArrowUp') {
                 e.preventDefault();
-                if (!isOpen) setIsOpen(true);
-                setHighlightedIndex((prev) => Math.max(prev - 1, 0));
+                if (!isOpen) {
+                  setIsOpen(true);
+                  return;
+                }
+                setHighlightedIndex((prev) => {
+                  const nextIdx = Math.max(prev - 1, 0);
+                  const targetAcc = filteredAccounts[nextIdx];
+                  if (targetAcc) {
+                    setTimeout(() => {
+                      const el = containerRef.current?.querySelector(`[data-acc-id="${targetAcc.id}"]`);
+                      el?.scrollIntoView({ block: 'nearest' });
+                    }, 10);
+                  }
+                  return nextIdx;
+                });
               } else if (e.key === 'Enter') {
                 e.preventDefault();
                 if (isOpen && filteredAccounts.length > 0 && highlightedIndex >= 0 && highlightedIndex < filteredAccounts.length) {
@@ -235,6 +261,7 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
                     return (
                       <div
                         key={acc.id}
+                        data-acc-id={acc.id}
                         onClick={() => handleSelect(acc)}
                         onMouseEnter={() => {
                           const idx = filteredAccounts.findIndex((a) => a.id === acc.id);
@@ -279,6 +306,7 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
                     return (
                       <div
                         key={acc.id}
+                        data-acc-id={acc.id}
                         onClick={() => handleSelect(acc)}
                         onMouseEnter={() => {
                           const idx = filteredAccounts.findIndex((a) => a.id === acc.id);
@@ -323,6 +351,7 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
                     return (
                       <div
                         key={acc.id}
+                        data-acc-id={acc.id}
                         onClick={() => handleSelect(acc)}
                         onMouseEnter={() => {
                           const idx = filteredAccounts.findIndex((a) => a.id === acc.id);
@@ -366,6 +395,7 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
                     return (
                       <div
                         key={acc.id}
+                        data-acc-id={acc.id}
                         onClick={() => handleSelect(acc)}
                         onMouseEnter={() => {
                           const idx = filteredAccounts.findIndex((a) => a.id === acc.id);

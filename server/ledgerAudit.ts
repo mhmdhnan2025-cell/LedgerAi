@@ -116,6 +116,8 @@ function buildCostLookup(products: Product[]) {
 interface LedgerContext {
   saleBills: SaleBill[];
   purchaseBills: PurchaseBill[];
+  saleReturns: SaleReturn[];
+  purchaseReturns: PurchaseReturn[];
   expenses: Expense[];
   payments: Payment[];
   vouchers: Voucher[];
@@ -157,10 +159,16 @@ function cashMovementOn(ctx: LedgerContext, date: string): { cashIn: number; cas
       cashIn += v.entries.reduce((acc, e) => acc + (Number(e?.receipt) || 0), 0);
     }
   }
+  // Purchase returns in cash: supplier gave cash back to company (+ Cash In)
+  for (const ret of (ctx.purchaseReturns || [])) {
+    if (db.normalizeDateToYMD(ret.date) !== date) continue;
+    if (ret.isCash) cashIn += Number(ret.netTotal) || 0;
+  }
 
   for (const bill of ctx.purchaseBills) {
     if (db.normalizeDateToYMD(bill.date) !== date) continue;
-    if (bill.isCash) cashOut += Number(bill.paidAmount) || 0;
+    const paidCash = bill.isCash ? (Number(bill.paidAmount) || Number(bill.netTotal) || 0) : (Number(bill.paidAmount) || 0);
+    cashOut += paidCash;
   }
   for (const expense of ctx.expenses) {
     if (db.normalizeDateToYMD(expense.date) !== date) continue;
@@ -178,6 +186,11 @@ function cashMovementOn(ctx: LedgerContext, date: string): { cashIn: number; cas
     } else if (v.voucherType === 'CB' && Array.isArray(v.entries)) {
       cashOut += v.entries.reduce((acc, e) => acc + (Number(e?.payment) || 0), 0);
     }
+  }
+  // Sale returns in cash: customer was refunded cash (- Cash Out)
+  for (const ret of (ctx.saleReturns || [])) {
+    if (db.normalizeDateToYMD(ret.date) !== date) continue;
+    if (ret.isCash) cashOut += Number(ret.netTotal) || 0;
   }
 
   return { cashIn, cashOut };
@@ -226,6 +239,8 @@ function cashBalanceBefore(ctx: LedgerContext, date: string): number {
   const dates = new Set<string>();
   for (const bill of ctx.saleBills) dates.add(db.normalizeDateToYMD(bill.date));
   for (const bill of ctx.purchaseBills) dates.add(db.normalizeDateToYMD(bill.date));
+  for (const ret of (ctx.saleReturns || [])) dates.add(db.normalizeDateToYMD(ret.date));
+  for (const ret of (ctx.purchaseReturns || [])) dates.add(db.normalizeDateToYMD(ret.date));
   for (const expense of ctx.expenses) dates.add(db.normalizeDateToYMD(expense.date));
   for (const payment of ctx.payments) dates.add(db.normalizeDateToYMD(payment.paymentDate));
   for (const v of (ctx.vouchers || [])) if (v.date) dates.add(db.normalizeDateToYMD(v.date));
@@ -729,6 +744,8 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     const ctx: LedgerContext = {
       saleBills: allSaleBills,
       purchaseBills,
+      saleReturns,
+      purchaseReturns,
       expenses,
       payments,
       vouchers,
@@ -741,27 +758,62 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     const todayNetCash = todayMove.cashIn - todayMove.cashOut;
     const cashInHand = openingCashBalance + todayNetCash;
 
-    // Supplier cash payments today: purchase cash bills + CP vouchers / CB payments for suppliers
-    let todaySupplierCash = purchaseToday
-      .filter((b) => b.isCash)
-      .reduce((s, b) => s + (Number(b.paidAmount) || 0), 0);
+    // Build comprehensive set of supplier IDs, codes, account titles for exact detection
+    const supplierIds = new Set<string>();
+    const supplierCodes = new Set<string>();
+    const supplierTitles = new Set<string>();
+    for (const s of suppliers) {
+      if (s.id) supplierIds.add(s.id);
+      if (s.code) supplierCodes.add(s.code.toLowerCase().trim());
+      if (s.accountTitle) supplierTitles.add(s.accountTitle.toLowerCase().trim());
+      if (s.title) supplierTitles.add(s.title.toLowerCase().trim());
+    }
 
+    // Supplier cash payments today:
+    // 1) Cash purchases / paid on purchase bills today
+    let todaySupplierCash = 0;
+    for (const b of purchaseToday) {
+      const paid = b.isCash ? (Number(b.paidAmount) || Number(b.netTotal) || 0) : (Number(b.paidAmount) || 0);
+      todaySupplierCash += paid;
+    }
+
+    // 2) CP vouchers and CB payments for suppliers
     for (const v of vouchers) {
       if (v.status !== 'POSTED') continue;
       if (db.normalizeDateToYMD(v.date) !== auditDate) continue;
       if (v.voucherType === 'CP') {
         for (const e of (v.entries || [])) {
-          const isSupplier = e.accountType === 'Supplier' || String(e.accountCode || '').startsWith('02');
+          const isSupplier =
+            e.accountType === 'Supplier' ||
+            String(e.accountCode || '').startsWith('02') ||
+            (e.accountId && supplierIds.has(e.accountId)) ||
+            (e.accountCode && supplierCodes.has(e.accountCode.toLowerCase().trim())) ||
+            (e.accountTitle && supplierTitles.has(e.accountTitle.toLowerCase().trim()));
           if (isSupplier) {
             todaySupplierCash += Number(e.amount) || 0;
           }
         }
-      } else if (v.voucherType === 'CB') {
-        for (const e of (v.entries || [])) {
-          const isSupplier = e.accountType === 'Supplier' || String(e.accountCode || '').startsWith('02');
+      } else if (v.voucherType === 'CB' && Array.isArray(v.entries)) {
+        for (const e of v.entries) {
+          const isSupplier =
+            e.accountType === 'Supplier' ||
+            String(e.accountCode || '').startsWith('02') ||
+            (e.accountId && supplierIds.has(e.accountId)) ||
+            (e.accountCode && supplierCodes.has(e.accountCode.toLowerCase().trim())) ||
+            (e.accountTitle && supplierTitles.has(e.accountTitle.toLowerCase().trim()));
           if (isSupplier) {
             todaySupplierCash += Number(e.payment) || 0;
           }
+        }
+      }
+    }
+
+    // 3) Payments logged directly against suppliers in payments table
+    for (const p of payments) {
+      if (db.normalizeDateToYMD((p as any).paymentDate || (p as any).date || '') !== auditDate) continue;
+      if ((p as any).supplierId || (p as any).supplierName) {
+        if (((p as any).paymentMethod || 'Cash').toLowerCase().includes('cash')) {
+          todaySupplierCash += Number(p.amount) || 0;
         }
       }
     }
@@ -798,16 +850,28 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
       }
     }
 
-    const todayCounterCashSales = Math.max(0, todayMove.cashIn - todayMarketWasooli);
+    const todayPRCash = purchaseReturnsToday.filter((r) => r.isCash).reduce((s, r) => s + (Number(r.netTotal) || 0), 0);
+    const todaySRCash = saleReturnsToday.filter((r) => r.isCash).reduce((s, r) => s + (Number(r.netTotal) || 0), 0);
+    const todayCounterCashSales = Math.max(0, todayMove.cashIn - todayMarketWasooli - todayPRCash);
 
     const inflows: AiLedgerAuditCashRow[] = [
       { label: 'Total Cash Received (کل کیش ان / نقد وصولی)', value: todayMove.cashIn, tag: 'CASH IN', direction: 'in' },
       { label: 'Market Udhaar Wasooli (مارکیٹ وصولی)', value: todayMarketWasooli, tag: 'WASOOLI', direction: 'in' },
       { label: 'Counter Cash Sales (کاؤنٹر نقد فروخت)', value: todayCounterCashSales, tag: 'SALES', direction: 'in' },
-      { label: 'Today Paid to Supplier (Mill / Vendor Cash)', value: todaySupplierCash, tag: 'SUPPLIER', direction: 'out' },
-      { label: 'Daily Expense (Salaries, Petrol, Utilities, Misc)', value: todayExpenses, tag: 'EXPENSE', direction: 'out' },
-      { label: 'Discount Given to Customers (adjusted in bill)', value: todayDiscount, tag: 'MEMO', direction: 'memo' },
     ];
+    if (todayPRCash > 0) {
+      inflows.push({ label: 'Cash from Purchase Returns (خریداری واپسی نقد وصولی)', value: todayPRCash, tag: 'PUR RETURN', direction: 'in' });
+    }
+    inflows.push(
+      { label: 'Today Paid to Supplier (Mill / Vendor Cash)', value: todaySupplierCash, tag: 'SUPPLIER', direction: 'out' },
+      { label: 'Daily Expense (Salaries, Petrol, Utilities, Misc)', value: todayExpenses, tag: 'EXPENSE', direction: 'out' }
+    );
+    if (todaySRCash > 0) {
+      inflows.push({ label: 'Cash Refunded on Sales Returns (فروخت واپسی نقد ادائیگی)', value: todaySRCash, tag: 'SALE RETURN', direction: 'out' });
+    }
+    inflows.push(
+      { label: 'Discount Given to Customers (adjusted in bill)', value: todayDiscount, tag: 'MEMO', direction: 'memo' }
+    );
 
     const bankRows: AiLedgerAuditCashRow[] = [
       { label: 'Bank Received (Direct Online / Raast / Cheques)', value: todayBank.bankIn, tag: 'BANK IN', direction: 'in' },

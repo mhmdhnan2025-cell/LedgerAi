@@ -91,6 +91,9 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
 
   // Line Item Entry State
   const accountInputRef = useRef<HTMLInputElement>(null);
+  const amountInputRef = useRef<HTMLInputElement>(null);
+  const debitInputRef = useRef<HTMLInputElement>(null);
+  const receiptInputRef = useRef<HTMLInputElement>(null);
   const [selectedAccountId, setSelectedAccountId] = useState('');
   const [accountSearch, setAccountSearch] = useState('');
   const [chequeNo, setChequeNo] = useState('');
@@ -967,7 +970,23 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                     inputRef={accountInputRef}
                     accounts={safeGlAccounts}
                     selectedAccountId={selectedAccountId}
-                    onSelectAccount={(id) => setSelectedAccountId(id)}
+                    onSelectAccount={(id) => {
+                      setSelectedAccountId(id);
+                      if (id) {
+                        setTimeout(() => {
+                          if (activeTab === 'journalVoucher') {
+                            debitInputRef.current?.focus();
+                            debitInputRef.current?.select();
+                          } else if (activeTab === 'cashBook') {
+                            receiptInputRef.current?.focus();
+                            receiptInputRef.current?.select();
+                          } else {
+                            amountInputRef.current?.focus();
+                            amountInputRef.current?.select();
+                          }
+                        }, 50);
+                      }
+                    }}
                     placeholder="Search account name or code (↑ ↓ to navigate, Enter to select)..."
                     required
                   />
@@ -1052,10 +1071,17 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                         DEBIT
                       </label>
                       <input
+                        ref={debitInputRef}
                         type="number"
                         step="0.01"
                         value={entryDebit}
                         onChange={(e) => setEntryDebit(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddEntry(e as any);
+                          }
+                        }}
                         placeholder="0.00"
                         className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-emerald-300 font-bold outline-none focus:border-emerald-500"
                       />
@@ -1069,6 +1095,12 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                         step="0.01"
                         value={entryCredit}
                         onChange={(e) => setEntryCredit(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddEntry(e as any);
+                          }
+                        }}
                         placeholder="0.00"
                         className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-rose-300 font-bold outline-none focus:border-rose-500"
                       />
@@ -1084,10 +1116,17 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                         RECEIPT
                       </label>
                       <input
+                        ref={receiptInputRef}
                         type="number"
                         step="0.01"
                         value={entryReceipt}
                         onChange={(e) => setEntryReceipt(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddEntry(e as any);
+                          }
+                        }}
                         placeholder="0.00"
                         className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-emerald-300 font-bold outline-none focus:border-emerald-500"
                       />
@@ -1101,6 +1140,12 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                         step="0.01"
                         value={entryPayment}
                         onChange={(e) => setEntryPayment(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddEntry(e as any);
+                          }
+                        }}
                         placeholder="0.00"
                         className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-rose-300 font-bold outline-none focus:border-rose-500"
                       />
@@ -1115,11 +1160,18 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                       AMOUNT
                     </label>
                     <input
+                      ref={amountInputRef}
                       type="number"
                       step="0.01"
                       required
                       value={entryAmount}
                       onChange={(e) => setEntryAmount(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddEntry(e as any);
+                        }
+                      }}
                       placeholder="0.00"
                       className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-white font-bold outline-none focus:border-sky-500"
                     />

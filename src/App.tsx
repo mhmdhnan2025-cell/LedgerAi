@@ -48,8 +48,10 @@ import { SettingsView } from './components/SettingsView';
 import { EmployeeManagementView } from './components/EmployeeManagementView';
 import { SupplierManagementView } from './components/SupplierManagementView';
 import { PurchasingView } from './components/PurchasingView';
+import { PurchaseReturnsView } from './components/PurchaseReturnsView';
 import { ReportsView } from './components/ReportsView';
 import { SalesView } from './components/SalesView';
+import { SaleReturnsView } from './components/SaleReturnsView';
 import { CustomerManagementView } from './components/CustomerManagementView';
 import { CashBankManagementView } from './components/CashBankManagementView';
 import { GeminiApiKeyModal } from './components/GeminiApiKeyModal';
@@ -58,7 +60,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<
-    'aimunshi' | 'sales' | 'purchasing' | 'reports' | 'cashbank' | 'inventory' | 'restaurants' | 'customers' | 'expenses' | 'suppliers' | 'settings' | 'employees'
+    'aimunshi' | 'sales' | 'sales-return' | 'purchasing' | 'purchasing-return' | 'reports' | 'cashbank' | 'inventory' | 'restaurants' | 'customers' | 'expenses' | 'suppliers' | 'settings' | 'employees' | 'orders' | 'audit'
   >('aimunshi');
   const [currentRole, setCurrentRole] = useState<UserRole>('Admin');
   const [authUser, setAuthUser] = useState<User | null>(() => OfflineStorageService.loadActiveUser());
@@ -610,6 +612,17 @@ export default function App() {
           />
         )}
 
+        {currentTab === 'sales-return' && (
+          <SaleReturnsView
+            products={products}
+            currentRole={currentRole}
+            currentUser={currentUser}
+            companyProfile={companyProfile}
+            onRefreshData={() => loadBusinessData(true)}
+            onNavigateTab={(tab) => setCurrentTab(tab as any)}
+          />
+        )}
+
         {currentTab === 'purchasing' && (
           <PurchasingView
             products={products}
@@ -617,6 +630,18 @@ export default function App() {
             companyProfile={companyProfile}
             currentRole={currentRole}
             currentUser={currentUser}
+            onRefreshData={() => loadBusinessData(true)}
+            onNavigateTab={(tab) => setCurrentTab(tab as any)}
+          />
+        )}
+
+        {currentTab === 'purchasing-return' && (
+          <PurchaseReturnsView
+            suppliers={suppliers}
+            products={products}
+            currentRole={currentRole}
+            currentUser={currentUser}
+            companyProfile={companyProfile}
             onRefreshData={() => loadBusinessData(true)}
             onNavigateTab={(tab) => setCurrentTab(tab as any)}
           />
