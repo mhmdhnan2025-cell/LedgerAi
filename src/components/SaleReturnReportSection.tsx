@@ -23,12 +23,14 @@ interface SaleReturnReportSectionProps {
   companyProfile?: CompanyProfile | null;
   products?: Product[];
   onNavigateTab?: (tab: string) => void;
+  onRefreshData?: () => void;
 }
 
 export const SaleReturnReportSection: React.FC<SaleReturnReportSectionProps> = ({
   companyProfile,
   products = [],
   onNavigateTab,
+  onRefreshData,
 }) => {
   const [returns, setReturns] = useState<SaleReturn[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -77,6 +79,7 @@ export const SaleReturnReportSection: React.FC<SaleReturnReportSectionProps> = (
     try {
       await api.deleteSaleReturn(id);
       loadData();
+      if (onRefreshData) onRefreshData();
     } catch (err: any) {
       alert(`Error deleting return: ${err.message}`);
     }

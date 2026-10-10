@@ -1674,6 +1674,10 @@ app.delete('/api/purchase-returns/:id', (req, res) => {
 // -------------------------------------------------------------
 app.get('/api/reports/ledger-audit', (req, res) => {
   try {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
     const date = typeof req.query.date === 'string' ? req.query.date : undefined;
     const format = String(req.query.format || 'json');
 

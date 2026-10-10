@@ -1457,18 +1457,18 @@ export const api = {
   // AI LEDGER MASTER BUSINESS AUDIT REPORT + TIJORY CASH REGISTER
   // -----------------------------------------------------------
   async getAiLedgerAuditReport(date?: string): Promise<AiLedgerAuditReport> {
-    const params = new URLSearchParams({ format: 'json' });
+    const params = new URLSearchParams({ format: 'json', _t: String(Date.now()) });
     if (date) params.set('date', date);
-    const res = await fetch(`/api/reports/ledger-audit?${params.toString()}`);
+    const res = await fetch(`/api/reports/ledger-audit?${params.toString()}`, { cache: 'no-store' });
     const data = await res.json();
     if (!res.ok || !data.success) throw new Error(data.error || 'Failed to build AI Ledger Master Audit Report');
     return data.data;
   },
 
   async getAiLedgerAuditReportHtml(date?: string): Promise<string> {
-    const params = new URLSearchParams({ format: 'html' });
+    const params = new URLSearchParams({ format: 'html', _t: String(Date.now()) });
     if (date) params.set('date', date);
-    const res = await fetch(`/api/reports/ledger-audit?${params.toString()}`);
+    const res = await fetch(`/api/reports/ledger-audit?${params.toString()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error('Failed to render AI Ledger Master Audit Report');
     return res.text();
   },

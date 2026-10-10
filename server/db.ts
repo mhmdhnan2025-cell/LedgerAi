@@ -4391,6 +4391,7 @@ class DatabaseService {
     });
 
     this.persist();
+    postgresService.deleteOrder(order.id, getActiveCompanyId()).catch(() => {});
     return true;
   }
 
@@ -4505,6 +4506,7 @@ class DatabaseService {
     });
 
     this.persist();
+    postgresService.deletePayment(payment.id, getActiveCompanyId()).catch(() => {});
     return true;
   }
 
@@ -4615,6 +4617,7 @@ class DatabaseService {
     });
 
     this.persist();
+    postgresService.deleteExpense(expense.id, getActiveCompanyId()).catch(() => {});
     return true;
   }
 
@@ -5482,6 +5485,15 @@ class DatabaseService {
 
     this.data.purchaseBills.splice(idx, 1);
 
+    // Clean up associated inventory transactions
+    if (this.data.inventoryTransactions) {
+      this.data.inventoryTransactions = this.data.inventoryTransactions.filter(
+        (tx) => tx.referenceId !== bill.billNumber && tx.referenceId !== `bill-${bill.billNumber}` && tx.referenceId !== bill.id
+      );
+    }
+
+    this.recalculateAllLedgers();
+
     this.logAudit({
       userId: user.id,
       userName: user.name,
@@ -5494,6 +5506,10 @@ class DatabaseService {
     });
 
     this.persist();
+    postgresService.deletePurchaseBill(bill.id, getActiveCompanyId()).catch(() => {});
+    if (bill.billNumber) {
+      postgresService.deletePurchaseBill(bill.billNumber, getActiveCompanyId()).catch(() => {});
+    }
     return true;
   }
 
@@ -6438,6 +6454,15 @@ class DatabaseService {
 
     this.data.saleBills.splice(idx, 1);
 
+    // Clean up associated inventory transactions
+    if (this.data.inventoryTransactions) {
+      this.data.inventoryTransactions = this.data.inventoryTransactions.filter(
+        (tx) => tx.referenceId !== bill.billNumber && tx.referenceId !== `sale-${bill.billNumber}` && tx.referenceId !== bill.id
+      );
+    }
+
+    this.recalculateAllLedgers();
+
     this.logAudit({
       userId: user.id,
       userName: user.name,
@@ -6450,6 +6475,10 @@ class DatabaseService {
     });
 
     this.persist();
+    postgresService.deleteSaleBill(bill.id, getActiveCompanyId()).catch(() => {});
+    if (bill.billNumber) {
+      postgresService.deleteSaleBill(bill.billNumber, getActiveCompanyId()).catch(() => {});
+    }
     return true;
   }
 
@@ -8639,6 +8668,17 @@ class DatabaseService {
 
     list.splice(idx, 1);
 
+    // Clean up associated inventory transactions
+    if (this.data.inventoryTransactions) {
+      this.data.inventoryTransactions = this.data.inventoryTransactions.filter(
+        (tx) =>
+          tx.referenceId !== oldReturn.returnNumber &&
+          tx.referenceId !== oldReturn.returnNumberFormatted &&
+          tx.referenceId !== oldReturn.id &&
+          tx.id !== `tx-sr-${oldReturn.returnNumber}`
+      );
+    }
+
     this.logAudit({
       userId: 'user-admin',
       userName,
@@ -8909,6 +8949,17 @@ class DatabaseService {
     }
 
     list.splice(idx, 1);
+
+    // Clean up associated inventory transactions
+    if (this.data.inventoryTransactions) {
+      this.data.inventoryTransactions = this.data.inventoryTransactions.filter(
+        (tx) =>
+          tx.referenceId !== oldReturn.returnNumber &&
+          tx.referenceId !== oldReturn.returnNumberFormatted &&
+          tx.referenceId !== oldReturn.id &&
+          tx.id !== `tx-pr-${oldReturn.returnNumber}`
+      );
+    }
 
     this.logAudit({
       userId: 'user-admin',

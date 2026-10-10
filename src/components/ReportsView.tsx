@@ -546,6 +546,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             companyProfile={companyProfile}
             products={products}
             onNavigateTab={onNavigateTab}
+            onRefreshData={onRefreshData}
           />
         </ErrorBoundary>
       ) : activeReportTab === 'purchaseReturns' ? (
@@ -555,6 +556,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             products={products}
             suppliers={suppliers}
             onNavigateTab={onNavigateTab}
+            onRefreshData={onRefreshData}
           />
         </ErrorBoundary>
       ) : (

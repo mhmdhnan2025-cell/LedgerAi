@@ -23,6 +23,7 @@ interface PurchaseReturnReportSectionProps {
   products?: Product[];
   suppliers?: Supplier[];
   onNavigateTab?: (tab: string) => void;
+  onRefreshData?: () => void;
 }
 
 export const PurchaseReturnReportSection: React.FC<PurchaseReturnReportSectionProps> = ({
@@ -30,6 +31,7 @@ export const PurchaseReturnReportSection: React.FC<PurchaseReturnReportSectionPr
   products = [],
   suppliers = [],
   onNavigateTab,
+  onRefreshData,
 }) => {
   const [returns, setReturns] = useState<PurchaseReturn[]>([]);
   const [allSuppliers, setAllSuppliers] = useState<Supplier[]>(suppliers);
@@ -78,6 +80,7 @@ export const PurchaseReturnReportSection: React.FC<PurchaseReturnReportSectionPr
     try {
       await api.deletePurchaseReturn(id);
       loadData();
+      if (onRefreshData) onRefreshData();
     } catch (err: any) {
       alert(`Error deleting return: ${err.message}`);
     }

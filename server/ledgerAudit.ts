@@ -466,14 +466,79 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
   try {
     const today = todayYmd();
 
-    const allSaleBills = (db.getSaleBills() || []).filter((b) => b.status !== 'Cancelled');
-    const purchaseBills = db.getPurchaseBills() || [];
-    const saleReturns = (db.getSaleReturns() || []).filter((r) => r.status !== 'CANCELLED');
-    const purchaseReturns = (db.getPurchaseReturns() || []).filter((r) => r.status !== 'CANCELLED');
-    const expenses = db.getExpenses() || [];
-    const payments = db.getPayments() || [];
-    const vouchers = db.getVouchers() || [];
-    const orders = (db.getOrders() || []).filter((o) => o.status !== 'Cancelled');
+    const allSaleBills = (db.getSaleBills() || []).filter(
+      (b) =>
+        b &&
+        b.status !== 'Cancelled' &&
+        (b as any).status !== 'CANCELLED' &&
+        (b as any).status !== 'Deleted' &&
+        (b as any).status !== 'DELETED' &&
+        !(b as any).isDeleted
+    );
+    const purchaseBills = (db.getPurchaseBills() || []).filter(
+      (b) =>
+        b &&
+        b.status !== 'Cancelled' &&
+        (b as any).status !== 'CANCELLED' &&
+        (b as any).status !== 'Deleted' &&
+        (b as any).status !== 'DELETED' &&
+        !(b as any).isDeleted
+    );
+    const saleReturns = (db.getSaleReturns() || []).filter(
+      (r) =>
+        r &&
+        r.status !== 'CANCELLED' &&
+        (r as any).status !== 'Cancelled' &&
+        (r as any).status !== 'DELETED' &&
+        (r as any).status !== 'Deleted' &&
+        !(r as any).isDeleted
+    );
+    const purchaseReturns = (db.getPurchaseReturns() || []).filter(
+      (r) =>
+        r &&
+        r.status !== 'CANCELLED' &&
+        (r as any).status !== 'Cancelled' &&
+        (r as any).status !== 'DELETED' &&
+        (r as any).status !== 'Deleted' &&
+        !(r as any).isDeleted
+    );
+    const expenses = (db.getExpenses() || []).filter(
+      (e) =>
+        e &&
+        !(e as any).isDeleted &&
+        (e as any).status !== 'DELETED' &&
+        (e as any).status !== 'Deleted' &&
+        (e as any).status !== 'Cancelled' &&
+        (e as any).status !== 'CANCELLED'
+    );
+    const payments = (db.getPayments() || []).filter(
+      (p) =>
+        p &&
+        !(p as any).isDeleted &&
+        (p as any).status !== 'DELETED' &&
+        (p as any).status !== 'Deleted' &&
+        (p as any).status !== 'Cancelled' &&
+        (p as any).status !== 'CANCELLED'
+    );
+    const vouchers = (db.getVouchers() || []).filter(
+      (v) =>
+        v &&
+        v.status === 'POSTED' &&
+        !(v as any).isDeleted &&
+        (v as any).status !== 'DELETED' &&
+        (v as any).status !== 'Deleted' &&
+        (v as any).status !== 'CANCELLED' &&
+        (v as any).status !== 'Cancelled'
+    );
+    const orders = (db.getOrders() || []).filter(
+      (o) =>
+        o &&
+        o.status !== 'Cancelled' &&
+        (o as any).status !== 'CANCELLED' &&
+        (o as any).status !== 'Deleted' &&
+        (o as any).status !== 'DELETED' &&
+        !(o as any).isDeleted
+    );
     const customers = db.getCustomers() || [];
     const suppliers = db.getSuppliers() || [];
     const products = db.getProducts() || [];
