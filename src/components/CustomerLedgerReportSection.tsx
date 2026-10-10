@@ -402,20 +402,27 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
                           onMouseEnter={() => setHighlightedIndex(index)}
                           className={`p-2.5 text-xs cursor-pointer flex items-center justify-between transition ${
                             isHighlighted
-                              ? 'bg-sky-600/30 text-white'
+                              ? 'dropdown-active-cursor'
                               : isSelected
-                              ? 'bg-sky-900/40 text-sky-200'
+                              ? 'dropdown-selected-item'
                               : 'text-slate-200 hover:bg-slate-700/60'
                           }`}
                         >
-                          <div>
-                            <div className="font-semibold text-white">
-                              {c.code || c.accountCode} - {c.accountTitle || c.name}
+                          <div className="flex items-center gap-2">
+                            {isHighlighted && <span className="text-amber-300 font-black text-xs select-none">▶</span>}
+                            <div>
+                              <div className={`font-semibold ${isHighlighted ? 'font-bold text-white' : 'text-white'}`}>
+                                {c.code || c.accountCode} - {c.accountTitle || c.name}
+                              </div>
+                              <div className={`text-[11px] ${isHighlighted ? 'text-code-highlight' : 'text-slate-400'}`}>
+                                {c.city || c.area || c.mobile || 'No contact'}
+                              </div>
                             </div>
-                            <div className="text-[11px] text-slate-400">{c.city || c.area || c.mobile || 'No contact'}</div>
                           </div>
                           <div className="text-right shrink-0 ml-2">
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-900 text-slate-300 font-mono">
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
+                              isHighlighted ? 'text-stock-highlight font-bold' : 'bg-slate-900 text-slate-300'
+                            }`}>
                               {currencySymbol()} {formatNumber(c.outstandingBalance)}
                             </span>
                           </div>

@@ -1741,4 +1741,48 @@ html[data-theme="dark"] .auth-card {
   border-color: #1D2E4D !important;
 }
 
+/* ========================================================================= */
+/* UNIVERSAL DROPDOWN ACTIVE CURSOR & SELECTION HIGHLIGHT ENGINE              */
+/* Ultra high-contrast, vivid cursor indicator across all 6 themes & modes  */
+/* ========================================================================= */
+
+.dropdown-active-cursor {
+  background-color: #0284c7 !important; /* Sky 600 - High Contrast Vibrant Blue */
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
+  color: #ffffff !important;
+  border-left: 5px solid #f59e0b !important; /* Bold Amber pointer bar */
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.45) !important;
+  outline: 1.5px solid #38bdf8 !important;
+}
+
+.dropdown-active-cursor,
+.dropdown-active-cursor *,
+.dropdown-active-cursor span,
+.dropdown-active-cursor div {
+  color: #ffffff !important;
+}
+
+.dropdown-active-cursor .text-stock-highlight {
+  color: #fef08a !important; /* Vivid Light Yellow for Stock */
+  background-color: rgba(0, 0, 0, 0.4) !important;
+  border: 1px solid rgba(254, 240, 138, 0.5) !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.dropdown-active-cursor .text-code-highlight {
+  color: #bae6fd !important; /* Light sky cyan for code/SKU */
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.dropdown-active-cursor .text-type-highlight {
+  color: #ffffff !important;
+  background-color: #075985 !important;
+  border: 1px solid #7dd3fc !important;
+}
+
+.dropdown-selected-item {
+  background-color: rgba(2, 132, 199, 0.22) !important;
+  border-left: 5px solid #0284c7 !important;
+}
+
 

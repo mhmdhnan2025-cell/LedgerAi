@@ -532,7 +532,11 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
                     setIsAccountDropdownOpen(true);
                     setHighlightedAccountIdx(0);
                   }}
-                  onFocus={() => setIsAccountDropdownOpen(true)}
+                  onFocus={() => {
+                    setIsAccountDropdownOpen(true);
+                    const foundIdx = filteredAccounts.findIndex((a) => a.id === selectedAccount?.id);
+                    setHighlightedAccountIdx(foundIdx >= 0 ? foundIdx : 0);
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === 'ArrowDown') {
                       e.preventDefault();
@@ -591,18 +595,25 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
                           onClick={() => handleSelectAccount(acc)}
                           onMouseEnter={() => setHighlightedAccountIdx(idx)}
                           className={`px-3 py-2 cursor-pointer flex items-center justify-between transition ${
-                            isSelected
-                              ? 'bg-sky-950 text-sky-200 font-bold border-l-4 border-sky-400'
-                              : isHighlighted
-                              ? 'bg-slate-800 text-white font-semibold'
+                            isHighlighted
+                              ? 'dropdown-active-cursor'
+                              : isSelected
+                              ? 'dropdown-selected-item'
                               : 'text-slate-300 hover:bg-slate-800/60'
                           }`}
                         >
                           <div className="flex items-center gap-2 overflow-hidden">
-                            <span className="font-mono text-sky-400 text-[11px]">{acc.code}</span>
-                            <span className="truncate">{acc.title}</span>
+                            {isHighlighted && <span className="text-amber-300 font-black text-xs select-none">▶</span>}
+                            <span className={`font-mono text-[11px] ${isHighlighted ? 'text-code-highlight font-bold' : 'text-sky-400'}`}>
+                              {acc.code}
+                            </span>
+                            <span className={`truncate ${isHighlighted ? 'font-bold text-white' : ''}`}>{acc.title}</span>
                           </div>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono border border-slate-700">
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono border ${
+                            isHighlighted
+                              ? 'text-type-highlight font-bold'
+                              : 'bg-slate-800 text-slate-400 border-slate-700'
+                          }`}>
                             {acc.type}
                           </span>
                         </div>
@@ -642,7 +653,11 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
                     setIsItemDropdownOpen(true);
                     setHighlightedItemIdx(0);
                   }}
-                  onFocus={() => setIsItemDropdownOpen(true)}
+                  onFocus={() => {
+                    setIsItemDropdownOpen(true);
+                    const foundIdx = filteredProducts.findIndex((p) => p.id === selectedProduct?.id);
+                    setHighlightedItemIdx(foundIdx >= 0 ? foundIdx : 0);
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === 'ArrowDown') {
                       e.preventDefault();
@@ -699,18 +714,25 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
                             onClick={() => handleSelectProduct(p)}
                             onMouseEnter={() => setHighlightedItemIdx(idx)}
                             className={`px-3 py-2 cursor-pointer flex items-center justify-between transition ${
-                              isSelected
-                                ? 'bg-sky-950 text-sky-200 font-bold border-l-4 border-sky-400'
-                                : isHighlighted
-                                ? 'bg-slate-800 text-white font-semibold'
+                              isHighlighted
+                                ? 'dropdown-active-cursor'
+                                : isSelected
+                                ? 'dropdown-selected-item'
                                 : 'text-slate-300 hover:bg-slate-800/60'
                             }`}
                           >
-                            <div className="flex flex-col min-w-0">
-                              <span className="truncate font-semibold text-white">{p.name}</span>
-                              <span className="text-[10px] text-slate-400 font-mono">Code: {p.code || p.sku || 'N/A'}</span>
+                            <div className="flex items-center gap-2 min-w-0">
+                              {isHighlighted && <span className="text-amber-300 font-black text-xs select-none">▶</span>}
+                              <div className="flex flex-col min-w-0">
+                                <span className={`truncate font-semibold ${isHighlighted ? 'font-bold text-white' : 'text-white'}`}>{p.name}</span>
+                                <span className={`text-[10px] font-mono ${isHighlighted ? 'text-code-highlight' : 'text-slate-400'}`}>
+                                  Code: {p.code || p.sku || 'N/A'}
+                                </span>
+                              </div>
                             </div>
-                            <span className="text-[11px] font-mono text-emerald-400 font-bold ml-2 shrink-0">
+                            <span className={`text-[11px] font-mono font-bold ml-2 shrink-0 px-2 py-0.5 rounded ${
+                              isHighlighted ? 'text-stock-highlight' : 'text-emerald-400'
+                            }`}>
                               Stock: {p.currentQuantity || 0} {p.unit || ''}
                             </span>
                           </div>
