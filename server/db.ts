@@ -2174,7 +2174,7 @@ class DatabaseService {
   public setGeminiApiKey(key: string): void {
     const cleanKey = (key || '').trim();
     this.data.geminiApiKey = cleanKey;
-    this.save();
+    this.persist();
     if (cleanKey.length > 5) {
       postgresService.setSystemSetting('gemini_api_key', cleanKey).catch(() => {});
     }
@@ -8286,6 +8286,8 @@ class DatabaseService {
         credit: 0,
         balance: 0,
         balanceType: 'DR',
+        entityId: b.id,
+        entityType: 'saleBill',
       });
     }
 
@@ -8313,6 +8315,8 @@ class DatabaseService {
             credit: amt,
             balance: 0,
             balanceType: 'DR',
+            entityId: v.id,
+            entityType: 'voucher',
           });
         } else if (v.voucherType === 'CB') {
           const rec = Number(e.receipt || e.amount || 0);
@@ -8328,6 +8332,8 @@ class DatabaseService {
             credit: rec,
             balance: 0,
             balanceType: 'DR',
+            entityId: v.id,
+            entityType: 'voucher',
           });
         } else if (v.voucherType === 'JV') {
           const dr = Number(e.debit || 0);
@@ -8344,9 +8350,35 @@ class DatabaseService {
             credit: cr,
             balance: 0,
             balanceType: 'DR',
+            entityId: v.id,
+            entityType: 'voucher',
           });
         }
       }
+    }
+
+    // Direct Customer Payments in payments table
+    for (const p of (this.data.payments || [])) {
+      if ((p as any).isDeleted || p.status === 'Cancelled' || (p as any).status === 'DELETED') continue;
+      if (!matchesCustomer(p.restaurantId || (p as any).customerId)) continue;
+      const pDate = this.normalizeDateToYMD(p.paymentDate || p.date || (p as any).createdAt || '');
+      if (pDate < normFrom || pDate > normTo) continue;
+      if (entries.some((e) => e.entityId === p.id)) continue;
+
+      entries.push({
+        id: p.id,
+        refType: 'CR#',
+        refNumber: (p as any).referenceNo || `PAY-${p.id}`,
+        date: p.paymentDate || p.date || pDate,
+        billNumber: p.orderId || '',
+        narration: p.notes || `Payment Received (${p.paymentMethod || 'Cash'})`,
+        debit: 0,
+        credit: Number(p.amount || 0),
+        balance: 0,
+        balanceType: 'DR',
+        entityId: p.id,
+        entityType: 'payment',
+      });
     }
 
     // Sales Returns
@@ -8372,6 +8404,8 @@ class DatabaseService {
         credit: Number(sr.netTotal || sr.totalAmount || 0),
         balance: 0,
         balanceType: 'DR',
+        entityId: sr.id,
+        entityType: 'saleReturn',
       });
     }
 
@@ -8416,6 +8450,161 @@ class DatabaseService {
       totalCredit: Number(totalCredit.toFixed(2)),
       entries,
     };
+  }
+
+  // =========================================================================
+  // REPORT ENTRY DELETIONS & LEDGER REVERSALS
+  // =========================================================================
+  public deleteCashRecoveredItem(id: string, userName: string = 'Admin'): boolean {
+    if (!id) return false;
+
+    // 1. Sale Bill market recovery
+    if (id.startsWith('sb-rec-')) {
+      const billId = id.replace('sb-rec-', '');
+      const bill = (this.data.saleBills || []).find((b) => b.id === billId || b.billNumber === billId);
+      if (bill && bill.balanceRecovered) {
+        const recoveredAmt = Number(bill.balanceRecoveredAmount) || 0;
+        bill.balanceRecovered = false;
+        bill.balanceRecoveredAmount = 0;
+        if (bill.customerId) {
+          const cust = (this.data.customers || []).find((c) => c.id === bill.customerId || c.code === bill.customerId);
+          if (cust) {
+            cust.outstandingBalance = Number(((cust.outstandingBalance || 0) + recoveredAmt).toFixed(2));
+          }
+        }
+        this.recalculateAllLedgers();
+        this.persist();
+        return true;
+      }
+      return false;
+    }
+
+    // 2. Voucher
+    if ((this.data.vouchers || []).some((v) => v.id === id)) {
+      return this.deleteVoucher(id, userName);
+    }
+
+    // 3. Payment
+    if ((this.data.payments || []).some((p) => p.id === id || p.paymentNumber === id)) {
+      return this.deletePayment(id, { id: 'admin', name: userName, role: 'Admin' });
+    }
+
+    return false;
+  }
+
+  public deleteCashPaidItem(id: string, userName: string = 'Admin'): boolean {
+    if (!id) return false;
+
+    // 1. Purchase bill payment
+    if (id.startsWith('pb-paid-')) {
+      const billId = id.replace('pb-paid-', '');
+      const bill = (this.data.purchaseBills || []).find((b) => b.id === billId || b.billNumber === billId);
+      if (bill) {
+        const paid = Number(bill.paidAmount) || 0;
+        bill.paidAmount = 0;
+        bill.remainingBalance = Number(bill.netTotal) || 0;
+        if (bill.supplierId) {
+          const supp = (this.data.suppliers || []).find((s) => s.id === bill.supplierId || s.code === bill.supplierId);
+          if (supp) {
+            supp.payableToSupplier = Number(((supp.payableToSupplier || 0) + paid).toFixed(2));
+            supp.balanceOwed = supp.payableToSupplier;
+          }
+        }
+        this.recalculateAllLedgers();
+        this.persist();
+        return true;
+      }
+      return false;
+    }
+
+    // 2. Voucher
+    if ((this.data.vouchers || []).some((v) => v.id === id)) {
+      return this.deleteVoucher(id, userName);
+    }
+
+    // 3. Expense
+    if ((this.data.expenses || []).some((e) => e.id === id || `exp-${e.id}` === id || `exp-vch-${e.id}` === id)) {
+      const expId = id.replace(/^exp-vch-/, '').replace(/^exp-/, '');
+      return this.deleteExpense(expId, { id: 'admin', name: userName, role: 'Admin' });
+    }
+
+    // 4. Payment
+    if ((this.data.payments || []).some((p) => p.id === id || p.paymentNumber === id)) {
+      return this.deletePayment(id, { id: 'admin', name: userName, role: 'Admin' });
+    }
+
+    return false;
+  }
+
+  public deleteCustomerLedgerEntry(
+    params: { id?: string; entityId?: string; entityType?: string; refType?: string; refNumber?: string | number },
+    userName: string = 'Admin'
+  ): boolean {
+    const targetId = params.entityId || params.id || '';
+    const refType = params.refType || '';
+    const entityType = params.entityType || '';
+
+    // Sale Bill
+    if (refType === 'SV#' || entityType === 'saleBill') {
+      const bill = (this.data.saleBills || []).find(
+        (b) => b.id === targetId || b.billNumber === String(params.refNumber || targetId)
+      );
+      if (bill) {
+        return this.deleteSaleBill(bill.id, { id: 'admin', name: userName, role: 'Admin' });
+      }
+    }
+
+    // Sale Return
+    if (refType === 'SR#' || entityType === 'saleReturn') {
+      const sr = (this.data.saleReturns || []).find(
+        (r) =>
+          r.id === targetId ||
+          r.returnNumber === String(params.refNumber || targetId) ||
+          r.returnNumberFormatted === String(params.refNumber || targetId)
+      );
+      if (sr) {
+        return this.deleteSaleReturn(sr.id, userName);
+      }
+    }
+
+    // Voucher (CR#, BR#, CB#, JV#)
+    if (['CR#', 'BR#', 'CB#', 'JV#'].includes(refType) || entityType === 'voucher') {
+      const actualVoucherId =
+        targetId.includes('-') && (this.data.vouchers || []).some((v) => v.id === targetId.split('-')[0])
+          ? targetId.split('-')[0]
+          : targetId;
+      const v = (this.data.vouchers || []).find(
+        (v) =>
+          v.id === actualVoucherId ||
+          v.id === targetId ||
+          String(v.jvNumber) === String(params.refNumber) ||
+          v.voucherNumberFormatted === String(params.refNumber)
+      );
+      if (v) {
+        return this.deleteVoucher(v.id, userName);
+      }
+    }
+
+    // Direct Payment
+    if (entityType === 'payment' || (this.data.payments || []).some((p) => p.id === targetId)) {
+      return this.deletePayment(targetId, { id: 'admin', name: userName, role: 'Admin' });
+    }
+
+    // General fallback by targetId across vouchers, saleBills, saleReturns, payments
+    if ((this.data.vouchers || []).some((v) => v.id === targetId)) {
+      return this.deleteVoucher(targetId, userName);
+    }
+    if ((this.data.saleBills || []).some((b) => b.id === targetId)) {
+      return this.deleteSaleBill(targetId, { id: 'admin', name: userName, role: 'Admin' });
+    }
+    if ((this.data.saleReturns || []).some((r) => r.id === targetId)) {
+      return this.deleteSaleReturn(targetId, userName);
+    }
+    if ((this.data.payments || []).some((p) => p.id === targetId)) {
+      return this.deletePayment(targetId, { id: 'admin', name: userName, role: 'Admin' });
+    }
+
+    return false;
   }
 
   // =========================================================================

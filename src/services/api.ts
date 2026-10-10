@@ -1741,6 +1741,47 @@ export const api = {
     return res.json();
   },
 
+  async deleteCashRecoveredItem(id: string): Promise<{ success: boolean; message?: string }> {
+    const res = await fetch(`/api/reports/cash-recovered/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to delete cash recovery entry');
+    }
+    return res.json();
+  },
+
+  async deleteCashPaidItem(id: string): Promise<{ success: boolean; message?: string }> {
+    const res = await fetch(`/api/reports/cash-paid/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to delete payment entry');
+    }
+    return res.json();
+  },
+
+  async deleteCustomerLedgerEntry(params: {
+    id?: string;
+    entityId?: string;
+    entityType?: string;
+    refType?: string;
+    refNumber?: string | number;
+  }): Promise<{ success: boolean; message?: string }> {
+    const res = await fetch('/api/reports/customer-ledger/delete-entry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to delete ledger entry');
+    }
+    return res.json();
+  },
+
   // Sales Returns
   async getSaleReturns(): Promise<SaleReturn[]> {
     const res = await fetch('/api/sale-returns');

@@ -14,6 +14,10 @@ import {
   Square,
   ArrowRight,
   ShieldCheck,
+  Trash2,
+  AlertTriangle,
+  CheckCircle2,
+  Loader2,
 } from 'lucide-react';
 import { Customer, CustomerLedgerReport, CustomerLedgerEntry, CompanyProfile } from '../types';
 import { api } from '../services/api';
@@ -56,6 +60,34 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
   const [report, setReport] = useState<CustomerLedgerReport | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Delete transaction modal
+  const [confirmEntry, setConfirmEntry] = useState<CustomerLedgerEntry | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteEntry = async () => {
+    if (!confirmEntry) return;
+    setIsDeleting(true);
+    setErrorMsg(null);
+    try {
+      await api.deleteCustomerLedgerEntry({
+        id: confirmEntry.id,
+        entityId: confirmEntry.entityId,
+        entityType: confirmEntry.entityType,
+        refType: confirmEntry.refType,
+        refNumber: confirmEntry.refNumber,
+      });
+      setSuccessMsg(`Transaction "${confirmEntry.refType} #${confirmEntry.refNumber}" deleted successfully. Ledgers recalculated.`);
+      setConfirmEntry(null);
+      await handleGenerateReport(selectedCustomer || undefined);
+      setTimeout(() => setSuccessMsg(null), 4500);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to delete ledger transaction');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // Load Customers list
   useEffect(() => {
@@ -485,6 +517,18 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
       </div>
 
       {/* Notifications */}
+      {successMsg && (
+        <div className="p-3 bg-emerald-950/80 border border-emerald-700 rounded-lg text-emerald-200 text-xs flex items-center justify-between print:hidden">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <span>{successMsg}</span>
+          </div>
+          <button onClick={() => setSuccessMsg(null)} className="text-emerald-400 hover:text-white">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {errorMsg && (
         <div className="p-3 bg-rose-950/80 border border-rose-700 rounded-lg text-rose-200 text-xs flex items-center justify-between print:hidden">
           <span>{errorMsg}</span>
@@ -567,6 +611,7 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
                 <th className="py-2 px-3 text-right w-24">DEBIT</th>
                 <th className="py-2 px-3 text-right w-24">CREDIT</th>
                 <th className="py-2 px-3 text-right w-28">BALANCE</th>
+                <th className="py-2 px-2 text-center w-12 print:hidden">ACTION</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 font-mono">
@@ -584,12 +629,13 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
                 <td className="py-2 px-3 text-right font-bold text-slate-950">
                   {formatNumber(report?.openingBalance || 0)} {report?.openingBalanceType || 'DR'}
                 </td>
+                <td className="py-2 px-2 text-center text-slate-400 print:hidden">-</td>
               </tr>
 
               {/* Transaction Rows */}
               {!report || report.entries.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-500 font-sans text-xs">
+                  <td colSpan={9} className="py-8 text-center text-slate-500 font-sans text-xs">
                     {isLoading ? 'Generating general ledger report...' : 'No transactions recorded within selected date range.'}
                   </td>
                 </tr>
@@ -673,6 +719,18 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
                           {entry.balanceType}
                         </span>
                       </td>
+
+                      {/* ACTION */}
+                      <td className="py-2 px-2 text-center align-top print:hidden">
+                        <button
+                          type="button"
+                          onClick={() => setConfirmEntry(entry)}
+                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition cursor-pointer"
+                          title={`Delete transaction ${entry.refType} #${entry.refNumber}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
                     </tr>
                   );
                 })
@@ -694,6 +752,7 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
                 <td className="py-2.5 px-3 text-right font-mono font-black text-blue-900">
                   {formatNumber(report?.closingBalance || 0)} {report?.closingBalanceType || 'DR'}
                 </td>
+                <td className="print:hidden"></td>
               </tr>
               <tr className="border-b-2 border-slate-900 bg-slate-200/80 font-black text-slate-950">
                 <td colSpan={5} className="py-2 px-3 text-right uppercase tracking-wider font-sans text-xs">
@@ -705,6 +764,7 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
                     {report?.closingBalanceType === 'DR' ? 'DEBIT (DR - وصول طلب)' : 'CREDIT (CR - واجب الاداء)'}
                   </span>
                 </td>
+                <td className="print:hidden"></td>
               </tr>
             </tfoot>
           </table>
@@ -723,6 +783,76 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
           </div>
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {confirmEntry && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-rose-500/40 rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl text-slate-200">
+            <div className="flex items-center gap-3 text-rose-400">
+              <div className="p-2.5 bg-rose-500/10 rounded-xl">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="font-bold text-white text-sm">Delete Customer Ledger Entry?</h4>
+                <p className="text-xs text-slate-400">
+                  This transaction will be permanently removed and the customer ledger and balance recalculated.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Ref Type &amp; Number:</span>
+                <span className="font-mono font-bold text-emerald-400">
+                  {confirmEntry.refType} #{confirmEntry.refNumber}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Date:</span>
+                <span className="text-white font-semibold">{formatDateDisplay(confirmEntry.date)}</span>
+              </div>
+              {confirmEntry.billNumber && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Bill #:</span>
+                  <span className="text-slate-300 font-mono">{confirmEntry.billNumber}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-slate-400">Narration:</span>
+                <span className="text-slate-300 max-w-[200px] truncate">{confirmEntry.narration}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Amount:</span>
+                <span className="font-mono font-black text-rose-400 text-sm">
+                  {confirmEntry.debit > 0
+                    ? `Debit: ${currencySymbol()} ${formatNumber(confirmEntry.debit)}`
+                    : `Credit: ${currencySymbol()} ${formatNumber(confirmEntry.credit)}`}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmEntry(null)}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteEntry}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-lg shadow-rose-950 cursor-pointer"
+              >
+                {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                <span>{isDeleting ? 'Deleting...' : 'Confirm Delete'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

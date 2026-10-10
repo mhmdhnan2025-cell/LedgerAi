@@ -91,7 +91,7 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
     e.stopPropagation();
     onSelectAccount('');
     setSearchTerm('');
-    if (inputRef.current) inputRef.current.focus();
+    if (activeInputRef.current) activeInputRef.current.focus();
   };
 
   const getTypeIcon = (type?: string) => {

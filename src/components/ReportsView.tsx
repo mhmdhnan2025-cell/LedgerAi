@@ -197,7 +197,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     }
     setIsLoading(true);
     try {
-      await api.deletePurchase(billId, currentUser);
+      await api.deletePurchase(billId, { id: 'admin', name: currentRole || 'Admin', role: currentRole || 'Admin' });
       setSuccessMsg(`Purchase Bill #${billNo} deleted and stock/ledger reversed successfully.`);
       await loadReportData();
       onRefreshData?.();
@@ -213,7 +213,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     if (!editingBill) return;
     setIsLoading(true);
     try {
-      await api.updatePurchase(editingBill.id, updated, currentUser);
+      await api.updatePurchase(editingBill.id, updated, { id: 'admin', name: currentRole || 'Admin', role: currentRole || 'Admin' });
       setSuccessMsg(`Purchase Bill #${editingBill.billNumber} updated successfully.`);
       setEditingBill(null);
       await loadReportData();

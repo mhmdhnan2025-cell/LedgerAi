@@ -1079,7 +1079,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
                             e.preventDefault();
-                            handleAddEntry(e as any);
+                            handleAddOrUpdateEntry(e as any);
                           }
                         }}
                         placeholder="0.00"
@@ -1098,7 +1098,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
                             e.preventDefault();
-                            handleAddEntry(e as any);
+                            handleAddOrUpdateEntry(e as any);
                           }
                         }}
                         placeholder="0.00"
@@ -1124,7 +1124,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
                             e.preventDefault();
-                            handleAddEntry(e as any);
+                            handleAddOrUpdateEntry(e as any);
                           }
                         }}
                         placeholder="0.00"
@@ -1143,7 +1143,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
                             e.preventDefault();
-                            handleAddEntry(e as any);
+                            handleAddOrUpdateEntry(e as any);
                           }
                         }}
                         placeholder="0.00"
@@ -1169,7 +1169,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
-                          handleAddEntry(e as any);
+                          handleAddOrUpdateEntry(e as any);
                         }
                       }}
                       placeholder="0.00"

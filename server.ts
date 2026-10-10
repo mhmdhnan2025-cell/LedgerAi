@@ -1587,6 +1587,58 @@ app.get('/api/reports/customer-ledger', (req, res) => {
   }
 });
 
+app.delete('/api/reports/cash-recovered/:id', (req, res) => {
+  try {
+    const userName = (req as any).user?.name || 'Admin';
+    const ok = db.deleteCashRecoveredItem(req.params.id, userName);
+    if (!ok) {
+      return res.status(404).json({ error: 'Recovery entry not found or already deleted.' });
+    }
+    res.json({ success: true, message: 'Recovery entry deleted and ledger recalculated successfully.' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/reports/cash-paid/:id', (req, res) => {
+  try {
+    const userName = (req as any).user?.name || 'Admin';
+    const ok = db.deleteCashPaidItem(req.params.id, userName);
+    if (!ok) {
+      return res.status(404).json({ error: 'Paid entry not found or already deleted.' });
+    }
+    res.json({ success: true, message: 'Payment entry deleted and ledger recalculated successfully.' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/reports/customer-ledger/delete-entry', (req, res) => {
+  try {
+    const userName = (req as any).user?.name || 'Admin';
+    const ok = db.deleteCustomerLedgerEntry(req.body, userName);
+    if (!ok) {
+      return res.status(404).json({ error: 'Ledger entry not found or could not be deleted.' });
+    }
+    res.json({ success: true, message: 'Ledger entry deleted and accounts recalculated successfully.' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/reports/customer-ledger/:id', (req, res) => {
+  try {
+    const userName = (req as any).user?.name || 'Admin';
+    const ok = db.deleteCustomerLedgerEntry({ id: req.params.id }, userName);
+    if (!ok) {
+      return res.status(404).json({ error: 'Ledger entry not found or could not be deleted.' });
+    }
+    res.json({ success: true, message: 'Ledger entry deleted and accounts recalculated successfully.' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // -------------------------------------------------------------
 // SALES RETURNS API
 // -------------------------------------------------------------

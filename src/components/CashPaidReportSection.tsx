@@ -15,6 +15,10 @@ import {
   Wallet,
   Layers,
   ArrowDownRight,
+  Trash2,
+  AlertTriangle,
+  CheckCircle2,
+  Loader2,
 } from 'lucide-react';
 import { CashPaidReportItem, CompanyProfile } from '../types';
 import { api } from '../services/api';
@@ -47,6 +51,27 @@ export const CashPaidReportSection: React.FC<CashPaidReportSectionProps> = ({
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const [confirmItem, setConfirmItem] = useState<CashPaidReportItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteEntry = async () => {
+    if (!confirmItem) return;
+    setIsDeleting(true);
+    setErrorMsg(null);
+    try {
+      await api.deleteCashPaidItem(confirmItem.voucherId);
+      setSuccessMsg(`Payment entry "${confirmItem.voucherNumberFormatted}" (Amount: ${currencySymbol()} ${confirmItem.amount.toLocaleString()}) deleted successfully.`);
+      setConfirmItem(null);
+      await loadReport();
+      setTimeout(() => setSuccessMsg(null), 4500);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to delete payment entry');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const loadReport = async () => {
     setIsLoading(true);
@@ -367,8 +392,20 @@ export const CashPaidReportSection: React.FC<CashPaidReportSectionProps> = ({
         </div>
       </div>
 
+      {successMsg && (
+        <div className="p-3 bg-emerald-950 border border-emerald-700 rounded-lg text-emerald-200 text-xs flex justify-between items-center print:hidden">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <span>{successMsg}</span>
+          </div>
+          <button onClick={() => setSuccessMsg(null)}>
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {errorMsg && (
-        <div className="p-3 bg-rose-950 border border-rose-700 rounded-lg text-rose-200 text-xs flex justify-between items-center">
+        <div className="p-3 bg-rose-950 border border-rose-700 rounded-lg text-rose-200 text-xs flex justify-between items-center print:hidden">
           <span>{errorMsg}</span>
           <button onClick={() => setErrorMsg(null)}>
             <X className="w-4 h-4" />
@@ -391,12 +428,13 @@ export const CashPaidReportSection: React.FC<CashPaidReportSectionProps> = ({
                 <th className="px-3 py-3">PAYMENT MODE</th>
                 <th className="px-4 py-3">NARRATION</th>
                 <th className="px-4 py-3 text-right">PAID AMOUNT</th>
+                <th className="px-3 py-3 text-center w-16 print:hidden">ACTION</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800 font-medium">
               {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-slate-500 italic">
+                  <td colSpan={10} className="px-4 py-8 text-center text-slate-500 italic">
                     {isLoading
                       ? 'Loading payment transactions...'
                       : 'No payment entries found matching the current filters.'}
@@ -455,6 +493,15 @@ export const CashPaidReportSection: React.FC<CashPaidReportSectionProps> = ({
                       {currencySymbol()}{' '}
                       {row.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </td>
+                    <td className="px-3 py-2.5 text-center print:hidden">
+                      <button
+                        onClick={() => setConfirmItem(row)}
+                        className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition"
+                        title="Delete Payment Voucher"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -500,6 +547,77 @@ export const CashPaidReportSection: React.FC<CashPaidReportSectionProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {confirmItem && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-rose-500/40 rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl text-slate-200">
+            <div className="flex items-center gap-3 text-rose-400">
+              <div className="p-2.5 bg-rose-500/10 rounded-xl">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="font-bold text-white text-sm">Delete Cash Paid Entry?</h4>
+                <p className="text-xs text-slate-400">This action will reverse the payment from supplier/expense ledger and restore cash in hand.</p>
+              </div>
+            </div>
+
+            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Voucher / Ref:</span>
+                <span className="font-mono font-bold text-rose-400">{confirmItem.voucherNumberFormatted} (JV #{confirmItem.jvNumber})</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Date:</span>
+                <span className="text-white font-semibold">{confirmItem.date}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Category:</span>
+                <span className="text-white font-semibold">{confirmItem.category}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Account:</span>
+                <span className="text-white font-bold">{confirmItem.accountTitle}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Amount:</span>
+                <span className="font-mono font-black text-rose-400 text-sm">
+                  {currencySymbol()} {confirmItem.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmItem(null)}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteEntry}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-lg shadow-rose-900/30 cursor-pointer disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Yes, Delete Payment</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1779,7 +1779,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
         onClose={() => setIsSaleReturnModalOpen(false)}
         onSaved={() => {
           if (onRefreshData) onRefreshData();
-          fetchCustomers();
+          loadCustomersData();
         }}
         customers={customers}
         products={products}

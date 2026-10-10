@@ -102,6 +102,7 @@ export interface Product {
   status?: boolean;               // Active status toggle (default true)
   supplierId?: string;
   supplierName?: string;
+  companyId?: string;
   lastPurchasePrice: number;
   averagePurchaseCost: number;
   stockValue: number;             // currentQuantity * purchasePrice
@@ -162,6 +163,8 @@ export interface PurchaseBill {
   stockAdded?: boolean;            // Track if added to physical inventory stock
   addToStock?: boolean;            // Form submission flag to add to inventory stock
   notes?: string;
+  status?: string;
+  totalAmount?: number;
   createdBy?: string;
   createdAt: string;
   updatedAt?: string;
@@ -252,6 +255,7 @@ export interface Supplier {
   code: string;                 // e.g. "0401010341"
   title: string;                // e.g. "ABDULLA AL KHATTAL GENERAL TRADING"
   accountTitle?: string;
+  accountNumber?: string;
   name: string;                 // mapped to title for legacy compatibility
   supplierGroup?: string;       // e.g. "General Trading", "Foodstuff"
   mobile?: string;              // e.g. "0524491466"
@@ -346,6 +350,8 @@ export interface Payment {
   orderNumber?: string;
   amount: number;
   paymentDate: string;
+  date?: string;
+  status?: string;
   paymentMethod: PaymentMethod;
   notes?: string;
   recordedBy: string;
@@ -713,6 +719,7 @@ export interface SaleBill {
   date: string;                   // e.g. "21-09-2026"
   customerId: string;             // Account / Customer ID
   customerAccountTitle: string;   // Account Name e.g. "SHAROOQ AL FAJAR"
+  customerName?: string;
   customerMobile?: string;
   customerTrn?: string;           // Customer TRN / Tax Registration Number
   salesmanId?: string;            // Employee ID
@@ -730,6 +737,7 @@ export interface SaleBill {
   totalVatAmount: number;
   grossAmount: number;
   netTotal: number;
+  totalAmount?: number;
   cashReceived: number;
   balanceReceivable: number;
   changeGiven: number;
@@ -1196,6 +1204,8 @@ export interface CustomerLedgerEntry {
   credit: number;
   balance: number;
   balanceType: 'DR' | 'CR';
+  entityId?: string;
+  entityType?: 'saleBill' | 'voucher' | 'saleReturn' | 'payment';
 }
 
 export interface CustomerLedgerReport {
