@@ -12,6 +12,8 @@ import {
   PurchaseBill,
   SaleBill,
   Voucher,
+  SaleReturn,
+  PurchaseReturn,
 } from '../src/types';
 
 /**
@@ -257,13 +259,19 @@ function customerBalanceAsOf(
   saleBills: SaleBill[],
   date: string,
   recoveries: Map<string, number>,
-  vouchers: Voucher[] = []
+  vouchers: Voucher[] = [],
+  saleReturns: SaleReturn[] = []
 ): number {
   let balance = Number(customer.outstandingBalance) || 0;
   for (const bill of saleBills) {
     if (bill.customerId !== customer.id) continue;
     if (db.normalizeDateToYMD(bill.date) <= date) continue;
     balance -= saleCreditAdded(bill);
+  }
+  for (const sr of saleReturns) {
+    if (sr.customerId !== customer.id && sr.customerCode !== customer.code) continue;
+    if (db.normalizeDateToYMD(sr.date) <= date) continue;
+    balance += Number(sr.netTotal) || 0;
   }
   for (const v of vouchers) {
     if (v.status !== 'POSTED') continue;
@@ -289,14 +297,15 @@ function receivableAsOf(
   saleBills: SaleBill[],
   date: string,
   recoveries: Map<string, number>,
-  vouchers: Voucher[] = []
+  vouchers: Voucher[] = [],
+  saleReturns: SaleReturn[] = []
 ): number {
   let total = 0;
   const known = new Set<string>();
 
   for (const customer of customers) {
     known.add(customer.id);
-    total += customerBalanceAsOf(customer, saleBills, date, recoveries, vouchers);
+    total += customerBalanceAsOf(customer, saleBills, date, recoveries, vouchers, saleReturns);
   }
 
   // Credit portions booked against customers no longer in the master list
@@ -313,7 +322,8 @@ function payableAsOf(
   suppliers: { id: string; code?: string; title?: string; payableToSupplier?: number }[],
   purchaseBills: PurchaseBill[],
   date: string,
-  vouchers: Voucher[] = []
+  vouchers: Voucher[] = [],
+  purchaseReturns: PurchaseReturn[] = []
 ): number {
   const supplierIds = new Set(suppliers.map((s) => s.id));
   let total = 0;
@@ -324,6 +334,11 @@ function payableAsOf(
       if (bill.supplierId !== supplier.id) continue;
       if (db.normalizeDateToYMD(bill.date) <= date) continue;
       payable -= Number(bill.remainingBalance) || 0;
+    }
+    for (const pr of purchaseReturns) {
+      if (pr.supplierId !== supplier.id && pr.supplierCode !== supplier.code) continue;
+      if (db.normalizeDateToYMD(pr.date) <= date) continue;
+      payable += Number(pr.netTotal) || 0;
     }
     for (const v of vouchers) {
       if (v.status !== 'POSTED') continue;
@@ -438,6 +453,8 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
 
     const allSaleBills = (db.getSaleBills() || []).filter((b) => b.status !== 'Cancelled');
     const purchaseBills = db.getPurchaseBills() || [];
+    const saleReturns = (db.getSaleReturns() || []).filter((r) => r.status !== 'CANCELLED');
+    const purchaseReturns = (db.getPurchaseReturns() || []).filter((r) => r.status !== 'CANCELLED');
     const expenses = db.getExpenses() || [];
     const payments = db.getPayments() || [];
     const vouchers = db.getVouchers() || [];
@@ -472,7 +489,7 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     const uptoDate = (dateStr: string) => db.normalizeDateToYMD(dateStr) <= auditDate;
 
     // -------------------------------------------------------------
-    // 1. SALES RECORD (Sale Bills + Restaurant Orders)
+    // 1. SALES RECORD (Sale Bills + Restaurant Orders - Sale Returns)
     // -------------------------------------------------------------
     const saleBillsUpto = allSaleBills.filter((b) => uptoDate(b.date));
     const saleBillsMonth = allSaleBills.filter((b) => uptoDate(b.date) && inMonth(b.date));
@@ -480,31 +497,40 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     const ordersUpto = orders.filter((o) => uptoDate(o.orderDate));
     const ordersMonth = orders.filter((o) => uptoDate(o.orderDate) && inMonth(o.orderDate));
     const ordersToday = orders.filter((o) => onDate(o.orderDate));
+    const saleReturnsUpto = saleReturns.filter((r) => uptoDate(r.date));
+    const saleReturnsMonth = saleReturns.filter((r) => uptoDate(r.date) && inMonth(r.date));
+    const saleReturnsToday = saleReturns.filter((r) => onDate(r.date));
 
     const sumNet = (list: SaleBill[]) => list.reduce((s, b) => s + (Number(b.netTotal) || 0), 0);
     const sumOrder = (list: typeof orders) => list.reduce((s, o) => s + (Number(o.totalAmount) || 0), 0);
+    const sumReturn = (list: SaleReturn[]) => list.reduce((s, r) => s + (Number(r.netTotal) || 0), 0);
 
-    const totalSales = sumNet(saleBillsUpto) + sumOrder(ordersUpto);
-    const monthSales = sumNet(saleBillsMonth) + sumOrder(ordersMonth);
-    const todaySales = sumNet(saleBillsToday) + sumOrder(ordersToday);
+    const totalSales = Math.max(0, sumNet(saleBillsUpto) + sumOrder(ordersUpto) - sumReturn(saleReturnsUpto));
+    const monthSales = Math.max(0, sumNet(saleBillsMonth) + sumOrder(ordersMonth) - sumReturn(saleReturnsMonth));
+    const todaySales = Math.max(0, sumNet(saleBillsToday) + sumOrder(ordersToday) - sumReturn(saleReturnsToday));
 
     // -------------------------------------------------------------
-    // 2. PURCHASES
+    // 2. PURCHASES (Purchase Bills - Purchase Returns)
     // -------------------------------------------------------------
     const purchaseUpto = purchaseBills.filter((b) => uptoDate(b.date));
     const purchaseMonth = purchaseBills.filter((b) => uptoDate(b.date) && inMonth(b.date));
     const purchaseToday = purchaseBills.filter((b) => onDate(b.date));
-    const sumPurchase = (list: PurchaseBill[]) => list.reduce((s, b) => s + (Number(b.netTotal) || 0), 0);
+    const purchaseReturnsUpto = purchaseReturns.filter((r) => uptoDate(r.date));
+    const purchaseReturnsMonth = purchaseReturns.filter((r) => uptoDate(r.date) && inMonth(r.date));
+    const purchaseReturnsToday = purchaseReturns.filter((r) => onDate(r.date));
 
-    const totalPurchases = sumPurchase(purchaseUpto);
-    const monthPurchases = sumPurchase(purchaseMonth);
-    const todayPurchases = sumPurchase(purchaseToday);
+    const sumPurchase = (list: PurchaseBill[]) => list.reduce((s, b) => s + (Number(b.netTotal) || 0), 0);
+    const sumPReturn = (list: PurchaseReturn[]) => list.reduce((s, r) => s + (Number(r.netTotal) || 0), 0);
+
+    const totalPurchases = Math.max(0, sumPurchase(purchaseUpto) - sumPReturn(purchaseReturnsUpto));
+    const monthPurchases = Math.max(0, sumPurchase(purchaseMonth) - sumPReturn(purchaseReturnsMonth));
+    const todayPurchases = Math.max(0, sumPurchase(purchaseToday) - sumPReturn(purchaseReturnsToday));
 
     // -------------------------------------------------------------
     // 3. KHATA BALANCE (Receivable / Payable / Net)
     // -------------------------------------------------------------
     const recoveries = recoveriesMap(allSaleBills, auditDate);
-    const customerReceivable = receivableAsOf(customers, allSaleBills, auditDate, recoveries, vouchers);
+    const customerReceivable = receivableAsOf(customers, allSaleBills, auditDate, recoveries, vouchers, saleReturns);
 
     let restaurantReceivable = 0;
     for (const r of restaurants) {
@@ -516,7 +542,7 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     }
 
     const receivable = customerReceivable + restaurantReceivable;
-    const payable = payableAsOf(suppliers, purchaseBills, auditDate, vouchers);
+    const payable = payableAsOf(suppliers, purchaseBills, auditDate, vouchers, purchaseReturns);
     const netKhataBalance = receivable - payable;
 
     // -------------------------------------------------------------
@@ -550,11 +576,35 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
       }
     }
 
+    // Customer returns restore stock (act as stock IN)
+    for (const ret of saleReturns) {
+      const date = db.normalizeDateToYMD(ret.date);
+      if (date < auditDate) continue;
+      const bucket = date === auditDate ? purchasedOn : purchasedAfter;
+      for (const item of ret.items || []) {
+        const product = resolveProduct(item);
+        if (!product) continue;
+        bump(bucket, product.id, Number(item.qty) || 0);
+      }
+    }
+
     for (const bill of allSaleBills) {
       const date = db.normalizeDateToYMD(bill.date);
       if (date < auditDate) continue;
       const bucket = date === auditDate ? soldOn : soldAfter;
       for (const item of bill.items || []) {
+        const product = resolveProduct(item);
+        if (!product) continue;
+        bump(bucket, product.id, Number(item.qty) || 0);
+      }
+    }
+
+    // Supplier returns deduct stock (act as stock OUT)
+    for (const ret of purchaseReturns) {
+      const date = db.normalizeDateToYMD(ret.date);
+      if (date < auditDate) continue;
+      const bucket = date === auditDate ? soldOn : soldAfter;
+      for (const item of ret.items || []) {
         const product = resolveProduct(item);
         if (!product) continue;
         bump(bucket, product.id, Number(item.qty) || 0);

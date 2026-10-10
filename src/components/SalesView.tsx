@@ -29,6 +29,7 @@ import {
   Info,
   Settings,
   ShoppingBag,
+  RotateCcw,
 } from 'lucide-react';
 import {
   Customer,
@@ -42,6 +43,7 @@ import {
 import { api } from '../services/api';
 import { SalesBillReceiptModal } from './SalesBillReceiptModal';
 import { AddItemHeadModal } from './AddItemHeadModal';
+import { SaleReturnModal } from './SaleReturnModal';
 
 interface SalesViewProps {
   products: Product[];
@@ -119,6 +121,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
 
   // Quick add item modal & masters
   const [isAddProductModalOpen, setIsAddProductModalOpen] = useState<boolean>(false);
+  const [isSaleReturnModalOpen, setIsSaleReturnModalOpen] = useState<boolean>(false);
   const [categories, setCategories] = useState<string[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
   const [measures, setMeasures] = useState<string[]>([]);
@@ -735,6 +738,15 @@ export const SalesView: React.FC<SalesViewProps> = ({
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Print Bill (طباعة)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsSaleReturnModalOpen(true)}
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-semibold rounded-lg border border-amber-500/30 transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+              title="Record Sales Return from Customer"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+              <span>Sales Return (سیل واپسی)</span>
             </button>
             <button
               onClick={() => onNavigateTab && onNavigateTab('reports')}
@@ -1759,6 +1771,18 @@ export const SalesView: React.FC<SalesViewProps> = ({
         brands={brands}
         measures={measures}
         onRefreshMasters={fetchMasters}
+      />
+
+      {/* Sales Return Modal */}
+      <SaleReturnModal
+        isOpen={isSaleReturnModalOpen}
+        onClose={() => setIsSaleReturnModalOpen(false)}
+        onSaved={() => {
+          if (onRefreshData) onRefreshData();
+          fetchCustomers();
+        }}
+        customers={customers}
+        products={products}
       />
     </div>
   );

@@ -1134,3 +1134,111 @@ export interface NextVoucherNumbers {
     JV: number;
   };
 }
+
+// -------------------------------------------------------------
+// CUSTOMER GENERAL LEDGER REPORTING
+// -------------------------------------------------------------
+export interface CustomerLedgerEntry {
+  id: string;
+  refType: 'SV#' | 'CR#' | 'BR#' | 'CB#' | 'SR#' | 'JV#' | 'OB';
+  refNumber: string | number;
+  date: string;
+  billNumber?: string;
+  narration: string;
+  debit: number;
+  credit: number;
+  balance: number;
+  balanceType: 'DR' | 'CR';
+}
+
+export interface CustomerLedgerReport {
+  customerId: string;
+  customerCode: string;
+  customerName: string;
+  accountTitle: string;
+  phone?: string;
+  address?: string;
+  fromDate: string;
+  toDate: string;
+  generatedDate: string;
+  openingBalance: number;
+  openingBalanceType: 'DR' | 'CR';
+  closingBalance: number;
+  closingBalanceType: 'DR' | 'CR';
+  totalDebit: number;
+  totalCredit: number;
+  entries: CustomerLedgerEntry[];
+}
+
+// -------------------------------------------------------------
+// SALES RETURN & PURCHASE RETURN
+// -------------------------------------------------------------
+export interface SaleReturnItem {
+  id: string;
+  productId: string;
+  itemTitle: string;
+  sku?: string;
+  category?: string;
+  unit?: string;
+  qty: number;
+  rate: number;
+  total: number;
+  reason?: string;
+}
+
+export interface SaleReturn {
+  id: string;
+  companyId?: string;
+  returnNumber: string; // e.g. "SR-1001"
+  returnNumberFormatted: string; // e.g. "SR-1001"
+  date: string; // YYYY-MM-DD
+  customerId: string;
+  customerName: string;
+  customerAccountTitle: string;
+  customerCode?: string;
+  originalBillNumber?: string;
+  salesmanName?: string;
+  items: SaleReturnItem[];
+  totalAmount: number;
+  netTotal: number;
+  reason?: string;
+  status: 'COMPLETED' | 'CANCELLED';
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PurchaseReturnItem {
+  id: string;
+  productId: string;
+  itemTitle: string;
+  sku?: string;
+  category?: string;
+  unit?: string;
+  qty: number;
+  rate: number;
+  total: number;
+  reason?: string;
+}
+
+export interface PurchaseReturn {
+  id: string;
+  companyId?: string;
+  returnNumber: string; // e.g. "PR-1001"
+  returnNumberFormatted: string; // e.g. "PR-1001"
+  date: string; // YYYY-MM-DD
+  supplierId: string;
+  supplierName: string;
+  supplierAccountTitle: string;
+  supplierCode?: string;
+  originalBillNumber?: string;
+  items: PurchaseReturnItem[];
+  totalAmount: number;
+  netTotal: number;
+  reason?: string;
+  status: 'COMPLETED' | 'CANCELLED';
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+

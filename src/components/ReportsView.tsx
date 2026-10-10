@@ -23,6 +23,9 @@ import {
   ShieldCheck,
   Edit2,
   Trash2,
+  RotateCcw,
+  Undo2,
+  BookOpen,
 } from 'lucide-react';
 import { CompanyProfile, Product, PurchaseBill, Supplier, UserRole } from '../types';
 import { api } from '../services/api';
@@ -34,6 +37,9 @@ import { AiLedgerAuditReportSection } from './AiLedgerAuditReportSection';
 import { PurchaseBillVoucherModal } from './PurchaseBillVoucherModal';
 import { CashRecoveredReportSection } from './CashRecoveredReportSection';
 import { CashPaidReportSection } from './CashPaidReportSection';
+import { CustomerLedgerReportSection } from './CustomerLedgerReportSection';
+import { SaleReturnReportSection } from './SaleReturnReportSection';
+import { PurchaseReturnReportSection } from './PurchaseReturnReportSection';
 
 interface ReportsViewProps {
   suppliers: Supplier[];
@@ -54,7 +60,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 }) => {
   // Breadcrumb / Report sub-tabs
   const [activeReportTab, setActiveReportTab] = useState<
-    'purchases' | 'sales' | 'profit' | 'stockHistory' | 'aiLedgerAudit' | 'cashRecovered' | 'cashPaid'
+    'purchases' | 'sales' | 'profit' | 'stockHistory' | 'aiLedgerAudit' | 'cashRecovered' | 'cashPaid' | 'customerLedger' | 'saleReturns' | 'purchaseReturns'
   >('purchases');
 
   // Filter States (matching Image 3 & 4)
@@ -367,6 +373,39 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               <span>Cash Paid Report (ادائیگی رپورٹ)</span>
             </button>
             <button
+              onClick={() => setActiveReportTab('customerLedger')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                activeReportTab === 'customerLedger'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <BookOpen className="w-3.5 h-3.5 text-blue-300" />
+              <span>Customer Ledger (جنرل لیجر)</span>
+            </button>
+            <button
+              onClick={() => setActiveReportTab('saleReturns')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                activeReportTab === 'saleReturns'
+                  ? 'bg-amber-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-amber-300" />
+              <span>Sales Returns (سیل واپسی)</span>
+            </button>
+            <button
+              onClick={() => setActiveReportTab('purchaseReturns')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                activeReportTab === 'purchaseReturns'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Undo2 className="w-3.5 h-3.5 text-purple-300" />
+              <span>Purchase Returns (خریداری واپسی)</span>
+            </button>
+            <button
               onClick={() => setActiveReportTab('aiLedgerAudit')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                 activeReportTab === 'aiLedgerAudit'
@@ -461,6 +500,24 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       ) : activeReportTab === 'cashPaid' ? (
         <CashPaidReportSection
           companyProfile={companyProfile}
+          onNavigateTab={onNavigateTab}
+        />
+      ) : activeReportTab === 'customerLedger' ? (
+        <CustomerLedgerReportSection
+          companyProfile={companyProfile}
+          onNavigateTab={onNavigateTab}
+        />
+      ) : activeReportTab === 'saleReturns' ? (
+        <SaleReturnReportSection
+          companyProfile={companyProfile}
+          products={products}
+          onNavigateTab={onNavigateTab}
+        />
+      ) : activeReportTab === 'purchaseReturns' ? (
+        <PurchaseReturnReportSection
+          companyProfile={companyProfile}
+          products={products}
+          suppliers={suppliers}
           onNavigateTab={onNavigateTab}
         />
       ) : (

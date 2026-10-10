@@ -61,6 +61,12 @@ import {
   CashRecoveredReportItem,
   CashPaidReportItem,
   ExpenseAccount,
+  SaleReturn,
+  SaleReturnItem,
+  PurchaseReturn,
+  PurchaseReturnItem,
+  CustomerLedgerEntry,
+  CustomerLedgerReport,
 } from '../src/types';
 
 export interface DatabaseSchema {
@@ -92,6 +98,8 @@ export interface DatabaseSchema {
   cashAccounts?: CashAccount[];
   expenseAccounts?: ExpenseAccount[];
   vouchers?: Voucher[];
+  saleReturns?: SaleReturn[];
+  purchaseReturns?: PurchaseReturn[];
   nextJvNumber?: number;
   nextVoucherNumbers?: Record<string, number>;
   geminiApiKey?: string;
@@ -1408,6 +1416,8 @@ export function getCleanEmptyData(): DatabaseSchema {
     cashAccounts: [...DEFAULT_SEED_CASH_ACCOUNTS],
     expenseAccounts: [...DEFAULT_SEED_EXPENSE_ACCOUNTS],
     vouchers: [],
+    saleReturns: [],
+    purchaseReturns: [],
     nextJvNumber: DEFAULT_NEXT_JV_NUMBER,
     nextVoucherNumbers: { ...DEFAULT_NEXT_VOUCHER_NUMBERS },
   };
@@ -1533,6 +1543,12 @@ class DatabaseService {
             }
             if (!Array.isArray(parsed.vouchers)) {
               parsed.vouchers = [];
+            }
+            if (!Array.isArray(parsed.saleReturns)) {
+              parsed.saleReturns = [];
+            }
+            if (!Array.isArray(parsed.purchaseReturns)) {
+              parsed.purchaseReturns = [];
             }
             if (typeof parsed.nextJvNumber !== 'number') {
               parsed.nextJvNumber = DEFAULT_NEXT_JV_NUMBER;
@@ -1768,7 +1784,31 @@ class DatabaseService {
             }
             const expenseAccounts = tenantExpenseAccounts;
 
-            this.tenants.set(cid, { ...current, ...pgData, customers, restaurants, employees, suppliers, vouchers, banks, expenseAccounts });
+            // Merge sale returns
+            const tenantSaleReturns = Array.isArray(pgData.saleReturns) ? pgData.saleReturns : [];
+            const existingSRIds = new Set(tenantSaleReturns.map((r: any) => r.id));
+            const mergedSR: SaleReturn[] = [...tenantSaleReturns];
+            for (const sr of (current.saleReturns || [])) {
+              if (sr && sr.id && !existingSRIds.has(sr.id)) {
+                mergedSR.push(sr);
+                await postgresService.upsertSaleReturn(sr, cid);
+              }
+            }
+            const saleReturns = mergedSR;
+
+            // Merge purchase returns
+            const tenantPurchaseReturns = Array.isArray(pgData.purchaseReturns) ? pgData.purchaseReturns : [];
+            const existingPRIds = new Set(tenantPurchaseReturns.map((r: any) => r.id));
+            const mergedPR: PurchaseReturn[] = [...tenantPurchaseReturns];
+            for (const pr of (current.purchaseReturns || [])) {
+              if (pr && pr.id && !existingPRIds.has(pr.id)) {
+                mergedPR.push(pr);
+                await postgresService.upsertPurchaseReturn(pr, cid);
+              }
+            }
+            const purchaseReturns = mergedPR;
+
+            this.tenants.set(cid, { ...current, ...pgData, customers, restaurants, employees, suppliers, vouchers, banks, expenseAccounts, saleReturns, purchaseReturns });
 
             // Backfill PostgreSQL customers table if missing or less than all 329 customers
             if (DEFAULT_SEED_CUSTOMERS.length > 0 && (!pgData.customers || pgData.customers.length < DEFAULT_SEED_CUSTOMERS.length)) {
@@ -8097,6 +8137,782 @@ class DatabaseService {
       supplierAmount: Number(supplierAmount.toFixed(2)),
       expenseAmount: Number(expenseAmount.toFixed(2)),
     };
+  }
+
+  // =========================================================================
+  // CUSTOMER GENERAL LEDGER REPORTING
+  // =========================================================================
+  public getCustomerLedgerReport(
+    customerId: string,
+    fromDate?: string,
+    toDate?: string,
+    poNumber?: string
+  ): CustomerLedgerReport {
+    const custSearch = (customerId || '').trim().toLowerCase();
+    const customer = (this.data.customers || []).find(
+      (c) =>
+        c.id?.toLowerCase() === custSearch ||
+        c.code?.toLowerCase() === custSearch ||
+        c.accountCode?.toLowerCase() === custSearch ||
+        (c.accountTitle && c.accountTitle.toLowerCase() === custSearch) ||
+        (c.name && c.name.toLowerCase() === custSearch)
+    );
+
+    const custId = customer?.id || customerId;
+    const custCode = customer?.code || customer?.accountCode || '';
+    const custTitle = customer?.accountTitle || customer?.name || 'Customer';
+
+    const matchesCustomer = (id?: string, code?: string, title?: string) => {
+      if (id && (id === custId || id === custCode)) return true;
+      if (code && (code === custCode || code === custId)) return true;
+      if (title && custTitle && title.trim().toLowerCase() === custTitle.trim().toLowerCase()) return true;
+      return false;
+    };
+
+    const normFrom = fromDate ? this.normalizeDateToYMD(fromDate) : '2000-01-01';
+    const normTo = toDate ? this.normalizeDateToYMD(toDate) : '2099-12-31';
+
+    // 1. Calculate Opening Balance before normFrom
+    let calcOpening = 0;
+
+    // Add sale bills prior to fromDate
+    for (const b of (this.data.saleBills || [])) {
+      if (b.status === 'Cancelled') continue;
+      if (!matchesCustomer(b.customerId, undefined, b.customerAccountTitle)) continue;
+      const bDate = this.normalizeDateToYMD(b.date);
+      if (bDate < normFrom) {
+        calcOpening += Number(b.netTotal || b.totalAmount || 0);
+      }
+    }
+
+    // Subtract receipts prior to fromDate
+    for (const v of (this.data.vouchers || [])) {
+      if (v.status !== 'POSTED') continue;
+      const vDate = this.normalizeDateToYMD(v.date);
+      if (vDate >= normFrom) continue;
+
+      for (const e of (v.entries || [])) {
+        if (!matchesCustomer(e.accountId, e.accountCode, e.accountTitle)) continue;
+        if (v.voucherType === 'CR' || v.voucherType === 'BR') {
+          calcOpening -= Number(e.amount || 0);
+        } else if (v.voucherType === 'CB') {
+          calcOpening -= Number(e.receipt || e.amount || 0);
+        } else if (v.voucherType === 'JV') {
+          calcOpening += (Number(e.debit || 0) - Number(e.credit || 0));
+        }
+      }
+    }
+
+    // Subtract payments table prior to fromDate
+    for (const p of (this.data.payments || [])) {
+      const pDate = this.normalizeDateToYMD(p.paymentDate || p.createdAt || '');
+      if (pDate >= normFrom) continue;
+      if (matchesCustomer(p.restaurantId || (p as any).customerId)) {
+        calcOpening -= Number(p.amount || 0);
+      }
+    }
+
+    // Subtract sales returns prior to fromDate
+    for (const sr of (this.data.saleReturns || [])) {
+      if (sr.status === 'CANCELLED') continue;
+      if (!matchesCustomer(sr.customerId, sr.customerCode, sr.customerAccountTitle)) continue;
+      const srDate = this.normalizeDateToYMD(sr.date);
+      if (srDate < normFrom) {
+        calcOpening -= Number(sr.netTotal || sr.totalAmount || 0);
+      }
+    }
+
+    const openingBalance = Number(calcOpening.toFixed(2));
+    const openingBalanceType: 'DR' | 'CR' = openingBalance >= 0 ? 'DR' : 'CR';
+
+    // 2. Collect entries between normFrom and normTo
+    const entries: CustomerLedgerEntry[] = [];
+
+    // Sale Bills
+    for (const b of (this.data.saleBills || [])) {
+      if (b.status === 'Cancelled') continue;
+      if (!matchesCustomer(b.customerId, undefined, b.customerAccountTitle)) continue;
+      const bDate = this.normalizeDateToYMD(b.date);
+      if (bDate < normFrom || bDate > normTo) continue;
+      if (poNumber && b.lpoNo && !b.lpoNo.toLowerCase().includes(poNumber.toLowerCase())) continue;
+
+      const itemLines = (b.items || []).map((it) => {
+        const cat = it.category ? ` (${it.category} QTY=${it.qty} @${it.rate})` : ` (QTY=${it.qty} @${it.rate})`;
+        return `${it.itemTitle || 'Item'}${cat}`;
+      }).join('\n');
+      const narration = `Bill#${b.billNumber}${itemLines ? '\n' + itemLines : ''}`;
+
+      entries.push({
+        id: b.id,
+        refType: 'SV#',
+        refNumber: b.billNumber,
+        date: b.date,
+        billNumber: b.billNumber,
+        narration,
+        debit: Number(b.netTotal || b.totalAmount || 0),
+        credit: 0,
+        balance: 0,
+        balanceType: 'DR',
+      });
+    }
+
+    // Vouchers (CR, BR, CB, JV)
+    for (const v of (this.data.vouchers || [])) {
+      if (v.status !== 'POSTED') continue;
+      const vDate = this.normalizeDateToYMD(v.date);
+      if (vDate < normFrom || vDate > normTo) continue;
+      if (poNumber && v.poNumber && !v.poNumber.toLowerCase().includes(poNumber.toLowerCase())) continue;
+
+      for (const e of (v.entries || [])) {
+        if (!matchesCustomer(e.accountId, e.accountCode, e.accountTitle)) continue;
+
+        if (v.voucherType === 'CR' || v.voucherType === 'BR') {
+          const amt = Number(e.amount || 0);
+          if (amt <= 0) continue;
+          entries.push({
+            id: `${v.id}-${e.id}`,
+            refType: v.voucherType === 'CR' ? 'CR#' : 'BR#',
+            refNumber: v.voucherNumber || v.voucherNumberFormatted,
+            date: v.date,
+            billNumber: v.poNumber || '',
+            narration: e.narration || `${v.voucherType === 'CR' ? 'Cash' : 'Bank'} Received${v.bankAccountTitle ? ' (' + v.bankAccountTitle + ')' : ''}`,
+            debit: 0,
+            credit: amt,
+            balance: 0,
+            balanceType: 'DR',
+          });
+        } else if (v.voucherType === 'CB') {
+          const rec = Number(e.receipt || e.amount || 0);
+          if (rec <= 0) continue;
+          entries.push({
+            id: `${v.id}-${e.id}`,
+            refType: 'CB#',
+            refNumber: v.voucherNumber || v.voucherNumberFormatted,
+            date: v.date,
+            billNumber: v.poNumber || '',
+            narration: e.narration || 'Cash Book Receipt',
+            debit: 0,
+            credit: rec,
+            balance: 0,
+            balanceType: 'DR',
+          });
+        } else if (v.voucherType === 'JV') {
+          const dr = Number(e.debit || 0);
+          const cr = Number(e.credit || 0);
+          if (dr <= 0 && cr <= 0) continue;
+          entries.push({
+            id: `${v.id}-${e.id}`,
+            refType: 'JV#',
+            refNumber: v.jvNumber,
+            date: v.date,
+            billNumber: v.poNumber || '',
+            narration: e.narration || 'Journal Voucher',
+            debit: dr,
+            credit: cr,
+            balance: 0,
+            balanceType: 'DR',
+          });
+        }
+      }
+    }
+
+    // Sales Returns
+    for (const sr of (this.data.saleReturns || [])) {
+      if (sr.status === 'CANCELLED') continue;
+      if (!matchesCustomer(sr.customerId, sr.customerCode, sr.customerAccountTitle)) continue;
+      const srDate = this.normalizeDateToYMD(sr.date);
+      if (srDate < normFrom || srDate > normTo) continue;
+
+      const retItemLines = (sr.items || []).map((it) => {
+        return `${it.itemTitle || 'Item'} (QTY=${it.qty} @${it.rate})`;
+      }).join('\n');
+      const narration = `${sr.reason || 'Sales Return'}${retItemLines ? '\n' + retItemLines : ''}`;
+
+      entries.push({
+        id: sr.id,
+        refType: 'SR#',
+        refNumber: sr.returnNumber || sr.returnNumberFormatted,
+        date: sr.date,
+        billNumber: sr.originalBillNumber || '',
+        narration,
+        debit: 0,
+        credit: Number(sr.netTotal || sr.totalAmount || 0),
+        balance: 0,
+        balanceType: 'DR',
+      });
+    }
+
+    // Sort entries by date ascending
+    entries.sort((a, b) => {
+      const cmp = a.date.localeCompare(b.date);
+      if (cmp !== 0) return cmp;
+      return String(a.refNumber).localeCompare(String(b.refNumber));
+    });
+
+    // 3. Compute running balances
+    let running = openingBalance;
+    let totalDebit = 0;
+    let totalCredit = 0;
+
+    for (const ent of entries) {
+      totalDebit += ent.debit;
+      totalCredit += ent.credit;
+      running += (ent.debit - ent.credit);
+      ent.balance = Math.abs(Number(running.toFixed(2)));
+      ent.balanceType = running >= 0 ? 'DR' : 'CR';
+    }
+
+    const closingBalance = Math.abs(Number(running.toFixed(2)));
+    const closingBalanceType: 'DR' | 'CR' = running >= 0 ? 'DR' : 'CR';
+
+    return {
+      customerId: custId,
+      customerCode: custCode,
+      customerName: custTitle,
+      accountTitle: custTitle,
+      phone: customer?.mobile || customer?.telephones || '',
+      address: customer?.address || `${customer?.area || ''} ${customer?.city || ''}`.trim(),
+      fromDate: normFrom,
+      toDate: normTo,
+      generatedDate: new Date().toISOString(),
+      openingBalance: Math.abs(openingBalance),
+      openingBalanceType,
+      closingBalance,
+      closingBalanceType,
+      totalDebit: Number(totalDebit.toFixed(2)),
+      totalCredit: Number(totalCredit.toFixed(2)),
+      entries,
+    };
+  }
+
+  // =========================================================================
+  // SALE RETURNS CRUD (CUSTOMER RETURNS / CREDIT NOTES)
+  // =========================================================================
+  public getSaleReturns(): SaleReturn[] {
+    return this.data.saleReturns || [];
+  }
+
+  public createSaleReturn(data: Partial<SaleReturn>, userName: string = 'Admin'): SaleReturn {
+    if (!this.data.saleReturns) this.data.saleReturns = [];
+
+    const existingCount = this.data.saleReturns.length;
+    const returnNumber = data.returnNumber || `SR-${1001 + existingCount}`;
+    const returnNumberFormatted = data.returnNumberFormatted || returnNumber;
+
+    const items: SaleReturnItem[] = (data.items || []).map((it, idx) => {
+      const qty = Number(it.qty) || 0;
+      const rate = Number(it.rate) || 0;
+      return {
+        id: it.id || `sri-${Date.now()}-${idx + 1}`,
+        productId: it.productId || '',
+        itemTitle: it.itemTitle || 'Item',
+        sku: it.sku || '',
+        category: it.category || '',
+        unit: it.unit || 'CTN',
+        qty,
+        rate,
+        total: Number((qty * rate).toFixed(2)),
+        reason: it.reason || '',
+      };
+    });
+
+    const netTotal = items.reduce((s, it) => s + it.total, 0);
+
+    // 1. Restore Inventory Stock for returned items
+    for (const it of items) {
+      let product = it.productId ? this.data.products.find((p) => p.id === it.productId) : undefined;
+      if (!product && it.itemTitle) {
+        product = this.data.products.find(
+          (p) =>
+            p.name.toLowerCase() === it.itemTitle.toLowerCase() ||
+            (p.itemTitle && p.itemTitle.toLowerCase() === it.itemTitle.toLowerCase())
+        );
+      }
+      if (product) {
+        const prevQty = product.currentQuantity || 0;
+        const newQty = Number((prevQty + it.qty).toFixed(2));
+        product.currentQuantity = newQty;
+        product.totalStock = newQty;
+        if (product.qtyInCarton && product.qtyInCarton > 1) {
+          product.carton = Math.floor(newQty / product.qtyInCarton);
+          product.ctn = product.carton;
+          product.extraKg = Number((newQty % product.qtyInCarton).toFixed(2));
+          product.pcs = product.extraKg;
+        }
+        product.stockValue = Number((newQty * (product.purchasePrice || 0)).toFixed(2));
+        product.updatedAt = new Date().toISOString();
+
+        // Log stock movement
+        const tx: InventoryTransaction = {
+          id: `tx-sr-${returnNumber}-${it.id}`,
+          productId: product.id,
+          productName: product.name,
+          type: 'ORDER_FULFILLMENT' as any,
+          quantity: it.qty,
+          unit: product.unit || 'unit',
+          unitCost: product.purchasePrice || 0,
+          totalAmount: Number((it.qty * (product.purchasePrice || 0)).toFixed(2)),
+          referenceType: 'ORDER',
+          referenceId: returnNumber,
+          notes: `Returned by customer: Sale Return #${returnNumber}`,
+          date: data.date || new Date().toISOString().split('T')[0],
+          performedBy: userName,
+        };
+        this.data.inventoryTransactions.push(tx);
+      }
+    }
+
+    // 2. Reduce Customer Outstanding Balance
+    if (data.customerId) {
+      const customer = (this.data.customers || []).find(
+        (c) => c.id === data.customerId || c.code === data.customerId
+      );
+      if (customer) {
+        customer.outstandingBalance = Number(((customer.outstandingBalance || 0) - netTotal).toFixed(2));
+        customer.updatedAt = new Date().toISOString();
+      }
+    }
+
+    const newReturn: SaleReturn = {
+      id: `sr-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      companyId: getActiveCompanyId(),
+      returnNumber,
+      returnNumberFormatted,
+      date: data.date || new Date().toISOString().split('T')[0],
+      customerId: data.customerId || '',
+      customerName: data.customerName || data.customerAccountTitle || 'Customer',
+      customerAccountTitle: data.customerAccountTitle || data.customerName || 'Customer',
+      customerCode: data.customerCode || '',
+      originalBillNumber: data.originalBillNumber || '',
+      salesmanName: data.salesmanName || '',
+      items,
+      totalAmount: netTotal,
+      netTotal,
+      reason: data.reason || 'Customer Return',
+      status: 'COMPLETED',
+      createdBy: userName,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    this.data.saleReturns.push(newReturn);
+
+    this.logAudit({
+      userId: 'user-admin',
+      userName,
+      userRole: 'Admin',
+      action: 'SALE_RETURN_CREATED',
+      entityType: 'Order',
+      entityId: newReturn.id,
+      source: 'manual',
+      description: `Created Sale Return #${returnNumberFormatted} for ${newReturn.customerName} - Total: ${currencySymbol()} ${netTotal.toLocaleString()}`,
+    });
+
+    this.recalculateAllLedgers();
+    this.persist();
+    postgresService.upsertSaleReturn(newReturn, getActiveCompanyId()).catch(() => {});
+    return newReturn;
+  }
+
+  public updateSaleReturn(id: string, updates: Partial<SaleReturn>, userName: string = 'Admin'): SaleReturn {
+    const list = this.data.saleReturns || [];
+    const idx = list.findIndex((r) => r.id === id);
+    if (idx === -1) throw new Error(`Sale return not found with id ${id}`);
+
+    const oldReturn = list[idx];
+
+    // Reverse old stock restoration
+    for (const it of oldReturn.items || []) {
+      const prod = this.data.products.find((p) => p.id === it.productId || p.name === it.itemTitle);
+      if (prod) {
+        prod.currentQuantity = Math.max(0, Number(((prod.currentQuantity || 0) - it.qty).toFixed(2)));
+        prod.totalStock = prod.currentQuantity;
+        prod.stockValue = Number((prod.currentQuantity * (prod.purchasePrice || 0)).toFixed(2));
+      }
+    }
+
+    // Reverse old customer credit
+    if (oldReturn.customerId) {
+      const customer = (this.data.customers || []).find((c) => c.id === oldReturn.customerId);
+      if (customer) {
+        customer.outstandingBalance = Number(((customer.outstandingBalance || 0) + oldReturn.netTotal).toFixed(2));
+      }
+    }
+
+    const items: SaleReturnItem[] = (updates.items || oldReturn.items).map((it, i) => {
+      const qty = Number(it.qty) || 0;
+      const rate = Number(it.rate) || 0;
+      return {
+        id: it.id || `sri-${Date.now()}-${i + 1}`,
+        productId: it.productId || '',
+        itemTitle: it.itemTitle || 'Item',
+        sku: it.sku || '',
+        category: it.category || '',
+        unit: it.unit || 'CTN',
+        qty,
+        rate,
+        total: Number((qty * rate).toFixed(2)),
+        reason: it.reason || '',
+      };
+    });
+
+    const netTotal = items.reduce((s, it) => s + it.total, 0);
+
+    // Apply new stock restoration
+    for (const it of items) {
+      const prod = this.data.products.find((p) => p.id === it.productId || p.name === it.itemTitle);
+      if (prod) {
+        prod.currentQuantity = Number(((prod.currentQuantity || 0) + it.qty).toFixed(2));
+        prod.totalStock = prod.currentQuantity;
+        prod.stockValue = Number((prod.currentQuantity * (prod.purchasePrice || 0)).toFixed(2));
+      }
+    }
+
+    // Apply new customer credit
+    const custId = updates.customerId || oldReturn.customerId;
+    if (custId) {
+      const customer = (this.data.customers || []).find((c) => c.id === custId);
+      if (customer) {
+        customer.outstandingBalance = Number(((customer.outstandingBalance || 0) - netTotal).toFixed(2));
+      }
+    }
+
+    const updatedReturn: SaleReturn = {
+      ...oldReturn,
+      ...updates,
+      items,
+      totalAmount: netTotal,
+      netTotal,
+      updatedAt: new Date().toISOString(),
+    };
+
+    list[idx] = updatedReturn;
+
+    this.logAudit({
+      userId: 'user-admin',
+      userName,
+      userRole: 'Admin',
+      action: 'SALE_RETURN_UPDATED',
+      entityType: 'Order',
+      entityId: id,
+      source: 'manual',
+      description: `Updated Sale Return #${updatedReturn.returnNumberFormatted} - Total: ${currencySymbol()} ${netTotal.toLocaleString()}`,
+    });
+
+    this.recalculateAllLedgers();
+    this.persist();
+    postgresService.upsertSaleReturn(updatedReturn, getActiveCompanyId()).catch(() => {});
+    return updatedReturn;
+  }
+
+  public deleteSaleReturn(id: string, userName: string = 'Admin'): boolean {
+    const list = this.data.saleReturns || [];
+    const idx = list.findIndex((r) => r.id === id);
+    if (idx === -1) return false;
+
+    const oldReturn = list[idx];
+
+    // Revert stock (take away the returned goods)
+    for (const it of oldReturn.items || []) {
+      const prod = this.data.products.find((p) => p.id === it.productId || p.name === it.itemTitle);
+      if (prod) {
+        prod.currentQuantity = Math.max(0, Number(((prod.currentQuantity || 0) - it.qty).toFixed(2)));
+        prod.totalStock = prod.currentQuantity;
+        prod.stockValue = Number((prod.currentQuantity * (prod.purchasePrice || 0)).toFixed(2));
+      }
+    }
+
+    // Revert customer balance (put back the debt)
+    if (oldReturn.customerId) {
+      const customer = (this.data.customers || []).find((c) => c.id === oldReturn.customerId);
+      if (customer) {
+        customer.outstandingBalance = Number(((customer.outstandingBalance || 0) + oldReturn.netTotal).toFixed(2));
+      }
+    }
+
+    list.splice(idx, 1);
+
+    this.logAudit({
+      userId: 'user-admin',
+      userName,
+      userRole: 'Admin',
+      action: 'SALE_RETURN_DELETED',
+      entityType: 'Order',
+      entityId: id,
+      source: 'manual',
+      description: `Deleted Sale Return #${oldReturn.returnNumberFormatted} (${currencySymbol()} ${oldReturn.netTotal.toLocaleString()})`,
+    });
+
+    this.recalculateAllLedgers();
+    this.persist();
+    postgresService.deleteSaleReturn(id, getActiveCompanyId()).catch(() => {});
+    return true;
+  }
+
+  // =========================================================================
+  // PURCHASE RETURNS CRUD (SUPPLIER RETURNS / DEBIT NOTES)
+  // =========================================================================
+  public getPurchaseReturns(): PurchaseReturn[] {
+    return this.data.purchaseReturns || [];
+  }
+
+  public createPurchaseReturn(data: Partial<PurchaseReturn>, userName: string = 'Admin'): PurchaseReturn {
+    if (!this.data.purchaseReturns) this.data.purchaseReturns = [];
+
+    const existingCount = this.data.purchaseReturns.length;
+    const returnNumber = data.returnNumber || `PR-${1001 + existingCount}`;
+    const returnNumberFormatted = data.returnNumberFormatted || returnNumber;
+
+    const items: PurchaseReturnItem[] = (data.items || []).map((it, idx) => {
+      const qty = Number(it.qty) || 0;
+      const rate = Number(it.rate) || 0;
+      return {
+        id: it.id || `pri-${Date.now()}-${idx + 1}`,
+        productId: it.productId || '',
+        itemTitle: it.itemTitle || 'Item',
+        sku: it.sku || '',
+        category: it.category || '',
+        unit: it.unit || 'CTN',
+        qty,
+        rate,
+        total: Number((qty * rate).toFixed(2)),
+        reason: it.reason || '',
+      };
+    });
+
+    const netTotal = items.reduce((s, it) => s + it.total, 0);
+
+    // 1. Deduct Inventory Stock (goods returned back to supplier)
+    for (const it of items) {
+      let product = it.productId ? this.data.products.find((p) => p.id === it.productId) : undefined;
+      if (!product && it.itemTitle) {
+        product = this.data.products.find(
+          (p) =>
+            p.name.toLowerCase() === it.itemTitle.toLowerCase() ||
+            (p.itemTitle && p.itemTitle.toLowerCase() === it.itemTitle.toLowerCase())
+        );
+      }
+      if (product) {
+        const prevQty = product.currentQuantity || 0;
+        const newQty = Math.max(0, Number((prevQty - it.qty).toFixed(2)));
+        product.currentQuantity = newQty;
+        product.totalStock = newQty;
+        if (product.qtyInCarton && product.qtyInCarton > 1) {
+          product.carton = Math.floor(newQty / product.qtyInCarton);
+          product.ctn = product.carton;
+          product.extraKg = Number((newQty % product.qtyInCarton).toFixed(2));
+          product.pcs = product.extraKg;
+        }
+        product.stockValue = Number((newQty * (product.purchasePrice || 0)).toFixed(2));
+        product.updatedAt = new Date().toISOString();
+
+        // Log stock movement
+        const tx: InventoryTransaction = {
+          id: `tx-pr-${returnNumber}-${it.id}`,
+          productId: product.id,
+          productName: product.name,
+          type: 'ORDER_FULFILLMENT' as any,
+          quantity: -it.qty,
+          unit: product.unit || 'unit',
+          unitCost: product.purchasePrice || 0,
+          totalAmount: Number((it.qty * (product.purchasePrice || 0)).toFixed(2)),
+          referenceType: 'PURCHASE' as any,
+          referenceId: returnNumber,
+          notes: `Returned to supplier: Purchase Return #${returnNumber}`,
+          date: data.date || new Date().toISOString().split('T')[0],
+          performedBy: userName,
+        };
+        this.data.inventoryTransactions.push(tx);
+      }
+    }
+
+    // 2. Reduce Supplier Payable
+    if (data.supplierId) {
+      const supplier = (this.data.suppliers || []).find(
+        (s) => s.id === data.supplierId || s.code === data.supplierId
+      );
+      if (supplier) {
+        supplier.payableToSupplier = Number(((supplier.payableToSupplier || 0) - netTotal).toFixed(2));
+        supplier.balanceOwed = supplier.payableToSupplier;
+      }
+    }
+
+    const newReturn: PurchaseReturn = {
+      id: `pr-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      companyId: getActiveCompanyId(),
+      returnNumber,
+      returnNumberFormatted,
+      date: data.date || new Date().toISOString().split('T')[0],
+      supplierId: data.supplierId || '',
+      supplierName: data.supplierName || data.supplierAccountTitle || 'Supplier',
+      supplierAccountTitle: data.supplierAccountTitle || data.supplierName || 'Supplier',
+      supplierCode: data.supplierCode || '',
+      originalBillNumber: data.originalBillNumber || '',
+      items,
+      totalAmount: netTotal,
+      netTotal,
+      reason: data.reason || 'Supplier Return',
+      status: 'COMPLETED',
+      createdBy: userName,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    this.data.purchaseReturns.push(newReturn);
+
+    this.logAudit({
+      userId: 'user-admin',
+      userName,
+      userRole: 'Admin',
+      action: 'PURCHASE_RETURN_CREATED',
+      entityType: 'Order',
+      entityId: newReturn.id,
+      source: 'manual',
+      description: `Created Purchase Return #${returnNumberFormatted} for ${newReturn.supplierName} - Total: ${currencySymbol()} ${netTotal.toLocaleString()}`,
+    });
+
+    this.recalculateAllLedgers();
+    this.persist();
+    postgresService.upsertPurchaseReturn(newReturn, getActiveCompanyId()).catch(() => {});
+    return newReturn;
+  }
+
+  public updatePurchaseReturn(id: string, updates: Partial<PurchaseReturn>, userName: string = 'Admin'): PurchaseReturn {
+    const list = this.data.purchaseReturns || [];
+    const idx = list.findIndex((r) => r.id === id);
+    if (idx === -1) throw new Error(`Purchase return not found with id ${id}`);
+
+    const oldReturn = list[idx];
+
+    // Reverse old stock deduction (add back items)
+    for (const it of oldReturn.items || []) {
+      const prod = this.data.products.find((p) => p.id === it.productId || p.name === it.itemTitle);
+      if (prod) {
+        prod.currentQuantity = Number(((prod.currentQuantity || 0) + it.qty).toFixed(2));
+        prod.totalStock = prod.currentQuantity;
+        prod.stockValue = Number((prod.currentQuantity * (prod.purchasePrice || 0)).toFixed(2));
+      }
+    }
+
+    // Reverse old supplier debit (restore payable)
+    if (oldReturn.supplierId) {
+      const supplier = (this.data.suppliers || []).find((s) => s.id === oldReturn.supplierId);
+      if (supplier) {
+        supplier.payableToSupplier = Number(((supplier.payableToSupplier || 0) + oldReturn.netTotal).toFixed(2));
+        supplier.balanceOwed = supplier.payableToSupplier;
+      }
+    }
+
+    const items: PurchaseReturnItem[] = (updates.items || oldReturn.items).map((it, i) => {
+      const qty = Number(it.qty) || 0;
+      const rate = Number(it.rate) || 0;
+      return {
+        id: it.id || `pri-${Date.now()}-${i + 1}`,
+        productId: it.productId || '',
+        itemTitle: it.itemTitle || 'Item',
+        sku: it.sku || '',
+        category: it.category || '',
+        unit: it.unit || 'CTN',
+        qty,
+        rate,
+        total: Number((qty * rate).toFixed(2)),
+        reason: it.reason || '',
+      };
+    });
+
+    const netTotal = items.reduce((s, it) => s + it.total, 0);
+
+    // Apply new stock deduction
+    for (const it of items) {
+      const prod = this.data.products.find((p) => p.id === it.productId || p.name === it.itemTitle);
+      if (prod) {
+        prod.currentQuantity = Math.max(0, Number(((prod.currentQuantity || 0) - it.qty).toFixed(2)));
+        prod.totalStock = prod.currentQuantity;
+        prod.stockValue = Number((prod.currentQuantity * (prod.purchasePrice || 0)).toFixed(2));
+      }
+    }
+
+    // Apply new supplier debit
+    const supId = updates.supplierId || oldReturn.supplierId;
+    if (supId) {
+      const supplier = (this.data.suppliers || []).find((s) => s.id === supId);
+      if (supplier) {
+        supplier.payableToSupplier = Number(((supplier.payableToSupplier || 0) - netTotal).toFixed(2));
+        supplier.balanceOwed = supplier.payableToSupplier;
+      }
+    }
+
+    const updatedReturn: PurchaseReturn = {
+      ...oldReturn,
+      ...updates,
+      items,
+      totalAmount: netTotal,
+      netTotal,
+      updatedAt: new Date().toISOString(),
+    };
+
+    list[idx] = updatedReturn;
+
+    this.logAudit({
+      userId: 'user-admin',
+      userName,
+      userRole: 'Admin',
+      action: 'PURCHASE_RETURN_UPDATED',
+      entityType: 'Order',
+      entityId: id,
+      source: 'manual',
+      description: `Updated Purchase Return #${updatedReturn.returnNumberFormatted} - Total: ${currencySymbol()} ${netTotal.toLocaleString()}`,
+    });
+
+    this.recalculateAllLedgers();
+    this.persist();
+    postgresService.upsertPurchaseReturn(updatedReturn, getActiveCompanyId()).catch(() => {});
+    return updatedReturn;
+  }
+
+  public deletePurchaseReturn(id: string, userName: string = 'Admin'): boolean {
+    const list = this.data.purchaseReturns || [];
+    const idx = list.findIndex((r) => r.id === id);
+    if (idx === -1) return false;
+
+    const oldReturn = list[idx];
+
+    // Revert stock (add back items to inventory)
+    for (const it of oldReturn.items || []) {
+      const prod = this.data.products.find((p) => p.id === it.productId || p.name === it.itemTitle);
+      if (prod) {
+        prod.currentQuantity = Number(((prod.currentQuantity || 0) + it.qty).toFixed(2));
+        prod.totalStock = prod.currentQuantity;
+        prod.stockValue = Number((prod.currentQuantity * (prod.purchasePrice || 0)).toFixed(2));
+      }
+    }
+
+    // Revert supplier payable (put back the payable)
+    if (oldReturn.supplierId) {
+      const supplier = (this.data.suppliers || []).find((s) => s.id === oldReturn.supplierId);
+      if (supplier) {
+        supplier.payableToSupplier = Number(((supplier.payableToSupplier || 0) + oldReturn.netTotal).toFixed(2));
+        supplier.balanceOwed = supplier.payableToSupplier;
+      }
+    }
+
+    list.splice(idx, 1);
+
+    this.logAudit({
+      userId: 'user-admin',
+      userName,
+      userRole: 'Admin',
+      action: 'PURCHASE_RETURN_DELETED',
+      entityType: 'Order',
+      entityId: id,
+      source: 'manual',
+      description: `Deleted Purchase Return #${oldReturn.returnNumberFormatted} (${currencySymbol()} ${oldReturn.netTotal.toLocaleString()})`,
+    });
+
+    this.recalculateAllLedgers();
+    this.persist();
+    postgresService.deletePurchaseReturn(id, getActiveCompanyId()).catch(() => {});
+    return true;
   }
 }
 

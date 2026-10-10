@@ -34,6 +34,9 @@ import {
   CashRecoveredReportItem,
   CashPaidReportItem,
   ExpenseAccount,
+  SaleReturn,
+  PurchaseReturn,
+  CustomerLedgerReport,
 } from '../types';
 import { OfflineStorageService } from './offlineStorage';
 import { setCurrency } from '../utils/currency';
@@ -1716,6 +1719,105 @@ export const api = {
     if (toDate) query.set('toDate', toDate);
     const res = await fetch(`/api/reports/cash-paid?${query.toString()}`);
     if (!res.ok) throw new Error('Failed to load cash paid report');
+    return res.json();
+  },
+
+  // Customer Ledger Report
+  async getCustomerLedgerReport(params: {
+    customerId: string;
+    fromDate?: string;
+    toDate?: string;
+    poNumber?: string;
+  }): Promise<CustomerLedgerReport> {
+    const query = new URLSearchParams();
+    query.set('customerId', params.customerId);
+    if (params.fromDate) query.set('fromDate', params.fromDate);
+    if (params.toDate) query.set('toDate', params.toDate);
+    if (params.poNumber) query.set('poNumber', params.poNumber);
+
+    const res = await fetch(`/api/reports/customer-ledger?${query.toString()}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to generate customer general ledger report');
+    }
+    return res.json();
+  },
+
+  // Sales Returns
+  async getSaleReturns(): Promise<SaleReturn[]> {
+    const res = await fetch('/api/sale-returns');
+    if (!res.ok) throw new Error('Failed to load sales returns');
+    return res.json();
+  },
+
+  async createSaleReturn(saleReturn: Partial<SaleReturn>): Promise<SaleReturn> {
+    const res = await fetch('/api/sale-returns', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(saleReturn),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to record sales return');
+    }
+    return res.json();
+  },
+
+  async updateSaleReturn(id: string, updates: Partial<SaleReturn>): Promise<SaleReturn> {
+    const res = await fetch(`/api/sale-returns/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to update sales return');
+    }
+    return res.json();
+  },
+
+  async deleteSaleReturn(id: string): Promise<{ success: boolean }> {
+    const res = await fetch(`/api/sale-returns/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to delete sales return');
+    return res.json();
+  },
+
+  // Purchase Returns
+  async getPurchaseReturns(): Promise<PurchaseReturn[]> {
+    const res = await fetch('/api/purchase-returns');
+    if (!res.ok) throw new Error('Failed to load purchase returns');
+    return res.json();
+  },
+
+  async createPurchaseReturn(purchaseReturn: Partial<PurchaseReturn>): Promise<PurchaseReturn> {
+    const res = await fetch('/api/purchase-returns', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(purchaseReturn),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to record purchase return');
+    }
+    return res.json();
+  },
+
+  async updatePurchaseReturn(id: string, updates: Partial<PurchaseReturn>): Promise<PurchaseReturn> {
+    const res = await fetch(`/api/purchase-returns/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to update purchase return');
+    }
+    return res.json();
+  },
+
+  async deletePurchaseReturn(id: string): Promise<{ success: boolean }> {
+    const res = await fetch(`/api/purchase-returns/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to delete purchase return');
     return res.json();
   },
 };

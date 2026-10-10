@@ -1567,6 +1567,109 @@ app.get('/api/reports/cash-paid', (req, res) => {
 });
 
 // -------------------------------------------------------------
+// CUSTOMER GENERAL LEDGER REPORT
+// -------------------------------------------------------------
+app.get('/api/reports/customer-ledger', (req, res) => {
+  try {
+    const { customerId, fromDate, toDate, poNumber } = req.query;
+    if (!customerId) {
+      return res.status(400).json({ error: 'customerId is required' });
+    }
+    const report = db.getCustomerLedgerReport(
+      String(customerId),
+      fromDate ? String(fromDate) : undefined,
+      toDate ? String(toDate) : undefined,
+      poNumber ? String(poNumber) : undefined
+    );
+    res.json(report);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// -------------------------------------------------------------
+// SALES RETURNS API
+// -------------------------------------------------------------
+app.get('/api/sale-returns', (req, res) => {
+  try {
+    res.json(db.getSaleReturns());
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/sale-returns', (req, res) => {
+  try {
+    const userName = (req as any).user?.name || req.body.userName || 'Admin';
+    const result = db.createSaleReturn(req.body, userName);
+    res.status(201).json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/sale-returns/:id', (req, res) => {
+  try {
+    const userName = (req as any).user?.name || req.body.userName || 'Admin';
+    const result = db.updateSaleReturn(req.params.id, req.body, userName);
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/sale-returns/:id', (req, res) => {
+  try {
+    const userName = (req as any).user?.name || 'Admin';
+    const ok = db.deleteSaleReturn(req.params.id, userName);
+    res.json({ success: ok });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// -------------------------------------------------------------
+// PURCHASE RETURNS API
+// -------------------------------------------------------------
+app.get('/api/purchase-returns', (req, res) => {
+  try {
+    res.json(db.getPurchaseReturns());
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/purchase-returns', (req, res) => {
+  try {
+    const userName = (req as any).user?.name || req.body.userName || 'Admin';
+    const result = db.createPurchaseReturn(req.body, userName);
+    res.status(201).json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/purchase-returns/:id', (req, res) => {
+  try {
+    const userName = (req as any).user?.name || req.body.userName || 'Admin';
+    const result = db.updatePurchaseReturn(req.params.id, req.body, userName);
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/purchase-returns/:id', (req, res) => {
+  try {
+    const userName = (req as any).user?.name || 'Admin';
+    const ok = db.deletePurchaseReturn(req.params.id, userName);
+    res.json({ success: ok });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// -------------------------------------------------------------
 // AI LEDGER MASTER BUSINESS AUDIT REPORT
 // -------------------------------------------------------------
 app.get('/api/reports/ledger-audit', (req, res) => {

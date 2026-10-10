@@ -21,6 +21,7 @@ import {
   Percent,
   Save,
   ArrowRight,
+  RotateCcw,
 } from 'lucide-react';
 import {
   Product,
@@ -31,6 +32,7 @@ import {
 } from '../types';
 import { api } from '../services/api';
 import { AddItemHeadModal } from './AddItemHeadModal';
+import { PurchaseReturnModal } from './PurchaseReturnModal';
 
 interface PurchasingViewProps {
   products: Product[];
@@ -90,6 +92,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
   // Invoice voucher modal state after saving
   const [lastSavedBill, setLastSavedBill] = useState<PurchaseBill | null>(null);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+  const [isPurchaseReturnModalOpen, setIsPurchaseReturnModalOpen] = useState(false);
 
   // -------------------------------------------------------------
   // MASTER INVOICE HEADER STATE (Matching Image 1 & 2)
@@ -842,8 +845,17 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
           </label>
         </div>
 
-        {/* Action Link to Reports */}
+        {/* Action Link to Reports & Purchase Return */}
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsPurchaseReturnModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-white rounded-lg border border-amber-500/40 text-xs font-bold transition shadow-sm cursor-pointer"
+            title="Record Purchase Return to Supplier"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+            <span>Purchase Return (خریداری واپسی)</span>
+          </button>
           {onNavigateTab && (
             <button
               onClick={() => onNavigateTab('reports')}
@@ -2029,6 +2041,17 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Purchase Return Modal */}
+      <PurchaseReturnModal
+        isOpen={isPurchaseReturnModalOpen}
+        onClose={() => setIsPurchaseReturnModalOpen(false)}
+        onSaved={() => {
+          if (onRefreshData) onRefreshData();
+        }}
+        suppliers={suppliers}
+        products={products}
+      />
     </div>
   );
 };

@@ -25,6 +25,8 @@ import {
   CashAccount,
   ExpenseAccount,
   Voucher,
+  SaleReturn,
+  PurchaseReturn,
 } from '../src/types';
 
 dotenv.config();
@@ -584,6 +586,57 @@ class PostgresService {
           );
         `);
 
+        // 21. Sales Returns (Customer Sales Returns / Credit Notes)
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS sale_returns (
+            id VARCHAR(100) PRIMARY KEY,
+            company_id VARCHAR(100) DEFAULT 'comp_default_01',
+            return_number VARCHAR(100) NOT NULL,
+            return_number_formatted VARCHAR(100) NOT NULL,
+            date VARCHAR(50) NOT NULL,
+            customer_id VARCHAR(100) NOT NULL,
+            customer_name VARCHAR(255) NOT NULL,
+            customer_account_title VARCHAR(255),
+            customer_code VARCHAR(100),
+            original_bill_number VARCHAR(100),
+            salesman_name VARCHAR(150),
+            items JSONB DEFAULT '[]',
+            total_amount NUMERIC(15,2) DEFAULT 0,
+            net_total NUMERIC(15,2) DEFAULT 0,
+            reason TEXT,
+            status VARCHAR(50) DEFAULT 'COMPLETED',
+            created_by VARCHAR(150),
+            data JSONB NOT NULL DEFAULT '{}',
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+          );
+        `);
+
+        // 22. Purchase Returns (Vendor/Supplier Purchase Returns / Debit Notes)
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS purchase_returns (
+            id VARCHAR(100) PRIMARY KEY,
+            company_id VARCHAR(100) DEFAULT 'comp_default_01',
+            return_number VARCHAR(100) NOT NULL,
+            return_number_formatted VARCHAR(100) NOT NULL,
+            date VARCHAR(50) NOT NULL,
+            supplier_id VARCHAR(100) NOT NULL,
+            supplier_name VARCHAR(255) NOT NULL,
+            supplier_account_title VARCHAR(255),
+            supplier_code VARCHAR(100),
+            original_bill_number VARCHAR(100),
+            items JSONB DEFAULT '[]',
+            total_amount NUMERIC(15,2) DEFAULT 0,
+            net_total NUMERIC(15,2) DEFAULT 0,
+            reason TEXT,
+            status VARCHAR(50) DEFAULT 'COMPLETED',
+            created_by VARCHAR(150),
+            data JSONB NOT NULL DEFAULT '{}',
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+          );
+        `);
+
         // -------------------------------------------------------------
         // MULTI-TENANT COLUMN ADDITIONS (Guarantees backwards-compatibility)
         // -------------------------------------------------------------
@@ -607,6 +660,8 @@ class PostgresService {
           'vouchers',
           'bank_accounts',
           'expense_accounts',
+          'sale_returns',
+          'purchase_returns',
         ];
 
         for (const tbl of tenantTables) {
@@ -629,6 +684,10 @@ class PostgresService {
           CREATE INDEX IF NOT EXISTS idx_vouchers_jv ON vouchers(jv_number);
           CREATE INDEX IF NOT EXISTS idx_bank_accounts_code ON bank_accounts(account_code);
           CREATE INDEX IF NOT EXISTS idx_expense_accounts_code ON expense_accounts(code);
+          CREATE INDEX IF NOT EXISTS idx_sale_returns_customer ON sale_returns(customer_id);
+          CREATE INDEX IF NOT EXISTS idx_sale_returns_date ON sale_returns(date);
+          CREATE INDEX IF NOT EXISTS idx_purchase_returns_supplier ON purchase_returns(supplier_id);
+          CREATE INDEX IF NOT EXISTS idx_purchase_returns_date ON purchase_returns(date);
         `);
 
         // Seed default company 'comp_default_01' if empty and backfill nulls
@@ -691,6 +750,8 @@ class PostgresService {
       'vouchers',
       'bank_accounts',
       'expense_accounts',
+      'sale_returns',
+      'purchase_returns',
     ];
 
     try {
@@ -927,6 +988,8 @@ class PostgresService {
           vouchersRes,
           banksRes,
           expenseAccRes,
+          srRes,
+          prRes,
         ] = await Promise.all([
           client.query('SELECT * FROM users WHERE company_id = $1 ORDER BY id;', [companyId]),
           client.query('SELECT * FROM company_profile WHERE company_id = $1 LIMIT 1;', [companyId]),
@@ -954,6 +1017,8 @@ class PostgresService {
           client.query('SELECT * FROM vouchers WHERE company_id = $1 ORDER BY jv_number ASC;', [companyId]),
           client.query('SELECT * FROM bank_accounts WHERE company_id = $1 ORDER BY id ASC;', [companyId]),
           client.query('SELECT * FROM expense_accounts WHERE company_id = $1 ORDER BY id ASC;', [companyId]),
+          client.query('SELECT * FROM sale_returns WHERE company_id = $1 ORDER BY id DESC;', [companyId]),
+          client.query('SELECT * FROM purchase_returns WHERE company_id = $1 ORDER BY id DESC;', [companyId]),
         ]);
 
         const extractItem = (row: any) => ({
@@ -1247,6 +1312,64 @@ class PostgresService {
         const banks: BankAccount[] = banksRes.rows.map(extractBankAccount);
         const expenseAccounts: ExpenseAccount[] = expenseAccRes.rows.map(extractExpenseAccount);
 
+        const extractSaleReturn = (row: any): SaleReturn => {
+          const d = typeof row.data === 'string' ? JSON.parse(row.data) : (row.data || {});
+          return {
+            ...d,
+            ...row,
+            id: row.id || d.id,
+            companyId,
+            returnNumber: row.return_number || d.returnNumber || '',
+            returnNumberFormatted: row.return_number_formatted || d.returnNumberFormatted || row.return_number || '',
+            date: row.date || d.date || '',
+            customerId: row.customer_id || d.customerId || '',
+            customerName: row.customer_name || d.customerName || '',
+            customerAccountTitle: row.customer_account_title || d.customerAccountTitle || row.customer_name || '',
+            customerCode: row.customer_code || d.customerCode || '',
+            originalBillNumber: row.original_bill_number || d.originalBillNumber || '',
+            salesmanName: row.salesman_name || d.salesmanName || '',
+            items: Array.isArray(row.items) ? row.items : (Array.isArray(d.items) ? d.items : []),
+            totalAmount: parseFloat(row.total_amount ?? d.totalAmount ?? 0),
+            netTotal: parseFloat(row.net_total ?? d.netTotal ?? row.total_amount ?? 0),
+            reason: row.reason || d.reason || '',
+            status: row.status || d.status || 'COMPLETED',
+            createdBy: row.created_by || d.createdBy || 'Admin',
+            createdAt: row.created_at ? new Date(row.created_at).toISOString() : (d.createdAt || new Date().toISOString()),
+            updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : (d.updatedAt || new Date().toISOString()),
+            data: undefined,
+          };
+        };
+
+        const extractPurchaseReturn = (row: any): PurchaseReturn => {
+          const d = typeof row.data === 'string' ? JSON.parse(row.data) : (row.data || {});
+          return {
+            ...d,
+            ...row,
+            id: row.id || d.id,
+            companyId,
+            returnNumber: row.return_number || d.returnNumber || '',
+            returnNumberFormatted: row.return_number_formatted || d.returnNumberFormatted || row.return_number || '',
+            date: row.date || d.date || '',
+            supplierId: row.supplier_id || d.supplierId || '',
+            supplierName: row.supplier_name || d.supplierName || '',
+            supplierAccountTitle: row.supplier_account_title || d.supplierAccountTitle || row.supplier_name || '',
+            supplierCode: row.supplier_code || d.supplierCode || '',
+            originalBillNumber: row.original_bill_number || d.originalBillNumber || '',
+            items: Array.isArray(row.items) ? row.items : (Array.isArray(d.items) ? d.items : []),
+            totalAmount: parseFloat(row.total_amount ?? d.totalAmount ?? 0),
+            netTotal: parseFloat(row.net_total ?? d.netTotal ?? row.total_amount ?? 0),
+            reason: row.reason || d.reason || '',
+            status: row.status || d.status || 'COMPLETED',
+            createdBy: row.created_by || d.createdBy || 'Admin',
+            createdAt: row.created_at ? new Date(row.created_at).toISOString() : (d.createdAt || new Date().toISOString()),
+            updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : (d.updatedAt || new Date().toISOString()),
+            data: undefined,
+          };
+        };
+
+        const saleReturns: SaleReturn[] = srRes.rows.map(extractSaleReturn);
+        const purchaseReturns: PurchaseReturn[] = prRes.rows.map(extractPurchaseReturn);
+
         const lookups: Record<string, string[]> = {};
         for (const r of metaRes.rows) {
           lookups[r.key] = Array.isArray(r.values) ? r.values : [];
@@ -1271,6 +1394,8 @@ class PostgresService {
           vouchers,
           banks,
           expenseAccounts,
+          saleReturns,
+          purchaseReturns,
           itemCategories: lookups['itemCategories'],
           itemBrands: lookups['itemBrands'],
           itemMeasures: lookups['itemMeasures'],
@@ -2191,6 +2316,142 @@ class PostgresService {
   }
 
   // =========================================================================
+  // SALE RETURNS PERSISTENCE
+  // =========================================================================
+  public async upsertSaleReturn(ret: SaleReturn, companyId = 'comp_default_01'): Promise<void> {
+    if (!this.pool) return;
+    try {
+      const r = ret as any;
+      const cid = companyId || r.companyId || 'comp_default_01';
+      await this.pool.query(
+        `INSERT INTO sale_returns (
+          id, company_id, return_number, return_number_formatted, date,
+          customer_id, customer_name, customer_account_title, customer_code,
+          original_bill_number, salesman_name, items, total_amount, net_total,
+          reason, status, created_by, data, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW())
+        ON CONFLICT (id) DO UPDATE SET
+          company_id = EXCLUDED.company_id,
+          return_number = EXCLUDED.return_number,
+          return_number_formatted = EXCLUDED.return_number_formatted,
+          date = EXCLUDED.date,
+          customer_id = EXCLUDED.customer_id,
+          customer_name = EXCLUDED.customer_name,
+          customer_account_title = EXCLUDED.customer_account_title,
+          customer_code = EXCLUDED.customer_code,
+          original_bill_number = EXCLUDED.original_bill_number,
+          salesman_name = EXCLUDED.salesman_name,
+          items = EXCLUDED.items,
+          total_amount = EXCLUDED.total_amount,
+          net_total = EXCLUDED.net_total,
+          reason = EXCLUDED.reason,
+          status = EXCLUDED.status,
+          created_by = EXCLUDED.created_by,
+          data = EXCLUDED.data,
+          updated_at = NOW();`,
+        [
+          r.id,
+          cid,
+          r.returnNumber || '',
+          r.returnNumberFormatted || r.returnNumber || '',
+          r.date || '',
+          r.customerId || '',
+          r.customerName || '',
+          r.customerAccountTitle || r.customerName || '',
+          r.customerCode || '',
+          r.originalBillNumber || '',
+          r.salesmanName || '',
+          JSON.stringify(r.items || []),
+          Number(r.totalAmount) || 0,
+          Number(r.netTotal) || 0,
+          r.reason || '',
+          r.status || 'COMPLETED',
+          r.createdBy || 'Admin',
+          JSON.stringify(ret),
+        ]
+      );
+    } catch (err: any) {
+      console.warn('[PostgreSQL upsertSaleReturn error]:', err.message);
+    }
+  }
+
+  public async deleteSaleReturn(id: string, companyId = 'comp_default_01'): Promise<void> {
+    if (!this.pool) return;
+    try {
+      await this.pool.query('DELETE FROM sale_returns WHERE id = $1 AND (company_id = $2 OR company_id IS NULL)', [id, companyId]);
+    } catch (err: any) {
+      console.warn('[PostgreSQL deleteSaleReturn error]:', err.message);
+    }
+  }
+
+  // =========================================================================
+  // PURCHASE RETURNS PERSISTENCE
+  // =========================================================================
+  public async upsertPurchaseReturn(ret: PurchaseReturn, companyId = 'comp_default_01'): Promise<void> {
+    if (!this.pool) return;
+    try {
+      const r = ret as any;
+      const cid = companyId || r.companyId || 'comp_default_01';
+      await this.pool.query(
+        `INSERT INTO purchase_returns (
+          id, company_id, return_number, return_number_formatted, date,
+          supplier_id, supplier_name, supplier_account_title, supplier_code,
+          original_bill_number, items, total_amount, net_total,
+          reason, status, created_by, data, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW())
+        ON CONFLICT (id) DO UPDATE SET
+          company_id = EXCLUDED.company_id,
+          return_number = EXCLUDED.return_number,
+          return_number_formatted = EXCLUDED.return_number_formatted,
+          date = EXCLUDED.date,
+          supplier_id = EXCLUDED.supplier_id,
+          supplier_name = EXCLUDED.supplier_name,
+          supplier_account_title = EXCLUDED.supplier_account_title,
+          supplier_code = EXCLUDED.supplier_code,
+          original_bill_number = EXCLUDED.original_bill_number,
+          items = EXCLUDED.items,
+          total_amount = EXCLUDED.total_amount,
+          net_total = EXCLUDED.net_total,
+          reason = EXCLUDED.reason,
+          status = EXCLUDED.status,
+          created_by = EXCLUDED.created_by,
+          data = EXCLUDED.data,
+          updated_at = NOW();`,
+        [
+          r.id,
+          cid,
+          r.returnNumber || '',
+          r.returnNumberFormatted || r.returnNumber || '',
+          r.date || '',
+          r.supplierId || '',
+          r.supplierName || '',
+          r.supplierAccountTitle || r.supplierName || '',
+          r.supplierCode || '',
+          r.originalBillNumber || '',
+          JSON.stringify(r.items || []),
+          Number(r.totalAmount) || 0,
+          Number(r.netTotal) || 0,
+          r.reason || '',
+          r.status || 'COMPLETED',
+          r.createdBy || 'Admin',
+          JSON.stringify(ret),
+        ]
+      );
+    } catch (err: any) {
+      console.warn('[PostgreSQL upsertPurchaseReturn error]:', err.message);
+    }
+  }
+
+  public async deletePurchaseReturn(id: string, companyId = 'comp_default_01'): Promise<void> {
+    if (!this.pool) return;
+    try {
+      await this.pool.query('DELETE FROM purchase_returns WHERE id = $1 AND (company_id = $2 OR company_id IS NULL)', [id, companyId]);
+    } catch (err: any) {
+      console.warn('[PostgreSQL deletePurchaseReturn error]:', err.message);
+    }
+  }
+
+  // =========================================================================
   // COMPLETE ONE-CLICK MIGRATION (Local JSON Schema -> PostgreSQL)
   // =========================================================================
   public async migrateFullSnapshotToPostgres(data: any, companyId = 'comp_default_01'): Promise<{ success: boolean; counts: Record<string, number>; message: string }> {
@@ -2330,6 +2591,18 @@ class PostgresService {
       if (Array.isArray(data.expenseAccounts)) {
         for (const exp of data.expenseAccounts) await this.upsertExpenseAccount(exp, companyId);
         counts['expense_accounts'] = data.expenseAccounts.length;
+      }
+
+      // 20. Sale Returns
+      if (Array.isArray(data.saleReturns)) {
+        for (const sr of data.saleReturns) await this.upsertSaleReturn(sr, companyId);
+        counts['sale_returns'] = data.saleReturns.length;
+      }
+
+      // 21. Purchase Returns
+      if (Array.isArray(data.purchaseReturns)) {
+        for (const pr of data.purchaseReturns) await this.upsertPurchaseReturn(pr, companyId);
+        counts['purchase_returns'] = data.purchaseReturns.length;
       }
 
       return {
