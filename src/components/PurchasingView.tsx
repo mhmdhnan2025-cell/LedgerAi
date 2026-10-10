@@ -133,6 +133,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
   // Item dropdown live search (Image 2)
   const [isItemDropdownOpen, setIsItemDropdownOpen] = useState(false);
   const [itemSearchQuery, setItemSearchQuery] = useState('');
+  const [highlightedItemIndex, setHighlightedItemIndex] = useState(0);
   const itemDropdownRef = useRef<HTMLDivElement>(null);
   const [itemDropdownStyle, setItemDropdownStyle] = useState<React.CSSProperties>({});
 
@@ -482,9 +483,10 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
     // Reset row inputs ready for next item immediately
     setSelectedProductId('');
     setItemTitle('');
+    setItemSearchQuery('');
     setItemCategory('General');
     setItemMCode('');
-    setCtn(1);
+    setCtn('');
     setExtraPiece('');
     setRatePerCtn('');
     setQtyPerCtn(1);
@@ -492,11 +494,16 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
     setRate('');
     setDiscount(0);
     setItemStock(0);
+    setHighlightedItemIndex(0);
 
-    // Refocus on item input for instant next addition
+    // Refocus on item input immediately for zero-mouse ultra fast data entry
     setTimeout(() => {
-      itemInputRef.current?.focus();
-    }, 50);
+      if (itemInputRef.current) {
+        itemInputRef.current.focus();
+        itemInputRef.current.select();
+      }
+      setIsItemDropdownOpen(true);
+    }, 40);
   };
 
   const handleRemoveItem = (id: string) => {
@@ -1231,18 +1238,36 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                     <input
                       ref={itemInputRef}
                       type="text"
-                      placeholder="Select / Search Item..."
+                      placeholder="Select / Search Item (↑ ↓ to navigate, Enter to select)..."
                       value={itemTitle}
-                      onFocus={() => setIsItemDropdownOpen(true)}
+                      onFocus={() => {
+                        setIsItemDropdownOpen(true);
+                        setHighlightedItemIndex(0);
+                      }}
                       onChange={(e) => {
                         setItemTitle(e.target.value);
                         setItemSearchQuery(e.target.value);
                         setIsItemDropdownOpen(true);
+                        setHighlightedItemIndex(0);
                       }}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
+                        if (e.key === 'ArrowDown') {
                           e.preventDefault();
-                          ctnInputRef.current?.focus();
+                          setIsItemDropdownOpen(true);
+                          setHighlightedItemIndex((prev) => Math.min(prev + 1, Math.max(0, filteredProducts.length - 1)));
+                        } else if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          setIsItemDropdownOpen(true);
+                          setHighlightedItemIndex((prev) => Math.max(prev - 1, 0));
+                        } else if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (filteredProducts.length > 0 && highlightedItemIndex >= 0 && highlightedItemIndex < filteredProducts.length) {
+                            handleSelectItem(filteredProducts[highlightedItemIndex]);
+                          } else {
+                            ctnInputRef.current?.focus();
+                          }
+                        } else if (e.key === 'Escape') {
+                          setIsItemDropdownOpen(false);
                         }
                       }}
                       className="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1 text-white font-bold text-xs focus:border-sky-500 focus:outline-none"
@@ -1277,7 +1302,26 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                             type="text"
                             placeholder="Type to filter items (نام یا کوڈ)..."
                             value={itemSearchQuery}
-                            onChange={(e) => setItemSearchQuery(e.target.value)}
+                            onChange={(e) => {
+                              setItemSearchQuery(e.target.value);
+                              setHighlightedItemIndex(0);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'ArrowDown') {
+                                e.preventDefault();
+                                setHighlightedItemIndex((prev) => Math.min(prev + 1, Math.max(0, filteredProducts.length - 1)));
+                              } else if (e.key === 'ArrowUp') {
+                                e.preventDefault();
+                                setHighlightedItemIndex((prev) => Math.max(prev - 1, 0));
+                              } else if (e.key === 'Enter') {
+                                e.preventDefault();
+                                if (filteredProducts.length > 0 && highlightedItemIndex >= 0 && highlightedItemIndex < filteredProducts.length) {
+                                  handleSelectItem(filteredProducts[highlightedItemIndex]);
+                                }
+                              } else if (e.key === 'Escape') {
+                                setIsItemDropdownOpen(false);
+                              }
+                            }}
                             className="flex-1 bg-slate-800 border border-slate-700 rounded px-2.5 py-1 text-white text-xs focus:outline-none focus:border-sky-500"
                           />
                           <button
@@ -1299,13 +1343,14 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                             />
                             <span>Keep list open (فہرست کھلی رکھیں)</span>
                           </label>
-                          <span>{filteredProducts.length} items</span>
+                          <span>{filteredProducts.length} items (Use ↑ ↓ &amp; Enter)</span>
                         </div>
                       </div>
 
                       <div className="max-h-64 overflow-y-auto divide-y divide-slate-800/60">
-                        {filteredProducts.map((p) => {
+                        {filteredProducts.map((p, idx) => {
                           const isSelected = selectedProductId === p.id;
+                          const isHighlighted = idx === highlightedItemIndex;
                           const qCtn = Number(p.qtyInCarton) && Number(p.qtyInCarton) > 0 ? Number(p.qtyInCarton) : 1;
                           const ctnRate = Number(p.ctnPurchaseRate) || Number(((Number(p.purchasePrice) || 0) * qCtn).toFixed(2)) || 0;
                           const pkgUnit = ((p.category || '') + ' ' + (p.measure || '')).toLowerCase().includes('bag')
@@ -1318,9 +1363,12 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                             <div
                               key={p.id}
                               onClick={() => handleSelectItem(p)}
+                              onMouseEnter={() => setHighlightedItemIndex(idx)}
                               className={`px-3 py-2 cursor-pointer transition flex justify-between items-center text-slate-200 ${
                                 isSelected
-                                  ? 'bg-sky-950/80 border-l-4 border-sky-400 text-sky-200 font-bold'
+                                  ? 'bg-sky-950/90 border-l-4 border-sky-400 text-sky-200 font-bold'
+                                  : isHighlighted
+                                  ? 'bg-sky-900/60 border-l-4 border-sky-500 text-white font-semibold'
                                   : 'hover:bg-sky-900/30'
                               }`}
                             >
@@ -1387,7 +1435,12 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
-                        qtyInputRef.current?.focus();
+                        if (typeof ctn === 'number' && ctn > 0 && typeof ratePerCtn === 'number' && ratePerCtn > 0) {
+                          handleAddRowItem();
+                        } else {
+                          qtyInputRef.current?.focus();
+                          qtyInputRef.current?.select();
+                        }
                       }
                     }}
                     className="w-full bg-slate-800 border border-slate-700 rounded px-1.5 py-1 text-right font-mono font-bold text-white text-xs focus:border-sky-500 focus:outline-none"

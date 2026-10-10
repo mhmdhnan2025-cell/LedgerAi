@@ -50,6 +50,13 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PROFITABLE' | 'LOSS' | 'LOW_MARGIN'>('ALL');
   const [activeDatePreset, setActiveDatePreset] = useState<string>('all');
 
+  // Dedicated Live Search & Filters per Tab
+  const [itemSearch, setItemSearch] = useState('');
+  const [itemSelectFilter, setItemSelectFilter] = useState('ALL');
+  const [billSearch, setBillSearch] = useState('');
+  const [restaurantSearch, setRestaurantSearch] = useState('');
+  const [salesmanSearch, setSalesmanSearch] = useState('');
+
   // Salesman Customers Hover & Modal Popover (Fixed on top of all UI)
   const [popoverSalesman, setPopoverSalesman] = useState<{
     sm: SalesmanProfitReportItem;
@@ -146,11 +153,37 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
           it.category.toLowerCase().includes(q)
       );
     }
+    if (itemSearch.trim()) {
+      const q = itemSearch.toLowerCase();
+      list = list.filter(
+        (it) =>
+          it.itemTitle.toLowerCase().includes(q) ||
+          it.mcode.toLowerCase().includes(q) ||
+          it.category.toLowerCase().includes(q)
+      );
+    }
+    if (itemSelectFilter !== 'ALL') {
+      list = list.filter(
+        (it) => it.mcode === itemSelectFilter || it.itemTitle === itemSelectFilter
+      );
+    }
     if (statusFilter !== 'ALL') {
       list = list.filter((it) => it.status === statusFilter);
     }
     return list;
-  }, [reportData, searchQuery, statusFilter]);
+  }, [reportData, searchQuery, itemSearch, itemSelectFilter, statusFilter]);
+
+  // Unique item options for item select filter
+  const itemOptions = useMemo(() => {
+    if (!reportData?.perItem) return [];
+    const map = new Map<string, string>();
+    for (const it of reportData.perItem) {
+      if (it.mcode && !map.has(it.mcode)) {
+        map.set(it.mcode, it.itemTitle);
+      }
+    }
+    return Array.from(map.entries()).map(([mcode, title]) => ({ mcode, title }));
+  }, [reportData]);
 
   // Filtered Per-Bill
   const filteredBills = useMemo(() => {
@@ -165,8 +198,17 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
           b.salesmanName.toLowerCase().includes(q)
       );
     }
+    if (billSearch.trim()) {
+      const q = billSearch.toLowerCase();
+      list = list.filter(
+        (b) =>
+          b.billNumber.toLowerCase().includes(q) ||
+          b.customerAccountTitle.toLowerCase().includes(q) ||
+          b.salesmanName.toLowerCase().includes(q)
+      );
+    }
     return list;
-  }, [reportData, searchQuery]);
+  }, [reportData, searchQuery, billSearch]);
 
   // Filtered Per-Restaurant
   const filteredRestaurants = useMemo(() => {
@@ -182,8 +224,18 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
           (r.code && r.code.toLowerCase().includes(q))
       );
     }
+    if (restaurantSearch.trim()) {
+      const q = restaurantSearch.toLowerCase();
+      list = list.filter(
+        (r) =>
+          r.accountTitle.toLowerCase().includes(q) ||
+          r.city.toLowerCase().includes(q) ||
+          r.customerGroup.toLowerCase().includes(q) ||
+          (r.code && r.code.toLowerCase().includes(q))
+      );
+    }
     return list;
-  }, [reportData, searchQuery]);
+  }, [reportData, searchQuery, restaurantSearch]);
 
   // Filtered Per-Salesman
   const filteredSalesmen = useMemo(() => {
@@ -197,8 +249,16 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
           (sm.designation && sm.designation.toLowerCase().includes(q))
       );
     }
+    if (salesmanSearch.trim()) {
+      const q = salesmanSearch.toLowerCase();
+      list = list.filter(
+        (sm) =>
+          sm.salesmanName.toLowerCase().includes(q) ||
+          (sm.designation && sm.designation.toLowerCase().includes(q))
+      );
+    }
     return list;
-  }, [reportData, searchQuery]);
+  }, [reportData, searchQuery, salesmanSearch]);
 
   // Export to CSV
   const handleExportCSV = () => {
@@ -675,22 +735,68 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
         {/* ----------------------------------------------------------- */}
         {activeTab === 'perItem' && (
           <div className="p-4 sm:p-5">
-            <div className="flex items-center justify-between gap-4 mb-3">
-              <div className="text-xs text-slate-400">
-                Shows exact revenue, cost of goods, gross profit, and current warehouse stock for each item sold.
+            {/* Live Search & Filter Bar for Per-Item */}
+            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 mb-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex flex-wrap items-center gap-3 flex-1">
+                {/* Live Search Input */}
+                <div className="relative min-w-[220px] flex-1 max-w-sm">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-500" />
+                  <input
+                    type="text"
+                    value={itemSearch}
+                    onChange={(e) => setItemSearch(e.target.value)}
+                    placeholder="Live Search Item Title, SKU, M.Code..."
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-8 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-emerald-500"
+                  />
+                  {itemSearch && (
+                    <button
+                      onClick={() => setItemSearch('')}
+                      className="absolute right-2.5 top-2 text-slate-400 hover:text-white"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Item Select Dropdown Filter */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] text-slate-400 font-semibold whitespace-nowrap">
+                    Select Item:
+                  </span>
+                  <select
+                    value={itemSelectFilter}
+                    onChange={(e) => setItemSelectFilter(e.target.value)}
+                    className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-hidden focus:border-emerald-500 max-w-[200px]"
+                  >
+                    <option value="ALL">All Items ({itemOptions.length})</option>
+                    {itemOptions.map((opt) => (
+                      <option key={opt.mcode} value={opt.mcode}>
+                        {opt.title} ({opt.mcode})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Margin Status Filter */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] text-slate-400 font-semibold whitespace-nowrap">
+                    Status:
+                  </span>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value as any)}
+                    className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-hidden focus:border-emerald-500"
+                  >
+                    <option value="ALL">All Margins</option>
+                    <option value="PROFITABLE">Profitable Only</option>
+                    <option value="LOW_MARGIN">Low Margin (&lt;10%)</option>
+                    <option value="LOSS">Loss Making</option>
+                  </select>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] text-slate-500 font-semibold">Status:</span>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as any)}
-                  className="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-slate-300 focus:outline-hidden"
-                >
-                  <option value="ALL">All Items</option>
-                  <option value="PROFITABLE">Profitable Only</option>
-                  <option value="LOW_MARGIN">Low Margin (&lt;10%)</option>
-                  <option value="LOSS">Loss Making</option>
-                </select>
+
+              <div className="text-slate-400 text-[11px] font-mono">
+                Showing <strong className="text-emerald-400">{filteredItems.length}</strong> items
               </div>
             </div>
 
@@ -780,8 +886,30 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
         {/* ----------------------------------------------------------- */}
         {activeTab === 'perBill' && (
           <div className="p-4 sm:p-5">
-            <div className="text-xs text-slate-400 mb-3">
-              Shows gross sale, cost of goods, bill discounts, and clean net profit margin for each individual sales bill. Click View to inspect or reprint.
+            {/* Live Search Bar for Per-Bill */}
+            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 mb-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="relative min-w-[240px] flex-1 max-w-md">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-500" />
+                <input
+                  type="text"
+                  value={billSearch}
+                  onChange={(e) => setBillSearch(e.target.value)}
+                  placeholder="Live Search Bill# (e.g. 1025), Customer, Salesman..."
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-8 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-emerald-500"
+                />
+                {billSearch && (
+                  <button
+                    onClick={() => setBillSearch('')}
+                    className="absolute right-2.5 top-2 text-slate-400 hover:text-white"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="text-slate-400 text-[11px] font-mono">
+                Showing <strong className="text-emerald-400">{filteredBills.length}</strong> sales bills
+              </div>
             </div>
 
             <div className="overflow-x-auto rounded-xl border border-slate-800">
@@ -888,8 +1016,30 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
         {/* ----------------------------------------------------------- */}
         {activeTab === 'perRestaurant' && (
           <div className="p-4 sm:p-5">
-            <div className="text-xs text-slate-400 mb-3">
-              Evaluates total purchasing volume, generated profit margin, and current outstanding udhaar (ledger balance) for each customer restaurant.
+            {/* Live Search Bar for Per-Restaurant / Customer */}
+            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 mb-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="relative min-w-[240px] flex-1 max-w-md">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-500" />
+                <input
+                  type="text"
+                  value={restaurantSearch}
+                  onChange={(e) => setRestaurantSearch(e.target.value)}
+                  placeholder="Live Search Customer Name, Restaurant, City, Code..."
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-8 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-emerald-500"
+                />
+                {restaurantSearch && (
+                  <button
+                    onClick={() => setRestaurantSearch('')}
+                    className="absolute right-2.5 top-2 text-slate-400 hover:text-white"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="text-slate-400 text-[11px] font-mono">
+                Showing <strong className="text-emerald-400">{filteredRestaurants.length}</strong> customers / restaurants
+              </div>
             </div>
 
             <div className="overflow-x-auto rounded-xl border border-slate-800">
@@ -979,8 +1129,30 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
         {/* ----------------------------------------------------------- */}
         {activeTab === 'perSalesman' && (
           <div className="p-4 sm:p-5">
-            <div className="text-xs text-slate-400 mb-3">
-              Tracks sales volume, cartons sold, goods cost, and net gross profit contribution brought in by each sales agent / salesman.
+            {/* Live Search Bar for Per-Salesman */}
+            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 mb-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="relative min-w-[240px] flex-1 max-w-md">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-500" />
+                <input
+                  type="text"
+                  value={salesmanSearch}
+                  onChange={(e) => setSalesmanSearch(e.target.value)}
+                  placeholder="Live Search Salesman Name, Designation, Contact..."
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-8 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-emerald-500"
+                />
+                {salesmanSearch && (
+                  <button
+                    onClick={() => setSalesmanSearch('')}
+                    className="absolute right-2.5 top-2 text-slate-400 hover:text-white"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="text-slate-400 text-[11px] font-mono">
+                Showing <strong className="text-emerald-400">{filteredSalesmen.length}</strong> salesmen
+              </div>
             </div>
 
             <div className="overflow-x-auto rounded-xl border border-slate-800">

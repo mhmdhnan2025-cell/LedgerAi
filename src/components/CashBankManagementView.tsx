@@ -90,6 +90,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
   const [selectedSalesman, setSelectedSalesman] = useState('');
 
   // Line Item Entry State
+  const accountInputRef = useRef<HTMLInputElement>(null);
   const [selectedAccountId, setSelectedAccountId] = useState('');
   const [accountSearch, setAccountSearch] = useState('');
   const [chequeNo, setChequeNo] = useState('');
@@ -321,6 +322,11 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
     setEntryReceipt('');
     setEntryPayment('');
     setFeedback(null);
+
+    // Keep cursor active in account search bar for rapid data entry
+    setTimeout(() => {
+      accountInputRef.current?.focus();
+    }, 50);
   };
 
   const handleEditEntry = (idx: number) => {
@@ -958,10 +964,11 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                   </div>
 
                   <SearchableAccountSelect
+                    inputRef={accountInputRef}
                     accounts={safeGlAccounts}
                     selectedAccountId={selectedAccountId}
                     onSelectAccount={(id) => setSelectedAccountId(id)}
-                    placeholder="Search account name or code (e.g. Al Najm, Petrol, 0101...)..."
+                    placeholder="Search account name or code (↑ ↓ to navigate, Enter to select)..."
                     required
                   />
 
@@ -1137,6 +1144,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                 <table className="w-full text-xs text-left text-slate-200">
                   <thead className="bg-slate-800/80 text-slate-400 font-bold uppercase tracking-wider border-b border-slate-700">
                     <tr>
+                      <th className="px-2.5 py-2.5 text-center w-12 text-slate-400">SR#</th>
                       <th className="px-3 py-2.5">A/C CODE</th>
                       <th className="px-3 py-2.5">A/C TITLE</th>
                       {activeTab.startsWith('bank') && (
@@ -1167,7 +1175,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                     {entries.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={activeTab.startsWith('bank') ? 8 : activeTab === 'journalVoucher' || activeTab === 'cashBook' ? 6 : 5}
+                          colSpan={activeTab.startsWith('bank') ? 9 : activeTab === 'journalVoucher' || activeTab === 'cashBook' ? 7 : 6}
                           className="px-3 py-8 text-center text-slate-500 italic"
                         >
                           No entries added yet. Select an account, fill details, and click "Enter".
@@ -1176,6 +1184,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                     ) : (
                       entries.map((item, idx) => (
                         <tr key={item.id} className="hover:bg-slate-800/40 transition">
+                          <td className="px-2.5 py-2 text-center font-mono font-bold text-sky-400">{idx + 1}</td>
                           <td className="px-3 py-2 font-mono text-sky-400">{item.accountCode}</td>
                           <td className="px-3 py-2 font-semibold text-white">{item.accountTitle}</td>
                           {activeTab.startsWith('bank') && (

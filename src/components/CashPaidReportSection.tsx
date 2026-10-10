@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   FileSpreadsheet,
   Printer,
@@ -11,6 +11,10 @@ import {
   CreditCard,
   Receipt,
   Download,
+  Building2,
+  Wallet,
+  Layers,
+  ArrowDownRight,
 } from 'lucide-react';
 import { CashPaidReportItem, CompanyProfile } from '../types';
 import { api } from '../services/api';
@@ -34,8 +38,13 @@ export const CashPaidReportSection: React.FC<CashPaidReportSectionProps> = ({
     return new Date().toISOString().split('T')[0];
   });
   const [searchQuery, setSearchQuery] = useState('');
-  const [reportItems, setReportItems] = useState<CashPaidReportItem[]>([]);
-  const [totalAmount, setTotalAmount] = useState<number>(0);
+  const [categoryFilter, setCategoryFilter] = useState<'ALL' | 'Supplier' | 'Expense'>('ALL');
+  
+  const [rawItems, setRawItems] = useState<CashPaidReportItem[]>([]);
+  const [grandTotal, setGrandTotal] = useState<number>(0);
+  const [supplierTotal, setSupplierTotal] = useState<number>(0);
+  const [expenseTotal, setExpenseTotal] = useState<number>(0);
+
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -44,21 +53,17 @@ export const CashPaidReportSection: React.FC<CashPaidReportSectionProps> = ({
     setErrorMsg(null);
     try {
       const res = await api.getCashPaidReport(fromDate, toDate);
-      let items = res.items || [];
-      if (searchQuery.trim()) {
-        const q = searchQuery.trim().toLowerCase();
-        items = items.filter(
-          (it) =>
-            it.accountTitle.toLowerCase().includes(q) ||
-            it.accountCode.toLowerCase().includes(q) ||
-            it.narration.toLowerCase().includes(q) ||
-            it.voucherNumberFormatted.toLowerCase().includes(q) ||
-            String(it.jvNumber).includes(q)
-        );
-      }
-      setReportItems(items);
-      const total = items.reduce((sum, it) => sum + it.amount, 0);
-      setTotalAmount(total);
+      const items = res.items || [];
+      setRawItems(items);
+      setGrandTotal(res.totalAmount ?? items.reduce((sum, it) => sum + it.amount, 0));
+      setSupplierTotal(
+        res.supplierAmount ??
+          items.filter((it) => it.category === 'Supplier').reduce((sum, it) => sum + it.amount, 0)
+      );
+      setExpenseTotal(
+        res.expenseAmount ??
+          items.filter((it) => it.category === 'Expense').reduce((sum, it) => sum + it.amount, 0)
+      );
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to load Cash Paid Report');
     } finally {
@@ -70,15 +75,56 @@ export const CashPaidReportSection: React.FC<CashPaidReportSectionProps> = ({
     loadReport();
   }, []);
 
+  // Filtered Items based on search and category tab
+  const filteredItems = useMemo(() => {
+    let items = rawItems;
+
+    if (categoryFilter !== 'ALL') {
+      items = items.filter((it) => it.category === categoryFilter);
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      items = items.filter(
+        (it) =>
+          it.accountTitle.toLowerCase().includes(q) ||
+          it.accountCode.toLowerCase().includes(q) ||
+          it.narration.toLowerCase().includes(q) ||
+          it.voucherNumberFormatted.toLowerCase().includes(q) ||
+          String(it.jvNumber).includes(q) ||
+          (it.category && it.category.toLowerCase().includes(q))
+      );
+    }
+
+    return items;
+  }, [rawItems, categoryFilter, searchQuery]);
+
+  // Current view total
+  const filteredTotal = useMemo(() => {
+    return filteredItems.reduce((sum, it) => sum + it.amount, 0);
+  }, [filteredItems]);
+
   // CSV Export
   const handleExportCSV = () => {
-    if (reportItems.length === 0) return;
-    const headers = ['Sr No', 'Date', 'Voucher No', 'JV No', 'Account Code', 'Account Title', 'Payment Mode', 'Narration', 'Amount'];
-    const rows = reportItems.map((r, idx) => [
+    if (filteredItems.length === 0) return;
+    const headers = [
+      'Sr No',
+      'Date',
+      'Voucher No',
+      'JV No',
+      'Category',
+      'Account Code',
+      'Account Title',
+      'Payment Mode',
+      'Narration',
+      'Amount',
+    ];
+    const rows = filteredItems.map((r, idx) => [
       idx + 1,
       r.date,
       r.voucherNumberFormatted,
       r.jvNumber,
+      `"${r.category || 'Other'}"`,
       `"${r.accountCode}"`,
       `"${r.accountTitle.replace(/"/g, '""')}"`,
       `"${r.paymentMode}"`,
@@ -86,7 +132,9 @@ export const CashPaidReportSection: React.FC<CashPaidReportSectionProps> = ({
       r.amount.toFixed(2),
     ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    const csvContent =
+      'data:text/csv;charset=utf-8,' +
+      [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
@@ -96,19 +144,145 @@ export const CashPaidReportSection: React.FC<CashPaidReportSectionProps> = ({
     document.body.removeChild(link);
   };
 
+  const supplierItemsCount = useMemo(
+    () => rawItems.filter((it) => it.category === 'Supplier').length,
+    [rawItems]
+  );
+  const expenseItemsCount = useMemo(
+    () => rawItems.filter((it) => it.category === 'Expense').length,
+    [rawItems]
+  );
+
   return (
     <div className="space-y-4">
+      {/* KPI Breakdown Cards: Total vs Supplier vs Expense */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {/* Total Cash/Bank Paid */}
+        <div
+          onClick={() => setCategoryFilter('ALL')}
+          className={`bg-slate-900 border rounded-xl p-4 shadow-sm cursor-pointer transition ${
+            categoryFilter === 'ALL'
+              ? 'border-rose-500 bg-slate-900/90 ring-1 ring-rose-500/50'
+              : 'border-slate-800 hover:border-slate-700'
+          }`}
+        >
+          <div className="flex items-center justify-between text-xs text-slate-400 font-semibold mb-1">
+            <span className="flex items-center gap-1.5">
+              <Wallet className="w-4 h-4 text-rose-400" />
+              TOTAL PAID (کل ادائیگی)
+            </span>
+            <span className="text-[11px] bg-slate-800 px-2 py-0.5 rounded text-slate-300 font-mono">
+              {rawItems.length} entries
+            </span>
+          </div>
+          <div className="text-xl sm:text-2xl font-black font-mono text-white">
+            {currencySymbol()} {grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          </div>
+          <div className="text-[11px] text-slate-500 mt-1">All supplier &amp; daily expense outflows</div>
+        </div>
+
+        {/* Supplier Payments */}
+        <div
+          onClick={() => setCategoryFilter('Supplier')}
+          className={`bg-slate-900 border rounded-xl p-4 shadow-sm cursor-pointer transition ${
+            categoryFilter === 'Supplier'
+              ? 'border-indigo-500 bg-slate-900/90 ring-1 ring-indigo-500/50'
+              : 'border-slate-800 hover:border-slate-700'
+          }`}
+        >
+          <div className="flex items-center justify-between text-xs text-indigo-400 font-semibold mb-1">
+            <span className="flex items-center gap-1.5">
+              <Building2 className="w-4 h-4 text-indigo-400" />
+              SUPPLIER PAID (سپلائر ادائیگیاں)
+            </span>
+            <span className="text-[11px] bg-indigo-950/70 text-indigo-300 border border-indigo-800/60 px-2 py-0.5 rounded font-mono">
+              {supplierItemsCount} entries
+            </span>
+          </div>
+          <div className="text-xl sm:text-2xl font-black font-mono text-indigo-300">
+            {currencySymbol()}{' '}
+            {supplierTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          </div>
+          <div className="text-[11px] text-slate-400 mt-1">
+            Mills, Vendors &amp; Wholesale Suppliers
+          </div>
+        </div>
+
+        {/* Expense Payments */}
+        <div
+          onClick={() => setCategoryFilter('Expense')}
+          className={`bg-slate-900 border rounded-xl p-4 shadow-sm cursor-pointer transition ${
+            categoryFilter === 'Expense'
+              ? 'border-amber-500 bg-slate-900/90 ring-1 ring-amber-500/50'
+              : 'border-slate-800 hover:border-slate-700'
+          }`}
+        >
+          <div className="flex items-center justify-between text-xs text-amber-400 font-semibold mb-1">
+            <span className="flex items-center gap-1.5">
+              <Receipt className="w-4 h-4 text-amber-400" />
+              EXPENSE PAID (اخراجات ادائیگیاں)
+            </span>
+            <span className="text-[11px] bg-amber-950/70 text-amber-300 border border-amber-800/60 px-2 py-0.5 rounded font-mono">
+              {expenseItemsCount} entries
+            </span>
+          </div>
+          <div className="text-xl sm:text-2xl font-black font-mono text-amber-300">
+            {currencySymbol()} {expenseTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          </div>
+          <div className="text-[11px] text-slate-400 mt-1">Salaries, Rent, Petrol, Utilities, Misc</div>
+        </div>
+      </div>
+
       {/* Filters Form */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3 text-xs border-b border-slate-800 pb-3">
           <div className="flex items-center gap-2">
             <Receipt className="w-4 h-4 text-rose-400" />
-            <h3 className="font-bold text-sm text-white">Cash &amp; Bank Paid Report (ادائیگی رپورٹ)</h3>
+            <h3 className="font-bold text-sm text-white">
+              Cash &amp; Bank Paid Report (ادائیگی رپورٹ)
+            </h3>
           </div>
+
+          {/* Category Toggle Tabs */}
+          <div className="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
+            <button
+              onClick={() => setCategoryFilter('ALL')}
+              className={`px-3 py-1 rounded font-bold transition cursor-pointer ${
+                categoryFilter === 'ALL'
+                  ? 'bg-rose-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              All ({rawItems.length})
+            </button>
+            <button
+              onClick={() => setCategoryFilter('Supplier')}
+              className={`px-3 py-1 rounded font-bold transition cursor-pointer flex items-center gap-1 ${
+                categoryFilter === 'Supplier'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Building2 className="w-3 h-3" />
+              Supplier Paid ({supplierItemsCount})
+            </button>
+            <button
+              onClick={() => setCategoryFilter('Expense')}
+              className={`px-3 py-1 rounded font-bold transition cursor-pointer flex items-center gap-1 ${
+                categoryFilter === 'Expense'
+                  ? 'bg-amber-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Receipt className="w-3 h-3" />
+              Expense Paid ({expenseItemsCount})
+            </button>
+          </div>
+
           <div className="flex items-center gap-2">
             <button
               onClick={handleExportCSV}
-              disabled={reportItems.length === 0}
+              disabled={filteredItems.length === 0}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 text-xs font-semibold transition cursor-pointer disabled:opacity-50"
             >
               <Download className="w-3.5 h-3.5 text-rose-400" />
@@ -146,7 +320,9 @@ export const CashPaidReportSection: React.FC<CashPaidReportSectionProps> = ({
           </div>
 
           <div>
-            <label className="block text-slate-400 font-bold mb-1">Search Account / Supplier / Expense</label>
+            <label className="block text-slate-400 font-bold mb-1">
+              Search Account / Supplier / Expense
+            </label>
             <div className="relative">
               <input
                 type="text"
@@ -180,6 +356,7 @@ export const CashPaidReportSection: React.FC<CashPaidReportSectionProps> = ({
                 setFromDate('');
                 setToDate('');
                 setSearchQuery('');
+                setCategoryFilter('ALL');
                 setTimeout(loadReport, 50);
               }}
               className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-1.5 px-3 rounded-lg text-xs transition cursor-pointer"
@@ -193,7 +370,9 @@ export const CashPaidReportSection: React.FC<CashPaidReportSectionProps> = ({
       {errorMsg && (
         <div className="p-3 bg-rose-950 border border-rose-700 rounded-lg text-rose-200 text-xs flex justify-between items-center">
           <span>{errorMsg}</span>
-          <button onClick={() => setErrorMsg(null)}><X className="w-4 h-4" /></button>
+          <button onClick={() => setErrorMsg(null)}>
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 
@@ -203,10 +382,11 @@ export const CashPaidReportSection: React.FC<CashPaidReportSectionProps> = ({
           <table className="w-full text-xs text-left text-slate-200">
             <thead className="bg-slate-800 text-slate-400 font-bold uppercase tracking-wider border-b border-slate-700">
               <tr>
-                <th className="px-3 py-3 w-16 text-center">SR NO.</th>
+                <th className="px-3 py-3 w-14 text-center">SR NO.</th>
                 <th className="px-3 py-3">DATE</th>
                 <th className="px-3 py-3">VOUCHER #</th>
                 <th className="px-3 py-3">JV #</th>
+                <th className="px-3 py-3">CATEGORY</th>
                 <th className="px-4 py-3">ACCOUNT NAME</th>
                 <th className="px-3 py-3">PAYMENT MODE</th>
                 <th className="px-4 py-3">NARRATION</th>
@@ -214,37 +394,66 @@ export const CashPaidReportSection: React.FC<CashPaidReportSectionProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800 font-medium">
-              {reportItems.length === 0 ? (
+              {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-500 italic">
-                    {isLoading ? 'Loading payment transactions...' : 'No payment entries found in this date range.'}
+                  <td colSpan={9} className="px-4 py-8 text-center text-slate-500 italic">
+                    {isLoading
+                      ? 'Loading payment transactions...'
+                      : 'No payment entries found matching the current filters.'}
                   </td>
                 </tr>
               ) : (
-                reportItems.map((row, idx) => (
-                  <tr key={`${row.voucherId}-${idx}`} className="hover:bg-slate-800/40 transition">
+                filteredItems.map((row, idx) => (
+                  <tr
+                    key={`${row.voucherId}-${idx}`}
+                    className="hover:bg-slate-800/40 transition"
+                  >
                     <td className="px-3 py-2.5 text-center text-slate-400 font-bold">{idx + 1}</td>
-                    <td className="px-3 py-2.5 font-semibold text-white whitespace-nowrap">{row.date}</td>
+                    <td className="px-3 py-2.5 font-semibold text-white whitespace-nowrap">
+                      {row.date}
+                    </td>
                     <td className="px-3 py-2.5 font-mono text-rose-400 font-bold whitespace-nowrap">
                       {row.voucherNumberFormatted}
                     </td>
-                    <td className="px-3 py-2.5 font-mono text-slate-400 font-semibold">{row.jvNumber}</td>
+                    <td className="px-3 py-2.5 font-mono text-slate-400 font-semibold">
+                      {row.jvNumber}
+                    </td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      {row.category === 'Supplier' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                          <Building2 className="w-3 h-3" /> Supplier
+                        </span>
+                      ) : row.category === 'Expense' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          <Receipt className="w-3 h-3" /> Expense
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-500/20 text-slate-300 border border-slate-500/30">
+                          Other
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-2.5">
                       <div className="font-bold text-white">{row.accountTitle}</div>
                       <div className="font-mono text-[10px] text-slate-500">{row.accountCode}</div>
                     </td>
                     <td className="px-3 py-2.5 text-slate-300 whitespace-nowrap">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        row.paymentMode.startsWith('Bank')
-                          ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30'
-                          : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                      }`}>
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          row.paymentMode.startsWith('Bank')
+                            ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30'
+                            : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                        }`}
+                      >
                         {row.paymentMode}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 text-slate-300 max-w-xs truncate">{row.narration || '-'}</td>
+                    <td className="px-4 py-2.5 text-slate-300 max-w-xs truncate">
+                      {row.narration || '-'}
+                    </td>
                     <td className="px-4 py-2.5 text-right font-mono font-bold text-rose-400 whitespace-nowrap text-sm">
-                      {currencySymbol()} {row.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      {currencySymbol()}{' '}
+                      {row.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </td>
                   </tr>
                 ))
@@ -255,17 +464,38 @@ export const CashPaidReportSection: React.FC<CashPaidReportSectionProps> = ({
 
         {/* Footer Total Bar */}
         <div className="bg-slate-800 px-5 py-3 border-t border-slate-700 flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-3">
-            <span className="text-slate-400">Total Entries:</span>
-            <strong className="text-white text-sm">{reportItems.length}</strong>
+          <div className="flex flex-wrap items-center gap-4 text-xs">
+            <div>
+              <span className="text-slate-400">Filtered Entries:</span>{' '}
+              <strong className="text-white">{filteredItems.length}</strong>
+            </div>
+            <div>
+              <span className="text-indigo-400">Supplier Total:</span>{' '}
+              <strong className="text-indigo-300 font-mono">
+                {currencySymbol()}{' '}
+                {supplierTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </strong>
+            </div>
+            <div>
+              <span className="text-amber-400">Expense Total:</span>{' '}
+              <strong className="text-amber-300 font-mono">
+                {currencySymbol()}{' '}
+                {expenseTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </strong>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
             <span className="text-slate-300 font-bold uppercase tracking-wider text-xs">
-              Total Cash / Bank Paid:
+              {categoryFilter === 'Supplier'
+                ? 'Total Supplier Paid:'
+                : categoryFilter === 'Expense'
+                ? 'Total Expense Paid:'
+                : 'Grand Total Paid:'}
             </span>
             <span className="font-mono font-black text-rose-400 text-base sm:text-lg">
-              {currencySymbol()} {totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              {currencySymbol()}{' '}
+              {filteredTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
             </span>
           </div>
         </div>

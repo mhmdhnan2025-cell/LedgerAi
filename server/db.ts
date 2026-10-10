@@ -5398,6 +5398,109 @@ class DatabaseService {
     return true;
   }
 
+  public updatePurchaseBill(
+    id: string,
+    updatedData: Partial<PurchaseBill>,
+    user: { id: string; name: string; role: UserRole } = { id: 'admin', name: 'Admin', role: 'Admin' }
+  ): PurchaseBill {
+    const idx = this.data.purchaseBills.findIndex((b) => b.id === id || b.billNumber === id);
+    if (idx === -1) throw new Error(`Purchase Bill ${id} not found`);
+
+    const oldBill = this.data.purchaseBills[idx];
+
+    // 1. Revert previous supplier balance if credit
+    if (oldBill.supplierId && !oldBill.isCash && (oldBill.remainingBalance || 0) > 0) {
+      const supplier = this.getSupplierById(oldBill.supplierId);
+      if (supplier) {
+        supplier.payableToSupplier = Math.max(0, Number((supplier.payableToSupplier - (oldBill.remainingBalance || 0)).toFixed(2)));
+        supplier.balanceOwed = supplier.payableToSupplier;
+        supplier.totalPurchases = Math.max(0, Number(((supplier.totalPurchases || 0) - oldBill.netTotal).toFixed(2)));
+      }
+    }
+
+    // 2. Revert previous inventory quantities
+    if (oldBill.stockAdded && Array.isArray(oldBill.items)) {
+      for (const it of oldBill.items) {
+        const product = it.productId ? this.getProductById(it.productId) : this.findProductByName(it.itemTitle);
+        if (product) {
+          const revertedQty = Math.max(0, product.currentQuantity - it.qty);
+          product.currentQuantity = revertedQty;
+          product.totalStock = revertedQty;
+          product.stockValue = Number((revertedQty * product.purchasePrice).toFixed(2));
+        }
+      }
+    }
+
+    // 3. Merge updated bill fields
+    const newItems = updatedData.items || oldBill.items;
+    const totalCtn = updatedData.totalCtn !== undefined ? updatedData.totalCtn : newItems.reduce((acc, it) => acc + (it.ctn || 0), 0);
+    const totalQty = updatedData.totalQty !== undefined ? updatedData.totalQty : newItems.reduce((acc, it) => acc + (it.qty || 0), 0);
+    const grossAmount = updatedData.grossAmount !== undefined ? updatedData.grossAmount : newItems.reduce((acc, it) => acc + (it.qty * it.rate), 0);
+    const totalVatAmount = updatedData.totalVatAmount !== undefined ? updatedData.totalVatAmount : newItems.reduce((acc, it) => acc + (it.vatAmount || 0), 0);
+    const netTotal = updatedData.netTotal !== undefined ? updatedData.netTotal : Number((grossAmount + totalVatAmount).toFixed(2));
+    const paidAmount = updatedData.paidAmount !== undefined ? Number(updatedData.paidAmount) : oldBill.paidAmount;
+    const remainingBalance = updatedData.remainingBalance !== undefined ? Number(updatedData.remainingBalance) : Math.max(0, Number((netTotal - paidAmount).toFixed(2)));
+
+    const newBill: PurchaseBill = {
+      ...oldBill,
+      ...updatedData,
+      totalCtn,
+      totalQty,
+      grossAmount,
+      totalVatAmount,
+      netTotal,
+      paidAmount,
+      remainingBalance,
+      items: newItems,
+      date: updatedData.date ? this.normalizeDateToYMD(updatedData.date) : oldBill.date,
+      updatedAt: new Date().toISOString(),
+    };
+
+    // 4. Apply updated supplier balance
+    if (newBill.supplierId && !newBill.isCash) {
+      const supplier = this.getSupplierById(newBill.supplierId);
+      if (supplier) {
+        supplier.payableToSupplier = Number(((supplier.payableToSupplier || 0) + newBill.remainingBalance).toFixed(2));
+        supplier.balanceOwed = supplier.payableToSupplier;
+        supplier.totalPurchases = Number(((supplier.totalPurchases || 0) + newBill.netTotal).toFixed(2));
+        supplier.updatedAt = new Date().toISOString();
+      }
+    }
+
+    // 5. Apply updated inventory quantities if stock added
+    if (newBill.stockAdded && Array.isArray(newBill.items)) {
+      for (const it of newBill.items) {
+        const product = it.productId ? this.getProductById(it.productId) : this.findProductByName(it.itemTitle);
+        if (product) {
+          const newQty = product.currentQuantity + it.qty;
+          product.currentQuantity = newQty;
+          product.totalStock = newQty;
+          product.stockValue = Number((newQty * product.purchasePrice).toFixed(2));
+          if (it.rate > 0) {
+            product.purchasePrice = it.rate;
+            product.lastPurchasePrice = it.rate;
+          }
+        }
+      }
+    }
+
+    this.data.purchaseBills[idx] = newBill;
+
+    this.logAudit({
+      userId: user.id,
+      userName: user.name,
+      userRole: user.role,
+      action: 'ORDER_STATUS_CHANGED' as any,
+      entityType: 'Product',
+      entityId: newBill.id,
+      source: 'manual',
+      description: `Updated Purchase Bill #${newBill.billNumber}. Net: ${newBill.netTotal}, Paid: ${newBill.paidAmount}, Remaining: ${newBill.remainingBalance}.`,
+    });
+
+    this.persist();
+    return newBill;
+  }
+
   public getPurchaseReport(filters?: {
     fromDate?: string;
     toDate?: string;
@@ -6249,6 +6352,96 @@ class DatabaseService {
 
     this.persist();
     return true;
+  }
+
+  public updateSaleBill(
+    id: string,
+    updatedData: Partial<SaleBill>,
+    user: { id: string; name: string; role: UserRole } = { id: 'admin', name: 'Admin', role: 'Admin' }
+  ): SaleBill {
+    const idx = this.data.saleBills.findIndex((b) => b.id === id || b.billNumber === id);
+    if (idx === -1) throw new Error(`Sale Bill ${id} not found`);
+
+    const oldBill = this.data.saleBills[idx];
+
+    // 1. Revert previous inventory stock
+    for (const it of oldBill.items) {
+      const product = it.productId ? this.data.products.find((p) => p.id === it.productId) : this.data.products.find((p) => p.name.toLowerCase() === (it.itemTitle || '').toLowerCase());
+      if (product) {
+        const restoredQty = (product.currentQuantity || 0) + it.qty;
+        product.currentQuantity = restoredQty;
+        product.totalStock = restoredQty;
+        product.stockValue = Number((restoredQty * (product.purchasePrice || 0)).toFixed(2));
+      }
+    }
+
+    // 2. Revert previous customer outstanding balance
+    if (oldBill.customerId && oldBill.paymentType === 'Account' && oldBill.balanceReceivable > 0) {
+      const customer = this.getCustomerById(oldBill.customerId);
+      if (customer) {
+        customer.outstandingBalance = Math.max(0, Number(((customer.outstandingBalance || 0) - oldBill.balanceReceivable).toFixed(2)));
+        customer.totalSales = Math.max(0, Number(((customer.totalSales || 0) - oldBill.netTotal).toFixed(2)));
+      }
+    }
+
+    // 3. Merge updated bill fields
+    const newItems = updatedData.items || oldBill.items;
+    const totalCtn = updatedData.totalCtn !== undefined ? updatedData.totalCtn : newItems.reduce((acc, it) => acc + (it.ctn || 0), 0);
+    const totalQty = updatedData.totalQty !== undefined ? updatedData.totalQty : newItems.reduce((acc, it) => acc + (it.qty || 0), 0);
+    const grossAmount = updatedData.grossAmount !== undefined ? updatedData.grossAmount : newItems.reduce((acc, it) => acc + (it.qty * it.rate), 0);
+    const netTotal = updatedData.netTotal !== undefined ? updatedData.netTotal : grossAmount;
+    const cashReceived = updatedData.cashReceived !== undefined ? Number(updatedData.cashReceived) : oldBill.cashReceived;
+    const balanceReceivable = updatedData.balanceReceivable !== undefined ? Number(updatedData.balanceReceivable) : Math.max(0, Number((netTotal - cashReceived).toFixed(2)));
+
+    const newBill: SaleBill = {
+      ...oldBill,
+      ...updatedData,
+      totalCtn,
+      totalQty,
+      grossAmount,
+      netTotal,
+      cashReceived,
+      balanceReceivable,
+      items: newItems,
+      date: updatedData.date ? this.normalizeDateToYMD(updatedData.date) : oldBill.date,
+      updatedAt: new Date().toISOString(),
+    };
+
+    // 4. Deduct new inventory stock
+    for (const it of newBill.items) {
+      const product = it.productId ? this.data.products.find((p) => p.id === it.productId) : this.data.products.find((p) => p.name.toLowerCase() === (it.itemTitle || '').toLowerCase());
+      if (product) {
+        const deductedQty = Math.max(0, (product.currentQuantity || 0) - it.qty);
+        product.currentQuantity = deductedQty;
+        product.totalStock = deductedQty;
+        product.stockValue = Number((deductedQty * (product.purchasePrice || 0)).toFixed(2));
+      }
+    }
+
+    // 5. Apply new customer outstanding balance
+    if (newBill.customerId && newBill.paymentType === 'Account') {
+      const customer = this.getCustomerById(newBill.customerId);
+      if (customer) {
+        customer.outstandingBalance = Number(((customer.outstandingBalance || 0) + newBill.balanceReceivable).toFixed(2));
+        customer.totalSales = Number(((customer.totalSales || 0) + newBill.netTotal).toFixed(2));
+      }
+    }
+
+    this.data.saleBills[idx] = newBill;
+
+    this.logAudit({
+      userId: user.id,
+      userName: user.name,
+      userRole: user.role,
+      action: 'ORDER_STATUS_CHANGED' as any,
+      entityType: 'Order',
+      entityId: newBill.id,
+      source: 'manual',
+      description: `Updated Sale Bill #${newBill.billNumber}. Net: ${newBill.netTotal}, Received: ${newBill.cashReceived}, Balance: ${newBill.balanceReceivable}.`,
+    });
+
+    this.persist();
+    return newBill;
   }
 
   public getSaleReport(filters?: {
@@ -7686,22 +7879,26 @@ class DatabaseService {
     return { items, totalAmount: Number(totalAmount.toFixed(2)) };
   }
 
-  public getCashPaidReport(fromDate?: string, toDate?: string): { items: CashPaidReportItem[]; totalAmount: number } {
+  public getCashPaidReport(fromDate?: string, toDate?: string): {
+    items: CashPaidReportItem[];
+    totalAmount: number;
+    supplierAmount: number;
+    expenseAmount: number;
+  } {
     const vouchers = this.data.vouchers || [];
     const items: CashPaidReportItem[] = [];
 
-    const fromTs = fromDate ? new Date(fromDate).getTime() : 0;
-    const toTs = toDate ? new Date(toDate).getTime() + 86400000 : Infinity;
+    const normFrom = fromDate ? this.normalizeDateToYMD(fromDate) : '';
+    const normTo = toDate ? this.normalizeDateToYMD(toDate) : '';
 
     for (const v of vouchers) {
       if (v.status !== 'POSTED') continue;
       // Payments: BP (Bank Payment), CP (Cash Payment), CB (Cash Book payments)
       if (v.voucherType !== 'BP' && v.voucherType !== 'CP' && v.voucherType !== 'CB') continue;
 
-      const parts = v.date.split('-');
-      const iso = parts[0].length === 2 && parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : v.date;
-      const vDateTs = new Date(iso).getTime();
-      if (!isNaN(vDateTs) && (vDateTs < fromTs || vDateTs > toTs)) continue;
+      const vDateNorm = this.normalizeDateToYMD(v.date);
+      if (normFrom && vDateNorm < normFrom) continue;
+      if (normTo && vDateNorm > normTo) continue;
 
       const mode = v.voucherType === 'BP'
         ? `Bank: ${v.bankAccountTitle || 'Bank'}`
@@ -7710,6 +7907,50 @@ class DatabaseService {
       for (const e of v.entries) {
         const amt = v.voucherType === 'CB' ? (e.payment || 0) : e.amount;
         if (amt <= 0) continue;
+
+        // Classify category: Supplier vs Expense
+        let category: 'Supplier' | 'Expense' | 'Other' = 'Other';
+        const code = String(e.accountCode || '');
+        const titleLower = String(e.accountTitle || '').toLowerCase();
+        const typeLower = String(e.accountType || '').toLowerCase();
+
+        const isExpense =
+          typeLower.includes('expense') ||
+          code.startsWith('05') ||
+          code.startsWith('0301') ||
+          (this.data.expenseAccounts || []).some(
+            (exp) => exp.id === e.accountId || exp.code === code || (exp.name && exp.name.toLowerCase() === titleLower)
+          );
+
+        const isSupplier =
+          typeLower.includes('supplier') ||
+          typeLower.includes('vendor') ||
+          code.startsWith('02') ||
+          (this.data.suppliers || []).some(
+            (s) => s.id === e.accountId || (s.accountNumber && s.accountNumber === code) || (s.title && s.title.toLowerCase() === titleLower)
+          );
+
+        if (isExpense) {
+          category = 'Expense';
+        } else if (isSupplier) {
+          category = 'Supplier';
+        } else {
+          // Heuristic check
+          if (
+            titleLower.includes('expense') ||
+            titleLower.includes('kharcha') ||
+            titleLower.includes('salary') ||
+            titleLower.includes('rent') ||
+            titleLower.includes('bill') ||
+            titleLower.includes('fuel') ||
+            titleLower.includes('petrol') ||
+            titleLower.includes('misc')
+          ) {
+            category = 'Expense';
+          } else {
+            category = 'Supplier';
+          }
+        }
 
         items.push({
           srNo: items.length + 1,
@@ -7723,12 +7964,21 @@ class DatabaseService {
           paymentMode: mode,
           narration: e.narration,
           amount: amt,
+          category,
         });
       }
     }
 
     const totalAmount = items.reduce((sum, item) => sum + item.amount, 0);
-    return { items, totalAmount: Number(totalAmount.toFixed(2)) };
+    const supplierAmount = items.filter((it) => it.category === 'Supplier').reduce((sum, item) => sum + item.amount, 0);
+    const expenseAmount = items.filter((it) => it.category === 'Expense').reduce((sum, item) => sum + item.amount, 0);
+
+    return {
+      items,
+      totalAmount: Number(totalAmount.toFixed(2)),
+      supplierAmount: Number(supplierAmount.toFixed(2)),
+      expenseAmount: Number(expenseAmount.toFixed(2)),
+    };
   }
 }
 

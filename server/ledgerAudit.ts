@@ -11,6 +11,7 @@ import {
   Product,
   PurchaseBill,
   SaleBill,
+  Voucher,
 } from '../src/types';
 
 /**
@@ -115,6 +116,7 @@ interface LedgerContext {
   purchaseBills: PurchaseBill[];
   expenses: Expense[];
   payments: Payment[];
+  vouchers: Voucher[];
   openingCashBalance: number;
 }
 
@@ -142,15 +144,35 @@ function cashMovementOn(ctx: LedgerContext, date: string): { cashIn: number; cas
     if (db.normalizeDateToYMD(payment.paymentDate) !== date) continue;
     if ((payment.paymentMethod || 'Cash') === 'Cash') cashIn += Number(payment.amount) || 0;
   }
+  for (const v of (ctx.vouchers || [])) {
+    if (v.status !== 'POSTED') continue;
+    if (db.normalizeDateToYMD(v.date) !== date) continue;
+    if (v.voucherType === 'CR') {
+      cashIn += Number(v.totalAmount) || 0;
+    } else if (v.voucherType === 'CB' && Array.isArray(v.entries)) {
+      cashIn += v.entries.reduce((acc, e) => acc + (Number(e?.receipt) || 0), 0);
+    }
+  }
+
   for (const bill of ctx.purchaseBills) {
     if (db.normalizeDateToYMD(bill.date) !== date) continue;
     if (bill.isCash) cashOut += Number(bill.paidAmount) || 0;
   }
   for (const expense of ctx.expenses) {
     if (db.normalizeDateToYMD(expense.date) !== date) continue;
+    if (expense.voucherId || (expense.id && expense.id.startsWith('exp-vch-'))) continue;
     const pm = (expense.paymentMethod || 'Cash').toLowerCase();
     if (!pm.includes('bank') && !pm.includes('cheque') && !pm.includes('transfer')) {
       cashOut += Number(expense.amount) || 0;
+    }
+  }
+  for (const v of (ctx.vouchers || [])) {
+    if (v.status !== 'POSTED') continue;
+    if (db.normalizeDateToYMD(v.date) !== date) continue;
+    if (v.voucherType === 'CP') {
+      cashOut += Number(v.totalAmount) || 0;
+    } else if (v.voucherType === 'CB' && Array.isArray(v.entries)) {
+      cashOut += v.entries.reduce((acc, e) => acc + (Number(e?.payment) || 0), 0);
     }
   }
 
@@ -165,15 +187,31 @@ function bankMovementOn(ctx: LedgerContext, date: string): { bankIn: number; ban
     if (db.normalizeDateToYMD(payment.paymentDate) !== date) continue;
     if (BANK_IN_METHODS.includes(payment.paymentMethod || '')) bankIn += Number(payment.amount) || 0;
   }
+  for (const v of (ctx.vouchers || [])) {
+    if (v.status !== 'POSTED') continue;
+    if (db.normalizeDateToYMD(v.date) !== date) continue;
+    if (v.voucherType === 'BR') {
+      bankIn += Number(v.totalAmount) || 0;
+    }
+  }
+
   for (const bill of ctx.purchaseBills) {
     if (db.normalizeDateToYMD(bill.date) !== date) continue;
     if (!bill.isCash) bankOut += Number(bill.paidAmount) || 0;
   }
   for (const expense of ctx.expenses) {
     if (db.normalizeDateToYMD(expense.date) !== date) continue;
+    if (expense.voucherId || (expense.id && expense.id.startsWith('exp-vch-'))) continue;
     const pm = (expense.paymentMethod || 'Cash').toLowerCase();
     if (pm.includes('bank') || pm.includes('cheque') || pm.includes('transfer')) {
       bankOut += Number(expense.amount) || 0;
+    }
+  }
+  for (const v of (ctx.vouchers || [])) {
+    if (v.status !== 'POSTED') continue;
+    if (db.normalizeDateToYMD(v.date) !== date) continue;
+    if (v.voucherType === 'BP') {
+      bankOut += Number(v.totalAmount) || 0;
     }
   }
 
@@ -186,6 +224,7 @@ function cashBalanceBefore(ctx: LedgerContext, date: string): number {
   for (const bill of ctx.purchaseBills) dates.add(db.normalizeDateToYMD(bill.date));
   for (const expense of ctx.expenses) dates.add(db.normalizeDateToYMD(expense.date));
   for (const payment of ctx.payments) dates.add(db.normalizeDateToYMD(payment.paymentDate));
+  for (const v of (ctx.vouchers || [])) if (v.date) dates.add(db.normalizeDateToYMD(v.date));
 
   let balance = Number(ctx.openingCashBalance) || 0;
   for (const d of Array.from(dates).sort()) {
@@ -211,23 +250,51 @@ function recoveriesMap(saleBills: SaleBill[], date: string): Map<string, number>
   return map;
 }
 
-function customerBalanceAsOf(customer: Customer, saleBills: SaleBill[], date: string, recoveries: Map<string, number>): number {
+function customerBalanceAsOf(
+  customer: Customer,
+  saleBills: SaleBill[],
+  date: string,
+  recoveries: Map<string, number>,
+  vouchers: Voucher[] = []
+): number {
   let balance = Number(customer.outstandingBalance) || 0;
   for (const bill of saleBills) {
     if (bill.customerId !== customer.id) continue;
     if (db.normalizeDateToYMD(bill.date) <= date) continue;
     balance -= saleCreditAdded(bill);
   }
+  for (const v of vouchers) {
+    if (v.status !== 'POSTED') continue;
+    if (db.normalizeDateToYMD(v.date) <= date) continue;
+    if (v.voucherType === 'CR' || v.voucherType === 'BR' || v.voucherType === 'CB') {
+      for (const e of (v.entries || [])) {
+        if (
+          e.accountId === customer.id ||
+          (customer.code && e.accountCode === customer.code) ||
+          (customer.accountTitle && e.accountTitle?.toLowerCase() === customer.accountTitle?.toLowerCase())
+        ) {
+          const amt = v.voucherType === 'CB' ? (Number(e.receipt) || 0) : (Number(e.amount) || 0);
+          balance += amt;
+        }
+      }
+    }
+  }
   return Math.max(0, balance - (recoveries.get(customer.id) || 0));
 }
 
-function receivableAsOf(customers: Customer[], saleBills: SaleBill[], date: string, recoveries: Map<string, number>): number {
+function receivableAsOf(
+  customers: Customer[],
+  saleBills: SaleBill[],
+  date: string,
+  recoveries: Map<string, number>,
+  vouchers: Voucher[] = []
+): number {
   let total = 0;
   const known = new Set<string>();
 
   for (const customer of customers) {
     known.add(customer.id);
-    total += customerBalanceAsOf(customer, saleBills, date, recoveries);
+    total += customerBalanceAsOf(customer, saleBills, date, recoveries, vouchers);
   }
 
   // Credit portions booked against customers no longer in the master list
@@ -241,9 +308,10 @@ function receivableAsOf(customers: Customer[], saleBills: SaleBill[], date: stri
 }
 
 function payableAsOf(
-  suppliers: { id: string; payableToSupplier?: number }[],
+  suppliers: { id: string; code?: string; title?: string; payableToSupplier?: number }[],
   purchaseBills: PurchaseBill[],
-  date: string
+  date: string,
+  vouchers: Voucher[] = []
 ): number {
   const supplierIds = new Set(suppliers.map((s) => s.id));
   let total = 0;
@@ -254,6 +322,22 @@ function payableAsOf(
       if (bill.supplierId !== supplier.id) continue;
       if (db.normalizeDateToYMD(bill.date) <= date) continue;
       payable -= Number(bill.remainingBalance) || 0;
+    }
+    for (const v of vouchers) {
+      if (v.status !== 'POSTED') continue;
+      if (db.normalizeDateToYMD(v.date) <= date) continue;
+      if (v.voucherType === 'CP' || v.voucherType === 'BP' || v.voucherType === 'CB') {
+        for (const e of (v.entries || [])) {
+          if (
+            e.accountId === supplier.id ||
+            (supplier.code && e.accountCode === supplier.code) ||
+            (supplier.title && e.accountTitle?.toLowerCase() === supplier.title?.toLowerCase())
+          ) {
+            const amt = v.voucherType === 'CB' ? (Number(e.payment) || 0) : (Number(e.amount) || 0);
+            payable += amt;
+          }
+        }
+      }
     }
     total += Math.max(0, payable);
   }
@@ -354,6 +438,7 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     const purchaseBills = db.getPurchaseBills() || [];
     const expenses = db.getExpenses() || [];
     const payments = db.getPayments() || [];
+    const vouchers = db.getVouchers() || [];
     const orders = (db.getOrders() || []).filter((o) => o.status !== 'Cancelled');
     const customers = db.getCustomers() || [];
     const suppliers = db.getSuppliers() || [];
@@ -417,7 +502,7 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     // 3. KHATA BALANCE (Receivable / Payable / Net)
     // -------------------------------------------------------------
     const recoveries = recoveriesMap(allSaleBills, auditDate);
-    const customerReceivable = receivableAsOf(customers, allSaleBills, auditDate, recoveries);
+    const customerReceivable = receivableAsOf(customers, allSaleBills, auditDate, recoveries, vouchers);
 
     let restaurantReceivable = 0;
     for (const r of restaurants) {
@@ -429,7 +514,7 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     }
 
     const receivable = customerReceivable + restaurantReceivable;
-    const payable = payableAsOf(suppliers, purchaseBills, auditDate);
+    const payable = payableAsOf(suppliers, purchaseBills, auditDate, vouchers);
     const netKhataBalance = receivable - payable;
 
     // -------------------------------------------------------------
@@ -594,6 +679,7 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
       purchaseBills,
       expenses,
       payments,
+      vouchers,
       openingCashBalance: cashRegister.openingCashBalance,
     };
 
@@ -603,9 +689,31 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     const todayNetCash = todayMove.cashIn - todayMove.cashOut;
     const cashInHand = openingCashBalance + todayNetCash;
 
-    const todaySupplierCash = purchaseToday
+    // Supplier cash payments today: purchase cash bills + CP vouchers / CB payments for suppliers
+    let todaySupplierCash = purchaseToday
       .filter((b) => b.isCash)
       .reduce((s, b) => s + (Number(b.paidAmount) || 0), 0);
+
+    for (const v of vouchers) {
+      if (v.status !== 'POSTED') continue;
+      if (db.normalizeDateToYMD(v.date) !== auditDate) continue;
+      if (v.voucherType === 'CP') {
+        for (const e of (v.entries || [])) {
+          const isSupplier = e.accountType === 'Supplier' || String(e.accountCode || '').startsWith('02');
+          if (isSupplier) {
+            todaySupplierCash += Number(e.amount) || 0;
+          }
+        }
+      } else if (v.voucherType === 'CB') {
+        for (const e of (v.entries || [])) {
+          const isSupplier = e.accountType === 'Supplier' || String(e.accountCode || '').startsWith('02');
+          if (isSupplier) {
+            todaySupplierCash += Number(e.payment) || 0;
+          }
+        }
+      }
+    }
+
     const todayDiscount =
       saleBillsToday.reduce(
         (s, b) =>
@@ -623,7 +731,7 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     ];
 
     const bankRows: AiLedgerAuditCashRow[] = [
-      { label: 'Bank Received (Direct Online / Raast)', value: todayBank.bankIn, tag: 'BANK IN', direction: 'in' },
+      { label: 'Bank Received (Direct Online / Raast / Cheques)', value: todayBank.bankIn, tag: 'BANK IN', direction: 'in' },
       { label: 'Bank Paid (Vendor Cheques / Online Cleared)', value: todayBank.bankOut, tag: 'BANK OUT', direction: 'out' },
     ];
 

@@ -1052,6 +1052,15 @@ app.delete('/api/purchases/:id', (req, res) => {
   }
 });
 
+app.put('/api/purchases/:id', (req, res) => {
+  try {
+    const updated = db.updatePurchaseBill(req.params.id, req.body.bill || req.body, req.body.user);
+    res.json(updated);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 app.post('/api/purchases/:id/add-to-stock', (req, res) => {
   try {
     const bill = db.addPurchaseBillToStock(req.params.id, req.body.user);
@@ -1236,6 +1245,15 @@ app.delete('/api/sales/:id', (req, res) => {
   try {
     const success = db.deleteSaleBill(req.params.id, req.body.user);
     res.json({ success });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.put('/api/sales/:id', (req, res) => {
+  try {
+    const updated = db.updateSaleBill(req.params.id, req.body.bill || req.body, req.body.user);
+    res.json(updated);
   } catch (err: any) {
     res.status(400).json({ error: err.message });
   }

@@ -15,6 +15,7 @@ import {
   X,
   Receipt,
   Trash2,
+  Edit2,
   Users,
   DollarSign,
   Building2,
@@ -242,14 +243,33 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
       c.code?.includes(customerSearchQuery)
   );
 
+  const [editingSaleBill, setEditingSaleBill] = useState<SaleBill | null>(null);
+
   const handleDeleteBill = async (id: string, billNo: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!window.confirm(`Are you sure you want to delete Sale Bill #${billNo}? Stock inventory and customer balance will be safely restored.`)) {
+      return;
+    }
     try {
       await api.deleteSale(id, { id: 'admin', name: 'User', role: currentRole });
       setSaleBills((prev) => prev.filter((b) => b.id !== id));
-      setSuccessMsg(`Sale bill #${billNo} removed from reports.`);
+      setSuccessMsg(`Sale bill #${billNo} removed from reports and ledger/stock reversed.`);
+      onRefreshData?.();
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to delete sale bill.');
+    }
+  };
+
+  const handleSaveEditSaleBill = async (updated: Partial<SaleBill>) => {
+    if (!editingSaleBill) return;
+    try {
+      const res = await api.updateSale(editingSaleBill.id, updated, { id: 'admin', name: 'User', role: currentRole });
+      setSaleBills((prev) => prev.map((b) => (b.id === res.id ? res : b)));
+      setSuccessMsg(`Sale bill #${editingSaleBill.billNumber} updated successfully.`);
+      setEditingSaleBill(null);
+      onRefreshData?.();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to update sale bill.');
     }
   };
 
@@ -783,6 +803,13 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
                           <Eye className="w-3.5 h-3.5" />
                         </button>
                         <button
+                          onClick={() => setEditingSaleBill(b)}
+                          className="p-1 hover:bg-amber-900/40 text-slate-400 hover:text-amber-400 rounded cursor-pointer transition"
+                          title="Edit Sale Bill"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
                           onClick={(e) => handleDeleteBill(b.id, b.billNumber, e)}
                           className="p-1 hover:bg-rose-900/40 text-slate-400 hover:text-rose-400 rounded cursor-pointer"
                           title="Delete Bill"
@@ -946,6 +973,263 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
           onClose={() => setReceiptModalBill(null)}
         />
       )}
+
+      {/* Edit Sale Bill Modal */}
+      {editingSaleBill && (
+        <SaleBillEditModal
+          bill={editingSaleBill}
+          onClose={() => setEditingSaleBill(null)}
+          onSave={handleSaveEditSaleBill}
+        />
+      )}
+    </div>
+  );
+};
+
+// -------------------------------------------------------------
+// INLINE EDIT SALE BILL MODAL
+// -------------------------------------------------------------
+interface SaleBillEditModalProps {
+  bill: SaleBill;
+  onClose: () => void;
+  onSave: (updated: Partial<SaleBill>) => void;
+}
+
+const SaleBillEditModal: React.FC<SaleBillEditModalProps> = ({
+  bill,
+  onClose,
+  onSave,
+}) => {
+  const [billDate, setBillDate] = useState(bill.date || '');
+  const [paymentType, setPaymentType] = useState(bill.paymentType || 'Account');
+  const [billDiscount, setBillDiscount] = useState<number>(bill.billDiscount || 0);
+  const [cashRcvd, setCashRcvd] = useState<number>(bill.cashReceived || 0);
+  const [billNotes, setBillNotes] = useState(bill.notes || '');
+  const [items, setItems] = useState<any[]>(bill.items ? JSON.parse(JSON.stringify(bill.items)) : []);
+
+  const handleItemChange = (index: number, field: string, val: number) => {
+    const updated = [...items];
+    const it = { ...updated[index], [field]: val };
+
+    if (field === 'ctn') {
+      const qpc = it.qtyPerCtn > 0 ? it.qtyPerCtn : 1;
+      it.qty = val * qpc;
+      if (it.ratePerCtn > 0) it.rate = parseFloat((it.ratePerCtn / qpc).toFixed(3));
+    } else if (field === 'qty') {
+      const qpc = it.qtyPerCtn > 0 ? it.qtyPerCtn : 1;
+      it.ctn = parseFloat((val / qpc).toFixed(2));
+    } else if (field === 'ratePerCtn') {
+      const qpc = it.qtyPerCtn > 0 ? it.qtyPerCtn : 1;
+      it.rate = parseFloat((val / qpc).toFixed(3));
+    }
+
+    const gross = (it.qty || 0) * (it.rate || 0);
+    const disc = it.discount || 0;
+    const sub = Math.max(0, gross - disc);
+    const vat = parseFloat((sub * ((it.vatPercent || 0) / 100)).toFixed(2));
+    it.vatAmount = vat;
+    it.amount = parseFloat((sub + vat).toFixed(2));
+
+    updated[index] = it;
+    setItems(updated);
+  };
+
+  const totalCtn = items.reduce((s, it) => s + (Number(it.ctn) || 0), 0);
+  const totalQty = items.reduce((s, it) => s + (Number(it.qty) || 0), 0);
+  const grossTotal = items.reduce((s, it) => s + ((it.qty || 0) * (it.rate || 0)), 0);
+  const totalItemDisc = items.reduce((s, it) => s + (Number(it.discount) || 0), 0);
+  const totalVat = items.reduce((s, it) => s + (Number(it.vatAmount) || 0), 0);
+  const netTotal = Math.max(0, parseFloat((grossTotal - totalItemDisc - (Number(billDiscount) || 0) + totalVat).toFixed(2)));
+  const balanceReceivable = paymentType === 'Cash' ? 0 : Math.max(0, parseFloat((netTotal - (Number(cashRcvd) || 0)).toFixed(2)));
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave({
+      date: billDate,
+      paymentType: paymentType as any,
+      billDiscount: Number(billDiscount) || 0,
+      cashReceived: paymentType === 'Cash' ? netTotal : (Number(cashRcvd) || 0),
+      balanceReceivable,
+      notes: billNotes,
+      items,
+      totalCtn,
+      totalQty,
+      grossAmount: grossTotal,
+      netTotal,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl max-h-[92vh] shadow-2xl flex flex-col overflow-hidden animate-in fade-in duration-150">
+        <div className="px-5 py-3.5 bg-slate-950 border-b border-slate-800 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2">
+            <Edit2 className="w-4 h-4 text-amber-400" />
+            <h3 className="font-extrabold text-sm sm:text-base text-white">
+              Edit Sale Bill #{bill.billNumber}
+            </h3>
+            <span className="text-xs text-slate-400 font-mono">({bill.customerAccountTitle})</span>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+            <div>
+              <label className="block text-slate-400 font-bold mb-1">Bill Date</label>
+              <input
+                type="date"
+                required
+                value={billDate}
+                onChange={(e) => setBillDate(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono focus:border-amber-500 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-slate-400 font-bold mb-1">Payment Mode</label>
+              <select
+                value={paymentType}
+                onChange={(e) => setPaymentType(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white focus:border-amber-500 outline-none font-bold"
+              >
+                <option value="Account">Customer Khata (Credit)</option>
+                <option value="Cash">Cash Sale (Instant Paid)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-slate-400 font-bold mb-1">Bill Discount (رعایت)</label>
+              <input
+                type="number"
+                step="any"
+                min="0"
+                value={billDiscount}
+                onChange={(e) => setBillDiscount(e.target.value === '' ? 0 : Number(e.target.value))}
+                placeholder="0"
+                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-rose-300 font-mono focus:border-amber-500 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-slate-400 font-bold mb-1">Cash Received (وصولی)</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={cashRcvd}
+                onChange={(e) => setCashRcvd(e.target.value === '' ? 0 : Number(e.target.value))}
+                className="w-full bg-slate-950 border border-emerald-500/50 rounded-lg px-2.5 py-1.5 text-emerald-400 font-bold font-mono focus:border-emerald-400 outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-slate-400 font-bold mb-1.5 text-xs">Items Sold Breakdown</label>
+            <div className="border border-slate-800 rounded-xl overflow-hidden">
+              <table className="w-full text-left text-xs text-slate-300">
+                <thead className="bg-slate-950 text-slate-400 font-bold uppercase text-[10px]">
+                  <tr>
+                    <th className="py-2 px-3">Item Title</th>
+                    <th className="py-2 px-2 text-center w-20">CTN</th>
+                    <th className="py-2 px-2 text-right w-24">Rate/CTN</th>
+                    <th className="py-2 px-2 text-right w-20">Qty</th>
+                    <th className="py-2 px-2 text-right w-24">Rate</th>
+                    <th className="py-2 px-3 text-right w-28">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/80">
+                  {items.map((it, idx) => (
+                    <tr key={idx} className="hover:bg-slate-800/30">
+                      <td className="py-2 px-3 font-semibold text-white">{it.itemTitle}</td>
+                      <td className="py-2 px-2">
+                        <input
+                          type="number"
+                          step="any"
+                          min="0"
+                          value={it.ctn ?? ''}
+                          onChange={(e) => handleItemChange(idx, 'ctn', Number(e.target.value))}
+                          className="w-full bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-center font-mono text-white text-xs"
+                        />
+                      </td>
+                      <td className="py-2 px-2">
+                        <input
+                          type="number"
+                          step="any"
+                          min="0"
+                          value={it.ratePerCtn ?? ''}
+                          onChange={(e) => handleItemChange(idx, 'ratePerCtn', Number(e.target.value))}
+                          className="w-full bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-right font-mono text-white text-xs"
+                        />
+                      </td>
+                      <td className="py-2 px-2">
+                        <input
+                          type="number"
+                          step="any"
+                          min="0"
+                          value={it.qty ?? ''}
+                          onChange={(e) => handleItemChange(idx, 'qty', Number(e.target.value))}
+                          className="w-full bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-right font-mono text-white text-xs"
+                        />
+                      </td>
+                      <td className="py-2 px-2">
+                        <input
+                          type="number"
+                          step="any"
+                          min="0"
+                          value={it.rate ?? ''}
+                          onChange={(e) => handleItemChange(idx, 'rate', Number(e.target.value))}
+                          className="w-full bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-right font-mono text-white text-xs"
+                        />
+                      </td>
+                      <td className="py-2 px-3 text-right font-mono font-bold text-emerald-400">
+                        {currencySymbol()} {Number(it.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-4">
+              <div>
+                <span className="text-slate-400 block text-[10px]">Total CTN</span>
+                <span className="font-mono font-bold text-sky-400 text-sm">{totalCtn.toFixed(2)}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[10px]">Total QTY</span>
+                <span className="font-mono font-bold text-sky-400 text-sm">{totalQty}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[10px]">Net Total</span>
+                <span className="font-mono font-black text-emerald-400 text-sm">{currencySymbol()} {netTotal.toFixed(2)}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[10px]">Balance Due (بقایا)</span>
+                <span className="font-mono font-black text-amber-400 text-sm">{currencySymbol()} {balanceReceivable.toFixed(2)}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-bold text-xs cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg font-bold text-xs shadow-md transition cursor-pointer flex items-center gap-1.5"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Save Changes</span>
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };

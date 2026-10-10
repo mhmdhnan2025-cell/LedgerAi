@@ -1120,6 +1120,7 @@ export interface CashPaidReportItem {
   paymentMode: string;
   narration: string;
   amount: number;
+  category?: 'Supplier' | 'Expense' | 'Other';
 }
 
 export interface NextVoucherNumbers {

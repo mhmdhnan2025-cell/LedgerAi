@@ -1069,6 +1069,19 @@ export const api = {
     return res.json();
   },
 
+  async updatePurchase(id: string, bill: Partial<PurchaseBill>, user?: { id: string; name: string; role: UserRole }): Promise<PurchaseBill> {
+    const res = await fetch(`/api/purchases/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bill, user }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to update purchase bill');
+    }
+    return res.json();
+  },
+
   async addPurchaseBillToStock(id: string, user?: { id: string; name: string; role: UserRole }): Promise<PurchaseBill> {
     const res = await fetch(`/api/purchases/${id}/add-to-stock`, {
       method: 'POST',
@@ -1358,6 +1371,19 @@ export const api = {
     if (!res.ok) {
       const err = await res.json();
       throw new Error(err.error || 'Failed to delete sale bill');
+    }
+    return res.json();
+  },
+
+  async updateSale(id: string, bill: Partial<SaleBill>, user?: { id: string; name: string; role: UserRole }): Promise<SaleBill> {
+    const res = await fetch(`/api/sales/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bill, user }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to update sale bill');
     }
     return res.json();
   },
@@ -1679,7 +1705,12 @@ export const api = {
     return res.json();
   },
 
-  async getCashPaidReport(fromDate?: string, toDate?: string): Promise<{ items: CashPaidReportItem[]; totalAmount: number }> {
+  async getCashPaidReport(fromDate?: string, toDate?: string): Promise<{
+    items: CashPaidReportItem[];
+    totalAmount: number;
+    supplierAmount: number;
+    expenseAmount: number;
+  }> {
     const query = new URLSearchParams();
     if (fromDate) query.set('fromDate', fromDate);
     if (toDate) query.set('toDate', toDate);

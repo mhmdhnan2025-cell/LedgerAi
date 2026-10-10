@@ -10,21 +10,27 @@ interface SearchableAccountSelectProps {
   label?: string;
   required?: boolean;
   className?: string;
+  inputRef?: React.RefObject<HTMLInputElement | null>;
+  onEnterNext?: () => void;
 }
 
 export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = ({
   accounts = [],
   selectedAccountId = '',
   onSelectAccount,
-  placeholder = 'Type account name or code (e.g. Al Najm, Petrol, 0101...)...',
+  placeholder = 'Type account name or code (↑ ↓ to navigate, Enter to select)...',
   label,
   required = false,
   className = '',
+  inputRef: externalInputRef,
+  onEnterNext,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isOpen, setIsOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const internalInputRef = useRef<HTMLInputElement>(null);
+  const activeInputRef = externalInputRef || internalInputRef;
 
   // Guarantee valid array
   const safeAccounts = useMemo(() => {
@@ -118,7 +124,7 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
         <div
           onClick={() => {
             setIsOpen(true);
-            setTimeout(() => inputRef.current?.focus(), 50);
+            setTimeout(() => activeInputRef.current?.focus(), 50);
           }}
           className="flex items-center justify-between w-full bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-sky-500 rounded-lg px-3 py-2 text-xs cursor-pointer transition-all group"
         >
@@ -157,14 +163,39 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
             <Search className="w-4 h-4 text-sky-400" />
           </div>
           <input
-            ref={inputRef}
+            ref={activeInputRef}
             type="text"
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
+              setHighlightedIndex(0);
               if (!isOpen) setIsOpen(true);
             }}
-            onFocus={() => setIsOpen(true)}
+            onFocus={() => {
+              setIsOpen(true);
+              setHighlightedIndex(0);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (!isOpen) setIsOpen(true);
+                setHighlightedIndex((prev) => Math.min(prev + 1, Math.max(0, filteredAccounts.length - 1)));
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (!isOpen) setIsOpen(true);
+                setHighlightedIndex((prev) => Math.max(prev - 1, 0));
+              } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (isOpen && filteredAccounts.length > 0 && highlightedIndex >= 0 && highlightedIndex < filteredAccounts.length) {
+                  handleSelect(filteredAccounts[highlightedIndex]);
+                  if (onEnterNext) onEnterNext();
+                } else if (onEnterNext) {
+                  onEnterNext();
+                }
+              } else if (e.key === 'Escape') {
+                setIsOpen(false);
+              }
+            }}
             placeholder={placeholder}
             required={required && !selectedAccountId}
             className="w-full bg-slate-900 border border-slate-700 focus:border-sky-500 rounded-lg pl-9 pr-8 py-2 text-xs text-white placeholder:text-slate-400 outline-none font-medium transition-all"
@@ -198,27 +229,39 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
                     <span>Expense Accounts (اخراجات کے کھاتے)</span>
                     <span className="ml-auto text-slate-500 font-mono">({grouped.exp.length})</span>
                   </div>
-                  {grouped.exp.map((acc) => (
-                    <div
-                      key={acc.id}
-                      onClick={() => handleSelect(acc)}
-                      className={`px-3 py-2 flex items-center justify-between hover:bg-slate-800/80 cursor-pointer transition-colors ${
-                        acc.id === selectedAccountId ? 'bg-sky-500/15 border-l-2 border-sky-400' : ''
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 overflow-hidden">
-                        <span className="font-mono font-bold text-sky-400 shrink-0 text-[11px]">
-                          {acc.code || ''}
-                        </span>
-                        <span className="font-medium text-white truncate">
-                          {acc.title || ''}
+                  {grouped.exp.map((acc) => {
+                    const isSelected = acc.id === selectedAccountId;
+                    const isHighlighted = acc.id === filteredAccounts[highlightedIndex]?.id;
+                    return (
+                      <div
+                        key={acc.id}
+                        onClick={() => handleSelect(acc)}
+                        onMouseEnter={() => {
+                          const idx = filteredAccounts.findIndex((a) => a.id === acc.id);
+                          if (idx !== -1) setHighlightedIndex(idx);
+                        }}
+                        className={`px-3 py-2 flex items-center justify-between cursor-pointer transition-colors ${
+                          isSelected
+                            ? 'bg-sky-950/90 border-l-4 border-sky-400 text-sky-200 font-bold'
+                            : isHighlighted
+                            ? 'bg-sky-900/60 border-l-4 border-sky-500 text-white font-semibold'
+                            : 'hover:bg-slate-800/80'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <span className="font-mono font-bold text-sky-400 shrink-0 text-[11px]">
+                            {acc.code || ''}
+                          </span>
+                          <span className="font-medium text-white truncate">
+                            {acc.title || ''}
+                          </span>
+                        </div>
+                        <span className="font-mono text-[11px] text-amber-400 font-bold shrink-0 ml-2">
+                          {acc.balanceFormatted || ''}
                         </span>
                       </div>
-                      <span className="font-mono text-[11px] text-amber-400 font-bold shrink-0 ml-2">
-                        {acc.balanceFormatted || ''}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
@@ -230,27 +273,39 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
                     <span>Customers / Clients (گاہک / کسٹمرز)</span>
                     <span className="ml-auto text-slate-500 font-mono">({grouped.cust.length})</span>
                   </div>
-                  {grouped.cust.map((acc) => (
-                    <div
-                      key={acc.id}
-                      onClick={() => handleSelect(acc)}
-                      className={`px-3 py-2 flex items-center justify-between hover:bg-slate-800/80 cursor-pointer transition-colors ${
-                        acc.id === selectedAccountId ? 'bg-sky-500/15 border-l-2 border-sky-400' : ''
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 overflow-hidden">
-                        <span className="font-mono font-bold text-sky-400 shrink-0 text-[11px]">
-                          {acc.code || ''}
-                        </span>
-                        <span className="font-medium text-white truncate">
-                          {acc.title || ''}
+                  {grouped.cust.map((acc) => {
+                    const isSelected = acc.id === selectedAccountId;
+                    const isHighlighted = acc.id === filteredAccounts[highlightedIndex]?.id;
+                    return (
+                      <div
+                        key={acc.id}
+                        onClick={() => handleSelect(acc)}
+                        onMouseEnter={() => {
+                          const idx = filteredAccounts.findIndex((a) => a.id === acc.id);
+                          if (idx !== -1) setHighlightedIndex(idx);
+                        }}
+                        className={`px-3 py-2 flex items-center justify-between cursor-pointer transition-colors ${
+                          isSelected
+                            ? 'bg-sky-950/90 border-l-4 border-sky-400 text-sky-200 font-bold'
+                            : isHighlighted
+                            ? 'bg-sky-900/60 border-l-4 border-sky-500 text-white font-semibold'
+                            : 'hover:bg-slate-800/80'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <span className="font-mono font-bold text-sky-400 shrink-0 text-[11px]">
+                            {acc.code || ''}
+                          </span>
+                          <span className="font-medium text-white truncate">
+                            {acc.title || ''}
+                          </span>
+                        </div>
+                        <span className="font-mono text-[11px] text-amber-400 font-bold shrink-0 ml-2">
+                          {acc.balanceFormatted || ''}
                         </span>
                       </div>
-                      <span className="font-mono text-[11px] text-amber-400 font-bold shrink-0 ml-2">
-                        {acc.balanceFormatted || ''}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
@@ -262,27 +317,39 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
                     <span>Suppliers / Vendors (سپلائرز / ملیں)</span>
                     <span className="ml-auto text-slate-500 font-mono">({grouped.supp.length})</span>
                   </div>
-                  {grouped.supp.map((acc) => (
-                    <div
-                      key={acc.id}
-                      onClick={() => handleSelect(acc)}
-                      className={`px-3 py-2 flex items-center justify-between hover:bg-slate-800/80 cursor-pointer transition-colors ${
-                        acc.id === selectedAccountId ? 'bg-sky-500/15 border-l-2 border-sky-400' : ''
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 overflow-hidden">
-                        <span className="font-mono font-bold text-sky-400 shrink-0 text-[11px]">
-                          {acc.code || ''}
-                        </span>
-                        <span className="font-medium text-white truncate">
-                          {acc.title || ''}
+                  {grouped.supp.map((acc) => {
+                    const isSelected = acc.id === selectedAccountId;
+                    const isHighlighted = acc.id === filteredAccounts[highlightedIndex]?.id;
+                    return (
+                      <div
+                        key={acc.id}
+                        onClick={() => handleSelect(acc)}
+                        onMouseEnter={() => {
+                          const idx = filteredAccounts.findIndex((a) => a.id === acc.id);
+                          if (idx !== -1) setHighlightedIndex(idx);
+                        }}
+                        className={`px-3 py-2 flex items-center justify-between cursor-pointer transition-colors ${
+                          isSelected
+                            ? 'bg-sky-950/90 border-l-4 border-sky-400 text-sky-200 font-bold'
+                            : isHighlighted
+                            ? 'bg-sky-900/60 border-l-4 border-sky-500 text-white font-semibold'
+                            : 'hover:bg-slate-800/80'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <span className="font-mono font-bold text-sky-400 shrink-0 text-[11px]">
+                            {acc.code || ''}
+                          </span>
+                          <span className="font-medium text-white truncate">
+                            {acc.title || ''}
+                          </span>
+                        </div>
+                        <span className="font-mono text-[11px] text-amber-400 font-bold shrink-0 ml-2">
+                          {acc.balanceFormatted || ''}
                         </span>
                       </div>
-                      <span className="font-mono text-[11px] text-amber-400 font-bold shrink-0 ml-2">
-                        {acc.balanceFormatted || ''}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
@@ -293,27 +360,39 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
                     <Landmark className="w-3 h-3 text-emerald-400" />
                     <span>Banks &amp; Cash in Hand (بینک اور کیش)</span>
                   </div>
-                  {[...(grouped.bank || []), ...(grouped.cash || [])].map((acc) => (
-                    <div
-                      key={acc.id}
-                      onClick={() => handleSelect(acc)}
-                      className={`px-3 py-2 flex items-center justify-between hover:bg-slate-800/80 cursor-pointer transition-colors ${
-                        acc.id === selectedAccountId ? 'bg-sky-500/15 border-l-2 border-sky-400' : ''
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 overflow-hidden">
-                        <span className="font-mono font-bold text-emerald-400 shrink-0 text-[11px]">
-                          {acc.code || ''}
-                        </span>
-                        <span className="font-medium text-white truncate">
-                          {acc.title || ''}
+                  {[...(grouped.bank || []), ...(grouped.cash || [])].map((acc) => {
+                    const isSelected = acc.id === selectedAccountId;
+                    const isHighlighted = acc.id === filteredAccounts[highlightedIndex]?.id;
+                    return (
+                      <div
+                        key={acc.id}
+                        onClick={() => handleSelect(acc)}
+                        onMouseEnter={() => {
+                          const idx = filteredAccounts.findIndex((a) => a.id === acc.id);
+                          if (idx !== -1) setHighlightedIndex(idx);
+                        }}
+                        className={`px-3 py-2 flex items-center justify-between cursor-pointer transition-colors ${
+                          isSelected
+                            ? 'bg-sky-950/90 border-l-4 border-sky-400 text-sky-200 font-bold'
+                            : isHighlighted
+                            ? 'bg-sky-900/60 border-l-4 border-sky-500 text-white font-semibold'
+                            : 'hover:bg-slate-800/80'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <span className="font-mono font-bold text-emerald-400 shrink-0 text-[11px]">
+                            {acc.code || ''}
+                          </span>
+                          <span className="font-medium text-white truncate">
+                            {acc.title || ''}
+                          </span>
+                        </div>
+                        <span className="font-mono text-[11px] text-amber-400 font-bold shrink-0 ml-2">
+                          {acc.balanceFormatted || ''}
                         </span>
                       </div>
-                      <span className="font-mono text-[11px] text-amber-400 font-bold shrink-0 ml-2">
-                        {acc.balanceFormatted || ''}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </>
