@@ -390,39 +390,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
           </div>
 
-          {onResetData && (
-            <>
-              {resetConfirming ? (
-                <div className="flex items-center gap-1 bg-red-950/80 border border-red-800 px-2 py-0.5 rounded">
-                  <span className="text-red-300 text-[11px]">Wipe All Data?</span>
-                  <button
-                    onClick={() => {
-                      onResetData();
-                      setResetConfirming(false);
-                    }}
-                    className="px-2 py-0.5 bg-red-600 text-white rounded font-bold hover:bg-red-500 text-xs"
-                  >
-                    Yes, Clear
-                  </button>
-                  <button
-                    onClick={() => setResetConfirming(false)}
-                    className="px-1 text-slate-400 hover:text-white"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setResetConfirming(true)}
-                  title="Wipe database to completely clean state for real manual entries"
-                  className="flex items-center gap-1 text-red-900 bg-red-50 hover:bg-red-100 border border-red-300 px-2 py-1 rounded text-xs font-black shadow-xs transition"
-                >
-                  <RefreshCw className="w-3 h-3 text-red-700" />
-                  <span className="hidden xl:inline text-red-900 font-black">Clear All / Clean Start</span>
-                </button>
-              )}
-            </>
-          )}
+
         </div>
       </div>
 

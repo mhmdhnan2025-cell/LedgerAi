@@ -61,7 +61,25 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 export default function App() {
   const [currentTab, setCurrentTab] = useState<
     'aimunshi' | 'sales' | 'sales-return' | 'purchasing' | 'purchasing-return' | 'reports' | 'cashbank' | 'inventory' | 'restaurants' | 'customers' | 'expenses' | 'suppliers' | 'settings' | 'employees' | 'orders' | 'audit'
-  >('aimunshi');
+  >(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const saved = sessionStorage.getItem('erp_current_tab');
+        if (saved && ['aimunshi', 'sales', 'sales-return', 'purchasing', 'purchasing-return', 'reports', 'cashbank', 'inventory', 'restaurants', 'customers', 'expenses', 'suppliers', 'settings', 'employees', 'orders', 'audit'].includes(saved)) {
+          return saved as any;
+        }
+      }
+    } catch {}
+    return 'aimunshi';
+  });
+
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('erp_current_tab', currentTab);
+      }
+    } catch {}
+  }, [currentTab]);
   const [currentRole, setCurrentRole] = useState<UserRole>('Admin');
   const [authUser, setAuthUser] = useState<User | null>(() => OfflineStorageService.loadActiveUser());
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);

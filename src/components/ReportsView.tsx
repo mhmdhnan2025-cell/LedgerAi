@@ -61,7 +61,25 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   // Breadcrumb / Report sub-tabs
   const [activeReportTab, setActiveReportTab] = useState<
     'purchases' | 'sales' | 'profit' | 'stockHistory' | 'aiLedgerAudit' | 'cashRecovered' | 'cashPaid' | 'customerLedger' | 'saleReturns' | 'purchaseReturns'
-  >('purchases');
+  >(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const saved = sessionStorage.getItem('erp_active_report_tab');
+        if (saved && ['purchases', 'sales', 'profit', 'stockHistory', 'aiLedgerAudit', 'cashRecovered', 'cashPaid', 'customerLedger', 'saleReturns', 'purchaseReturns'].includes(saved)) {
+          return saved as any;
+        }
+      }
+    } catch {}
+    return 'purchases';
+  });
+
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('erp_active_report_tab', activeReportTab);
+      }
+    } catch {}
+  }, [activeReportTab]);
 
   // Filter States (matching Image 3 & 4)
   const [fromDate, setFromDate] = useState<string>(() => {

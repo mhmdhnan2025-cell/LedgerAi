@@ -2069,6 +2069,12 @@ class DatabaseService {
           if (!Array.isArray(parsed.vouchers)) {
             parsed.vouchers = [];
           }
+          if (!Array.isArray(parsed.saleReturns)) {
+            parsed.saleReturns = [];
+          }
+          if (!Array.isArray(parsed.purchaseReturns)) {
+            parsed.purchaseReturns = [];
+          }
           parsed.nextJvNumber = typeof parsed.nextJvNumber === 'number' ? parsed.nextJvNumber : DEFAULT_NEXT_JV_NUMBER;
           parsed.nextVoucherNumbers = parsed.nextVoucherNumbers || { ...DEFAULT_NEXT_VOUCHER_NUMBERS };
 
