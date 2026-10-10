@@ -10,6 +10,7 @@ import {
   Loader2,
   Printer,
   RefreshCw,
+  RotateCcw,
   Settings2,
   ShieldCheck,
   Wallet,
@@ -299,40 +300,94 @@ export const AiLedgerAuditReportSection: React.FC<AiLedgerAuditReportSectionProp
 
       {/* ---------------- QUICK KPI STRIP ---------------- */}
       {report && (
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 print:hidden">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
-            <span className="text-[10px] text-slate-400 font-bold uppercase block">Today Revenue</span>
-            <span className="text-base font-black font-mono text-emerald-400">
-              {report.currencySymbol} {fmt(s?.todayRevenue || 0)}
-            </span>
+        <div className="space-y-2.5 print:hidden">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
+              <span className="text-[10px] text-slate-400 font-bold uppercase block">Today Revenue</span>
+              <span className="text-base font-black font-mono text-emerald-400">
+                {report.currencySymbol} {fmt(s?.todayRevenue || 0)}
+              </span>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
+              <span className="text-[10px] text-slate-400 font-bold uppercase block">Net Profit</span>
+              <span
+                className={`text-base font-black font-mono ${(s?.netProfit || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}
+              >
+                {report.currencySymbol} {fmt(s?.netProfit || 0)} ({(s?.netMarginPct || 0).toFixed(1)}%)
+              </span>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
+              <span className="text-[10px] text-slate-400 font-bold uppercase block">Udhaar (Receivable)</span>
+              <span className="text-base font-black font-mono text-amber-400">
+                {report.currencySymbol} {fmt(report.khataCard.receivable)}
+              </span>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
+              <span className="text-[10px] text-slate-400 font-bold uppercase block">Supplier Payable</span>
+              <span className="text-base font-black font-mono text-rose-400">
+                {report.currencySymbol} {fmt(report.khataCard.payable)}
+              </span>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
+              <span className="text-[10px] text-slate-400 font-bold uppercase block flex items-center gap-1.5">
+                <Wallet className="w-3 h-3 text-emerald-400" /> Cash In Hand
+              </span>
+              <span className="text-base font-black font-mono text-emerald-400">
+                {report.currencySymbol} {fmt(report.cash.cashInHand)}
+              </span>
+            </div>
           </div>
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
-            <span className="text-[10px] text-slate-400 font-bold uppercase block">Net Profit</span>
-            <span
-              className={`text-base font-black font-mono ${(s?.netProfit || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}
-            >
-              {report.currencySymbol} {fmt(s?.netProfit || 0)} ({(s?.netMarginPct || 0).toFixed(1)}%)
-            </span>
-          </div>
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
-            <span className="text-[10px] text-slate-400 font-bold uppercase block">Udhaar (Receivable)</span>
-            <span className="text-base font-black font-mono text-amber-400">
-              {report.currencySymbol} {fmt(report.khataCard.receivable)}
-            </span>
-          </div>
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
-            <span className="text-[10px] text-slate-400 font-bold uppercase block">Supplier Payable</span>
-            <span className="text-base font-black font-mono text-rose-400">
-              {report.currencySymbol} {fmt(report.khataCard.payable)}
-            </span>
-          </div>
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
-            <span className="text-[10px] text-slate-400 font-bold uppercase block flex items-center gap-1.5">
-              <Wallet className="w-3 h-3 text-emerald-400" /> Cash In Hand
-            </span>
-            <span className="text-base font-black font-mono text-emerald-400">
-              {report.currencySymbol} {fmt(report.cash.cashInHand)}
-            </span>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="bg-slate-900 border border-rose-500/30 rounded-xl p-2.5 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-rose-500/10 rounded-lg text-rose-400">
+                  <RotateCcw className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-[11px] font-bold text-white flex items-center gap-1.5">
+                    Sales Returns (سیل واپسی)
+                    <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold">
+                      {report.returnsSummary?.saleReturnsTotalCount ?? report.salesCard.saleReturnsCount ?? 0} bills
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-400">
+                    Today: {report.currencySymbol} {fmt(report.returnsSummary?.saleReturnsToday ?? report.salesCard.saleReturnsToday ?? 0)} &bull; Month: {report.currencySymbol} {fmt(report.returnsSummary?.saleReturnsMonth ?? report.salesCard.saleReturnsMonth ?? 0)}
+                  </div>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] text-slate-400 block font-semibold">Total Deducted</span>
+                <span className="text-sm font-black font-mono text-rose-400">
+                  &minus; {report.currencySymbol} {fmt(report.returnsSummary?.saleReturnsTotal ?? report.salesCard.saleReturnsTotal ?? 0)}
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-slate-900 border border-amber-500/30 rounded-xl p-2.5 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-amber-500/10 rounded-lg text-amber-400">
+                  <RotateCcw className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-[11px] font-bold text-white flex items-center gap-1.5">
+                    Purchase Returns (خریداری واپسی)
+                    <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">
+                      {report.returnsSummary?.purchaseReturnsTotalCount ?? report.purchaseCard.purchaseReturnsCount ?? 0} bills
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-400">
+                    Today: {report.currencySymbol} {fmt(report.returnsSummary?.purchaseReturnsToday ?? report.purchaseCard.purchaseReturnsToday ?? 0)} &bull; Month: {report.currencySymbol} {fmt(report.returnsSummary?.purchaseReturnsMonth ?? report.purchaseCard.purchaseReturnsMonth ?? 0)}
+                  </div>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] text-slate-400 block font-semibold">Total Deducted</span>
+                <span className="text-sm font-black font-mono text-amber-400">
+                  &minus; {report.currencySymbol} {fmt(report.returnsSummary?.purchaseReturnsTotal ?? report.purchaseCard.purchaseReturnsTotal ?? 0)}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -367,6 +422,10 @@ export const AiLedgerAuditReportSection: React.FC<AiLedgerAuditReportSectionProp
           Company details are read from <strong className="text-slate-300">Company Registration (Settings)</strong> &bull;
           Currency: <strong className="text-slate-300">{report?.currency || companyProfile?.currency || 'PKR'}</strong>
           &bull; Closing time from Tijori settings.
+        </p>
+        <p>
+          Sales Returns (سیل واپسی) &amp; Purchase Returns (خریداری واپسی) are audit-linked: automatically deducted
+          from Gross Sales &amp; Purchases, restored/deducted in inventory stock, and tied into Cash &amp; Khata.
         </p>
         <p>
           Salesman rows only include salesmen that actually have sale records on or before the audit date

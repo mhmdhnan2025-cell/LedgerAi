@@ -3,6 +3,7 @@ import {
   AiLedgerAuditCashRow,
   AiLedgerAuditCompany,
   AiLedgerAuditReport,
+  AiLedgerAuditReturnsSummary,
   AiLedgerAuditSalesmanKhata,
   AiLedgerAuditSalesmanProfit,
   Customer,
@@ -569,7 +570,7 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     const uptoDate = (dateStr: string) => db.normalizeDateToYMD(dateStr) <= auditDate;
 
     // -------------------------------------------------------------
-    // 1. SALES RECORD (Sale Bills + Restaurant Orders - Sale Returns)
+    // 1. SALES RECORD (Gross Sales - Sale Returns = Net Sales)
     // -------------------------------------------------------------
     const saleBillsUpto = allSaleBills.filter((b) => uptoDate(b.date));
     const saleBillsMonth = allSaleBills.filter((b) => uptoDate(b.date) && inMonth(b.date));
@@ -578,33 +579,61 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     const ordersMonth = orders.filter((o) => uptoDate(o.orderDate) && inMonth(o.orderDate));
     const ordersToday = orders.filter((o) => onDate(o.orderDate));
     const saleReturnsUpto = saleReturns.filter((r) => uptoDate(r.date));
-    const saleReturnsMonth = saleReturns.filter((r) => uptoDate(r.date) && inMonth(r.date));
-    const saleReturnsToday = saleReturns.filter((r) => onDate(r.date));
+    const saleReturnsMonthList = saleReturns.filter((r) => uptoDate(r.date) && inMonth(r.date));
+    const saleReturnsTodayList = saleReturns.filter((r) => onDate(r.date));
 
     const sumNet = (list: SaleBill[]) => list.reduce((s, b) => s + (Number(b.netTotal) || 0), 0);
     const sumOrder = (list: typeof orders) => list.reduce((s, o) => s + (Number(o.totalAmount) || 0), 0);
     const sumReturn = (list: SaleReturn[]) => list.reduce((s, r) => s + (Number(r.netTotal) || 0), 0);
 
-    const totalSales = Math.max(0, sumNet(saleBillsUpto) + sumOrder(ordersUpto) - sumReturn(saleReturnsUpto));
-    const monthSales = Math.max(0, sumNet(saleBillsMonth) + sumOrder(ordersMonth) - sumReturn(saleReturnsMonth));
-    const todaySales = Math.max(0, sumNet(saleBillsToday) + sumOrder(ordersToday) - sumReturn(saleReturnsToday));
+    const grossSalesTotal = sumNet(saleBillsUpto) + sumOrder(ordersUpto);
+    const grossSalesMonth = sumNet(saleBillsMonth) + sumOrder(ordersMonth);
+    const grossSalesToday = sumNet(saleBillsToday) + sumOrder(ordersToday);
+
+    const saleReturnsTotal = sumReturn(saleReturnsUpto);
+    const saleReturnsMonth = sumReturn(saleReturnsMonthList);
+    const saleReturnsToday = sumReturn(saleReturnsTodayList);
+
+    const saleReturnsCount = saleReturnsUpto.length;
+    const saleReturnsTodayCount = saleReturnsTodayList.length;
+    const saleReturnsMonthCount = saleReturnsMonthList.length;
+    const saleReturnsCashTotal = saleReturnsUpto.filter((r) => r.isCash).reduce((s, r) => s + (Number(r.netTotal) || 0), 0);
+    const saleReturnsCreditTotal = saleReturnsUpto.filter((r) => !r.isCash).reduce((s, r) => s + (Number(r.netTotal) || 0), 0);
+
+    const totalSales = Math.max(0, grossSalesTotal - saleReturnsTotal);
+    const monthSales = Math.max(0, grossSalesMonth - saleReturnsMonth);
+    const todaySales = Math.max(0, grossSalesToday - saleReturnsToday);
 
     // -------------------------------------------------------------
-    // 2. PURCHASES (Purchase Bills - Purchase Returns)
+    // 2. PURCHASES (Gross Purchases - Purchase Returns = Net Purchases)
     // -------------------------------------------------------------
     const purchaseUpto = purchaseBills.filter((b) => uptoDate(b.date));
     const purchaseMonth = purchaseBills.filter((b) => uptoDate(b.date) && inMonth(b.date));
     const purchaseToday = purchaseBills.filter((b) => onDate(b.date));
     const purchaseReturnsUpto = purchaseReturns.filter((r) => uptoDate(r.date));
-    const purchaseReturnsMonth = purchaseReturns.filter((r) => uptoDate(r.date) && inMonth(r.date));
-    const purchaseReturnsToday = purchaseReturns.filter((r) => onDate(r.date));
+    const purchaseReturnsMonthList = purchaseReturns.filter((r) => uptoDate(r.date) && inMonth(r.date));
+    const purchaseReturnsTodayList = purchaseReturns.filter((r) => onDate(r.date));
 
     const sumPurchase = (list: PurchaseBill[]) => list.reduce((s, b) => s + (Number(b.netTotal) || 0), 0);
     const sumPReturn = (list: PurchaseReturn[]) => list.reduce((s, r) => s + (Number(r.netTotal) || 0), 0);
 
-    const totalPurchases = Math.max(0, sumPurchase(purchaseUpto) - sumPReturn(purchaseReturnsUpto));
-    const monthPurchases = Math.max(0, sumPurchase(purchaseMonth) - sumPReturn(purchaseReturnsMonth));
-    const todayPurchases = Math.max(0, sumPurchase(purchaseToday) - sumPReturn(purchaseReturnsToday));
+    const grossPurchasesTotal = sumPurchase(purchaseUpto);
+    const grossPurchasesMonth = sumPurchase(purchaseMonth);
+    const grossPurchasesToday = sumPurchase(purchaseToday);
+
+    const purchaseReturnsTotal = sumPReturn(purchaseReturnsUpto);
+    const purchaseReturnsMonth = sumPReturn(purchaseReturnsMonthList);
+    const purchaseReturnsToday = sumPReturn(purchaseReturnsTodayList);
+
+    const purchaseReturnsCount = purchaseReturnsUpto.length;
+    const purchaseReturnsTodayCount = purchaseReturnsTodayList.length;
+    const purchaseReturnsMonthCount = purchaseReturnsMonthList.length;
+    const purchaseReturnsCashTotal = purchaseReturnsUpto.filter((r) => r.isCash).reduce((s, r) => s + (Number(r.netTotal) || 0), 0);
+    const purchaseReturnsCreditTotal = purchaseReturnsUpto.filter((r) => !r.isCash).reduce((s, r) => s + (Number(r.netTotal) || 0), 0);
+
+    const totalPurchases = Math.max(0, grossPurchasesTotal - purchaseReturnsTotal);
+    const monthPurchases = Math.max(0, grossPurchasesMonth - purchaseReturnsMonth);
+    const todayPurchases = Math.max(0, grossPurchasesToday - purchaseReturnsToday);
 
     // -------------------------------------------------------------
     // 3. KHATA BALANCE (Receivable / Payable / Net)
@@ -915,8 +944,8 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
       }
     }
 
-    const todayPRCash = purchaseReturnsToday.filter((r) => r.isCash).reduce((s, r) => s + (Number(r.netTotal) || 0), 0);
-    const todaySRCash = saleReturnsToday.filter((r) => r.isCash).reduce((s, r) => s + (Number(r.netTotal) || 0), 0);
+    const todayPRCash = purchaseReturnsTodayList.filter((r) => r.isCash).reduce((s, r) => s + (Number(r.netTotal) || 0), 0);
+    const todaySRCash = saleReturnsTodayList.filter((r) => r.isCash).reduce((s, r) => s + (Number(r.netTotal) || 0), 0);
     const todayCounterCashSales = Math.max(0, todayMove.cashIn - todayMarketWasooli - todayPRCash);
 
     const inflows: AiLedgerAuditCashRow[] = [
@@ -987,9 +1016,54 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
         netMarginPct: todayNetMargin,
         receivables: receivable,
         warehouseStock: warehouseStockValue,
+        todaySaleReturns: saleReturnsToday,
+        todayPurchaseReturns: purchaseReturnsToday,
+        totalSaleReturns: saleReturnsTotal,
+        totalPurchaseReturns: purchaseReturnsTotal,
       },
-      salesCard: { monthSales, todaySales, totalSales },
-      purchaseCard: { monthPurchases, todayPurchases, totalPurchases },
+      salesCard: {
+        monthSales,
+        todaySales,
+        totalSales,
+        grossSalesToday,
+        grossSalesMonth,
+        grossSalesTotal,
+        saleReturnsToday,
+        saleReturnsMonth,
+        saleReturnsTotal,
+        saleReturnsCount,
+      },
+      purchaseCard: {
+        monthPurchases,
+        todayPurchases,
+        totalPurchases,
+        grossPurchasesToday,
+        grossPurchasesMonth,
+        grossPurchasesTotal,
+        purchaseReturnsToday,
+        purchaseReturnsMonth,
+        purchaseReturnsTotal,
+        purchaseReturnsCount,
+      },
+      returnsSummary: {
+        saleReturnsToday,
+        saleReturnsMonth,
+        saleReturnsTotal,
+        saleReturnsTodayCount,
+        saleReturnsMonthCount,
+        saleReturnsTotalCount: saleReturnsCount,
+        saleReturnsCashTotal,
+        saleReturnsCreditTotal,
+
+        purchaseReturnsToday,
+        purchaseReturnsMonth,
+        purchaseReturnsTotal,
+        purchaseReturnsTodayCount,
+        purchaseReturnsMonthCount,
+        purchaseReturnsTotalCount: purchaseReturnsCount,
+        purchaseReturnsCashTotal,
+        purchaseReturnsCreditTotal,
+      },
       khataCard: { receivable, payable, netBalance: netKhataBalance },
       stockCard: { unitLabel: stockBadge, openingUnits, stockIn, stockOut, closingUnits },
       salesmanKhata,

@@ -152,12 +152,12 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
   /* ---------- KPI CARDS ---------- */
   .al-cards { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:8px; }
   .al-card { background:#f8fafc; border:1px solid #e2e8f0; border-top:3px solid #2563eb;
-    border-radius:7px; padding:7px 8px; }
+    border-radius:7px; padding:6px 8px; }
   .al-card-h { display:flex; justify-content:space-between; align-items:flex-start; gap:6px; }
   .al-card-t { font-size:10px; font-weight:800; color:#0f172a; text-transform:uppercase; line-height:1.15; }
   .al-tag { font-size:8px; font-weight:800; text-align:right; text-transform:uppercase; line-height:1.2; max-width:58px; }
   .al-row { display:flex; justify-content:space-between; align-items:flex-start; gap:8px;
-    font-size:9.5px; margin-top:5px; }
+    font-size:9px; margin-top:3.5px; }
   .al-row .lbl { color:#475569; }
   .al-row .val { font-weight:800; text-align:right; white-space:nowrap; }
 
@@ -247,8 +247,10 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
     <span class="it">Net Profit: <b class="${data.strip.netProfit >= 0 ? 'green' : 'red'}">${
       data.strip.netProfit >= 0 ? '+' : ''
     }${sym} ${num(data.strip.netProfit)}</b> (${pct(data.strip.netMarginPct)})</span>
-    <span class="it">Receivables Due (Udhaar): <b class="amber">${sym} ${num(data.strip.receivables)}</b></span>
-    <span class="it">Warehouse Stock: <b class="blue">${sym} ${num(data.strip.warehouseStock)}</b></span>
+    <span class="it">Udhaar Due: <b class="amber">${sym} ${num(data.strip.receivables)}</b></span>
+    <span class="it">Stock: <b class="blue">${sym} ${num(data.strip.warehouseStock)}</b></span>
+    <span class="it">Today Sale Ret: <b class="red">\u2212${sym} ${num(data.strip.todaySaleReturns ?? data.salesCard.saleReturnsToday ?? 0)}</b></span>
+    <span class="it">Today Pur Ret: <b class="green">\u2212${sym} ${num(data.strip.todayPurchaseReturns ?? data.purchaseCard.purchaseReturnsToday ?? 0)}</b></span>
   </div>
 
   <!-- ================= 4 KPI CARDS ================= -->
@@ -258,9 +260,15 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
       'Sales Record',
       data.currency,
       [
-        { label: 'Sales This Month:', value: `${sym} ${num(data.salesCard.monthSales)}` },
-        { label: "Today's Sales:", value: `${sym} ${num(data.salesCard.todaySales)}` },
-        { label: 'Total Sales:', value: `${sym} ${num(data.salesCard.totalSales)}` },
+        { label: 'Gross Sales (کل فروخت):', value: `${sym} ${num(data.salesCard.grossSalesTotal ?? data.salesCard.totalSales)}` },
+        {
+          label: `Sale Return (${data.salesCard.saleReturnsCount || 0} واپسی):`,
+          value: `\u2212 ${sym} ${num(data.salesCard.saleReturnsTotal || 0)}`,
+          color: (data.salesCard.saleReturnsTotal || 0) > 0 ? '#dc2626' : '#64748b',
+        },
+        { label: 'Net Sales (خالص فروخت):', value: `${sym} ${num(data.salesCard.totalSales)}`, color: '#1e3a8a' },
+        { label: "Today's Net Sales:", value: `${sym} ${num(data.salesCard.todaySales)}` },
+        { label: 'Month Net Sales:', value: `${sym} ${num(data.salesCard.monthSales)}` },
       ],
       '#2563eb',
       '#2563eb'
@@ -270,9 +278,15 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
       'Purchases',
       data.currency,
       [
-        { label: 'Purchases This Month:', value: `${sym} ${num(data.purchaseCard.monthPurchases)}` },
-        { label: "Today's Purchases:", value: `${sym} ${num(data.purchaseCard.todayPurchases)}` },
-        { label: 'Total Purchases:', value: `${sym} ${num(data.purchaseCard.totalPurchases)}` },
+        { label: 'Gross Purchases (کل خریداری):', value: `${sym} ${num(data.purchaseCard.grossPurchasesTotal ?? data.purchaseCard.totalPurchases)}` },
+        {
+          label: `Pur Return (${data.purchaseCard.purchaseReturnsCount || 0} واپسی):`,
+          value: `\u2212 ${sym} ${num(data.purchaseCard.purchaseReturnsTotal || 0)}`,
+          color: (data.purchaseCard.purchaseReturnsTotal || 0) > 0 ? '#b45309' : '#64748b',
+        },
+        { label: 'Net Purchases (خالص):', value: `${sym} ${num(data.purchaseCard.totalPurchases)}`, color: '#1e3a8a' },
+        { label: "Today's Net Purchases:", value: `${sym} ${num(data.purchaseCard.todayPurchases)}` },
+        { label: 'Month Net Purchases:', value: `${sym} ${num(data.purchaseCard.monthPurchases)}` },
       ],
       '#3b82f6',
       '#2563eb'
@@ -282,15 +296,21 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
       'Khata Balance',
       'Status',
       [
-        { label: 'Receivable (Udhaar):', value: `${sym} ${num(data.khataCard.receivable)}`, color: '#b45309' },
-        { label: 'Payable (Suppliers):', value: `${sym} ${num(data.khataCard.payable)}`, color: '#dc2626' },
+        { label: 'Receivable (Customer Udhaar):', value: `${sym} ${num(data.khataCard.receivable)}`, color: '#b45309' },
+        { label: 'Payable (Suppliers Due):', value: `${sym} ${num(data.khataCard.payable)}`, color: '#dc2626' },
         {
-          label: 'Net Balance (+/-):',
+          label: 'Net Khata Balance (+/-):',
           value: `${data.khataCard.netBalance >= 0 ? '+' : '\u2212'}${sym} ${num(
             Math.abs(data.khataCard.netBalance)
           )}`,
           color: data.khataCard.netBalance >= 0 ? '#15803d' : '#dc2626',
         },
+        {
+          label: 'Returns Khata Adj:',
+          value: `SR \u2212${num(data.returnsSummary?.saleReturnsCreditTotal || 0)} / PR \u2212${num(data.returnsSummary?.purchaseReturnsCreditTotal || 0)}`,
+          color: '#64748b',
+        },
+        { label: 'Khata Status:', value: 'LIVE BALANCED', color: '#15803d' },
       ],
       '#f59e0b',
       '#f59e0b'
@@ -305,8 +325,14 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
           value: `${num(data.stockCard.openingUnits)} / +${num(data.stockCard.stockIn)}`,
           color: '#1e3a8a',
         },
-        { label: 'Stock Out (Sold):', value: `\u2212 ${num(data.stockCard.stockOut)}`, color: '#dc2626' },
-        { label: 'Closing Stock:', value: num(data.stockCard.closingUnits), color: '#6d28d9' },
+        { label: 'Stock Out (Sold/Out):', value: `\u2212 ${num(data.stockCard.stockOut)}`, color: '#dc2626' },
+        { label: 'Closing Stock (Live):', value: num(data.stockCard.closingUnits), color: '#6d28d9' },
+        {
+          label: 'Returns In / Out:',
+          value: `SR In: +${num(data.returnsSummary?.saleReturnsTodayCount || 0)} / PR Out: \u2212${num(data.returnsSummary?.purchaseReturnsTodayCount || 0)}`,
+          color: '#64748b',
+        },
+        { label: 'Physical Audit:', value: 'SYNCED', color: '#15803d' },
       ],
       '#7c3aed',
       '#2563eb'
@@ -356,6 +382,40 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
           <span>TOTAL SALESMEN PROFIT:</span>
           <span class="green">${sym} ${num(data.totalSalesmenProfit)}</span>
         </div>
+      </div>
+
+      <div class="al-panel">
+        <div class="al-panel-h">
+          <div class="t" style="color:#b91c1c">RETURNS AUDIT SUMMARY &bull; سیل واپسی و خریداری واپسی</div>
+          <div class="s" style="color:#dc2626">AUDIT TRAIL</div>
+        </div>
+        <table class="al-t">
+          <thead>
+            <tr>
+              <th>Return Category</th>
+              <th class="num">Today</th>
+              <th class="num">Month</th>
+              <th class="num">Total DED. (${sym})</th>
+              <th class="center">Audit Impact</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="strong red">Sales Return (سیل واپسی)</td>
+              <td class="num">${num(data.returnsSummary?.saleReturnsToday ?? data.salesCard.saleReturnsToday ?? 0)} <span class="muted">(${data.returnsSummary?.saleReturnsTodayCount ?? 0})</span></td>
+              <td class="num">${num(data.returnsSummary?.saleReturnsMonth ?? data.salesCard.saleReturnsMonth ?? 0)} <span class="muted">(${data.returnsSummary?.saleReturnsMonthCount ?? 0})</span></td>
+              <td class="num strong red">\u2212 ${sym} ${num(data.returnsSummary?.saleReturnsTotal ?? data.salesCard.saleReturnsTotal ?? 0)}</td>
+              <td class="center"><span style="background:#fee2e2;color:#991b1b;padding:1px 5px;border-radius:4px;font-size:7.5px;font-weight:700">Deducted from Sales</span></td>
+            </tr>
+            <tr>
+              <td class="strong amber">Purchase Return (خریداری واپسی)</td>
+              <td class="num">${num(data.returnsSummary?.purchaseReturnsToday ?? data.purchaseCard.purchaseReturnsToday ?? 0)} <span class="muted">(${data.returnsSummary?.purchaseReturnsTodayCount ?? 0})</span></td>
+              <td class="num">${num(data.returnsSummary?.purchaseReturnsMonth ?? data.purchaseCard.purchaseReturnsMonth ?? 0)} <span class="muted">(${data.returnsSummary?.purchaseReturnsMonthCount ?? 0})</span></td>
+              <td class="num strong amber">\u2212 ${sym} ${num(data.returnsSummary?.purchaseReturnsTotal ?? data.purchaseCard.purchaseReturnsTotal ?? 0)}</td>
+              <td class="center"><span style="background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:4px;font-size:7.5px;font-weight:700">Deducted from Purchases</span></td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 

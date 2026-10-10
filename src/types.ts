@@ -959,6 +959,26 @@ export interface AiLedgerAuditCashRow {
   direction: 'in' | 'out' | 'memo' | 'neutral';
 }
 
+export interface AiLedgerAuditReturnsSummary {
+  saleReturnsToday: number;
+  saleReturnsMonth: number;
+  saleReturnsTotal: number;
+  saleReturnsTodayCount: number;
+  saleReturnsMonthCount: number;
+  saleReturnsTotalCount: number;
+  saleReturnsCashTotal: number;
+  saleReturnsCreditTotal: number;
+
+  purchaseReturnsToday: number;
+  purchaseReturnsMonth: number;
+  purchaseReturnsTotal: number;
+  purchaseReturnsTodayCount: number;
+  purchaseReturnsMonthCount: number;
+  purchaseReturnsTotalCount: number;
+  purchaseReturnsCashTotal: number;
+  purchaseReturnsCreditTotal: number;
+}
+
 export interface AiLedgerAuditReport {
   success: boolean;
   fileName: string;
@@ -975,9 +995,36 @@ export interface AiLedgerAuditReport {
     netMarginPct: number;
     receivables: number;
     warehouseStock: number;
+    todaySaleReturns?: number;
+    todayPurchaseReturns?: number;
+    totalSaleReturns?: number;
+    totalPurchaseReturns?: number;
   };
-  salesCard: { monthSales: number; todaySales: number; totalSales: number };
-  purchaseCard: { monthPurchases: number; todayPurchases: number; totalPurchases: number };
+  salesCard: {
+    monthSales: number;
+    todaySales: number;
+    totalSales: number;
+    grossSalesToday?: number;
+    grossSalesMonth?: number;
+    grossSalesTotal?: number;
+    saleReturnsToday?: number;
+    saleReturnsMonth?: number;
+    saleReturnsTotal?: number;
+    saleReturnsCount?: number;
+  };
+  purchaseCard: {
+    monthPurchases: number;
+    todayPurchases: number;
+    totalPurchases: number;
+    grossPurchasesToday?: number;
+    grossPurchasesMonth?: number;
+    grossPurchasesTotal?: number;
+    purchaseReturnsToday?: number;
+    purchaseReturnsMonth?: number;
+    purchaseReturnsTotal?: number;
+    purchaseReturnsCount?: number;
+  };
+  returnsSummary?: AiLedgerAuditReturnsSummary;
   khataCard: { receivable: number; payable: number; netBalance: number };
   stockCard: {
     unitLabel: string;
