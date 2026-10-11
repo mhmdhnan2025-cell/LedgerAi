@@ -263,8 +263,9 @@ async function main() {
       }
     }
 
-    // 4. Update PostgreSQL customers table for target companies
-    const targetCompanies = ['comp_default_01', 'comp-muocj00t-j3co'];
+    // 4. Update PostgreSQL customers table for all companies
+    const compsRes = await client.query("SELECT DISTINCT company_id FROM company_profile UNION SELECT DISTINCT company_id FROM customers WHERE company_id IS NOT NULL");
+    const targetCompanies = Array.from(new Set(['comp_default_01', 'comp-muocj00t-j3co', ...compsRes.rows.map(r => r.company_id).filter(Boolean)]));
     for (const cid of targetCompanies) {
       console.log(`\nSyncing PostgreSQL customers for ${cid}...`);
       // Delete any non-standard IDs for this company

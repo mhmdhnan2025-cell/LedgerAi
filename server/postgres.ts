@@ -1711,6 +1711,7 @@ class PostgresService {
           cust.address || '',
           cust.status || 'ACTIVE',
           openBal,
+          openType,
           cust.outstandingBalance !== undefined && cust.outstandingBalance !== null && cust.outstandingBalance !== 0
             ? cust.outstandingBalance
             : (openType === 'CR' ? -Math.abs(openBal) : Math.abs(openBal)),
