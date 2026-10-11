@@ -692,6 +692,12 @@ export interface Customer {
   notes?: string;
   image?: string;
   assignedSalesman?: string;    // Handling Salesman name
+  salesman?: string;            // Direct salesman name
+  lastBillNumber?: string;      // Last Bill # from receivable report
+  lastBillDate?: string;        // Last Bill Date from receivable report
+  lastBillAmount?: number;      // Last Bill Amount from receivable report
+  lastReceiptDate?: string;     // Last Receipt Date from receivable report
+  lastReceiptAmount?: number;   // Last Receipt Amount from receivable report
   status: 'ACTIVE' | 'INACTIVE';
   outstandingBalance: number;   // Current balance receivable
   openingBalance?: number;      // Initial ledger opening balance

@@ -184,13 +184,20 @@ export const SalesView: React.FC<SalesViewProps> = ({
     try {
       const list = await api.getCustomers();
       setCustomers(list);
-      if (list.length > 0 && !selectedCustomerId) {
-        // Select first customer by default
-        setSelectedCustomerId(list[0].id);
-        setCustomerAccountTitle(list[0].accountTitle || list[0].name);
-        setCustomerMobile(list[0].mobile || '');
-        setCustomerTrn(list[0].trn || '');
-        setPartyBalanceBefore(list[0].outstandingBalance || 0);
+      if (list.length > 0) {
+        if (!selectedCustomerId) {
+          // Select first customer by default
+          setSelectedCustomerId(list[0].id);
+          setCustomerAccountTitle(list[0].accountTitle || list[0].name);
+          setCustomerMobile(list[0].mobile || '');
+          setCustomerTrn(list[0].trn || '');
+          setPartyBalanceBefore(list[0].outstandingBalance !== undefined ? list[0].outstandingBalance : (list[0].openingBalance || 0));
+        } else {
+          const current = list.find((c) => c.id === selectedCustomerId || c.code === selectedCustomerId);
+          if (current) {
+            setPartyBalanceBefore(current.outstandingBalance !== undefined ? current.outstandingBalance : (current.openingBalance || 0));
+          }
+        }
       }
     } catch (e) {
       console.error(e);
@@ -290,7 +297,11 @@ export const SalesView: React.FC<SalesViewProps> = ({
     setCustomerAccountTitle(cust.accountTitle || cust.name);
     setCustomerMobile(cust.mobile || '');
     setCustomerTrn(cust.trn || '');
-    setPartyBalanceBefore(cust.outstandingBalance || 0);
+    const curBal = cust.outstandingBalance !== undefined ? cust.outstandingBalance : (cust.openingBalance || 0);
+    setPartyBalanceBefore(curBal);
+    if (cust.assignedSalesman || cust.salesman) {
+      setSelectedSalesman(cust.assignedSalesman || cust.salesman || '');
+    }
     setIsCashCustomer(false);
     setIsCustomerDropdownOpen(false);
   };

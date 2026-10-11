@@ -172,7 +172,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "",
+    "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
     "outstandingBalance": 567.53,
     "creditLimit": 25000,
@@ -180,7 +180,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 567.53,
     "openingBalanceType": "DR",
-    "salesman": "Ashiq Ali"
+    "salesman": "Ashiq Ali",
+    "lastBillNumber": "7665",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 567.53,
+    "lastReceiptDate": "10-10-2026",
+    "lastReceiptAmount": 359.1
   },
   {
     "id": "cust-8",
@@ -381,7 +386,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "HAFIZ ABDUL QADEER",
+    "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
     "outstandingBalance": 17.59,
     "creditLimit": 25000,
@@ -389,7 +394,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 17.59,
     "openingBalanceType": "DR",
-    "salesman": "Akbar Bhai"
+    "salesman": "Akbar Bhai",
+    "lastBillNumber": "7354",
+    "lastBillDate": "04-10-2026",
+    "lastBillAmount": 145,
+    "lastReceiptDate": "04-10-2026",
+    "lastReceiptAmount": 145
   },
   {
     "id": "cust-16",
@@ -598,7 +608,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 125.11,
     "openingBalanceType": "DR",
-    "salesman": "Ashiq Ali"
+    "salesman": "Ashiq Ali",
+    "lastBillNumber": "5206",
+    "lastBillDate": "18-08-2026",
+    "lastBillAmount": 136.5,
+    "lastReceiptDate": "30-08-2026",
+    "lastReceiptAmount": 100
   },
   {
     "id": "cust-24",
@@ -755,7 +770,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 1289.94,
     "openingBalanceType": "DR",
-    "salesman": "Ashiq Ali"
+    "salesman": "Ashiq Ali",
+    "lastBillNumber": "7666",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 185.01,
+    "lastReceiptDate": "09-10-2026",
+    "lastReceiptAmount": 802
   },
   {
     "id": "cust-30",
@@ -807,7 +827,9 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 227,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastReceiptDate": "26-04-2026",
+    "lastReceiptAmount": 80
   },
   {
     "id": "cust-32",
@@ -826,7 +848,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "SULTAN MIR",
+    "assignedSalesman": "Zahrat Al Fajr",
     "status": "ACTIVE",
     "outstandingBalance": 1447.08,
     "creditLimit": 25000,
@@ -834,7 +856,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 1447.08,
     "openingBalanceType": "DR",
-    "salesman": "Zahrat Al Fajr"
+    "salesman": "Zahrat Al Fajr",
+    "lastBillNumber": "1035",
+    "lastBillDate": "12-05-2026",
+    "lastBillAmount": 10.5,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 500
   },
   {
     "id": "cust-33",
@@ -879,7 +906,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "SULTAN MIR",
+    "assignedSalesman": "Zahrat Al Fajr",
     "status": "ACTIVE",
     "outstandingBalance": 1450.5,
     "creditLimit": 25000,
@@ -887,7 +914,9 @@
     "createdAt": "2026-04-18",
     "openingBalance": 1450.5,
     "openingBalanceType": "DR",
-    "salesman": "Zahrat Al Fajr"
+    "salesman": "Zahrat Al Fajr",
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 100
   },
   {
     "id": "cust-35",
@@ -906,7 +935,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "SULTAN MIR",
+    "assignedSalesman": "Zahrat Al Fajr",
     "status": "ACTIVE",
     "outstandingBalance": 39064.91,
     "creditLimit": 25000,
@@ -914,7 +943,10 @@
     "createdAt": "2026-04-18",
     "openingBalance": 39064.91,
     "openingBalanceType": "DR",
-    "salesman": "Zahrat Al Fajr"
+    "salesman": "Zahrat Al Fajr",
+    "lastBillNumber": "3192",
+    "lastBillDate": "05-07-2026",
+    "lastBillAmount": 1075.2
   },
   {
     "id": "cust-36",
@@ -967,7 +999,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 8673.71,
     "openingBalanceType": "DR",
-    "salesman": "Ashiq Ali"
+    "salesman": "Ashiq Ali",
+    "lastBillNumber": "7668",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 352.8,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 962
   },
   {
     "id": "cust-38",
@@ -994,7 +1031,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 1288.06,
     "openingBalanceType": "DR",
-    "salesman": "Ashiq Ali"
+    "salesman": "Ashiq Ali",
+    "lastBillNumber": "6942",
+    "lastBillDate": "25-09-2026",
+    "lastBillAmount": 46,
+    "lastReceiptDate": "05-10-2026",
+    "lastReceiptAmount": 45
   },
   {
     "id": "cust-39",
@@ -1021,7 +1063,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 508.67,
     "openingBalanceType": "DR",
-    "salesman": "Ashiq Ali"
+    "salesman": "Ashiq Ali",
+    "lastBillNumber": "7611",
+    "lastBillDate": "10-10-2026",
+    "lastBillAmount": 490.35,
+    "lastReceiptDate": "10-10-2026",
+    "lastReceiptAmount": 600
   },
   {
     "id": "cust-40",
@@ -1048,7 +1095,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 700.57,
     "openingBalanceType": "DR",
-    "salesman": "Ashiq Ali"
+    "salesman": "Ashiq Ali",
+    "lastBillNumber": "7641",
+    "lastBillDate": "10-10-2026",
+    "lastBillAmount": 518.02,
+    "lastReceiptDate": "10-10-2026",
+    "lastReceiptAmount": 470
   },
   {
     "id": "cust-41",
@@ -1075,7 +1127,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 4.3,
     "openingBalanceType": "DR",
-    "salesman": "Ashiq Ali"
+    "salesman": "Ashiq Ali",
+    "lastBillNumber": "7571",
+    "lastBillDate": "09-10-2026",
+    "lastBillAmount": 192.04,
+    "lastReceiptDate": "09-10-2026",
+    "lastReceiptAmount": 192
   },
   {
     "id": "cust-42",
@@ -1102,7 +1159,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 1480.53,
     "openingBalanceType": "DR",
-    "salesman": "Ashiq Ali"
+    "salesman": "Ashiq Ali",
+    "lastBillNumber": "7658",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 202.01,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 300
   },
   {
     "id": "cust-43",
@@ -1155,7 +1217,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 285.76,
     "openingBalanceType": "DR",
-    "salesman": "Ashiq Ali"
+    "salesman": "Ashiq Ali",
+    "lastBillNumber": "2246",
+    "lastBillDate": "12-06-2026",
+    "lastBillAmount": 225.02,
+    "lastReceiptDate": "12-06-2026",
+    "lastReceiptAmount": 225
   },
   {
     "id": "cust-45",
@@ -1208,7 +1275,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 4085.31,
     "openingBalanceType": "DR",
-    "salesman": "Ashiq Ali"
+    "salesman": "Ashiq Ali",
+    "lastBillNumber": "7600",
+    "lastBillDate": "10-10-2026",
+    "lastBillAmount": 1177.05,
+    "lastReceiptDate": "10-10-2026",
+    "lastReceiptAmount": 503
   },
   {
     "id": "cust-47",
@@ -1227,7 +1299,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "Akbar Bhai",
+    "assignedSalesman": "Zahrat Al Fajr",
     "status": "ACTIVE",
     "outstandingBalance": 1900.6,
     "creditLimit": 25000,
@@ -1235,7 +1307,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 1900.6,
     "openingBalanceType": "DR",
-    "salesman": "Zahrat Al Fajr"
+    "salesman": "Zahrat Al Fajr",
+    "lastBillNumber": "4459",
+    "lastBillDate": "01-08-2026",
+    "lastBillAmount": 95.55,
+    "lastReceiptDate": "16-08-2026",
+    "lastReceiptAmount": 95
   },
   {
     "id": "cust-48",
@@ -1307,7 +1384,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "SULTAN MIR",
+    "assignedSalesman": "Sultan Mir",
     "status": "ACTIVE",
     "outstandingBalance": 8.57,
     "creditLimit": 25000,
@@ -1315,7 +1392,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 8.57,
     "openingBalanceType": "DR",
-    "salesman": "Sultan Mir"
+    "salesman": "Sultan Mir",
+    "lastBillNumber": "3268",
+    "lastBillDate": "07-07-2026",
+    "lastBillAmount": 318.15,
+    "lastReceiptDate": "07-07-2026",
+    "lastReceiptAmount": 310
   },
   {
     "id": "cust-51",
@@ -1334,7 +1416,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "Ashiq Ali",
+    "assignedSalesman": "Zahrat Al Fajr",
     "status": "ACTIVE",
     "outstandingBalance": 269,
     "creditLimit": 25000,
@@ -1342,7 +1424,9 @@
     "createdAt": "2026-04-18",
     "openingBalance": 269,
     "openingBalanceType": "DR",
-    "salesman": "Zahrat Al Fajr"
+    "salesman": "Zahrat Al Fajr",
+    "lastReceiptDate": "26-04-2026",
+    "lastReceiptAmount": 140
   },
   {
     "id": "cust-52",
@@ -1387,7 +1471,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "HAFIZ ABDUL QADEER",
+    "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
     "outstandingBalance": 738.4,
     "creditLimit": 25000,
@@ -1395,7 +1479,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 738.4,
     "openingBalanceType": "DR",
-    "salesman": "Ashiq Ali"
+    "salesman": "Ashiq Ali",
+    "lastBillNumber": "7652",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 240,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 197
   },
   {
     "id": "cust-54",
@@ -1421,7 +1510,12 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 4.15,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastBillNumber": "3718",
+    "lastBillDate": "17-07-2026",
+    "lastBillAmount": 40.01,
+    "lastReceiptDate": "17-07-2026",
+    "lastReceiptAmount": 40.01
   },
   {
     "id": "cust-55",
@@ -1448,7 +1542,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 1576.61,
     "openingBalanceType": "DR",
-    "salesman": "Akbar Bhai"
+    "salesman": "Akbar Bhai",
+    "lastBillNumber": "7660",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 67.2,
+    "lastReceiptDate": "10-10-2026",
+    "lastReceiptAmount": 397
   },
   {
     "id": "cust-56",
@@ -1474,7 +1573,12 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 855.73,
-    "openingBalanceType": "CR"
+    "openingBalanceType": "CR",
+    "lastBillNumber": "7528",
+    "lastBillDate": "08-10-2026",
+    "lastBillAmount": 96.6,
+    "lastReceiptDate": "08-10-2026",
+    "lastReceiptAmount": 1200.8
   },
   {
     "id": "cust-57",
@@ -1519,7 +1623,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "HAFIZ ABDUL QADEER",
+    "assignedSalesman": "Hafiz Abdul Qadeer",
     "status": "ACTIVE",
     "outstandingBalance": 736.36,
     "creditLimit": 25000,
@@ -1527,7 +1631,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 736.36,
     "openingBalanceType": "DR",
-    "salesman": "Hafiz Abdul Qadeer"
+    "salesman": "Hafiz Abdul Qadeer",
+    "lastBillNumber": "7678",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 97.02,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 336
   },
   {
     "id": "cust-59",
@@ -1676,7 +1785,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "SULTAN MIR",
+    "assignedSalesman": "Zahrat Al Fajr",
     "status": "ACTIVE",
     "outstandingBalance": 1186.99,
     "creditLimit": 25000,
@@ -1684,7 +1793,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 1186.99,
     "openingBalanceType": "DR",
-    "salesman": "Zahrat Al Fajr"
+    "salesman": "Zahrat Al Fajr",
+    "lastBillNumber": "1688",
+    "lastBillDate": "29-05-2026",
+    "lastBillAmount": 110.25,
+    "lastReceiptDate": "12-06-2026",
+    "lastReceiptAmount": 50
   },
   {
     "id": "cust-65",
@@ -1729,7 +1843,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "HAFIZ ABDUL QADEER",
+    "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
     "outstandingBalance": 2371.04,
     "creditLimit": 25000,
@@ -1737,7 +1851,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 2371.04,
     "openingBalanceType": "DR",
-    "salesman": "Akbar Bhai"
+    "salesman": "Akbar Bhai",
+    "lastBillNumber": "7623",
+    "lastBillDate": "10-10-2026",
+    "lastBillAmount": 462,
+    "lastReceiptDate": "05-10-2026",
+    "lastReceiptAmount": 440
   },
   {
     "id": "cust-67",
@@ -1790,7 +1909,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 5510.86,
     "openingBalanceType": "DR",
-    "salesman": "Akbar Bhai"
+    "salesman": "Akbar Bhai",
+    "lastBillNumber": "7624",
+    "lastBillDate": "10-10-2026",
+    "lastBillAmount": 3837.75,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 10000
   },
   {
     "id": "cust-69",
@@ -1895,7 +2019,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 4095.6,
     "openingBalanceType": "DR",
-    "salesman": "Ashiq Ali"
+    "salesman": "Ashiq Ali",
+    "lastBillNumber": "7662",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 936.6,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 137
   },
   {
     "id": "cust-73",
@@ -1974,7 +2103,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 1047.45,
     "openingBalanceType": "DR",
-    "salesman": "Ashiq Ali"
+    "salesman": "Ashiq Ali",
+    "lastBillNumber": "7071",
+    "lastBillDate": "28-09-2026",
+    "lastBillAmount": 912.46,
+    "lastReceiptDate": "03-10-2026",
+    "lastReceiptAmount": 200
   },
   {
     "id": "cust-76",
@@ -1993,7 +2127,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "Akbar Bhai",
+    "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
     "outstandingBalance": 94.95,
     "creditLimit": 25000,
@@ -2028,7 +2162,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 57.73,
     "openingBalanceType": "DR",
-    "salesman": "Ashiq Ali"
+    "salesman": "Ashiq Ali",
+    "lastBillNumber": "7210",
+    "lastBillDate": "01-10-2026",
+    "lastBillAmount": 471.99,
+    "lastReceiptDate": "01-10-2026",
+    "lastReceiptAmount": 450
   },
   {
     "id": "cust-78",
@@ -2047,7 +2186,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "Ashiq Ali",
+    "assignedSalesman": "Zahrat Al Fajr",
     "status": "ACTIVE",
     "outstandingBalance": 886.11,
     "creditLimit": 25000,
@@ -2055,7 +2194,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 886.11,
     "openingBalanceType": "DR",
-    "salesman": "Zahrat Al Fajr"
+    "salesman": "Zahrat Al Fajr",
+    "lastBillNumber": "1874",
+    "lastBillDate": "03-06-2026",
+    "lastBillAmount": 885.15,
+    "lastReceiptDate": "03-06-2026",
+    "lastReceiptAmount": 659
   },
   {
     "id": "cust-79",
@@ -2074,7 +2218,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "HAFIZ ABDUL QADEER",
+    "assignedSalesman": "Hafiz Abdul Qadeer",
     "status": "ACTIVE",
     "outstandingBalance": 2616.04,
     "creditLimit": 25000,
@@ -2082,7 +2226,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 2616.04,
     "openingBalanceType": "DR",
-    "salesman": "Hafiz Abdul Qadeer"
+    "salesman": "Hafiz Abdul Qadeer",
+    "lastBillNumber": "7649",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 1722,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 1400
   },
   {
     "id": "cust-80",
@@ -2101,7 +2250,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "HAFIZ ABDUL QADEER",
+    "assignedSalesman": "Hafiz Abdul Qadeer",
     "status": "ACTIVE",
     "outstandingBalance": 3.2,
     "creditLimit": 25000,
@@ -2109,7 +2258,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 3.2,
     "openingBalanceType": "DR",
-    "salesman": "Hafiz Abdul Qadeer"
+    "salesman": "Hafiz Abdul Qadeer",
+    "lastBillNumber": "7170",
+    "lastBillDate": "30-09-2026",
+    "lastBillAmount": 88.2,
+    "lastReceiptDate": "30-09-2026",
+    "lastReceiptAmount": 85
   },
   {
     "id": "cust-81",
@@ -2188,7 +2342,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 2663.44,
     "openingBalanceType": "DR",
-    "salesman": "Ashiq Ali"
+    "salesman": "Ashiq Ali",
+    "lastBillNumber": "7679",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 165.32,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 165
   },
   {
     "id": "cust-84",
@@ -2233,7 +2392,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "HAFIZ ABDUL QADEER",
+    "assignedSalesman": "Zahrat Al Fajr",
     "status": "ACTIVE",
     "outstandingBalance": 2189.69,
     "creditLimit": 25000,
@@ -2241,7 +2400,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 2189.69,
     "openingBalanceType": "DR",
-    "salesman": "Zahrat Al Fajr"
+    "salesman": "Zahrat Al Fajr",
+    "lastBillNumber": "926",
+    "lastBillDate": "09-05-2026",
+    "lastBillAmount": 102.9,
+    "lastReceiptDate": "09-05-2026",
+    "lastReceiptAmount": 102
   },
   {
     "id": "cust-86",
@@ -2294,7 +2458,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 20.98,
     "openingBalanceType": "DR",
-    "salesman": "Ashiq Ali"
+    "salesman": "Ashiq Ali",
+    "lastBillNumber": "7619",
+    "lastBillDate": "10-10-2026",
+    "lastBillAmount": 320.25,
+    "lastReceiptDate": "10-10-2026",
+    "lastReceiptAmount": 320
   },
   {
     "id": "cust-88",
@@ -2365,7 +2534,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "SULTAN MIR",
+    "assignedSalesman": "Zahrat Al Fajr",
     "status": "ACTIVE",
     "outstandingBalance": 100.59,
     "creditLimit": 25000,
@@ -2373,7 +2542,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 100.59,
     "openingBalanceType": "DR",
-    "salesman": "Zahrat Al Fajr"
+    "salesman": "Zahrat Al Fajr",
+    "lastBillNumber": "1579",
+    "lastBillDate": "25-05-2026",
+    "lastBillAmount": 197.07,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 150
   },
   {
     "id": "cust-91",
@@ -2530,7 +2704,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 249.28,
     "openingBalanceType": "DR",
-    "salesman": "Akbar Bhai"
+    "salesman": "Akbar Bhai",
+    "lastBillNumber": "7040",
+    "lastBillDate": "27-09-2026",
+    "lastBillAmount": 226.01,
+    "lastReceiptDate": "23-09-2026",
+    "lastReceiptAmount": 127
   },
   {
     "id": "cust-97",
@@ -2609,7 +2788,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 204.7,
     "openingBalanceType": "DR",
-    "salesman": "Akbar Bhai"
+    "salesman": "Akbar Bhai",
+    "lastBillNumber": "7013",
+    "lastBillDate": "26-09-2026",
+    "lastBillAmount": 128.1,
+    "lastReceiptDate": "26-09-2026",
+    "lastReceiptAmount": 125
   },
   {
     "id": "cust-100",
@@ -2654,7 +2838,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "SULTAN MIR",
+    "assignedSalesman": "Zahrat Al Fajr",
     "status": "ACTIVE",
     "outstandingBalance": -18.06,
     "creditLimit": 25000,
@@ -2662,7 +2846,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 18.06,
     "openingBalanceType": "CR",
-    "salesman": "Zahrat Al Fajr"
+    "salesman": "Zahrat Al Fajr",
+    "lastBillNumber": "2368",
+    "lastBillDate": "15-06-2026",
+    "lastBillAmount": 357,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 250
   },
   {
     "id": "cust-102",
@@ -2785,7 +2974,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "",
+    "assignedSalesman": "Hafiz Abdul Qadeer",
     "status": "ACTIVE",
     "outstandingBalance": -225,
     "creditLimit": 25000,
@@ -2793,7 +2982,10 @@
     "createdAt": "2026-04-18",
     "openingBalance": 225,
     "openingBalanceType": "CR",
-    "salesman": "Hafiz Abdul Qadeer"
+    "salesman": "Hafiz Abdul Qadeer",
+    "lastBillNumber": "496",
+    "lastBillDate": "08-10-2026",
+    "lastBillAmount": 225
   },
   {
     "id": "cust-107",
@@ -2864,7 +3056,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "Akbar Bhai",
+    "assignedSalesman": "Zahrat Al Fajr",
     "status": "ACTIVE",
     "outstandingBalance": 1202.05,
     "creditLimit": 25000,
@@ -2872,7 +3064,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 1202.05,
     "openingBalanceType": "DR",
-    "salesman": "Zahrat Al Fajr"
+    "salesman": "Zahrat Al Fajr",
+    "lastBillNumber": "1668",
+    "lastBillDate": "29-05-2026",
+    "lastBillAmount": 525,
+    "lastReceiptDate": "29-05-2026",
+    "lastReceiptAmount": 525
   },
   {
     "id": "cust-110",
@@ -2977,7 +3174,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 13.9,
     "openingBalanceType": "DR",
-    "salesman": "Ashiq Ali"
+    "salesman": "Ashiq Ali",
+    "lastBillNumber": "7419",
+    "lastBillDate": "05-10-2026",
+    "lastBillAmount": 142.01,
+    "lastReceiptDate": "05-10-2026",
+    "lastReceiptAmount": 142
   },
   {
     "id": "cust-114",
@@ -3204,7 +3406,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "",
+    "assignedSalesman": "Hafiz Abdul Qadeer",
     "status": "ACTIVE",
     "outstandingBalance": 328.5,
     "creditLimit": 25000,
@@ -3212,7 +3414,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 328.5,
     "openingBalanceType": "DR",
-    "salesman": "Hafiz Abdul Qadeer"
+    "salesman": "Hafiz Abdul Qadeer",
+    "lastBillNumber": "7484",
+    "lastBillDate": "07-10-2026",
+    "lastBillAmount": 286.65,
+    "lastReceiptDate": "08-10-2026",
+    "lastReceiptAmount": 500
   },
   {
     "id": "cust-123",
@@ -3318,7 +3525,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 812.35,
     "openingBalanceType": "DR",
-    "salesman": "Ashiq Ali"
+    "salesman": "Ashiq Ali",
+    "lastBillNumber": "7406",
+    "lastBillDate": "05-10-2026",
+    "lastBillAmount": 1312.15,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 300
   },
   {
     "id": "cust-127",
@@ -3858,7 +4070,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "HAFIZ ABDUL QADEER",
+    "assignedSalesman": "Zahrat Al Fajr",
     "status": "ACTIVE",
     "outstandingBalance": 1914,
     "creditLimit": 25000,
@@ -3885,7 +4097,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "SULTAN MIR",
+    "assignedSalesman": "Sultan Mir",
     "status": "ACTIVE",
     "outstandingBalance": 9241.27,
     "creditLimit": 25000,
@@ -3893,7 +4105,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 9241.27,
     "openingBalanceType": "DR",
-    "salesman": "Sultan Mir"
+    "salesman": "Sultan Mir",
+    "lastBillNumber": "6409",
+    "lastBillDate": "14-09-2026",
+    "lastBillAmount": 1336.44,
+    "lastReceiptDate": "29-09-2026",
+    "lastReceiptAmount": 3900
   },
   {
     "id": "cust-149",
@@ -3973,7 +4190,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 204.41,
     "openingBalanceType": "DR",
-    "salesman": "Ashiq Ali"
+    "salesman": "Ashiq Ali",
+    "lastBillNumber": "7504",
+    "lastBillDate": "07-10-2026",
+    "lastBillAmount": 158.03,
+    "lastReceiptDate": "07-10-2026",
+    "lastReceiptAmount": 157
   },
   {
     "id": "cust-152",
@@ -4096,7 +4318,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "Ashiq Ali",
+    "assignedSalesman": "Zahrat Al Fajr",
     "status": "ACTIVE",
     "outstandingBalance": 899,
     "creditLimit": 25000,
@@ -4209,7 +4431,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 311.77,
     "openingBalanceType": "DR",
-    "salesman": "Akbar Bhai"
+    "salesman": "Akbar Bhai",
+    "lastBillNumber": "7457",
+    "lastBillDate": "06-10-2026",
+    "lastBillAmount": 311.01,
+    "lastReceiptDate": "06-10-2026",
+    "lastReceiptAmount": 248
   },
   {
     "id": "cust-161",
@@ -4358,7 +4585,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "HAFIZ ABDUL QADEER",
+    "assignedSalesman": "Hafiz Abdul Qadeer",
     "status": "ACTIVE",
     "outstandingBalance": 600.74,
     "creditLimit": 25000,
@@ -4366,7 +4593,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 600.74,
     "openingBalanceType": "DR",
-    "salesman": "Hafiz Abdul Qadeer"
+    "salesman": "Hafiz Abdul Qadeer",
+    "lastBillNumber": "7650",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 460.95,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 450
   },
   {
     "id": "cust-167",
@@ -4437,7 +4669,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "HAFIZ ABDUL QADEER",
+    "assignedSalesman": "Hafiz Abdul Qadeer",
     "status": "ACTIVE",
     "outstandingBalance": 466.25,
     "creditLimit": 25000,
@@ -4445,7 +4677,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 466.25,
     "openingBalanceType": "DR",
-    "salesman": "Hafiz Abdul Qadeer"
+    "salesman": "Hafiz Abdul Qadeer",
+    "lastBillNumber": "316",
+    "lastBillDate": "26-04-2026",
+    "lastBillAmount": 47.25,
+    "lastReceiptDate": "26-04-2026",
+    "lastReceiptAmount": 47
   },
   {
     "id": "cust-170",
@@ -4464,7 +4701,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "HAFIZ ABDUL QADEER",
+    "assignedSalesman": "Hafiz Abdul Qadeer",
     "status": "ACTIVE",
     "outstandingBalance": 0.66,
     "creditLimit": 25000,
@@ -4472,7 +4709,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 0.66,
     "openingBalanceType": "DR",
-    "salesman": "Hafiz Abdul Qadeer"
+    "salesman": "Hafiz Abdul Qadeer",
+    "lastBillNumber": "5156",
+    "lastBillDate": "17-08-2026",
+    "lastBillAmount": 339.25,
+    "lastReceiptDate": "08-09-2026",
+    "lastReceiptAmount": 189
   },
   {
     "id": "cust-171",
@@ -4525,7 +4767,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 2789.7,
     "openingBalanceType": "DR",
-    "salesman": "Akbar Bhai"
+    "salesman": "Akbar Bhai",
+    "lastBillNumber": "7683",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 114.45,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 114
   },
   {
     "id": "cust-173",
@@ -4622,7 +4869,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "Ashiq Ali",
+    "assignedSalesman": "Zahrat Al Fajr",
     "status": "ACTIVE",
     "outstandingBalance": 1622.87,
     "creditLimit": 25000,
@@ -4630,7 +4877,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 1622.87,
     "openingBalanceType": "DR",
-    "salesman": "Zahrat Al Fajr"
+    "salesman": "Zahrat Al Fajr",
+    "lastBillNumber": "5414",
+    "lastBillDate": "22-08-2026",
+    "lastBillAmount": 110.25,
+    "lastReceiptDate": "22-08-2026",
+    "lastReceiptAmount": 220.5
   },
   {
     "id": "cust-177",
@@ -4657,7 +4909,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 1503.11,
     "openingBalanceType": "DR",
-    "salesman": "Akbar Bhai"
+    "salesman": "Akbar Bhai",
+    "lastBillNumber": "7518",
+    "lastBillDate": "08-10-2026",
+    "lastBillAmount": 314.47,
+    "lastReceiptDate": "09-10-2026",
+    "lastReceiptAmount": 710
   },
   {
     "id": "cust-178",
@@ -4728,7 +4985,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "HAFIZ ABDUL QADEER",
+    "assignedSalesman": "Hafiz Abdul Qadeer",
     "status": "ACTIVE",
     "outstandingBalance": 31.07,
     "creditLimit": 25000,
@@ -4736,7 +4993,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 31.07,
     "openingBalanceType": "DR",
-    "salesman": "Hafiz Abdul Qadeer"
+    "salesman": "Hafiz Abdul Qadeer",
+    "lastBillNumber": "7657",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 255.15,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 255
   },
   {
     "id": "cust-181",
@@ -4781,7 +5043,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "HAFIZ ABDUL QADEER",
+    "assignedSalesman": "Zahrat Al Fajr",
     "status": "ACTIVE",
     "outstandingBalance": 7349,
     "creditLimit": 25000,
@@ -4816,7 +5078,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 27.76,
     "openingBalanceType": "DR",
-    "salesman": "Ashiq Ali"
+    "salesman": "Ashiq Ali",
+    "lastBillNumber": "7674",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 164.01,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 164
   },
   {
     "id": "cust-184",
@@ -4843,7 +5110,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 242.55,
     "openingBalanceType": "DR",
-    "salesman": "Ashiq Ali"
+    "salesman": "Ashiq Ali",
+    "lastBillNumber": "539",
+    "lastBillDate": "30-04-2026",
+    "lastBillAmount": 31.5,
+    "lastReceiptDate": "14-06-2026",
+    "lastReceiptAmount": 300
   },
   {
     "id": "cust-185",
@@ -4914,7 +5186,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "SULTAN MIR",
+    "assignedSalesman": "Sultan Mir",
     "status": "ACTIVE",
     "outstandingBalance": 12834.38,
     "creditLimit": 25000,
@@ -4922,7 +5194,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 12834.38,
     "openingBalanceType": "DR",
-    "salesman": "Sultan Mir"
+    "salesman": "Sultan Mir",
+    "lastBillNumber": "7631",
+    "lastBillDate": "10-10-2026",
+    "lastBillAmount": 925.05,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 460
   },
   {
     "id": "cust-188",
@@ -4941,7 +5218,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "SULTAN MIR",
+    "assignedSalesman": "Sultan Mir",
     "status": "ACTIVE",
     "outstandingBalance": 2017.23,
     "creditLimit": 25000,
@@ -4949,7 +5226,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 2017.23,
     "openingBalanceType": "DR",
-    "salesman": "Sultan Mir"
+    "salesman": "Sultan Mir",
+    "lastBillNumber": "2946",
+    "lastBillDate": "29-06-2026",
+    "lastBillAmount": 113.4,
+    "lastReceiptDate": "20-07-2026",
+    "lastReceiptAmount": 300
   },
   {
     "id": "cust-189",
@@ -4968,7 +5250,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "SULTAN MIR",
+    "assignedSalesman": "Sultan Mir",
     "status": "ACTIVE",
     "outstandingBalance": 64195.64,
     "creditLimit": 25000,
@@ -4976,7 +5258,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 64195.64,
     "openingBalanceType": "DR",
-    "salesman": "Sultan Mir"
+    "salesman": "Sultan Mir",
+    "lastBillNumber": "7669",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 5195.4,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 7500
   },
   {
     "id": "cust-190",
@@ -5021,7 +5308,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "HAFIZ ABDUL QADEER",
+    "assignedSalesman": "Hafiz Abdul Qadeer",
     "status": "ACTIVE",
     "outstandingBalance": 30,
     "creditLimit": 25000,
@@ -5029,7 +5316,9 @@
     "createdAt": "2026-04-18",
     "openingBalance": 30,
     "openingBalanceType": "DR",
-    "salesman": "Hafiz Abdul Qadeer"
+    "salesman": "Hafiz Abdul Qadeer",
+    "lastReceiptDate": "07-09-2026",
+    "lastReceiptAmount": 170
   },
   {
     "id": "cust-192",
@@ -5048,7 +5337,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "SULTAN MIR",
+    "assignedSalesman": "Zahrat Al Fajr",
     "status": "ACTIVE",
     "outstandingBalance": 5.65,
     "creditLimit": 25000,
@@ -5056,7 +5345,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 5.65,
     "openingBalanceType": "DR",
-    "salesman": "Zahrat Al Fajr"
+    "salesman": "Zahrat Al Fajr",
+    "lastBillNumber": "2083",
+    "lastBillDate": "08-06-2026",
+    "lastBillAmount": 265.65,
+    "lastReceiptDate": "09-06-2026",
+    "lastReceiptAmount": 260
   },
   {
     "id": "cust-193",
@@ -5083,7 +5377,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 2083.39,
     "openingBalanceType": "DR",
-    "salesman": "Akbar Bhai"
+    "salesman": "Akbar Bhai",
+    "lastBillNumber": "7634",
+    "lastBillDate": "10-10-2026",
+    "lastBillAmount": 191.1,
+    "lastReceiptDate": "10-10-2026",
+    "lastReceiptAmount": 190
   },
   {
     "id": "cust-194",
@@ -5102,7 +5401,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "HAFIZ ABDUL QADEER",
+    "assignedSalesman": "Hafiz Abdul Qadeer",
     "status": "ACTIVE",
     "outstandingBalance": 1534.33,
     "creditLimit": 25000,
@@ -5110,7 +5409,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 1534.33,
     "openingBalanceType": "DR",
-    "salesman": "Hafiz Abdul Qadeer"
+    "salesman": "Hafiz Abdul Qadeer",
+    "lastBillNumber": "7682",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 308.03,
+    "lastReceiptDate": "05-10-2026",
+    "lastReceiptAmount": 2000
   },
   {
     "id": "cust-195",
@@ -5129,7 +5433,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "SULTAN MIR",
+    "assignedSalesman": "Sultan Mir",
     "status": "ACTIVE",
     "outstandingBalance": 3.42,
     "creditLimit": 25000,
@@ -5137,7 +5441,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 3.42,
     "openingBalanceType": "DR",
-    "salesman": "Sultan Mir"
+    "salesman": "Sultan Mir",
+    "lastBillNumber": "7448",
+    "lastBillDate": "06-10-2026",
+    "lastBillAmount": 236.25,
+    "lastReceiptDate": "07-10-2026",
+    "lastReceiptAmount": 141.75
   },
   {
     "id": "cust-196",
@@ -5372,7 +5681,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 441.91,
     "openingBalanceType": "DR",
-    "salesman": "Ashiq Ali"
+    "salesman": "Ashiq Ali",
+    "lastBillNumber": "7661",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 361.2,
+    "lastReceiptDate": "10-10-2026",
+    "lastReceiptAmount": 635
   },
   {
     "id": "cust-205",
@@ -5424,7 +5738,12 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 80.66,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastBillNumber": "3835",
+    "lastBillDate": "19-07-2026",
+    "lastBillAmount": 26.25,
+    "lastReceiptDate": "19-07-2026",
+    "lastReceiptAmount": 280
   },
   {
     "id": "cust-207",
@@ -5443,7 +5762,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "HAFIZ ABDUL QADEER",
+    "assignedSalesman": "Zahrat Al Fajr",
     "status": "ACTIVE",
     "outstandingBalance": 95,
     "creditLimit": 25000,
@@ -5451,7 +5770,9 @@
     "createdAt": "2026-04-18",
     "openingBalance": 95,
     "openingBalanceType": "DR",
-    "salesman": "Zahrat Al Fajr"
+    "salesman": "Zahrat Al Fajr",
+    "lastReceiptDate": "08-07-2026",
+    "lastReceiptAmount": 550
   },
   {
     "id": "cust-208",
@@ -5634,7 +5955,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 712,
     "openingBalanceType": "DR",
-    "salesman": "Akbar Bhai"
+    "salesman": "Akbar Bhai",
+    "lastBillNumber": "347",
+    "lastBillDate": "26-04-2026",
+    "lastBillAmount": 215.25,
+    "lastReceiptDate": "27-04-2026",
+    "lastReceiptAmount": 1250.13
   },
   {
     "id": "cust-215",
@@ -5660,7 +5986,12 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 0.4,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastBillNumber": "764",
+    "lastBillDate": "05-05-2026",
+    "lastBillAmount": 218.4,
+    "lastReceiptDate": "05-05-2026",
+    "lastReceiptAmount": 218
   },
   {
     "id": "cust-216",
@@ -5705,7 +6036,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "SULTAN MIR",
+    "assignedSalesman": "Sultan Mir",
     "status": "ACTIVE",
     "outstandingBalance": 7.48,
     "creditLimit": 25000,
@@ -5713,7 +6044,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 7.48,
     "openingBalanceType": "DR",
-    "salesman": "Sultan Mir"
+    "salesman": "Sultan Mir",
+    "lastBillNumber": "1981",
+    "lastBillDate": "05-06-2026",
+    "lastBillAmount": 266.7,
+    "lastReceiptDate": "05-06-2026",
+    "lastReceiptAmount": 265
   },
   {
     "id": "cust-218",
@@ -5766,7 +6102,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 340.41,
     "openingBalanceType": "DR",
-    "salesman": "Akbar Bhai"
+    "salesman": "Akbar Bhai",
+    "lastBillNumber": "7472",
+    "lastBillDate": "07-10-2026",
+    "lastBillAmount": 340.2,
+    "lastReceiptDate": "07-10-2026",
+    "lastReceiptAmount": 330
   },
   {
     "id": "cust-220",
@@ -5793,7 +6134,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 245.48,
     "openingBalanceType": "DR",
-    "salesman": "Akbar Bhai"
+    "salesman": "Akbar Bhai",
+    "lastBillNumber": "7621",
+    "lastBillDate": "10-10-2026",
+    "lastBillAmount": 342.3,
+    "lastReceiptDate": "10-10-2026",
+    "lastReceiptAmount": 340
   },
   {
     "id": "cust-221",
@@ -5949,7 +6295,12 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 0.5,
-    "openingBalanceType": "CR"
+    "openingBalanceType": "CR",
+    "lastBillNumber": "162",
+    "lastBillDate": "25-04-2026",
+    "lastBillAmount": 73.5,
+    "lastReceiptDate": "26-04-2026",
+    "lastReceiptAmount": 74
   },
   {
     "id": "cust-227",
@@ -5976,7 +6327,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 2429.13,
     "openingBalanceType": "DR",
-    "salesman": "Akbar Bhai"
+    "salesman": "Akbar Bhai",
+    "lastBillNumber": "7610",
+    "lastBillDate": "10-10-2026",
+    "lastBillAmount": 115.5,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 50
   },
   {
     "id": "cust-228",
@@ -6055,7 +6411,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 401.6,
     "openingBalanceType": "DR",
-    "salesman": "Akbar Bhai"
+    "salesman": "Akbar Bhai",
+    "lastBillNumber": "632",
+    "lastBillDate": "02-05-2026",
+    "lastBillAmount": 285.6,
+    "lastReceiptDate": "28-06-2026",
+    "lastReceiptAmount": 200
   },
   {
     "id": "cust-231",
@@ -6074,7 +6435,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "HAFIZ ABDUL QADEER",
+    "assignedSalesman": "Hafiz Abdul Qadeer",
     "status": "ACTIVE",
     "outstandingBalance": 906.09,
     "creditLimit": 25000,
@@ -6082,7 +6443,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 906.09,
     "openingBalanceType": "DR",
-    "salesman": "Hafiz Abdul Qadeer"
+    "salesman": "Hafiz Abdul Qadeer",
+    "lastBillNumber": "7513",
+    "lastBillDate": "08-10-2026",
+    "lastBillAmount": 1532.9,
+    "lastReceiptDate": "09-10-2026",
+    "lastReceiptAmount": 1532
   },
   {
     "id": "cust-232",
@@ -6161,7 +6527,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 2787.66,
     "openingBalanceType": "DR",
-    "salesman": "Akbar Bhai"
+    "salesman": "Akbar Bhai",
+    "lastBillNumber": "7287",
+    "lastBillDate": "02-10-2026",
+    "lastBillAmount": 2787.48,
+    "lastReceiptDate": "02-10-2026",
+    "lastReceiptAmount": 2850
   },
   {
     "id": "cust-235",
@@ -6258,7 +6629,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "SULTAN MIR",
+    "assignedSalesman": "Sultan Mir",
     "status": "ACTIVE",
     "outstandingBalance": 3155.17,
     "creditLimit": 25000,
@@ -6266,7 +6637,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 3155.17,
     "openingBalanceType": "DR",
-    "salesman": "Sultan Mir"
+    "salesman": "Sultan Mir",
+    "lastBillNumber": "7671",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 142.38,
+    "lastReceiptDate": "09-10-2026",
+    "lastReceiptAmount": 200
   },
   {
     "id": "cust-239",
@@ -6293,7 +6669,9 @@
     "createdAt": "2026-04-18",
     "openingBalance": 105,
     "openingBalanceType": "DR",
-    "salesman": "Akbar Bhai"
+    "salesman": "Akbar Bhai",
+    "lastReceiptDate": "13-05-2026",
+    "lastReceiptAmount": 214
   },
   {
     "id": "cust-240",
@@ -6345,7 +6723,12 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 340.92,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastBillNumber": "7676",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 340.62,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 321
   },
   {
     "id": "cust-242",
@@ -6372,7 +6755,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 687.74,
     "openingBalanceType": "DR",
-    "salesman": "Akbar Bhai"
+    "salesman": "Akbar Bhai",
+    "lastBillNumber": "7655",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 250.43,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 250
   },
   {
     "id": "cust-243",
@@ -6451,7 +6839,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 462.12,
     "openingBalanceType": "DR",
-    "salesman": "Akbar Bhai"
+    "salesman": "Akbar Bhai",
+    "lastBillNumber": "7606",
+    "lastBillDate": "10-10-2026",
+    "lastBillAmount": 152.25,
+    "lastReceiptDate": "10-10-2026",
+    "lastReceiptAmount": 152
   },
   {
     "id": "cust-246",
@@ -6522,7 +6915,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "HAFIZ ABDUL QADEER",
+    "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
     "outstandingBalance": 382.69,
     "creditLimit": 25000,
@@ -6530,7 +6923,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 382.69,
     "openingBalanceType": "DR",
-    "salesman": "Akbar Bhai"
+    "salesman": "Akbar Bhai",
+    "lastBillNumber": "7334",
+    "lastBillDate": "03-10-2026",
+    "lastBillAmount": 245,
+    "lastReceiptDate": "08-10-2026",
+    "lastReceiptAmount": 119
   },
   {
     "id": "cust-249",
@@ -6601,7 +6999,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "Ashiq Ali",
+    "assignedSalesman": "Zahrat Al Fajr",
     "status": "ACTIVE",
     "outstandingBalance": 2.22,
     "creditLimit": 25000,
@@ -6609,7 +7007,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 2.22,
     "openingBalanceType": "DR",
-    "salesman": "Zahrat Al Fajr"
+    "salesman": "Zahrat Al Fajr",
+    "lastBillNumber": "3767",
+    "lastBillDate": "17-07-2026",
+    "lastBillAmount": 171.25,
+    "lastReceiptDate": "17-07-2026",
+    "lastReceiptAmount": 170
   },
   {
     "id": "cust-252",
@@ -6688,7 +7091,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 3757.49,
     "openingBalanceType": "DR",
-    "salesman": "Akbar Bhai"
+    "salesman": "Akbar Bhai",
+    "lastBillNumber": "7344",
+    "lastBillDate": "04-10-2026",
+    "lastBillAmount": 398,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 50
   },
   {
     "id": "cust-255",
@@ -6741,7 +7149,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 196.54,
     "openingBalanceType": "DR",
-    "salesman": "Akbar Bhai"
+    "salesman": "Akbar Bhai",
+    "lastBillNumber": "4568",
+    "lastBillDate": "04-08-2026",
+    "lastBillAmount": 119.02,
+    "lastReceiptDate": "04-08-2026",
+    "lastReceiptAmount": 117
   },
   {
     "id": "cust-257",
@@ -6794,7 +7207,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 3888.29,
     "openingBalanceType": "DR",
-    "salesman": "Akbar Bhai"
+    "salesman": "Akbar Bhai",
+    "lastBillNumber": "7654",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 1533,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 1100
   },
   {
     "id": "cust-259",
@@ -6821,7 +7239,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 403.44,
     "openingBalanceType": "DR",
-    "salesman": "Ashiq Ali"
+    "salesman": "Ashiq Ali",
+    "lastBillNumber": "4324",
+    "lastBillDate": "29-07-2026",
+    "lastBillAmount": 172.2,
+    "lastReceiptDate": "29-07-2026",
+    "lastReceiptAmount": 172
   },
   {
     "id": "cust-260",
@@ -6874,7 +7297,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 1247.76,
     "openingBalanceType": "DR",
-    "salesman": "Akbar Bhai"
+    "salesman": "Akbar Bhai",
+    "lastBillNumber": "7247",
+    "lastBillDate": "02-10-2026",
+    "lastBillAmount": 287.17,
+    "lastReceiptDate": "02-10-2026",
+    "lastReceiptAmount": 285
   },
   {
     "id": "cust-262",
@@ -6893,7 +7321,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "SULTAN MIR",
+    "assignedSalesman": "Sultan Mir",
     "status": "ACTIVE",
     "outstandingBalance": 3469.36,
     "creditLimit": 25000,
@@ -6901,7 +7329,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 3469.36,
     "openingBalanceType": "DR",
-    "salesman": "Sultan Mir"
+    "salesman": "Sultan Mir",
+    "lastBillNumber": "4136",
+    "lastBillDate": "25-07-2026",
+    "lastBillAmount": 921.37,
+    "lastReceiptDate": "03-08-2026",
+    "lastReceiptAmount": 1000
   },
   {
     "id": "cust-263",
@@ -6946,7 +7379,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "SULTAN MIR",
+    "assignedSalesman": "Zahrat Al Fajr",
     "status": "ACTIVE",
     "outstandingBalance": 1055.45,
     "creditLimit": 25000,
@@ -6954,7 +7387,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 1055.45,
     "openingBalanceType": "DR",
-    "salesman": "Zahrat Al Fajr"
+    "salesman": "Zahrat Al Fajr",
+    "lastBillNumber": "5392",
+    "lastBillDate": "22-08-2026",
+    "lastBillAmount": 975.45,
+    "lastReceiptDate": "14-06-2026",
+    "lastReceiptAmount": 2428
   },
   {
     "id": "cust-265",
@@ -6973,7 +7411,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "SULTAN MIR",
+    "assignedSalesman": "Zahrat Al Fajr",
     "status": "ACTIVE",
     "outstandingBalance": 216,
     "creditLimit": 25000,
@@ -7007,7 +7445,12 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 50,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastBillNumber": "344",
+    "lastBillDate": "26-04-2026",
+    "lastBillAmount": 630,
+    "lastReceiptDate": "27-04-2026",
+    "lastReceiptAmount": 630
   },
   {
     "id": "cust-267",
@@ -7112,7 +7555,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 362.95,
     "openingBalanceType": "DR",
-    "salesman": "Akbar Bhai"
+    "salesman": "Akbar Bhai",
+    "lastBillNumber": "7556",
+    "lastBillDate": "09-10-2026",
+    "lastBillAmount": 204.75,
+    "lastReceiptDate": "09-10-2026",
+    "lastReceiptAmount": 204
   },
   {
     "id": "cust-271",
@@ -7243,7 +7691,12 @@
     "createdAt": "2026-04-26",
     "openingBalance": 1041.87,
     "openingBalanceType": "DR",
-    "salesman": "Akbar Bhai"
+    "salesman": "Akbar Bhai",
+    "lastBillNumber": "7663",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 241.01,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 535
   },
   {
     "id": "cust-276",
@@ -7269,7 +7722,10 @@
     "totalSales": 0,
     "createdAt": "2026-04-26",
     "openingBalance": 326.55,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastBillNumber": "370",
+    "lastBillDate": "26-04-2026",
+    "lastBillAmount": 326.55
   },
   {
     "id": "cust-277",
@@ -7295,7 +7751,12 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 475.27,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastBillNumber": "4778",
+    "lastBillDate": "08-08-2026",
+    "lastBillAmount": 351.76,
+    "lastReceiptDate": "26-08-2026",
+    "lastReceiptAmount": 400
   },
   {
     "id": "cust-278",
@@ -7321,7 +7782,12 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 0.1,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastBillNumber": "526",
+    "lastBillDate": "29-04-2026",
+    "lastBillAmount": 106.05,
+    "lastReceiptDate": "29-04-2026",
+    "lastReceiptAmount": 106
   },
   {
     "id": "cust-279",
@@ -7373,7 +7839,12 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 13324.81,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastBillNumber": "7320",
+    "lastBillDate": "03-10-2026",
+    "lastBillAmount": 630.52,
+    "lastReceiptDate": "03-10-2026",
+    "lastReceiptAmount": 5000
   },
   {
     "id": "cust-281",
@@ -7399,7 +7870,12 @@
     "totalSales": 0,
     "createdAt": "2026-04-01",
     "openingBalance": 1261.97,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastBillNumber": "7614",
+    "lastBillDate": "10-10-2026",
+    "lastBillAmount": 584.85,
+    "lastReceiptDate": "30-09-2026",
+    "lastReceiptAmount": 500
   },
   {
     "id": "cust-282",
@@ -7451,7 +7927,12 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 749.17,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastBillNumber": "7589",
+    "lastBillDate": "09-10-2026",
+    "lastBillAmount": 316.05,
+    "lastReceiptDate": "08-10-2026",
+    "lastReceiptAmount": 800
   },
   {
     "id": "cust-284",
@@ -7477,7 +7958,10 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 138.07,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastBillNumber": "856",
+    "lastBillDate": "07-05-2026",
+    "lastBillAmount": 138.08
   },
   {
     "id": "cust-285",
@@ -7555,7 +8039,12 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 0.8,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastBillNumber": "1869",
+    "lastBillDate": "03-06-2026",
+    "lastBillAmount": 814.8,
+    "lastReceiptDate": "03-06-2026",
+    "lastReceiptAmount": 814
   },
   {
     "id": "cust-288",
@@ -7581,7 +8070,12 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 756.64,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastBillNumber": "7653",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 390.6,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 390
   },
   {
     "id": "cust-289",
@@ -7659,7 +8153,12 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 229.42,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastBillNumber": "1337",
+    "lastBillDate": "19-05-2026",
+    "lastBillAmount": 1279.42,
+    "lastReceiptDate": "22-05-2026",
+    "lastReceiptAmount": 380
   },
   {
     "id": "cust-292",
@@ -7711,7 +8210,12 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 15.88,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastBillNumber": "7367",
+    "lastBillDate": "04-10-2026",
+    "lastBillAmount": 368.65,
+    "lastReceiptDate": "05-10-2026",
+    "lastReceiptAmount": 1370
   },
   {
     "id": "cust-294",
@@ -7737,7 +8241,12 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 981.34,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastBillNumber": "5149",
+    "lastBillDate": "17-08-2026",
+    "lastBillAmount": 241.5,
+    "lastReceiptDate": "17-08-2026",
+    "lastReceiptAmount": 240
   },
   {
     "id": "cust-295",
@@ -7756,7 +8265,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "SULTAN MIR",
+    "assignedSalesman": "Sultan Mir",
     "status": "ACTIVE",
     "outstandingBalance": 1.45,
     "creditLimit": 25000,
@@ -7764,7 +8273,12 @@
     "createdAt": "2026-05-29",
     "openingBalance": 1.45,
     "openingBalanceType": "DR",
-    "salesman": "Sultan Mir"
+    "salesman": "Sultan Mir",
+    "lastBillNumber": "2515",
+    "lastBillDate": "18-06-2026",
+    "lastBillAmount": 173.25,
+    "lastReceiptDate": "19-06-2026",
+    "lastReceiptAmount": 173.25
   },
   {
     "id": "cust-296",
@@ -7817,7 +8331,12 @@
     "createdAt": "2026-04-18",
     "openingBalance": 2712.7,
     "openingBalanceType": "DR",
-    "salesman": "Akbar Bhai"
+    "salesman": "Akbar Bhai",
+    "lastBillNumber": "7656",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 231,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 500
   },
   {
     "id": "cust-298",
@@ -7843,7 +8362,12 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 6732.06,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastBillNumber": "7673",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 1286.25,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 315
   },
   {
     "id": "cust-299",
@@ -7947,7 +8471,12 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 1795.86,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastBillNumber": "7672",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 457.06,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 361
   },
   {
     "id": "cust-303",
@@ -7973,7 +8502,10 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 78.75,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastBillNumber": "3019",
+    "lastBillDate": "01-07-2026",
+    "lastBillAmount": 78.75
   },
   {
     "id": "cust-304",
@@ -8025,7 +8557,12 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 684.79,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastBillNumber": "7686",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 147,
+    "lastReceiptDate": "10-10-2026",
+    "lastReceiptAmount": 432
   },
   {
     "id": "cust-306",
@@ -8051,7 +8588,12 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 118.8,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastBillNumber": "4517",
+    "lastBillDate": "03-08-2026",
+    "lastBillAmount": 118.65,
+    "lastReceiptDate": "30-07-2026",
+    "lastReceiptAmount": 150
   },
   {
     "id": "cust-307",
@@ -8077,7 +8619,12 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 65,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastBillNumber": "7503",
+    "lastBillDate": "07-10-2026",
+    "lastBillAmount": 65,
+    "lastReceiptDate": "11-07-2026",
+    "lastReceiptAmount": 864.15
   },
   {
     "id": "cust-308",
@@ -8155,7 +8702,12 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 615.22,
-    "openingBalanceType": "CR"
+    "openingBalanceType": "CR",
+    "lastBillNumber": "5917",
+    "lastBillDate": "03-09-2026",
+    "lastBillAmount": 336,
+    "lastReceiptDate": "05-09-2026",
+    "lastReceiptAmount": 307.61
   },
   {
     "id": "cust-311",
@@ -8181,7 +8733,10 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 100,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastBillNumber": "4059",
+    "lastBillDate": "24-07-2026",
+    "lastBillAmount": 100
   },
   {
     "id": "cust-312",
@@ -8415,7 +8970,12 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 0.19,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastBillNumber": "5882",
+    "lastBillDate": "31-08-2026",
+    "lastBillAmount": 60000.19,
+    "lastReceiptDate": "31-08-2026",
+    "lastReceiptAmount": 60000
   },
   {
     "id": "cust-321",
@@ -8486,7 +9046,7 @@
     "sector": "Sector 1",
     "location": "Sajja Industrial Area",
     "address": "Sharjah Sajja Industrial Area",
-    "assignedSalesman": "",
+    "assignedSalesman": "Sultan Mir",
     "status": "ACTIVE",
     "outstandingBalance": 5261.63,
     "creditLimit": 25000,
@@ -8494,7 +9054,12 @@
     "createdAt": "2026-09-07",
     "openingBalance": 5261.63,
     "openingBalanceType": "DR",
-    "salesman": "Sultan Mir"
+    "salesman": "Sultan Mir",
+    "lastBillNumber": "7670",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 5261.03,
+    "lastReceiptDate": "04-10-2026",
+    "lastReceiptAmount": 6828.27
   },
   {
     "id": "cust-324",
@@ -8520,7 +9085,12 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 276.17,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastBillNumber": "7511",
+    "lastBillDate": "07-10-2026",
+    "lastBillAmount": 131.25,
+    "lastReceiptDate": "07-10-2026",
+    "lastReceiptAmount": 131
   },
   {
     "id": "cust-325",
@@ -8546,7 +9116,12 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 252.45,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastBillNumber": "7642",
+    "lastBillDate": "10-10-2026",
+    "lastBillAmount": 134.4,
+    "lastReceiptDate": "23-09-2026",
+    "lastReceiptAmount": 135
   },
   {
     "id": "cust-326",
@@ -8572,7 +9147,12 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 1337.9,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastBillNumber": "7628",
+    "lastBillDate": "10-10-2026",
+    "lastBillAmount": 1338,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 1685
   },
   {
     "id": "cust-327",
@@ -8624,7 +9204,12 @@
     "totalSales": 0,
     "createdAt": "2026-04-18",
     "openingBalance": 2665.56,
-    "openingBalanceType": "DR"
+    "openingBalanceType": "DR",
+    "lastBillNumber": "7685",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 832.65,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 850
   },
   {
     "id": "cust-329",
@@ -8669,7 +9254,12 @@
     "outstandingBalance": 59.39,
     "creditLimit": 30000,
     "totalSales": 0,
-    "regDate": "2026-10-12"
+    "regDate": "2026-10-12",
+    "lastBillNumber": "7664",
+    "lastBillDate": "11-10-2026",
+    "lastBillAmount": 57.02,
+    "lastReceiptDate": "11-10-2026",
+    "lastReceiptAmount": 128
   },
   {
     "id": "cust-0101040337",
@@ -8688,7 +9278,10 @@
     "outstandingBalance": 225.01,
     "creditLimit": 30000,
     "totalSales": 0,
-    "regDate": "2026-10-12"
+    "regDate": "2026-10-12",
+    "lastBillNumber": "7525",
+    "lastBillDate": "08-10-2026",
+    "lastBillAmount": 225.01
   },
   {
     "id": "cust-0101040338",
@@ -8707,6 +9300,12 @@
     "outstandingBalance": 465.15,
     "creditLimit": 30000,
     "totalSales": 0,
-    "regDate": "2026-10-12"
+    "regDate": "2026-10-12",
+    "assignedSalesman": "Ashiq Ali",
+    "lastBillNumber": "7564",
+    "lastBillDate": "09-10-2026",
+    "lastBillAmount": 126,
+    "lastReceiptDate": "06-10-2026",
+    "lastReceiptAmount": 425.26
   }
 ]

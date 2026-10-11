@@ -326,9 +326,9 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
       });
 
       const latestBill = matchedBills.length > 0 ? matchedBills[0] : null;
-      const lastBillNumber = latestBill ? (latestBill.billNumber || latestBill.id) : '-';
-      const lastBillDate = latestBill ? formatDateDDMMYYYY(latestBill.date) : '-';
-      const lastBillAmount = latestBill ? Number(latestBill.netTotal || latestBill.totalAmount || 0) : 0;
+      const lastBillNumber = latestBill ? (latestBill.billNumber || latestBill.id) : (c.lastBillNumber || '-');
+      const lastBillDate = latestBill ? formatDateDDMMYYYY(latestBill.date) : (c.lastBillDate || '-');
+      const lastBillAmount = latestBill ? Number(latestBill.netTotal || latestBill.totalAmount || 0) : Number(c.lastBillAmount || 0);
 
       // Find matched receipts
       const matchedReceipts = [
@@ -344,21 +344,33 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
       });
 
       const latestReceipt = matchedReceipts.length > 0 ? matchedReceipts[0] : null;
-      const lastReceiptDate = latestReceipt ? formatDateDDMMYYYY(latestReceipt.date) : '-';
-      const lastReceiptAmount = latestReceipt ? Number(latestReceipt.amount || 0) : 0;
+      const lastReceiptDate = latestReceipt ? formatDateDDMMYYYY(latestReceipt.date) : (c.lastReceiptDate || '-');
+      const lastReceiptAmount = latestReceipt ? Number(latestReceipt.amount || 0) : Number(c.lastReceiptAmount || 0);
 
       // Handling Salesman
-      let salesman = c.assignedSalesman?.trim() || '';
+      let salesman = c.assignedSalesman?.trim() || (c as any).salesman?.trim() || '';
       if (!salesman && latestBill?.salesmanName) {
         salesman = latestBill.salesmanName.trim();
       }
 
-      // Ledger Balance
-      const rawOpen = Number(c.openingBalance);
+      // Continuous running ledger balance:
+      // Base: Customer opening balance from report
+      const rawOpen = Number(c.openingBalance) || 0;
       const rawOut = Number(c.outstandingBalance);
-      const rawBal = !isNaN(rawOut) && rawOut !== 0 ? rawOut : (!isNaN(rawOpen) ? rawOpen : 0);
       const balType = (c as any).openingBalanceType || (c as any).opening_balance_type || 'DR';
-      const ledgerBalance = balType === 'CR' ? -Math.abs(rawBal) : Math.abs(rawBal);
+      const initBal = balType === 'CR' ? -Math.abs(rawOpen) : Math.abs(rawOpen);
+
+      let ledgerBalance = !isNaN(rawOut) && rawOut !== 0 ? rawOut : initBal;
+      if (matchedBills.length > 0 || matchedReceipts.length > 0) {
+        let computed = initBal;
+        for (const b of matchedBills) {
+          computed += Number(b.balanceReceivable !== undefined ? b.balanceReceivable : (Number(b.netTotal || 0) - Number(b.cashReceived || 0)));
+        }
+        for (const r of matchedReceipts) {
+          computed -= Number(r.amount || 0);
+        }
+        ledgerBalance = computed;
+      }
 
       return {
         id: c.id,

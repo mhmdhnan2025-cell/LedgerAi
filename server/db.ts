@@ -3042,6 +3042,11 @@ class DatabaseService {
                 outstandingBalance: outBal,
                 assignedSalesman: tc.assignedSalesman || sc?.assignedSalesman || (sc as any)?.salesman || prev?.assignedSalesman,
                 salesman: (tc as any).salesman || (sc as any)?.salesman || sc?.assignedSalesman || (prev as any)?.salesman,
+                lastBillNumber: tc.lastBillNumber || sc?.lastBillNumber || prev?.lastBillNumber,
+                lastBillDate: tc.lastBillDate || sc?.lastBillDate || prev?.lastBillDate,
+                lastBillAmount: tc.lastBillAmount !== undefined ? tc.lastBillAmount : (sc?.lastBillAmount !== undefined ? sc.lastBillAmount : prev?.lastBillAmount),
+                lastReceiptDate: tc.lastReceiptDate || sc?.lastReceiptDate || prev?.lastReceiptDate,
+                lastReceiptAmount: tc.lastReceiptAmount !== undefined ? tc.lastReceiptAmount : (sc?.lastReceiptAmount !== undefined ? sc.lastReceiptAmount : prev?.lastReceiptAmount),
               };
             });
 
@@ -7929,14 +7934,35 @@ class DatabaseService {
     }
 
     // Update customer outstanding balance if on Account
+    let partyBalanceBefore = Number(billData.partyBalanceBefore) || 0;
     if (billData.customerId && billData.customerId !== 'cash' && billData.customerId !== 'card') {
-      const customer = this.getCustomerById(billData.customerId);
+      const custSearch = (billData.customerId || '').trim().toLowerCase();
+      const customer = (this.data.customers || []).find(
+        (c) =>
+          c &&
+          (c.id?.toLowerCase() === custSearch ||
+            c.code?.toLowerCase() === custSearch ||
+            c.accountCode?.toLowerCase() === custSearch ||
+            c.id?.replace(/_comp[_-].*$/, '').toLowerCase() === custSearch ||
+            (billData.customerAccountTitle && c.accountTitle?.toLowerCase() === billData.customerAccountTitle.trim().toLowerCase()))
+      );
       if (customer) {
-        if (billData.paymentType === 'Account' && balanceReceivable > 0) {
+        if (!partyBalanceBefore) {
+          partyBalanceBefore = customer.outstandingBalance !== undefined ? customer.outstandingBalance : (customer.openingBalance || 0);
+        }
+        if (billData.paymentType === 'Account') {
           customer.outstandingBalance = Number(((customer.outstandingBalance || 0) + balanceReceivable).toFixed(2));
         }
         customer.totalSales = Number(((customer.totalSales || 0) + netTotal).toFixed(2));
+        customer.lastBillNumber = billNumber;
+        customer.lastBillDate = billDate;
+        customer.lastBillAmount = netTotal;
         customer.updatedAt = new Date().toISOString();
+
+        const cid = getActiveCompanyId();
+        postgresService.upsertCustomer(customer, cid).catch((err) => {
+          console.warn('[PostgreSQL upsertCustomer on SaleBill Error]:', err.message);
+        });
       }
     }
 
@@ -7952,7 +7978,7 @@ class DatabaseService {
       salesmanId: billData.salesmanId || '',
       salesmanName: billData.salesmanName || user.name || 'Sales Staff',
       user: billData.user || user.name || 'Admin',
-      partyBalanceBefore: Number(billData.partyBalanceBefore) || 0,
+      partyBalanceBefore: Number(partyBalanceBefore.toFixed(2)),
       paymentType: billData.paymentType || 'Account',
       discountType: billData.discountType || 'Percentage',
       items,
@@ -8022,10 +8048,22 @@ class DatabaseService {
 
     // Revert customer outstanding balance
     if (bill.customerId && bill.paymentType === 'Account' && bill.balanceReceivable > 0) {
-      const customer = this.getCustomerById(bill.customerId);
+      const custSearch = (bill.customerId || '').trim().toLowerCase();
+      const customer = (this.data.customers || []).find(
+        (c) =>
+          c &&
+          (c.id?.toLowerCase() === custSearch ||
+            c.code?.toLowerCase() === custSearch ||
+            c.accountCode?.toLowerCase() === custSearch ||
+            c.id?.replace(/_comp[_-].*$/, '').toLowerCase() === custSearch ||
+            (bill.customerAccountTitle && c.accountTitle?.toLowerCase() === bill.customerAccountTitle.trim().toLowerCase()))
+      );
       if (customer) {
-        customer.outstandingBalance = Math.max(0, Number(((customer.outstandingBalance || 0) - bill.balanceReceivable).toFixed(2)));
+        customer.outstandingBalance = Number(((customer.outstandingBalance || 0) - bill.balanceReceivable).toFixed(2));
         customer.totalSales = Math.max(0, Number(((customer.totalSales || 0) - bill.netTotal).toFixed(2)));
+        customer.updatedAt = new Date().toISOString();
+        const cid = getActiveCompanyId();
+        postgresService.upsertCustomer(customer, cid).catch(() => {});
       }
     }
 
@@ -8082,10 +8120,22 @@ class DatabaseService {
 
     // 2. Revert previous customer outstanding balance
     if (oldBill.customerId && oldBill.paymentType === 'Account' && oldBill.balanceReceivable > 0) {
-      const customer = this.getCustomerById(oldBill.customerId);
+      const custSearch = (oldBill.customerId || '').trim().toLowerCase();
+      const customer = (this.data.customers || []).find(
+        (c) =>
+          c &&
+          (c.id?.toLowerCase() === custSearch ||
+            c.code?.toLowerCase() === custSearch ||
+            c.accountCode?.toLowerCase() === custSearch ||
+            c.id?.replace(/_comp[_-].*$/, '').toLowerCase() === custSearch ||
+            (oldBill.customerAccountTitle && c.accountTitle?.toLowerCase() === oldBill.customerAccountTitle.trim().toLowerCase()))
+      );
       if (customer) {
-        customer.outstandingBalance = Math.max(0, Number(((customer.outstandingBalance || 0) - oldBill.balanceReceivable).toFixed(2)));
+        customer.outstandingBalance = Number(((customer.outstandingBalance || 0) - oldBill.balanceReceivable).toFixed(2));
         customer.totalSales = Math.max(0, Number(((customer.totalSales || 0) - oldBill.netTotal).toFixed(2)));
+        customer.updatedAt = new Date().toISOString();
+        const cid = getActiveCompanyId();
+        postgresService.upsertCustomer(customer, cid).catch(() => {});
       }
     }
 
@@ -8125,10 +8175,25 @@ class DatabaseService {
 
     // 5. Apply new customer outstanding balance
     if (newBill.customerId && newBill.paymentType === 'Account') {
-      const customer = this.getCustomerById(newBill.customerId);
+      const custSearch = (newBill.customerId || '').trim().toLowerCase();
+      const customer = (this.data.customers || []).find(
+        (c) =>
+          c &&
+          (c.id?.toLowerCase() === custSearch ||
+            c.code?.toLowerCase() === custSearch ||
+            c.accountCode?.toLowerCase() === custSearch ||
+            c.id?.replace(/_comp[_-].*$/, '').toLowerCase() === custSearch ||
+            (newBill.customerAccountTitle && c.accountTitle?.toLowerCase() === newBill.customerAccountTitle.trim().toLowerCase()))
+      );
       if (customer) {
         customer.outstandingBalance = Number(((customer.outstandingBalance || 0) + newBill.balanceReceivable).toFixed(2));
         customer.totalSales = Number(((customer.totalSales || 0) + newBill.netTotal).toFixed(2));
+        customer.lastBillNumber = newBill.billNumber;
+        customer.lastBillDate = newBill.date;
+        customer.lastBillAmount = newBill.netTotal;
+        customer.updatedAt = new Date().toISOString();
+        const cid = getActiveCompanyId();
+        postgresService.upsertCustomer(customer, cid).catch(() => {});
       }
     }
 
@@ -9321,14 +9386,38 @@ class DatabaseService {
     // 3. Line Items Ledger Effects (Customers, Suppliers, etc.)
     const safeEntries = Array.isArray(voucher.entries) ? voucher.entries : [];
     for (const e of safeEntries) {
-      if (!e) continue;
-      const cust = (this.data.customers || []).find((c) => c && (c.id === e.accountId || c.code === e.accountCode || c.accountTitle?.toLowerCase() === e.accountTitle?.toLowerCase()));
-      const supp = (this.data.suppliers || []).find((s) => s && (s.id === e.accountId || s.code === e.accountCode || s.title?.toLowerCase() === e.accountTitle?.toLowerCase()));
+      const acId = (e.accountId || '').trim().toLowerCase();
+      const acCode = (e.accountCode || '').trim().toLowerCase();
+      const acTitle = (e.accountTitle || '').trim().toLowerCase();
+      const cust = (this.data.customers || []).find(
+        (c) =>
+          c &&
+          (c.id?.toLowerCase() === acId ||
+            c.code?.toLowerCase() === acCode ||
+            c.accountCode?.toLowerCase() === acCode ||
+            c.id?.replace(/_comp[_-].*$/, '').toLowerCase() === acId ||
+            (acTitle && (c.accountTitle?.toLowerCase() === acTitle || c.name?.toLowerCase() === acTitle)))
+      );
+      const supp = (this.data.suppliers || []).find(
+        (s) =>
+          s &&
+          (s.id?.toLowerCase() === acId ||
+            s.code?.toLowerCase() === acCode ||
+            (acTitle && (s.title?.toLowerCase() === acTitle || s.name?.toLowerCase() === acTitle)))
+      );
+
+      const cid = getActiveCompanyId();
 
       if (voucher.voucherType === 'BR' || voucher.voucherType === 'CR') {
         // Customer Paying Company (Recovery) -> Account CR -> DR Receivables Decrease
         if (cust) {
           cust.outstandingBalance = Number(((cust.outstandingBalance || 0) - factor * e.amount).toFixed(2));
+          if (!reverse && e.amount > 0) {
+            cust.lastReceiptDate = voucher.date;
+            cust.lastReceiptAmount = Number(e.amount);
+          }
+          cust.updatedAt = new Date().toISOString();
+          postgresService.upsertCustomer(cust, cid).catch(() => {});
         } else if (supp) {
           supp.payableToSupplier = Number(((supp.payableToSupplier || 0) + factor * e.amount).toFixed(2));
           supp.balanceOwed = supp.payableToSupplier;
@@ -9340,24 +9429,58 @@ class DatabaseService {
           supp.balanceOwed = supp.payableToSupplier;
         } else if (cust) {
           cust.outstandingBalance = Number(((cust.outstandingBalance || 0) + factor * e.amount).toFixed(2));
+          cust.updatedAt = new Date().toISOString();
+          postgresService.upsertCustomer(cust, cid).catch(() => {});
         }
       } else if (voucher.voucherType === 'CB') {
         if ((e.receipt || 0) > 0) {
-          if (cust) cust.outstandingBalance = Number(((cust.outstandingBalance || 0) - factor * (e.receipt || 0)).toFixed(2));
-          if (supp) { supp.payableToSupplier = Number(((supp.payableToSupplier || 0) + factor * (e.receipt || 0)).toFixed(2)); supp.balanceOwed = supp.payableToSupplier; }
+          if (cust) {
+            cust.outstandingBalance = Number(((cust.outstandingBalance || 0) - factor * (e.receipt || 0)).toFixed(2));
+            if (!reverse && (e.receipt || 0) > 0) {
+              cust.lastReceiptDate = voucher.date;
+              cust.lastReceiptAmount = Number(e.receipt);
+            }
+            cust.updatedAt = new Date().toISOString();
+            postgresService.upsertCustomer(cust, cid).catch(() => {});
+          }
+          if (supp) {
+            supp.payableToSupplier = Number(((supp.payableToSupplier || 0) + factor * (e.receipt || 0)).toFixed(2));
+            supp.balanceOwed = supp.payableToSupplier;
+          }
         }
         if ((e.payment || 0) > 0) {
-          if (supp) { supp.payableToSupplier = Number(((supp.payableToSupplier || 0) - factor * (e.payment || 0)).toFixed(2)); supp.balanceOwed = supp.payableToSupplier; }
-          if (cust) cust.outstandingBalance = Number(((cust.outstandingBalance || 0) + factor * (e.payment || 0)).toFixed(2));
+          if (supp) {
+            supp.payableToSupplier = Number(((supp.payableToSupplier || 0) - factor * (e.payment || 0)).toFixed(2));
+            supp.balanceOwed = supp.payableToSupplier;
+          }
+          if (cust) {
+            cust.outstandingBalance = Number(((cust.outstandingBalance || 0) + factor * (e.payment || 0)).toFixed(2));
+            cust.updatedAt = new Date().toISOString();
+            postgresService.upsertCustomer(cust, cid).catch(() => {});
+          }
         }
       } else if (voucher.voucherType === 'JV') {
         if ((e.debit || 0) > 0) {
-          if (cust) cust.outstandingBalance = Number(((cust.outstandingBalance || 0) + factor * (e.debit || 0)).toFixed(2));
-          if (supp) { supp.payableToSupplier = Number(((supp.payableToSupplier || 0) - factor * (e.debit || 0)).toFixed(2)); supp.balanceOwed = supp.payableToSupplier; }
+          if (cust) {
+            cust.outstandingBalance = Number(((cust.outstandingBalance || 0) + factor * (e.debit || 0)).toFixed(2));
+            cust.updatedAt = new Date().toISOString();
+            postgresService.upsertCustomer(cust, cid).catch(() => {});
+          }
+          if (supp) {
+            supp.payableToSupplier = Number(((supp.payableToSupplier || 0) - factor * (e.debit || 0)).toFixed(2));
+            supp.balanceOwed = supp.payableToSupplier;
+          }
         }
         if ((e.credit || 0) > 0) {
-          if (cust) cust.outstandingBalance = Number(((cust.outstandingBalance || 0) - factor * (e.credit || 0)).toFixed(2));
-          if (supp) { supp.payableToSupplier = Number(((supp.payableToSupplier || 0) + factor * (e.credit || 0)).toFixed(2)); supp.balanceOwed = supp.payableToSupplier; }
+          if (cust) {
+            cust.outstandingBalance = Number(((cust.outstandingBalance || 0) - factor * (e.credit || 0)).toFixed(2));
+            cust.updatedAt = new Date().toISOString();
+            postgresService.upsertCustomer(cust, cid).catch(() => {});
+          }
+          if (supp) {
+            supp.payableToSupplier = Number(((supp.payableToSupplier || 0) + factor * (e.credit || 0)).toFixed(2));
+            supp.balanceOwed = supp.payableToSupplier;
+          }
         }
       }
     }
@@ -9813,11 +9936,36 @@ class DatabaseService {
     const custCode = isAll ? 'ALL' : (customer?.code || customer?.accountCode || '');
     const custTitle = isAll ? 'All Customer Accounts' : (customer?.accountTitle || customer?.name || 'Customer');
 
+    const targetCodes = new Set<string>();
+    if (!isAll && customer) {
+      if (customer.id) {
+        targetCodes.add(customer.id.toLowerCase());
+        targetCodes.add(customer.id.replace(/_comp[_-].*$/, '').toLowerCase());
+      }
+      if (customer.code) targetCodes.add(customer.code.toLowerCase());
+      if (customer.accountCode) targetCodes.add(customer.accountCode.toLowerCase());
+      if (customer.manualCode) targetCodes.add(customer.manualCode.toLowerCase());
+      if (customerId) {
+        targetCodes.add(customerId.toLowerCase());
+        targetCodes.add(customerId.replace(/_comp[_-].*$/, '').toLowerCase());
+      }
+    }
+
     const matchesCustomer = (id?: string, code?: string, title?: string) => {
       if (isAll) return true;
-      if (id && (id === custId || id === custCode)) return true;
-      if (code && (code === custCode || code === custId)) return true;
-      if (title && custTitle && title.trim().toLowerCase() === custTitle.trim().toLowerCase()) return true;
+      if (!customer) return false;
+      if (id) {
+        const idLower = id.toLowerCase();
+        const baseId = idLower.replace(/_comp[_-].*$/, '');
+        if (targetCodes.has(idLower) || targetCodes.has(baseId)) return true;
+      }
+      if (code && targetCodes.has(code.toLowerCase())) return true;
+      if (title && custTitle) {
+        const tLower = title.trim().toLowerCase();
+        const ctLower = custTitle.trim().toLowerCase();
+        if (tLower === ctLower) return true;
+        if (tLower.length >= 4 && (tLower.includes(ctLower) || ctLower.includes(tLower))) return true;
+      }
       return false;
     };
 
@@ -9848,18 +9996,14 @@ class DatabaseService {
     // 1. Calculate Opening Balance before normFrom (incorporates legacy opening balances)
     let calcOpening = 0;
     if (!isAll && customer) {
-      const rawOpen = Number(customer.openingBalance);
-      const rawOut = Number(customer.outstandingBalance);
-      const initBal = !isNaN(rawOpen) && rawOpen !== 0 ? rawOpen : (!isNaN(rawOut) ? rawOut : 0);
+      const rawOpen = Number(customer.openingBalance) || 0;
       const balType = customer.openingBalanceType || 'DR';
-      calcOpening += balType === 'CR' ? -Math.abs(initBal) : Math.abs(initBal);
+      calcOpening = balType === 'CR' ? -Math.abs(rawOpen) : Math.abs(rawOpen);
     } else if (isAll) {
       for (const c of (this.data.customers || [])) {
-        const rawOpen = Number(c.openingBalance);
-        const rawOut = Number(c.outstandingBalance);
-        const initBal = !isNaN(rawOpen) && rawOpen !== 0 ? rawOpen : (!isNaN(rawOut) ? rawOut : 0);
+        const rawOpen = Number(c.openingBalance) || 0;
         const balType = c.openingBalanceType || 'DR';
-        calcOpening += balType === 'CR' ? -Math.abs(initBal) : Math.abs(initBal);
+        calcOpening += balType === 'CR' ? -Math.abs(rawOpen) : Math.abs(rawOpen);
       }
     }
 
@@ -9869,7 +10013,7 @@ class DatabaseService {
       if (!matchesCustomer(b.customerId, undefined, b.customerAccountTitle)) continue;
       const bDate = this.normalizeDateToYMD(b.date);
       if (bDate < normFrom) {
-        calcOpening += Number(b.netTotal || b.totalAmount || 0);
+        calcOpening += Number(b.balanceReceivable !== undefined ? b.balanceReceivable : (Number(b.netTotal || b.totalAmount || 0) - Number(b.cashReceived || 0)));
       }
     }
 
@@ -9947,6 +10091,25 @@ class DatabaseService {
         customerName: b.customerAccountTitle || b.customerName || 'Customer',
         customerAccountTitle: b.customerAccountTitle || b.customerName || 'Customer',
       });
+
+      if (b.cashReceived && Number(b.cashReceived) > 0) {
+        entries.push({
+          id: `${b.id}-cash`,
+          refType: 'CR#',
+          refNumber: b.billNumber,
+          date: b.date,
+          billNumber: b.billNumber,
+          narration: `${partyTag}Cash Received against Bill #${b.billNumber}`,
+          debit: 0,
+          credit: Number(b.cashReceived),
+          balance: 0,
+          balanceType: 'DR',
+          entityId: b.id,
+          entityType: 'payment',
+          customerName: b.customerAccountTitle || b.customerName || 'Customer',
+          customerAccountTitle: b.customerAccountTitle || b.customerName || 'Customer',
+        });
+      }
     }
 
     // Vouchers (CR, BR, CB, JV)
