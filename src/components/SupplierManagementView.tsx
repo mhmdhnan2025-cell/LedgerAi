@@ -41,6 +41,7 @@ interface SupplierManagementViewProps {
   onBackToSettings?: () => void;
   companyProfile?: CompanyProfile | null;
   onNavigateTab?: (tab: string) => void;
+  onRefreshData?: () => Promise<void> | void;
 }
 
 type ViewMode = 'list' | 'details' | 'search';
@@ -78,6 +79,7 @@ export const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({
   onBackToSettings,
   companyProfile,
   onNavigateTab,
+  onRefreshData,
 }) => {
   // Master list of suppliers
   const [suppliersList, setSuppliersList] = useState<Supplier[]>(propSuppliers);
@@ -310,6 +312,7 @@ export const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({
         const updatedList = suppliersList.map((s) => (s.id === editingSupplierId ? res.supplier : s));
         setSuppliersList(updatedList);
         if (onSuppliersChange) onSuppliersChange(updatedList);
+        if (onRefreshData) await onRefreshData();
         setFeedback({
           type: 'success',
           message: `Supplier "${res.supplier.title}" details and payable balance updated successfully!`,
@@ -320,6 +323,7 @@ export const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({
         setSuppliersList(updatedList);
         if (onSuppliersChange) onSuppliersChange(updatedList);
         setEditingSupplierId(res.supplier.id);
+        if (onRefreshData) await onRefreshData();
         setFeedback({
           type: 'success',
           message: `New supplier "${res.supplier.title}" registered successfully with Code ${res.supplier.code}!`,
@@ -339,6 +343,7 @@ export const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({
       const updatedList = suppliersList.filter((s) => s.id !== id);
       setSuppliersList(updatedList);
       if (onSuppliersChange) onSuppliersChange(updatedList);
+      if (onRefreshData) await onRefreshData();
       setDeleteConfirmId(null);
       if (editingSupplierId === id) {
         resetFormForNew();
@@ -517,7 +522,7 @@ export const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({
             id="supplier-btn-refresh"
             onClick={fetchSuppliers}
             disabled={isLoadingSuppliers}
-            title="Refresh suppliers from database (سپلائرز ریفریش کریں)"
+            title="Refresh suppliers from database"
             className="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-50 cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoadingSuppliers ? 'animate-spin text-blue-400' : 'text-slate-400'}`} />
@@ -1235,7 +1240,8 @@ export const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({
                       id="supplier-payable-input"
                       type="number"
                       step="0.01"
-                      value={payableToSupplier}
+                      value={payableToSupplier === 0 ? '' : payableToSupplier}
+                      onFocus={(e) => e.target.select()}
                       onChange={(e) => setPayableToSupplier(e.target.value === '' ? '' : Number(e.target.value))}
                       placeholder="0.00"
                       className="w-full bg-slate-800 border border-amber-900/60 rounded-lg pl-10 pr-12 py-2 text-sm font-bold text-amber-300 font-mono focus:outline-none focus:border-amber-500"

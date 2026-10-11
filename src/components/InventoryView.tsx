@@ -707,7 +707,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                   <AlertTriangle className="w-4 h-4 animate-pulse" />
                 </div>
                 <h3 className="text-sm font-extrabold text-white">
-                  Active Order Stock Shortages (آرڈرز کی کمی کا الرٹ)
+                  Active Order Stock Shortages
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">
                   {productsWithShortage.length} Items Deficient

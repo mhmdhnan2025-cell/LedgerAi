@@ -209,7 +209,7 @@ export const AiSmartPurchaseReportWidget: React.FC<AiSmartPurchaseReportWidgetPr
         {/* Remaining Payables */}
         <div className="bg-slate-950/80 border border-amber-500/40 rounded-xl p-2.5 sm:p-3 col-span-2 sm:col-span-1 shadow-sm">
           <div className="text-[10px] font-bold text-amber-400 uppercase tracking-wider flex items-center justify-between">
-            <span>واجب الادا (Payables)</span>
+            <span>Payables (Due)</span>
             <Clock className="w-3.5 h-3.5 text-amber-400" />
           </div>
           <div className="text-base sm:text-lg font-black text-amber-300 mt-1 font-mono">
@@ -284,7 +284,7 @@ export const AiSmartPurchaseReportWidget: React.FC<AiSmartPurchaseReportWidgetPr
                 <th className="py-2.5 px-3 text-right">QTY</th>
                 <th className="py-2.5 px-3 text-right">TOTAL AMOUNT</th>
                 <th className="py-2.5 px-3 text-right">PAID</th>
-                <th className="py-2.5 px-3 text-right text-amber-300">PAYABLES (واجب الادا)</th>
+                <th className="py-2.5 px-3 text-right text-amber-300">PAYABLES</th>
                 <th className="py-2.5 px-3 text-center">STATUS</th>
                 <th className="py-2.5 px-3 text-center">ACTION</th>
               </tr>

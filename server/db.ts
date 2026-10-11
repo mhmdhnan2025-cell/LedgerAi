@@ -4510,6 +4510,8 @@ class DatabaseService {
       address: supData.address || '',
       cnic: supData.cnic || '',
       status: supData.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
+      openingBalance: supData.openingBalance !== undefined ? Number(supData.openingBalance) : payableAmount,
+      openingBalanceType: supData.openingBalanceType || supData.payableType || 'CR',
       payableToSupplier: payableAmount,
       payableType: supData.payableType || 'CR',
       documents: supData.documents || [],
@@ -4556,7 +4558,11 @@ class DatabaseService {
     const accountTitle = updates.accountTitle !== undefined ? updates.accountTitle.trim() : (title || prev.accountTitle);
     const payableAmount = updates.payableToSupplier !== undefined
       ? Number(updates.payableToSupplier)
-      : (updates.balanceOwed !== undefined ? Number(updates.balanceOwed) : prev.payableToSupplier);
+      : (updates.balanceOwed !== undefined ? Number(updates.balanceOwed) : (updates.openingBalance !== undefined ? Number(updates.openingBalance) : prev.payableToSupplier));
+    const openBal = updates.openingBalance !== undefined
+      ? Number(updates.openingBalance)
+      : (updates.payableToSupplier !== undefined ? payableAmount : (prev.openingBalance !== undefined ? prev.openingBalance : payableAmount));
+    const openBalType = updates.openingBalanceType || updates.payableType || prev.openingBalanceType || prev.payableType || 'CR';
 
     const updated: Supplier = {
       ...prev,
@@ -4566,6 +4572,8 @@ class DatabaseService {
       title: title || prev.title,
       accountTitle: accountTitle || prev.accountTitle,
       name: title || prev.name,
+      openingBalance: openBal,
+      openingBalanceType: openBalType,
       payableToSupplier: isNaN(payableAmount) ? 0 : payableAmount,
       balanceOwed: isNaN(payableAmount) ? 0 : payableAmount,
       payableType: updates.payableType || prev.payableType || 'CR',
@@ -7262,7 +7270,13 @@ class DatabaseService {
       notes: data.notes || '',
       image: data.image || '',
       status: data.status || 'ACTIVE',
-      outstandingBalance: Number(data.outstandingBalance) || 0,
+      openingBalance: data.openingBalance !== undefined
+        ? Number(data.openingBalance)
+        : (data.outstandingBalance !== undefined ? Number(data.outstandingBalance) : 0),
+      openingBalanceType: (data.openingBalanceType as any) || 'DR',
+      outstandingBalance: data.outstandingBalance !== undefined
+        ? Number(data.outstandingBalance)
+        : ((data.openingBalanceType === 'CR' ? -1 : 1) * Math.abs(Number(data.openingBalance) || 0)),
       creditLimit: Number(data.creditLimit) || 30000,
       totalSales: Number(data.totalSales) || 0,
       createdAt: new Date().toISOString(),
@@ -7301,7 +7315,7 @@ class DatabaseService {
       entityType: 'Restaurant',
       entityId: newCustomer.id,
       source: source as any,
-      description: `Created new customer "${newCustomer.accountTitle}" (Code: ${newCustomer.code}).`,
+      description: `Created new customer "${newCustomer.accountTitle}" (Code: ${newCustomer.code}, Opening Bal: ${currencySymbol()} ${newCustomer.outstandingBalance}).`,
     });
 
     this.persist();
@@ -7320,12 +7334,27 @@ class DatabaseService {
     }
 
     const current = this.data.customers[idx];
+    const openingBal = updates.openingBalance !== undefined
+      ? Number(updates.openingBalance)
+      : (current.openingBalance !== undefined ? current.openingBalance : 0);
+    const openingType: 'DR' | 'CR' = (updates.openingBalanceType as any) || current.openingBalanceType || 'DR';
+
+    let newOutstanding = current.outstandingBalance;
+    if (updates.outstandingBalance !== undefined) {
+      newOutstanding = Number(updates.outstandingBalance);
+    } else if (updates.openingBalance !== undefined) {
+      newOutstanding = openingType === 'CR' ? -Math.abs(openingBal) : Math.abs(openingBal);
+    }
+
     const updated: Customer = {
       ...current,
       ...updates,
       accountTitle: updates.accountTitle || updates.name || current.accountTitle,
       name: updates.accountTitle || updates.name || current.name,
       title: updates.accountTitle || updates.name || current.title,
+      openingBalance: openingBal,
+      openingBalanceType: openingType,
+      outstandingBalance: newOutstanding,
       contactPerson:
         updates.contactPerson ||
         [updates.prefixTitle || current.prefixTitle, updates.firstName || current.firstName, updates.lastName || current.lastName]
@@ -7341,6 +7370,20 @@ class DatabaseService {
 
     this.data.customers[idx] = updated;
 
+    // Also synchronize with restaurants collection
+    const restIdx = this.data.restaurants.findIndex(
+      (r) => r.id === `rest-${updated.id}` || r.name.toLowerCase() === current.accountTitle.toLowerCase() || r.name.toLowerCase() === updated.accountTitle.toLowerCase()
+    );
+    if (restIdx !== -1) {
+      this.data.restaurants[restIdx].name = updated.accountTitle;
+      this.data.restaurants[restIdx].contactPerson = updated.contactPerson || 'Owner';
+      this.data.restaurants[restIdx].phone = updated.mobile;
+      this.data.restaurants[restIdx].address = updated.address || `${updated.area}, ${updated.city}`;
+      this.data.restaurants[restIdx].creditLimit = updated.creditLimit || 30000;
+      this.data.restaurants[restIdx].outstandingBalance = updated.outstandingBalance;
+      this.data.restaurants[restIdx].status = updated.status === 'ACTIVE' ? 'active' : 'suspended';
+    }
+
     this.logAudit({
       userId: user.id,
       userName: user.name,
@@ -7349,7 +7392,7 @@ class DatabaseService {
       entityType: 'Restaurant',
       entityId: updated.id,
       source: source as any,
-      description: `Updated customer "${updated.accountTitle}" (Code: ${updated.code}).`,
+      description: `Updated customer "${updated.accountTitle}" (Code: ${updated.code}, Balance: ${currencySymbol()} ${updated.outstandingBalance}).`,
     });
 
     this.persist();

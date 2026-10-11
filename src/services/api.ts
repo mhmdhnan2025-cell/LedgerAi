@@ -52,6 +52,7 @@ export interface FullDatabaseSnapshot {
   payments: Payment[];
   expenses: Expense[];
   suppliers: Supplier[];
+  customers?: Customer[];
   purchaseBills?: PurchaseBill[];
   itemCategories?: string[];
   itemBrands?: string[];

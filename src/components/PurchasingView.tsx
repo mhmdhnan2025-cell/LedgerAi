@@ -658,7 +658,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
     const effectiveIsCash = Boolean(isCash);
     const supplierName = cashSupplierName.trim() || (selectedSupplier ? (selectedSupplier.accountTitle || selectedSupplier.title) : '');
     if (!supplierName) {
-      setErrorMsg('Please enter or select Supplier Name (سپلائر کا نام لکھیں یا کھاتہ منتخب کریں)');
+      setErrorMsg('Please enter or select Supplier Name');
       return;
     }
 
@@ -915,7 +915,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
             title="Record Purchase Return to Supplier"
           >
             <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
-            <span>Purchase Return (خریداری واپسی)</span>
+            <span>Purchase Return</span>
           </button>
           {onNavigateTab && (
             <button
@@ -1142,7 +1142,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
           <div className="md:col-span-3">
             <div className="flex items-center justify-between mb-1">
               <label className="text-slate-300 font-semibold text-xs flex items-center gap-1">
-                <span>Supplier Name (سپلائر)</span>
+                <span>Supplier Name</span>
                 <span className="text-amber-400 font-bold">*</span>
               </label>
               <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-slate-300 hover:text-white">
@@ -1157,7 +1157,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
             </div>
             <input
               type="text"
-              placeholder="Enter Supplier Name (کس سے مال خریدا)..."
+              placeholder="Enter Supplier Name..."
               value={cashSupplierName}
               onChange={(e) => setCashSupplierName(e.target.value)}
               className="w-full bg-slate-800 border border-slate-700 focus:border-sky-500 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none transition font-semibold"
@@ -1177,7 +1177,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                 </span>
                 <div>
                   <span className="font-bold text-white text-xs">
-                    Stock & Purchase Price Intelligence (سابقہ لاگت اور اسٹاک)
+                    Stock &amp; Purchase Price Intelligence
                   </span>
                   {activeProduct && (
                     <span className="text-[10px] text-slate-400 font-mono ml-2">
@@ -1194,7 +1194,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 text-[11px]">
               <div>
                 <span className="text-slate-400 block text-[10px] uppercase font-semibold">
-                  Last Purchase Cost (آخری لاگت)
+                  Last Purchase Cost
                 </span>
                 <span className="font-mono font-bold text-amber-300 text-xs sm:text-sm">
                   {currencySymbol()} {(activeProduct?.purchasePrice || activeProduct?.lastPurchasePrice || 0).toLocaleString()} <span className="text-[10px] text-slate-400 font-normal">/ unit</span>
@@ -1206,7 +1206,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
 
               <div>
                 <span className="text-slate-400 block text-[10px] uppercase font-semibold">
-                  Wholesale Sale Rate (فروخت ریٹ)
+                  Wholesale Sale Rate
                 </span>
                 <span className="font-mono font-bold text-emerald-400 text-xs sm:text-sm">
                   {currencySymbol()} {(activeProduct?.sellingPrice || activeProduct?.salePrice || 0).toLocaleString()}
@@ -1218,7 +1218,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
 
               <div>
                 <span className="text-slate-400 block text-[10px] uppercase font-semibold">
-                  Warehouse Stock Remaining (موجودہ مال)
+                  Warehouse Stock Remaining
                 </span>
                 <span className={`font-mono font-bold text-xs sm:text-sm ${
                   (activeProduct?.currentQuantity || itemStock) <= 10 ? 'text-rose-400' : 'text-sky-300'
@@ -1373,7 +1373,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                         <div className="flex items-center justify-between gap-2">
                           <input
                             type="text"
-                            placeholder="Type to filter items (نام یا کوڈ)..."
+                            placeholder="Type to filter items..."
                             value={itemSearchQuery}
                             onChange={(e) => {
                               setItemSearchQuery(e.target.value);
@@ -1414,7 +1414,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                               onChange={(e) => setKeepDropdownOpenOnSelect(e.target.checked)}
                               className="rounded border-slate-700 text-sky-600 focus:ring-0 w-3 h-3"
                             />
-                            <span>Keep list open (فہرست کھلی رکھیں)</span>
+                            <span>Keep list open</span>
                           </label>
                           <span>{filteredProducts.length} items (Use ↑ ↓ &amp; Enter)</span>
                         </div>
@@ -1994,7 +1994,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
               <div className="grid grid-cols-2 gap-6 bg-slate-950/60 print:bg-gray-50 p-4 rounded-xl border border-slate-800 print:border-gray-300">
                 <div>
                   <span className="text-[10px] uppercase font-bold text-sky-400 print:text-gray-600 tracking-wider block">
-                    Supplier / Vendor Details (فروخت کنندہ / سپلائر)
+                    Supplier / Vendor Details
                   </span>
                   <div className="font-black text-base text-white print:text-black mt-1 flex items-center gap-1.5">
                     <Building2 className="w-4 h-4 text-sky-400 shrink-0" />

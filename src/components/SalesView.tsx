@@ -50,6 +50,7 @@ interface SalesViewProps {
   currentRole: UserRole;
   companyProfile?: CompanyProfile | null;
   currentUser?: User | null;
+  customers?: Customer[];
   onRefreshData?: () => Promise<void> | void;
   onNavigateTab?: (tab: string) => void;
 }
@@ -59,11 +60,12 @@ export const SalesView: React.FC<SalesViewProps> = ({
   currentRole,
   companyProfile,
   currentUser,
+  customers: propCustomers,
   onRefreshData,
   onNavigateTab,
 }) => {
   // Master states
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>(propCustomers || []);
   const [salesmen, setSalesmen] = useState<string[]>([]);
   const [newSalesmanInput, setNewSalesmanInput] = useState('');
   const [showAddSalesman, setShowAddSalesman] = useState(false);
@@ -242,11 +244,31 @@ export const SalesView: React.FC<SalesViewProps> = ({
   };
 
   useEffect(() => {
-    loadCustomersData();
+    if (!propCustomers || propCustomers.length === 0) {
+      loadCustomersData();
+    }
     loadSalesmenData();
     loadNextBillNumber();
     fetchMasters();
   }, []);
+
+  useEffect(() => {
+    if (propCustomers && propCustomers.length > 0) {
+      setCustomers(propCustomers);
+      if (selectedCustomerId) {
+        const found = propCustomers.find((c) => c.id === selectedCustomerId);
+        if (found) {
+          setPartyBalanceBefore(found.outstandingBalance !== undefined ? found.outstandingBalance : (found.openingBalance || 0));
+        }
+      } else {
+        setSelectedCustomerId(propCustomers[0].id);
+        setCustomerAccountTitle(propCustomers[0].accountTitle || propCustomers[0].name);
+        setCustomerMobile(propCustomers[0].mobile || '');
+        setCustomerTrn(propCustomers[0].trn || '');
+        setPartyBalanceBefore(propCustomers[0].outstandingBalance !== undefined ? propCustomers[0].outstandingBalance : (propCustomers[0].openingBalance || 0));
+      }
+    }
+  }, [propCustomers]);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -753,7 +775,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
               title="Preview and print customer receipt"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Print Bill (طباعة)</span>
+              <span>Print Bill</span>
             </button>
             <button
               type="button"
@@ -762,7 +784,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
               title="Record Sales Return from Customer"
             >
               <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
-              <span>Sales Return (سیل واپسی)</span>
+              <span>Sales Return</span>
             </button>
             <button
               onClick={() => onNavigateTab && onNavigateTab('reports')}
@@ -804,7 +826,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
                 className="px-2.5 py-1 bg-emerald-800 hover:bg-emerald-700 text-white rounded text-[11px] font-bold flex items-center gap-1 cursor-pointer"
               >
                 <Printer className="w-3 h-3" />
-                <span>Print Bill / فاتورة</span>
+                <span>Print Bill</span>
               </button>
             )}
           </div>
@@ -880,7 +902,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
 
           {/* Bill Date */}
           <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-2">
-            <label className="text-[11px] text-slate-400 font-semibold mb-1 block">Date (تاریخ الفاتورة)</label>
+            <label className="text-[11px] text-slate-400 font-semibold mb-1 block">Date</label>
             <input
               type="date"
               value={billDate}
@@ -902,7 +924,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
 
           {/* L.P.O Number (Customer Purchase Order) */}
           <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-2">
-            <label className="text-[11px] text-slate-400 font-semibold mb-1 block">L.P.O No (رقم أمر الشراء)</label>
+            <label className="text-[11px] text-slate-400 font-semibold mb-1 block">L.P.O No</label>
             <input
               type="text"
               value={lpoNo}
@@ -1072,7 +1094,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
           {/* Customer TRN Number */}
           <div className="sm:col-span-2">
             <label className="text-[11px] text-emerald-400 font-semibold mb-1 block flex items-center justify-between">
-              <span>Customer TRN (الرقم الضريبي)</span>
+              <span>Customer TRN</span>
             </label>
             <input
               type="text"
@@ -1122,10 +1144,10 @@ export const SalesView: React.FC<SalesViewProps> = ({
                   type="button"
                   onClick={() => setIsAddProductModalOpen(true)}
                   className="text-[10px] text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-0.5 cursor-pointer bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800"
-                  title="Add New Item Head (+ نیا آئٹم شامل کریں)"
+                  title="Add New Item Head"
                 >
                   <Plus className="w-3 h-3" />
-                  <span>نیا آئٹم (+)</span>
+                  <span>New Item (+)</span>
                 </button>
               </label>
               <div className="relative">
@@ -1388,12 +1410,12 @@ export const SalesView: React.FC<SalesViewProps> = ({
                 <div className="flex items-center gap-2 font-bold">
                   <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 animate-bounce" />
                   <span>
-                    ⚠️ Stock Shortage Alert: Selected sale consumption is <strong className="text-white underline">{currentItemTotalConsumed} {unitLabel}</strong> ({numericCtn} {itemPackageType} + {numericQty} {unitLabel}), but godown only has <strong className="text-amber-300 underline">{itemStock}</strong> {unitLabel} available. Short by <strong className="text-white bg-rose-600 px-2 py-0.5 rounded text-sm font-black">{shortageCtnText} ({shortUnits} {unitLabel}) kam hain</strong>!
+                    ⚠️ Stock Shortage Alert: Selected sale consumption is <strong className="text-white underline">{currentItemTotalConsumed} {unitLabel}</strong> ({numericCtn} {itemPackageType} + {numericQty} {unitLabel}), but godown only has <strong className="text-amber-300 underline">{itemStock}</strong> {unitLabel} available. Short by <strong className="text-white bg-rose-600 px-2 py-0.5 rounded text-sm font-black">{shortageCtnText} ({shortUnits} {unitLabel}) short</strong>!
                   </span>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-urdu text-rose-200 font-black bg-rose-900/80 px-2.5 py-1 rounded border border-rose-700 whitespace-nowrap">
-                    اسٹاک میں {isCartonItem ? `${shortCtnInt}.${shortPcs} کاٹن` : `${shortUnits} ${unitLabel}`} ({shortUnits} یونٹ) کم ہے
+                  <span className="text-xs text-rose-200 font-black bg-rose-900/80 px-2.5 py-1 rounded border border-rose-700 whitespace-nowrap">
+                    Stock shortage: {isCartonItem ? `${shortCtnInt}.${shortPcs} Cartons` : `${shortUnits} ${unitLabel}`} ({shortUnits} units)
                   </span>
                   {onNavigateTab && (
                     <button
@@ -1403,7 +1425,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
                       title="Open Purchasing tab to restock"
                     >
                       <ShoppingBag className="w-3.5 h-3.5" />
-                      <span>Restock / Purchase (خریداری کریں)</span>
+                      <span>Restock / Purchase</span>
                     </button>
                   )}
                 </div>
@@ -1432,7 +1454,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
                   </span>
                   <div>
                     <span className="font-bold text-white text-xs">
-                      Price & Cost Intelligence (قیمت اور سابقہ خریداری کی لاگت)
+                      Price &amp; Cost Intelligence
                     </span>
                     {activeProduct && (
                       <span className="text-[10px] text-slate-400 font-mono ml-2">
@@ -1464,7 +1486,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 text-[11px]">
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase font-semibold">
-                    Previous Purchase Cost (سابقہ لاگت)
+                    Previous Purchase Cost
                   </span>
                   <span className="font-mono font-bold text-amber-300 text-xs sm:text-sm">
                     {currencySymbol()} {unitPurchaseCost.toLocaleString()} <span className="text-[10px] text-slate-400 font-normal">/ unit</span>
@@ -1476,7 +1498,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
 
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase font-semibold">
-                    Standard Wholesale Rate (مقررہ ریٹ)
+                    Standard Wholesale Rate
                   </span>
                   <span className="font-mono font-bold text-white text-xs sm:text-sm">
                     {currencySymbol()} {(activeProduct?.sellingPrice || activeProduct?.salePrice || 0).toLocaleString()}
@@ -1488,7 +1510,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
 
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase font-semibold">
-                    Warehouse Stock Remaining (موجودہ اسٹاک)
+                    Warehouse Stock Remaining
                   </span>
                   <span className={`font-mono font-bold text-xs sm:text-sm ${
                     (activeProduct?.currentQuantity || itemStock) <= 10 ? 'text-rose-400' : 'text-emerald-400'
@@ -1502,7 +1524,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
 
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase font-semibold">
-                    Total Line Profit (کل متوقع نفع)
+                    Total Line Profit
                   </span>
                   <span className={`font-mono font-black text-xs sm:text-sm ${
                     expectedTotalLineProfit > 0 ? 'text-emerald-400' : expectedTotalLineProfit < 0 ? 'text-rose-400' : 'text-slate-400'
@@ -1567,7 +1589,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
                   className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-lg text-xs shadow-md transition flex items-center gap-1.5 cursor-pointer"
                 >
                   <ShoppingBag className="w-3.5 h-3.5" />
-                  <span>+ Restock / Purchase Now (پہلے مال خریدیں)</span>
+                  <span>+ Restock / Purchase Now</span>
                 </button>
               )}
               <button
@@ -1834,7 +1856,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
                 title="Preview & Print customer bill"
               >
                 <Printer className="w-4 h-4" />
-                <span>Print Bill (طباعة)</span>
+                <span>Print Bill</span>
               </button>
 
               <button

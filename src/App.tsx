@@ -28,6 +28,7 @@ import {
   Restaurant,
   SmartAlert,
   Supplier,
+  Customer,
   User,
   UserRole,
 } from './types';
@@ -137,6 +138,9 @@ export default function App() {
   // Suppliers List (Vendors & Payables within Settings)
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
 
+  // Customers List (Clients, Khata & Receivables)
+  const [customers, setCustomers] = useState<Customer[]>([]);
+
   // Business Data State
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -219,6 +223,18 @@ export default function App() {
         }
       }
       setSuppliers(supList);
+      let custList = data.customers || [];
+      if (!custList || custList.length === 0) {
+        try {
+          const directCusts = await api.getCustomers();
+          if (Array.isArray(directCusts) && directCusts.length > 0) {
+            custList = directCusts;
+          }
+        } catch (e) {
+          console.warn('Fallback getCustomers error:', e);
+        }
+      }
+      setCustomers(custList);
       if (data.users && data.users.length > 0) {
         setUsersList(data.users);
       }
@@ -246,6 +262,7 @@ export default function App() {
     setSummary(null);
     setEmployees([]);
     setSuppliers([]);
+    setCustomers([]);
     setUsersList([]);
   };
 
@@ -613,6 +630,7 @@ export default function App() {
             currentRole={currentRole}
             companyProfile={companyProfile}
             currentUser={currentUser}
+            customers={customers}
             onRefreshData={() => loadBusinessData(true)}
             onNavigateTab={(tab) => setCurrentTab(tab as any)}
           />
@@ -745,6 +763,7 @@ export default function App() {
             companyProfile={companyProfile}
             onBackToSettings={() => setCurrentTab('settings')}
             onNavigateTab={(tab) => setCurrentTab(tab as any)}
+            onRefreshData={() => loadBusinessData(true)}
           />
         )}
 
@@ -758,9 +777,11 @@ export default function App() {
 
         {currentTab === 'customers' && (
           <CustomerManagementView
+            customers={customers}
             companyProfile={companyProfile}
             onBackToSettings={() => setCurrentTab('settings')}
             onNavigateTab={(tab) => setCurrentTab(tab as any)}
+            onRefreshData={() => loadBusinessData(true)}
           />
         )}
       </main>

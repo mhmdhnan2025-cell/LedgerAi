@@ -579,7 +579,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
           )}
           <span className="text-sky-400 font-bold flex items-center gap-1.5">
             <Landmark className="w-4 h-4 text-sky-400" />
-            <span>Cash / Bank &amp; Vouchers Hub (کیش اور بینک واؤچرز)</span>
+            <span>Cash / Bank &amp; Vouchers Hub</span>
           </span>
           {editingVoucherId && (
             <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded text-[10px] font-bold">
@@ -847,7 +847,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                     type="button"
                     onClick={() => setIsCalendarOpen(true)}
                     className="text-slate-400 hover:text-sky-400 transition cursor-pointer"
-                    title="Open Full Calendar (کیلنڈر کھولیں)"
+                    title="Open Full Calendar"
                   >
                     <CalendarIcon className="w-3.5 h-3.5 text-sky-400" />
                   </button>
@@ -951,7 +951,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                         type="button"
                         onClick={() => setIsQuickAddOpen(true)}
                         className="text-sky-400 hover:text-sky-300 p-0.5 rounded hover:bg-slate-800 transition"
-                        title="Quick Add Account (+ نیا کھاتہ)"
+                        title="Quick Add Account"
                       >
                         <Plus className="w-3.5 h-3.5" />
                       </button>
@@ -1365,7 +1365,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
             <div className="flex items-center justify-between pb-3 border-b border-slate-800 text-xs">
               <div className="flex items-center gap-2 text-white font-bold text-sm">
                 <Search className="w-4 h-4 text-sky-400" />
-                <span>Search &amp; Manage Vouchers (واؤچرز تلاش اور ترمیم کریں)</span>
+                <span>Search &amp; Manage Vouchers</span>
               </div>
               <span className="text-slate-400">Total Found: {searchResults.length}</span>
             </div>
@@ -1724,7 +1724,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
           {bankSubTab === 'new' && (
             <form onSubmit={handleSaveNewBank} className="p-5 max-w-xl space-y-4 text-xs">
               <h3 className="font-bold text-sm text-white border-b border-slate-800 pb-2">
-                Add New Bank Account (نیا بینک اکاؤنٹ درج کریں)
+                Add New Bank Account
               </h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2052,7 +2052,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
           value={voucherDate}
           onChange={(newDate) => setVoucherDate(newDate)}
           onClose={() => setIsCalendarOpen(false)}
-          title="Select Voucher Date (واؤچر تاریخ)"
+          title="Select Voucher Date"
         />
       )}
 
@@ -2061,7 +2061,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
           value={chequeDate}
           onChange={(newDate) => setChequeDate(newDate)}
           onClose={() => setIsChequeCalendarOpen(false)}
-          title="Select Cheque Date (چیک تاریخ)"
+          title="Select Cheque Date"
         />
       )}
     </div>

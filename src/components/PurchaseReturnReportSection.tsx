@@ -135,7 +135,7 @@ export const PurchaseReturnReportSection: React.FC<PurchaseReturnReportSectionPr
         <div>
           <h2 className="text-base font-bold text-white flex items-center gap-2">
             <Undo2 className="w-5 h-5 text-purple-400" />
-            <span>Purchase Returns Report (خریداری واپسی رپورٹ)</span>
+            <span>Purchase Returns Report</span>
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
             View, edit, or delete goods returned to suppliers and debit notes

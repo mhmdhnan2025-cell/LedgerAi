@@ -12,7 +12,7 @@ export const CalendarModalPicker: React.FC<CalendarModalPickerProps> = ({
   value,
   onChange,
   onClose,
-  title = 'Select Date (تاریخ منتخب کریں)',
+  title = 'Select Date',
 }) => {
   // Parse initial date
   const parseDate = (dStr: string): Date => {
@@ -209,7 +209,7 @@ export const CalendarModalPicker: React.FC<CalendarModalPickerProps> = ({
             onClick={handleSelectToday}
             className="px-3 py-1 bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300 font-bold rounded-lg hover:bg-sky-200 dark:hover:bg-sky-800 transition cursor-pointer"
           >
-            Today (آج)
+            Today
           </button>
           <button
             type="button"

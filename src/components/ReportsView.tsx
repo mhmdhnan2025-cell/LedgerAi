@@ -26,6 +26,7 @@ import {
   RotateCcw,
   Undo2,
   BookOpen,
+  Type,
 } from 'lucide-react';
 import { CompanyProfile, Product, PurchaseBill, Supplier, UserRole } from '../types';
 import { api } from '../services/api';
@@ -116,6 +117,36 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   // Selected Bill for Details Modal & Edit Modal
   const [activeBillDetail, setActiveBillDetail] = useState<PurchaseBill | null>(null);
   const [editingBill, setEditingBill] = useState<PurchaseBill | null>(null);
+
+  // Font Size & Boldness Customization (Universal across all reports & ledgers)
+  const [fontSize, setFontSize] = useState<'normal' | 'large' | 'xl'>(() => {
+    try {
+      return (localStorage.getItem('erp_reports_font_size') as any) || 'large';
+    } catch {
+      return 'large';
+    }
+  });
+  const [fontWeight, setFontWeight] = useState<'normal' | 'bold' | 'extrabold'>(() => {
+    try {
+      return (localStorage.getItem('erp_reports_font_weight') as any) || 'bold';
+    } catch {
+      return 'bold';
+    }
+  });
+
+  const handleSetFontSize = (s: 'normal' | 'large' | 'xl') => {
+    setFontSize(s);
+    try {
+      localStorage.setItem('erp_reports_font_size', s);
+    } catch {}
+  };
+
+  const handleSetFontWeight = (w: 'normal' | 'bold' | 'extrabold') => {
+    setFontWeight(w);
+    try {
+      localStorage.setItem('erp_reports_font_weight', w);
+    } catch {}
+  };
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -311,9 +342,29 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     companyProfile?.name || 'ZAHRAT AL FAJR FOODSTUFF TR L.L.C';
 
   return (
-    <div className="space-y-5">
+    <div className={`space-y-5 report-font-scale-${fontSize} report-weight-${fontWeight}`}>
+      <style>{`
+        .report-font-scale-large h1, .report-font-scale-large h2 { font-size: 1.25rem !important; }
+        .report-font-scale-large h3, .report-font-scale-large h4 { font-size: 1.05rem !important; }
+        .report-font-scale-large table th, .report-font-scale-large table td { font-size: 0.92rem !important; }
+        .report-font-scale-large .text-xs { font-size: 0.85rem !important; }
+        .report-font-scale-large .text-sm { font-size: 0.975rem !important; }
+
+        .report-font-scale-xl h1, .report-font-scale-xl h2 { font-size: 1.45rem !important; }
+        .report-font-scale-xl h3, .report-font-scale-xl h4 { font-size: 1.2rem !important; }
+        .report-font-scale-xl table th, .report-font-scale-xl table td { font-size: 1.05rem !important; }
+        .report-font-scale-xl .text-xs { font-size: 0.95rem !important; }
+        .report-font-scale-xl .text-sm { font-size: 1.1rem !important; }
+
+        .report-weight-bold h1, .report-weight-bold h2, .report-weight-bold h3, .report-weight-bold th { font-weight: 800 !important; }
+        .report-weight-bold table td, .report-weight-bold label, .report-weight-bold span { font-weight: 600 !important; }
+
+        .report-weight-extrabold h1, .report-weight-extrabold h2, .report-weight-extrabold h3, .report-weight-extrabold th { font-weight: 900 !important; }
+        .report-weight-extrabold table td, .report-weight-extrabold label, .report-weight-extrabold span { font-weight: 700 !important; }
+      `}</style>
+
       {/* Top Header Breadcrumb & Sub-tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-md print:hidden">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-md print:hidden">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center text-xs font-bold text-slate-400">
             <span className="flex items-center gap-1.5 text-slate-300">
@@ -323,7 +374,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             <span className="mx-2 text-slate-600">/</span>
           </div>
 
-          {/* Sub-tabs: Purchase, Sale, Profit Reports, Stock History */}
+          {/* Sub-tabs: All 100% in English without any Urdu words */}
           <div className="flex flex-wrap items-center bg-slate-950 p-1 rounded-xl border border-slate-800 gap-1">
             <button
               onClick={() => setActiveReportTab('purchases')}
@@ -357,7 +408,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               }`}
             >
               <TrendingUp className="w-3.5 h-3.5 text-amber-300" />
-              <span>Profit Intelligence (نفع کی رپورٹ)</span>
+              <span>Profit Intelligence</span>
             </button>
             <button
               onClick={() => setActiveReportTab('stockHistory')}
@@ -368,7 +419,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               }`}
             >
               <Boxes className="w-3.5 h-3.5 text-indigo-300" />
-              <span>Stock Movement History (اسٹاک کھاتہ)</span>
+              <span>Stock Movement History</span>
             </button>
             <button
               onClick={() => setActiveReportTab('cashRecovered')}
@@ -379,7 +430,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               }`}
             >
               <Receipt className="w-3.5 h-3.5 text-emerald-300" />
-              <span>Cash Recovered Report (وصولی رپورٹ)</span>
+              <span>Cash Recovered Report</span>
             </button>
             <button
               onClick={() => setActiveReportTab('cashPaid')}
@@ -390,7 +441,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               }`}
             >
               <Receipt className="w-3.5 h-3.5 text-rose-300" />
-              <span>Cash Paid Report (ادائیگی رپورٹ)</span>
+              <span>Cash Paid Report</span>
             </button>
             <button
               onClick={() => setActiveReportTab('customerLedger')}
@@ -401,7 +452,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               }`}
             >
               <BookOpen className="w-3.5 h-3.5 text-blue-300" />
-              <span>Customer Ledger (جنرل لیجر)</span>
+              <span>Customer Ledger</span>
             </button>
             <button
               onClick={() => setActiveReportTab('supplierLedger')}
@@ -412,7 +463,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               }`}
             >
               <Building2 className="w-3.5 h-3.5 text-purple-300" />
-              <span>Supplier Ledger (سپلائر کھاتہ)</span>
+              <span>Supplier Ledger</span>
             </button>
             <button
               onClick={() => setActiveReportTab('saleReturns')}
@@ -423,7 +474,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               }`}
             >
               <RotateCcw className="w-3.5 h-3.5 text-amber-300" />
-              <span>Sales Returns (سیل واپسی)</span>
+              <span>Sales Returns</span>
             </button>
             <button
               onClick={() => setActiveReportTab('purchaseReturns')}
@@ -434,7 +485,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               }`}
             >
               <Undo2 className="w-3.5 h-3.5 text-purple-300" />
-              <span>Purchase Returns (خریداری واپسی)</span>
+              <span>Purchase Returns</span>
             </button>
             <button
               onClick={() => setActiveReportTab('aiLedgerAudit')}
@@ -446,12 +497,89 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               title="AI Ledger Master Business Audit Report (One Page A4)"
             >
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-300" />
-              <span>Master Audit Report (ماسٹر آڈٹ)</span>
+              <span>Master Audit Report</span>
             </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Right Corner Controls: Font Settings Toolbar + Action Buttons */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Universal Font Settings Toolbar */}
+          <div className="flex items-center gap-1.5 bg-slate-950 px-2 py-1 rounded-xl border border-slate-700/80 text-xs shadow-inner">
+            <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1">
+              <Type className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden sm:inline">Font:</span>
+            </span>
+
+            {/* Font Size Selector */}
+            <div className="flex items-center bg-slate-900 rounded-lg p-0.5 border border-slate-800">
+              <button
+                type="button"
+                onClick={() => handleSetFontSize('normal')}
+                title="Normal Font Size"
+                className={`px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer ${
+                  fontSize === 'normal' ? 'bg-amber-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Normal
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSetFontSize('large')}
+                title="Large Font Size"
+                className={`px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer ${
+                  fontSize === 'large' ? 'bg-amber-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Large
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSetFontSize('xl')}
+                title="Extra Large Font Size"
+                className={`px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer ${
+                  fontSize === 'xl' ? 'bg-amber-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                XL
+              </button>
+            </div>
+
+            {/* Font Boldness Selector */}
+            <div className="flex items-center bg-slate-900 rounded-lg p-0.5 border border-slate-800">
+              <button
+                type="button"
+                onClick={() => handleSetFontWeight('normal')}
+                title="Normal Boldness"
+                className={`px-2 py-0.5 rounded text-[10px] font-medium transition cursor-pointer ${
+                  fontWeight === 'normal' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Regular
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSetFontWeight('bold')}
+                title="Bold Headings & Text"
+                className={`px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer ${
+                  fontWeight === 'bold' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Bold
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSetFontWeight('extrabold')}
+                title="Extra Bold (High Visibility)"
+                className={`px-2 py-0.5 rounded text-[10px] font-black transition cursor-pointer ${
+                  fontWeight === 'extrabold' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Black
+              </button>
+            </div>
+          </div>
+
           {onNavigateTab && activeReportTab !== 'aiLedgerAudit' && activeReportTab !== 'cashRecovered' && activeReportTab !== 'cashPaid' && (
             <button
               onClick={() => onNavigateTab(activeReportTab === 'purchases' ? 'purchasing' : 'sales')}
@@ -737,15 +865,15 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
           {/* Payables Filter */}
           <div>
-            <label className="block text-amber-400 font-semibold mb-1">Payables Filter (واجب الادا)</label>
+            <label className="block text-amber-400 font-semibold mb-1">Payables Filter</label>
             <select
               value={payableFilter}
               onChange={(e) => setPayableFilter(e.target.value as any)}
               className="w-full bg-slate-800 border border-amber-500/50 rounded-lg px-2.5 py-1.5 text-amber-300 font-bold text-xs focus:border-amber-400 focus:outline-none"
             >
-              <option value="all">All Bills (تمام بلز)</option>
-              <option value="hasPayable">Pending Payables (صرف بقایا &gt; 0)</option>
-              <option value="cleared">Fully Paid / Cleared (مکمل ادا شدہ)</option>
+              <option value="all">All Bills</option>
+              <option value="hasPayable">Pending Payables (&gt; 0)</option>
+              <option value="cleared">Fully Paid / Cleared</option>
             </select>
           </div>
 
@@ -882,7 +1010,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           <div className="bg-gradient-to-br from-amber-950/40 via-slate-900 to-slate-900 border-2 border-amber-500/50 rounded-xl p-3">
             <span className="text-[10px] text-amber-300 font-bold uppercase block flex items-center justify-between">
               <span>Total Payables Remaining</span>
-              <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-950 text-amber-300 border border-amber-800">واجب الادا</span>
+              <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-950 text-amber-300 border border-amber-800 font-bold">PAYABLE DUE</span>
             </span>
             <span className="text-base sm:text-lg font-black font-mono text-amber-400">
               ${currencySymbol()} {totalPayablesSum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -913,7 +1041,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 <th className="py-3 px-3 text-right">QTY</th>
                 <th className="py-3 px-3 text-right">TOTAL AMOUNT</th>
                 <th className="py-3 px-3 text-right text-sky-400">PAID</th>
-                <th className="py-3 px-3 text-right text-amber-400">PAYABLES (واجب الادا)</th>
+                <th className="py-3 px-3 text-right text-amber-400">PAYABLES</th>
                 <th className="py-3 px-3 text-center">STATUS</th>
                 <th className="py-3 px-3 text-center">ACTION</th>
               </tr>
@@ -1216,7 +1344,7 @@ const PurchaseBillEditModal: React.FC<PurchaseBillEditModalProps> = ({
               />
             </div>
             <div>
-              <label className="block text-slate-400 font-bold mb-1">Paid Amount (ادائیگی)</label>
+              <label className="block text-slate-400 font-bold mb-1">Paid Amount</label>
               <input
                 type="number"
                 step="0.01"
@@ -1311,7 +1439,7 @@ const PurchaseBillEditModal: React.FC<PurchaseBillEditModalProps> = ({
                 <span className="font-mono font-black text-emerald-400 text-sm">{currencySymbol()} {netTotal.toFixed(2)}</span>
               </div>
               <div>
-                <span className="text-slate-400 block text-[10px]">Remaining Balance (بقایا)</span>
+                <span className="text-slate-400 block text-[10px]">Remaining Balance</span>
                 <span className="font-mono font-black text-amber-400 text-sm">{currencySymbol()} {remainingBalance.toFixed(2)}</span>
               </div>
             </div>

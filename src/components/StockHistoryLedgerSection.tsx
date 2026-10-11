@@ -237,9 +237,9 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
               </span>
               <div>
                 <h2 className="text-lg font-black text-white tracking-tight flex items-center gap-2">
-                  Overall Stock Movement & Inventory Ledger
+                  Overall Stock Movement &amp; Inventory Ledger
                   <span className="text-xs font-mono font-normal text-indigo-400 bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-800/40">
-                    اسٹاک ہسٹری اور سخت حساب کتاب
+                    Real-Time Inventory Audit
                   </span>
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5">
@@ -304,7 +304,7 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
                 timeframe === 'day' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
               }`}
             >
-              Day-Wise (آج کا دن)
+              Day-Wise
             </button>
             <button
               type="button"
@@ -313,7 +313,7 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
                 timeframe === 'week' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
               }`}
             >
-              Week-Wise (ہفتہ وار)
+              Week-Wise
             </button>
             <button
               type="button"
@@ -322,7 +322,7 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
                 timeframe === 'month' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
               }`}
             >
-              Monthly (ماہانہ)
+              Monthly
             </button>
             <button
               type="button"
@@ -384,7 +384,7 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
               onChange={(e) => setSelectedProductId(e.target.value)}
               className="w-full bg-slate-950 border border-indigo-500/60 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-hidden focus:border-indigo-400 font-semibold"
             >
-              <option value="">All Stock / Items (تمام اسٹاک)</option>
+              <option value="">All Stock / Items</option>
               {products.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.mcode ? `[${p.mcode}] ` : ''}{p.name} (Stock: {p.currentQuantity})
@@ -514,7 +514,7 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
               }`}
             >
               <Layers className="w-4 h-4" />
-              <span>Product Stock Balances (اسٹاک کا موجودہ کھاتہ)</span>
+              <span>Product Stock Balances</span>
               <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">
                 {filteredSummaryItems.length}
               </span>
@@ -529,7 +529,7 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
               }`}
             >
               <Clock className="w-4 h-4" />
-              <span>Detailed Movement Audit Trail (ایک ایک مال کی حرکت)</span>
+              <span>Detailed Movement Audit Trail</span>
               <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">
                 {filteredTransactions.length}
               </span>

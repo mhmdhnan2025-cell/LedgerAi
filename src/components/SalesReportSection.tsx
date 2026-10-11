@@ -315,7 +315,7 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
         <div className="flex flex-wrap items-center justify-between pb-3 border-b border-slate-800 gap-2">
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-emerald-400" />
-            <h2 className="text-sm font-bold text-white">Sales Report Filters &amp; Search (فلٹرز اور تلاش)</h2>
+            <h2 className="text-sm font-bold text-white">Sales Report Filters &amp; Search</h2>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <label className="flex items-center gap-2 cursor-pointer px-3 py-1.5 bg-amber-950/40 border border-amber-500/50 hover:border-amber-400 rounded-lg text-xs font-bold text-amber-300 transition select-none">
@@ -326,7 +326,7 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
                 className="w-4 h-4 rounded accent-amber-500 cursor-pointer"
               />
               <span className="flex items-center gap-1.5">
-                <span>Only Pending Receivables (صرف بقایا جات)</span>
+                <span>Only Pending Receivables</span>
                 <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-900 text-amber-200 font-mono">
                   {saleBills.filter((b) => (b.balanceReceivable || 0) > 0).length} Bills
                 </span>
@@ -353,7 +353,7 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
               className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold rounded-lg text-xs shadow-md transition flex items-center gap-1.5 cursor-pointer"
             >
               <Search className="w-3.5 h-3.5" />
-              <span>{isLoading ? 'Searching...' : 'Show Report (رپورٹ دیکھیں)'}</span>
+              <span>{isLoading ? 'Searching...' : 'Show Report'}</span>
             </button>
           </div>
         </div>
@@ -365,14 +365,14 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
             <span>Date Range:</span>
           </span>
           {[
-            { id: 'all', label: 'All Records (تمام)' },
-            { id: 'today', label: 'Today (آج)' },
-            { id: 'yesterday', label: 'Yesterday (گزشتہ کل)' },
-            { id: 'week', label: 'This Week (یہ ہفتہ)' },
-            { id: '7days', label: 'Last 7 Days (گزشتہ 7 دن)' },
-            { id: 'month', label: 'This Month (یہ ماہ)' },
-            { id: 'last_month', label: 'Last Month (گزشتہ ماہ)' },
-            { id: 'year', label: 'This Year (یہ سال)' },
+            { id: 'all', label: 'All Records' },
+            { id: 'today', label: 'Today' },
+            { id: 'yesterday', label: 'Yesterday' },
+            { id: 'week', label: 'This Week' },
+            { id: '7days', label: 'Last 7 Days' },
+            { id: 'month', label: 'This Month' },
+            { id: 'last_month', label: 'Last Month' },
+            { id: 'year', label: 'This Year' },
           ].map((preset) => (
             <button
               key={preset.id}
@@ -396,7 +396,7 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
           {/* From Date */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-slate-400 font-semibold">From Date (شروع)</label>
+              <label className="text-slate-400 font-semibold">From Date</label>
               {fromDate && (
                 <button
                   type="button"
@@ -424,7 +424,7 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
           {/* To Date */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-slate-400 font-semibold">To Date (اختتام)</label>
+              <label className="text-slate-400 font-semibold">To Date</label>
               {toDate && (
                 <button
                   type="button"
@@ -530,7 +530,7 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
           {/* Item / Product Dropdown (User mandate: "sale report mainb check kr lena hide na ho item selction") */}
           <div className="relative" ref={itemFilterDropdownRef}>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-slate-400 font-semibold">Filter by Item (صنف)</label>
+              <label className="text-slate-400 font-semibold">Filter by Item</label>
               {selectedItemTitle && (
                 <button
                   type="button"
@@ -546,7 +546,7 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
               className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white cursor-pointer flex items-center justify-between hover:border-emerald-500 truncate"
             >
               <span className={`truncate ${selectedItemTitle ? 'text-emerald-400 font-bold' : 'text-slate-300'}`}>
-                {selectedItemTitle || 'All Items (تمام اشیاء)'}
+                {selectedItemTitle || 'All Items'}
               </span>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-1 shrink-0" />
             </div>
@@ -604,13 +604,13 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
 
           {/* Salesman */}
           <div>
-            <label className="block text-slate-400 font-semibold mb-1">Salesman (المندوب)</label>
+            <label className="block text-slate-400 font-semibold mb-1">Salesman</label>
             <select
               value={selectedSalesman}
               onChange={(e) => setSelectedSalesman(e.target.value)}
               className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white focus:outline-hidden focus:border-emerald-500"
             >
-              <option value="">All Salesmen (تمام مندوب)</option>
+              <option value="">All Salesmen</option>
               {salesmenList.map((sm) => (
                 <option key={sm} value={sm}>
                   {sm}
@@ -796,7 +796,7 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
                         <button
                           onClick={() => setReceiptModalBill(b)}
                           className="p-1 hover:bg-emerald-950 text-emerald-400 hover:text-emerald-300 rounded cursor-pointer transition"
-                          title="Print Customer Receipt / طباعة الفاتورة"
+                          title="Print Customer Receipt"
                         >
                           <Printer className="w-3.5 h-3.5" />
                         </button>
@@ -949,14 +949,14 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm"
                 >
                   <Receipt className="w-3.5 h-3.5" />
-                  <span>Bilingual Customer Receipt / فاتورة ضريبية</span>
+                  <span>Sales Invoice Receipt</span>
                 </button>
                 <button
                   onClick={() => setReceiptModalBill(activeBillDetail)}
                   className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                 >
                   <Printer className="w-3.5 h-3.5" />
-                  <span>Print Receipt (معاينة وطباعة)</span>
+                  <span>Print Receipt</span>
                 </button>
               </div>
               <button
@@ -1104,7 +1104,7 @@ const SaleBillEditModal: React.FC<SaleBillEditModalProps> = ({
               </select>
             </div>
             <div>
-              <label className="block text-slate-400 font-bold mb-1">Bill Discount (رعایت)</label>
+              <label className="block text-slate-400 font-bold mb-1">Bill Discount</label>
               <input
                 type="number"
                 step="any"
@@ -1116,7 +1116,7 @@ const SaleBillEditModal: React.FC<SaleBillEditModalProps> = ({
               />
             </div>
             <div>
-              <label className="block text-slate-400 font-bold mb-1">Cash Received (وصولی)</label>
+              <label className="block text-slate-400 font-bold mb-1">Cash Received</label>
               <input
                 type="number"
                 step="0.01"
@@ -1211,7 +1211,7 @@ const SaleBillEditModal: React.FC<SaleBillEditModalProps> = ({
                 <span className="font-mono font-black text-emerald-400 text-sm">{currencySymbol()} {netTotal.toFixed(2)}</span>
               </div>
               <div>
-                <span className="text-slate-400 block text-[10px]">Balance Due (بقایا)</span>
+                <span className="text-slate-400 block text-[10px]">Balance Due</span>
                 <span className="font-mono font-black text-amber-400 text-sm">{currencySymbol()} {balanceReceivable.toFixed(2)}</span>
               </div>
             </div>

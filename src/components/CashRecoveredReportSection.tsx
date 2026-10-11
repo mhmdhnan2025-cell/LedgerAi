@@ -128,7 +128,7 @@ export const CashRecoveredReportSection: React.FC<CashRecoveredReportSectionProp
         <div className="flex flex-wrap items-center justify-between gap-3 text-xs border-b border-slate-800 pb-3">
           <div className="flex items-center gap-2">
             <Receipt className="w-4 h-4 text-emerald-400" />
-            <h3 className="font-bold text-sm text-white">Cash &amp; Bank Recovered Report (وصولی رپورٹ)</h3>
+            <h3 className="font-bold text-sm text-white">Cash &amp; Bank Recovered Report</h3>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -151,7 +151,7 @@ export const CashRecoveredReportSection: React.FC<CashRecoveredReportSectionProp
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
           <div>
-            <label className="block text-slate-400 font-bold mb-1">From Date (شروع تاریخ)</label>
+            <label className="block text-slate-400 font-bold mb-1">From Date</label>
             <input
               type="date"
               value={fromDate}
@@ -161,7 +161,7 @@ export const CashRecoveredReportSection: React.FC<CashRecoveredReportSectionProp
           </div>
 
           <div>
-            <label className="block text-slate-400 font-bold mb-1">To Date (آخری تاریخ)</label>
+            <label className="block text-slate-400 font-bold mb-1">To Date</label>
             <input
               type="date"
               value={toDate}

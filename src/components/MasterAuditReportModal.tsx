@@ -87,7 +87,7 @@ export const MasterAuditReportModal: React.FC<MasterAuditReportModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-extrabold text-sm text-white">
-                  Master Business Audit Report (ماسٹر آڈٹ رپورٹ)
+                  Master Business Audit Report
                 </h3>
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                   Official Audit

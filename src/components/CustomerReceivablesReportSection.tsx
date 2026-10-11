@@ -303,12 +303,11 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
   // WhatsApp Reminder Generator
   const handleSendWhatsAppReminder = (c: EnrichedCustomerReceivable) => {
     const text = encodeURIComponent(
-      `محترم *${c.accountTitle}* صاحب،\n` +
-      `السلام علیکم ورحمۃ اللہ،\n\n` +
-      `آپ کے کھاتہ کا واجب الادا بقایا جات (Outstanding Balance) مبلغ *${currencySymbol()} ${c.outstandingBalance.toLocaleString()}* ہے۔\n` +
-      `برائے مہربانی اپنا کھاتہ جلد از جلد کلیئر فرمائیں۔\n` +
-      `مندوب برائے رابطہ: *${c.handlingSalesman}*\n` +
-      `شکریہ،\n*${companyProfile?.name || 'AL-HANAN WHOLESALE TRADERS'}*`
+      `Dear *${c.accountTitle}*,\n\n` +
+      `Your outstanding receivable balance is *${currencySymbol()} ${c.outstandingBalance.toLocaleString()}*.\n` +
+      `Please arrange settlement at your earliest convenience.\n` +
+      `Sales Representative: *${c.handlingSalesman}*\n\n` +
+      `Thank you,\n*${companyProfile?.name || 'AL-HANAN WHOLESALE TRADERS'}*`
     );
     window.open(`https://wa.me/${c.mobile.replace(/[^0-9]/g, '')}?text=${text}`, '_blank');
   };
@@ -324,7 +323,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
             <div className="flex items-center gap-2">
               <DollarSign className="w-5 h-5 text-amber-400" />
               <h2 className="text-sm font-bold text-white uppercase tracking-wider">
-                Customer Receivables &amp; Outstanding Ledger (گاہکوں کی ادھار و وصولیاں)
+                Customer Receivables &amp; Outstanding Ledger
               </h2>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
@@ -338,7 +337,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
               className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span>Export CSV (ایکسل)</span>
+              <span>Export CSV</span>
             </button>
 
             <button
@@ -346,7 +345,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
               className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg text-xs font-bold transition border border-slate-700 shadow-xs cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5 text-sky-400" />
-              <span>Print Ledger (طباعة)</span>
+              <span>Print Ledger</span>
             </button>
 
             <button
@@ -405,14 +404,14 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
           {/* Salesman Filter (Dynamic 100% matched with DB) */}
           <div>
             <label className="block text-amber-300 font-semibold mb-1">
-              Handling Salesman (المندوب)
+              Handling Salesman
             </label>
             <select
               value={selectedSalesman}
               onChange={(e) => setSelectedSalesman(e.target.value)}
               className="w-full bg-slate-950 border border-amber-500/50 rounded-lg px-2.5 py-1.5 text-white focus:outline-hidden focus:border-amber-400 font-bold"
             >
-              <option value="">All Salesmen (تمام سیلز مین)</option>
+              <option value="">All Salesmen</option>
               {salesmenList.map((sm) => (
                 <option key={sm} value={sm}>
                   {sm}
@@ -431,7 +430,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
             >
               <option value="WITH_BALANCE">Only with Outstanding Balance (&gt; 0)</option>
               <option value="ALL">All Customers (With &amp; Without Balance)</option>
-              <option value="OVER_LIMIT">Over Credit Limit Only (خطرناک)</option>
+              <option value="OVER_LIMIT">Over Credit Limit Only</option>
             </select>
           </div>
 
@@ -534,14 +533,14 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
             <thead>
               <tr className="bg-slate-950 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
                 <th className="py-2.5 px-3">A/C Code</th>
-                <th className="py-2.5 px-3">Customer Account Title (العميل)</th>
+                <th className="py-2.5 px-3">Customer Account Title</th>
                 <th className="py-2.5 px-3">Customer TRN</th>
-                <th className="py-2.5 px-3">Handling Salesman (المندوب)</th>
+                <th className="py-2.5 px-3">Handling Salesman</th>
                 <th className="py-2.5 px-3">Contact &amp; City</th>
                 <th className="py-2.5 px-3 text-right">Credit Limit</th>
                 <th className="py-2.5 px-3 text-right">Total Sales</th>
                 <th className="py-2.5 px-3 text-center">Last Bill</th>
-                <th className="py-2.5 px-3 text-right">Outstanding Receivable (الرصيد)</th>
+                <th className="py-2.5 px-3 text-right">Outstanding Receivable</th>
                 <th className="py-2.5 px-3 text-center">Status</th>
                 <th className="py-2.5 px-3 text-center print:hidden">Action</th>
               </tr>

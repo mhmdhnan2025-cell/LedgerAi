@@ -207,7 +207,7 @@ export const SaleReturnModal: React.FC<SaleReturnModalProps> = ({
             </div>
             <div>
               <h2 className="text-base font-bold text-white">
-                {initialReturn ? 'Edit Sales Return (سیل واپسی ترمیم کریں)' : 'Record Sales Return (سیل واپسی اندراج)'}
+                {initialReturn ? 'Edit Sales Return' : 'Record Sales Return'}
               </h2>
               <p className="text-xs text-slate-400">
                 Restores items to inventory stock (+qty) and credits customer ledger balance (-outstanding)
@@ -236,7 +236,7 @@ export const SaleReturnModal: React.FC<SaleReturnModalProps> = ({
             {/* Customer Account */}
             <div className="sm:col-span-2">
               <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1">
-                Customer Account (گاہک کا کھاتہ) *
+                Customer Account *
               </label>
               <select
                 value={selectedCustomerId}
@@ -256,7 +256,7 @@ export const SaleReturnModal: React.FC<SaleReturnModalProps> = ({
             {/* Return Date */}
             <div>
               <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1">
-                Return Date (تاریخ) *
+                Return Date *
               </label>
               <input
                 type="date"
@@ -270,7 +270,7 @@ export const SaleReturnModal: React.FC<SaleReturnModalProps> = ({
             {/* Original Bill # */}
             <div>
               <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1">
-                Original Bill # (اصل بل نمبر)
+                Original Bill #
               </label>
               <input
                 type="text"
@@ -285,7 +285,7 @@ export const SaleReturnModal: React.FC<SaleReturnModalProps> = ({
           {/* Reason */}
           <div>
             <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1">
-              General Return Reason (واپسی کی وجہ)
+              General Return Reason
             </label>
             <input
               type="text"
@@ -300,7 +300,7 @@ export const SaleReturnModal: React.FC<SaleReturnModalProps> = ({
           <div className="space-y-3 pt-2">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
-                Returned Products (واپس شدہ اشیاء)
+                Returned Products
               </h3>
               <button
                 type="button"
@@ -403,7 +403,7 @@ export const SaleReturnModal: React.FC<SaleReturnModalProps> = ({
               <div>Total Returned Quantity: <span className="font-bold text-white">{totalQty}</span></div>
             </div>
             <div className="text-right">
-              <div className="text-xs text-slate-400 font-semibold uppercase">Total Return Amount (کریڈٹ نوٹ رقم)</div>
+              <div className="text-xs text-slate-400 font-semibold uppercase">Total Return Amount (Credit Note)</div>
               <div className="text-xl font-black text-amber-400 font-mono">
                 {currencySymbol()} {Number(netTotal.toFixed(2)).toLocaleString()}
               </div>

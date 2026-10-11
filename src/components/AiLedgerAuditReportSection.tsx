@@ -346,7 +346,7 @@ export const AiLedgerAuditReportSection: React.FC<AiLedgerAuditReportSectionProp
                 </div>
                 <div>
                   <div className="text-[11px] font-bold text-white flex items-center gap-1.5">
-                    Sales Returns (سیل واپسی)
+                    Sales Returns
                     <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold">
                       {report.returnsSummary?.saleReturnsTotalCount ?? report.salesCard.saleReturnsCount ?? 0} bills
                     </span>
@@ -371,7 +371,7 @@ export const AiLedgerAuditReportSection: React.FC<AiLedgerAuditReportSectionProp
                 </div>
                 <div>
                   <div className="text-[11px] font-bold text-white flex items-center gap-1.5">
-                    Purchase Returns (خریداری واپسی)
+                    Purchase Returns
                     <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">
                       {report.returnsSummary?.purchaseReturnsTotalCount ?? report.purchaseCard.purchaseReturnsCount ?? 0} bills
                     </span>
@@ -424,7 +424,7 @@ export const AiLedgerAuditReportSection: React.FC<AiLedgerAuditReportSectionProp
           &bull; Closing time from Tijori settings.
         </p>
         <p>
-          Sales Returns (سیل واپسی) &amp; Purchase Returns (خریداری واپسی) are audit-linked: automatically deducted
+          Sales Returns &amp; Purchase Returns are audit-linked: automatically deducted
           from Gross Sales &amp; Purchases, restored/deducted in inventory stock, and tied into Cash &amp; Khata.
         </p>
         <p>

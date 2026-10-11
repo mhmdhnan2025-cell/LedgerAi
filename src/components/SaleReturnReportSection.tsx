@@ -134,7 +134,7 @@ export const SaleReturnReportSection: React.FC<SaleReturnReportSectionProps> = (
         <div>
           <h2 className="text-base font-bold text-white flex items-center gap-2">
             <RotateCcw className="w-5 h-5 text-amber-400" />
-            <span>Sales Returns Report (سیل واپسی رپورٹ)</span>
+            <span>Sales Returns Report</span>
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
             View, edit, or delete customer returned merchandise and credit notes

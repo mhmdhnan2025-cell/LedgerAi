@@ -36,6 +36,8 @@ interface CustomerManagementViewProps {
   onBackToSettings?: () => void;
   companyProfile?: CompanyProfile | null;
   onNavigateTab?: (tab: string) => void;
+  customers?: Customer[];
+  onRefreshData?: () => Promise<void> | void;
 }
 
 type ViewMode = 'list' | 'details' | 'search';
@@ -82,8 +84,10 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
   onBackToSettings,
   companyProfile,
   onNavigateTab,
+  customers: propCustomers,
+  onRefreshData,
 }) => {
-  const [customersList, setCustomersList] = useState<Customer[]>([]);
+  const [customersList, setCustomersList] = useState<Customer[]>(propCustomers || []);
   const [isLoading, setIsLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
 
@@ -167,8 +171,12 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
   };
 
   useEffect(() => {
-    loadCustomers();
-  }, []);
+    if (propCustomers && propCustomers.length > 0) {
+      setCustomersList(propCustomers);
+    } else {
+      loadCustomers();
+    }
+  }, [propCustomers]);
 
   const resetForm = () => {
     setEditingCustomerId(null);
@@ -258,16 +266,32 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
     }
 
     try {
+      const openBal = parseFloat(String(formData.openingBalance)) || 0;
+      const openType = formData.openingBalanceType || 'DR';
+      const outBal = (openType === 'CR' ? -1 : 1) * Math.abs(openBal);
+      const payload = {
+        ...formData,
+        openingBalance: openBal,
+        openingBalanceType: openType,
+        outstandingBalance: outBal,
+      };
+
       if (editingCustomerId) {
-        const updated = await api.updateCustomer(editingCustomerId, formData);
+        const updated = await api.updateCustomer(editingCustomerId, payload);
         setCustomersList((prev) => prev.map((c) => (c.id === editingCustomerId ? updated : c)));
+        if (onRefreshData) {
+          await onRefreshData();
+        }
         setActionMsg({
           type: 'success',
           text: `Customer "${updated.accountTitle}" (Code: ${updated.code}) updated successfully!`,
         });
       } else {
-        const created = await api.createCustomer(formData);
+        const created = await api.createCustomer(payload);
         setCustomersList((prev) => [created, ...prev]);
+        if (onRefreshData) {
+          await onRefreshData();
+        }
         setActionMsg({
           type: 'success',
           text: `Customer "${created.accountTitle}" (Code: ${created.code}) created successfully!`,
@@ -286,6 +310,9 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
     try {
       const updated = await api.toggleCustomerStatus(id);
       setCustomersList((prev) => prev.map((c) => (c.id === id ? updated : c)));
+      if (onRefreshData) {
+        await onRefreshData();
+      }
       setActionMsg({
         type: 'success',
         text: `Customer "${updated.accountTitle}" status changed to ${updated.status}.`,
@@ -301,6 +328,9 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
     try {
       await api.deleteCustomer(id);
       setCustomersList((prev) => prev.filter((c) => c.id !== id));
+      if (onRefreshData) {
+        await onRefreshData();
+      }
       setActionMsg({ type: 'success', text: `Customer "${name}" deleted.` });
     } catch (err: any) {
       setActionMsg({ type: 'error', text: err.message || 'Failed to delete customer.' });
@@ -1155,13 +1185,17 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
                 </label>
                 <input
                   type="number"
-                  value={formData.openingBalance}
+                  step="any"
+                  value={formData.openingBalance === 0 ? '' : formData.openingBalance}
+                  onFocus={(e) => e.target.select()}
                   onChange={(e) => {
-                    const val = parseFloat(e.target.value) || 0;
+                    const raw = e.target.value;
+                    const val = raw === '' ? 0 : (parseFloat(raw) || 0);
+                    const sign = formData.openingBalanceType === 'CR' ? -1 : 1;
                     setFormData({
                       ...formData,
                       openingBalance: val,
-                      outstandingBalance: editingCustomerId ? formData.outstandingBalance : val,
+                      outstandingBalance: sign * Math.abs(val),
                     });
                   }}
                   placeholder="0.00"
@@ -1173,7 +1207,15 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
                 <label className="block text-slate-300 font-semibold mb-1">Opening Balance Type</label>
                 <select
                   value={formData.openingBalanceType}
-                  onChange={(e) => setFormData({ ...formData, openingBalanceType: e.target.value as 'DR' | 'CR' })}
+                  onChange={(e) => {
+                    const t = e.target.value as 'DR' | 'CR';
+                    const sign = t === 'CR' ? -1 : 1;
+                    setFormData({
+                      ...formData,
+                      openingBalanceType: t,
+                      outstandingBalance: sign * Math.abs(formData.openingBalance),
+                    });
+                  }}
                   className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-hidden focus:border-orange-500 font-bold"
                 >
                   <option value="DR">DEBIT (DR - Customer Owes / Receivable)</option>

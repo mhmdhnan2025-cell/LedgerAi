@@ -194,7 +194,7 @@ export const CashPaidReportSection: React.FC<CashPaidReportSectionProps> = ({
           <div className="flex items-center justify-between text-xs text-slate-400 font-semibold mb-1">
             <span className="flex items-center gap-1.5">
               <Wallet className="w-4 h-4 text-rose-400" />
-              TOTAL PAID (کل ادائیگی)
+              TOTAL PAID
             </span>
             <span className="text-[11px] bg-slate-800 px-2 py-0.5 rounded text-slate-300 font-mono">
               {rawItems.length} entries
@@ -218,7 +218,7 @@ export const CashPaidReportSection: React.FC<CashPaidReportSectionProps> = ({
           <div className="flex items-center justify-between text-xs text-indigo-400 font-semibold mb-1">
             <span className="flex items-center gap-1.5">
               <Building2 className="w-4 h-4 text-indigo-400" />
-              SUPPLIER PAID (سپلائر ادائیگیاں)
+              SUPPLIER PAID
             </span>
             <span className="text-[11px] bg-indigo-950/70 text-indigo-300 border border-indigo-800/60 px-2 py-0.5 rounded font-mono">
               {supplierItemsCount} entries
@@ -245,7 +245,7 @@ export const CashPaidReportSection: React.FC<CashPaidReportSectionProps> = ({
           <div className="flex items-center justify-between text-xs text-amber-400 font-semibold mb-1">
             <span className="flex items-center gap-1.5">
               <Receipt className="w-4 h-4 text-amber-400" />
-              EXPENSE PAID (اخراجات ادائیگیاں)
+              EXPENSE PAID
             </span>
             <span className="text-[11px] bg-amber-950/70 text-amber-300 border border-amber-800/60 px-2 py-0.5 rounded font-mono">
               {expenseItemsCount} entries
@@ -264,7 +264,7 @@ export const CashPaidReportSection: React.FC<CashPaidReportSectionProps> = ({
           <div className="flex items-center gap-2">
             <Receipt className="w-4 h-4 text-rose-400" />
             <h3 className="font-bold text-sm text-white">
-              Cash &amp; Bank Paid Report (ادائیگی رپورٹ)
+              Cash &amp; Bank Paid Report
             </h3>
           </div>
 
@@ -325,7 +325,7 @@ export const CashPaidReportSection: React.FC<CashPaidReportSectionProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
           <div>
-            <label className="block text-slate-400 font-bold mb-1">From Date (شروع تاریخ)</label>
+            <label className="block text-slate-400 font-bold mb-1">From Date</label>
             <input
               type="date"
               value={fromDate}
@@ -335,7 +335,7 @@ export const CashPaidReportSection: React.FC<CashPaidReportSectionProps> = ({
           </div>
 
           <div>
-            <label className="block text-slate-400 font-bold mb-1">To Date (آخری تاریخ)</label>
+            <label className="block text-slate-400 font-bold mb-1">To Date</label>
             <input
               type="date"
               value={toDate}

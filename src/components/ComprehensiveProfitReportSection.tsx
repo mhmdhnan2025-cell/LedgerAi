@@ -627,7 +627,7 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
                 <h2 className="text-lg font-black text-white tracking-tight flex items-center gap-2">
                   Profit Intelligence Reports Hub
                   <span className="text-xs font-mono font-normal text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40">
-                    منافع کی تفصیلی رپورٹ
+                    Comprehensive Margin Analysis
                   </span>
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5">
@@ -640,14 +640,14 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
           {/* Preset Buttons */}
           <div className="flex flex-wrap items-center gap-1.5">
             {[
-              { id: 'all', label: 'All Records (تمام)' },
-              { id: 'today', label: 'Today (آج)' },
-              { id: 'yesterday', label: 'Yesterday (گزشتہ کل)' },
-              { id: 'week', label: 'This Week (یہ ہفتہ)' },
-              { id: '7days', label: 'Last 7 Days (گزشتہ 7 دن)' },
-              { id: 'month', label: 'This Month (یہ ماہ)' },
-              { id: 'last_month', label: 'Last Month (گزشتہ ماہ)' },
-              { id: 'year', label: 'This Year (یہ سال)' },
+              { id: 'all', label: 'All Records' },
+              { id: 'today', label: 'Today' },
+              { id: 'yesterday', label: 'Yesterday' },
+              { id: 'week', label: 'This Week' },
+              { id: '7days', label: 'Last 7 Days' },
+              { id: 'month', label: 'This Month' },
+              { id: 'last_month', label: 'Last Month' },
+              { id: 'year', label: 'This Year' },
             ].map((preset) => (
               <button
                 key={preset.id}
@@ -686,7 +686,7 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
         <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 mt-4 pt-4 border-t border-slate-800/80 items-center">
           <div className="sm:col-span-3">
             <div className="flex items-center justify-between mb-1">
-              <label className="text-[11px] font-bold text-slate-400">From Date (شروع کی تاریخ)</label>
+              <label className="text-[11px] font-bold text-slate-400">From Date</label>
               {fromDate && (
                 <button
                   type="button"
@@ -713,7 +713,7 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
 
           <div className="sm:col-span-3">
             <div className="flex items-center justify-between mb-1">
-              <label className="text-[11px] font-bold text-slate-400">To Date (اختتام کی تاریخ)</label>
+              <label className="text-[11px] font-bold text-slate-400">To Date</label>
               {toDate && (
                 <button
                   type="button"
@@ -739,7 +739,7 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
           </div>
 
           <div className="sm:col-span-4">
-            <label className="block text-[11px] font-bold text-slate-400 mb-1">Search Keywords (نام / کوڈ تلاش کریں)</label>
+            <label className="block text-[11px] font-bold text-slate-400 mb-1">Search Keywords</label>
             <div className="relative">
               <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-500" />
               <input
@@ -802,7 +802,7 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
               Profit Without Taxes
             </span>
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800 font-mono font-bold">
-              بغیر ٹیکس نفع
+              Pre-Tax
             </span>
           </div>
           <div className="text-lg sm:text-xl font-black font-mono text-emerald-400 mt-1 flex items-center gap-1">
@@ -824,7 +824,7 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
               Profit With Added Taxes
             </span>
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-teal-950 text-teal-300 border border-teal-800 font-mono font-bold">
-              مع ٹیکس اثر
+              Tax Incl.
             </span>
           </div>
           <div className="text-lg sm:text-xl font-black font-mono text-teal-300 mt-1">
@@ -842,7 +842,7 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5">
           <div className="flex items-center justify-between text-[11px] font-bold text-slate-400">
             <span>Sales Revenue + Tax</span>
-            <span className="text-indigo-400 font-urdu text-[10px]">فروخت مع ٹیکس</span>
+            <span className="text-indigo-400 text-[10px] font-bold">Gross Sales</span>
           </div>
           <div className="text-base sm:text-lg font-black font-mono text-white mt-1">
             {currencySymbol()} {summary.totalSalesVolume.toLocaleString()}
@@ -863,7 +863,7 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5">
           <div className="flex items-center justify-between text-[11px] font-bold text-slate-400">
             <span>Cost of Goods + Tax</span>
-            <span className="text-amber-400 font-urdu text-[10px]">لاگت خریداری مع ٹیکس</span>
+            <span className="text-amber-400 text-[10px] font-bold">Total COGS</span>
           </div>
           <div className="text-base sm:text-lg font-black font-mono text-slate-200 mt-1">
             {currencySymbol()} {(summary.totalCostWithTax ?? summary.totalCostOfGoods).toLocaleString()}
@@ -886,7 +886,7 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
         <div className="flex items-center gap-2">
           <DollarSign className="w-4 h-4 text-emerald-400 shrink-0" />
           <span className="font-bold text-slate-200">
-            Tax Authority Position (نیٹ ٹیکس کھاتہ):
+            Tax Authority Position:
           </span>
           <span className="text-slate-400">
             Collected Output Tax ({currencySymbol()} {(summary.totalSalesTaxCollected ?? 0).toLocaleString()}) - Paid Input Tax ({currencySymbol()} {(summary.totalInputTaxPaid ?? 0).toLocaleString()})
@@ -925,7 +925,7 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
             }`}
           >
             <Package className="w-4 h-4" />
-            <span>1. Profit Per Item (ہر آئٹم کا نفع)</span>
+            <span>1. Profit Per Item</span>
             <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">
               {filteredItems.length}
             </span>
@@ -940,7 +940,7 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
             }`}
           >
             <Receipt className="w-4 h-4" />
-            <span>2. Profit Per Bill (ہر سیل بل کا نفع)</span>
+            <span>2. Profit Per Bill</span>
             <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">
               {filteredBills.length}
             </span>
@@ -955,7 +955,7 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
             }`}
           >
             <Store className="w-4 h-4" />
-            <span>3. Profit Per Restaurant / Customer (گاہک کا نفع)</span>
+            <span>3. Profit Per Customer</span>
             <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">
               {filteredRestaurants.length}
             </span>
@@ -970,7 +970,7 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
             }`}
           >
             <Users className="w-4 h-4" />
-            <span>4. Profit Per Salesman (سیلز مین کا نفع)</span>
+            <span>4. Profit Per Salesman</span>
             <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">
               {filteredSalesmen.length}
             </span>
@@ -987,7 +987,7 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
             <div>
               <label className="block text-[11px] font-bold text-slate-300 mb-1 flex items-center gap-1">
                 <Package className="w-3.5 h-3.5 text-emerald-400" />
-                <span>1. Item (آئٹم فلٹر)</span>
+                <span>1. Item Filter</span>
               </label>
               <select
                 value={itemSelectFilter}
@@ -998,7 +998,7 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
                     : 'border-slate-700'
                 }`}
               >
-                <option value="ALL">All Items (تمام آئٹمز - {itemOptions.length})</option>
+                <option value="ALL">All Items ({itemOptions.length})</option>
                 {itemOptions.map((opt) => (
                   <option key={opt.mcode} value={opt.mcode}>
                     {opt.title} ({opt.mcode})
@@ -1011,7 +1011,7 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
             <div>
               <label className="block text-[11px] font-bold text-slate-300 mb-1 flex items-center gap-1">
                 <Users className="w-3.5 h-3.5 text-teal-400" />
-                <span>2. Salesman (سیلز مین)</span>
+                <span>2. Salesman</span>
               </label>
               <select
                 value={salesmanSelectFilter}
@@ -1022,7 +1022,7 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
                     : 'border-slate-700'
                 }`}
               >
-                <option value="ALL">All Salesmen (تمام سیلزمین - {salesmanOptions.length})</option>
+                <option value="ALL">All Salesmen ({salesmanOptions.length})</option>
                 {salesmanOptions.map((sm) => (
                   <option key={sm} value={sm}>
                     {sm}
@@ -1035,7 +1035,7 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
             <div>
               <label className="block text-[11px] font-bold text-slate-300 mb-1 flex items-center gap-1">
                 <Store className="w-3.5 h-3.5 text-indigo-400" />
-                <span>3. Customer (گاہک / پارٹی)</span>
+                <span>3. Customer</span>
               </label>
               <select
                 value={customerSelectFilter}
@@ -1046,7 +1046,7 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
                     : 'border-slate-700'
                 }`}
               >
-                <option value="ALL">All Customers (تمام گاہک - {customerOptions.length})</option>
+                <option value="ALL">All Customers ({customerOptions.length})</option>
                 {customerOptions.map((c) => (
                   <option key={c} value={c}>
                     {c}
@@ -1059,7 +1059,7 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
             <div>
               <label className="block text-[11px] font-bold text-slate-300 mb-1 flex items-center gap-1">
                 <Receipt className="w-3.5 h-3.5 text-amber-400" />
-                <span>4. Bill # (سیل بل)</span>
+                <span>4. Bill #</span>
               </label>
               <select
                 value={billSelectFilter}
@@ -1070,7 +1070,7 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
                     : 'border-slate-700'
                 }`}
               >
-                <option value="ALL">All Bills (تمام بلز - {billOptions.length})</option>
+                <option value="ALL">All Bills ({billOptions.length})</option>
                 {billOptions.map((b) => (
                   <option key={b} value={b}>
                     Bill #{b}
@@ -1083,7 +1083,7 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
             <div>
               <label className="block text-[11px] font-bold text-slate-300 mb-1 flex items-center gap-1">
                 <Filter className="w-3.5 h-3.5 text-sky-400" />
-                <span>5. Margin (منافع کی حالت)</span>
+                <span>5. Margin Status</span>
               </label>
               <select
                 value={statusFilter}
@@ -1094,10 +1094,10 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
                     : 'border-slate-700'
                 }`}
               >
-                <option value="ALL">All Margins (تمام)</option>
-                <option value="PROFITABLE">Profitable Only (صرف منافع بخش)</option>
-                <option value="LOW_MARGIN">Low Margin &lt;10% (کم مارجن)</option>
-                <option value="LOSS">Loss Making (نقصان والے)</option>
+                <option value="ALL">All Margins</option>
+                <option value="PROFITABLE">Profitable Only</option>
+                <option value="LOW_MARGIN">Low Margin &lt;10%</option>
+                <option value="LOSS">Loss Making</option>
               </select>
             </div>
 
@@ -1105,7 +1105,7 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
             <div>
               <label className="block text-[11px] font-bold text-slate-300 mb-1 flex items-center gap-1">
                 <Search className="w-3.5 h-3.5 text-slate-400" />
-                <span>Live Search (فوری تلاش)</span>
+                <span>Live Search</span>
               </label>
               <div className="relative">
                 <input
@@ -1140,7 +1140,7 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="text-[11px] text-slate-400 font-semibold">Active Filter:</span>
               {!hasActiveFilters ? (
-                <span className="text-[11px] text-slate-500 italic">None (تمام ریکارڈز نظر آرہے ہیں)</span>
+                <span className="text-[11px] text-slate-500 italic">None (All records active)</span>
               ) : (
                 <>
                   {itemSelectFilter !== 'ALL' && (
@@ -1196,7 +1196,7 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
                     className="ml-2 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-700/60 text-[11px] font-bold cursor-pointer transition"
                   >
                     <RotateCcw className="w-3 h-3" />
-                    <span>Reset All (فلٹرز ختم کریں)</span>
+                    <span>Reset All</span>
                   </button>
                 </>
               )}
@@ -1668,7 +1668,7 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
           {popoverSalesman.sm.customersList && popoverSalesman.sm.customersList.length > 0 && (
             <div className="pt-2.5 border-t border-slate-800 text-xs">
               <span className="text-slate-300 font-bold block mb-1.5 text-[11px]">
-                Customers Handled &amp; Profit Breakdown (گاہک اور منافع):
+                Customers Handled &amp; Profit Breakdown:
               </span>
               <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                 {popoverSalesman.sm.customersList.map((c, cIdx) => (
