@@ -63,6 +63,10 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  // Font Size & Boldness Customization (Corner Adjustment)
+  const [reportFontSize, setReportFontSize] = useState<'sm' | 'base' | 'lg'>('base');
+  const [reportFontWeight, setReportFontWeight] = useState<'normal' | 'bold' | 'black'>('bold');
+
   // Delete transaction modal
   const [confirmEntry, setConfirmEntry] = useState<SupplierLedgerEntry | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -362,14 +366,14 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
               ) : (
                 <Square className="w-4 h-4 text-slate-500" />
               )}
-              <span className="font-semibold">Audit (آڈٹ)</span>
+              <span className="font-semibold">Audit</span>
             </button>
           </div>
 
           {/* Supplier Account Title Dropdown (Code - Title) */}
           <div className="relative lg:col-span-2" ref={dropdownRef}>
             <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1">
-              Supplier Account (سپلائر کا کھاتہ)
+              Supplier Account Title
             </label>
             <div
               onClick={handleToggleDropdown}
@@ -378,7 +382,7 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
               <span className={`truncate ${selectedSupplier ? 'text-white font-semibold' : 'text-purple-300 font-bold'}`}>
                 {selectedSupplier
                   ? `${selectedSupplier.code || selectedSupplier.accountNumber || ''} - ${selectedSupplier.accountTitle || selectedSupplier.title || selectedSupplier.name}`
-                  : 'All Accounts / Nothing Selected (تمام سپلائرز / تمام کھاتے)'}
+                  : 'All Accounts / Nothing Selected'}
               </span>
               <div className="flex items-center gap-1.5 ml-2 shrink-0">
                 {selectedSupplier && (
@@ -443,8 +447,8 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
                     <div className="flex items-center gap-2">
                       <span className="text-purple-400 font-bold text-sm">★</span>
                       <div>
-                        <div className="font-bold text-white">All Accounts / Nothing Selected (تمام کھاتے)</div>
-                        <div className="text-[11px] text-slate-400">تمام سپلائرز کا مشترکہ لیجر اور تمام ٹرانزیکشنز ڈیلیٹ آپشنز کے ساتھ</div>
+                        <div className="font-bold text-white">All Accounts / Nothing Selected</div>
+                        <div className="text-[11px] text-slate-400">Combined ledger of all supplier accounts with full transaction history</div>
                       </div>
                     </div>
                     <span className="text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-bold">
@@ -507,7 +511,7 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
           {/* P.O # / Bill # Filter */}
           <div>
             <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1">
-              Bill / Inv # (بل یا انوائس)
+              Bill / Inv #
             </label>
             <input
               type="text"
@@ -528,7 +532,7 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
               className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition shadow-sm cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-              <span>Generate (رپورٹ تیار کریں)</span>
+              <span>Generate Report</span>
             </button>
           </div>
 
@@ -539,7 +543,7 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
               className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 hover:text-white rounded-lg border border-slate-700 text-xs font-semibold transition cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5 text-purple-400" />
-              <span>Print (پرنٹ)</span>
+              <span>Print Ledger</span>
             </button>
             <button
               onClick={handleExportCSV}
@@ -575,11 +579,59 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
         </div>
       )}
 
+      {/* Font & Display Settings Toolbar (Corner Adjustment) */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 print:hidden shadow-sm">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+            Supplier General Ledger Preview
+          </span>
+        </div>
+
+        {/* Font Customizer Controls in Top Corner */}
+        <div className="flex items-center gap-3 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-300">
+          <span className="text-[11px] font-bold text-purple-400 uppercase tracking-wider">
+            Font Settings:
+          </span>
+          <div className="flex items-center gap-1 border-r border-slate-800 pr-2.5">
+            <span className="text-[10px] text-slate-400 font-medium">Size:</span>
+            {(['sm', 'base', 'lg'] as const).map((sz) => (
+              <button
+                key={sz}
+                type="button"
+                onClick={() => setReportFontSize(sz)}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold transition cursor-pointer ${
+                  reportFontSize === sz ? 'bg-purple-600 text-white shadow-xs' : 'bg-slate-850 hover:bg-slate-700 text-slate-300'
+                }`}
+              >
+                {sz === 'sm' ? 'Normal' : sz === 'base' ? 'Large' : 'Extra Large'}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] text-slate-400 font-medium">Boldness:</span>
+            {(['normal', 'bold', 'black'] as const).map((bw) => (
+              <button
+                key={bw}
+                type="button"
+                onClick={() => setReportFontWeight(bw)}
+                className={`px-2 py-0.5 rounded text-[11px] transition cursor-pointer ${
+                  bw === 'normal' ? 'font-medium' : bw === 'bold' ? 'font-bold' : 'font-black'
+                } ${
+                  reportFontWeight === bw ? 'bg-purple-600 text-white shadow-xs' : 'bg-slate-850 hover:bg-slate-700 text-slate-300'
+                }`}
+              >
+                {bw === 'normal' ? 'Normal' : bw === 'bold' ? 'Bold' : 'Extra Bold'}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Report Canvas (Exact Match to General Ledger Reporting) */}
       <div className="bg-white text-slate-900 rounded-xl shadow-xl p-6 sm:p-8 font-sans border border-slate-200 print:shadow-none print:border-none print:p-0 print:m-0">
         {/* Header (Branded Company Header) */}
         <div className="text-center pb-4 border-b border-slate-300">
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-wide uppercase">
+          <h1 className="text-xl sm:text-3xl font-black text-slate-900 tracking-wide uppercase">
             {companyProfile?.name || 'ZAHRAT AL FAJR FOODSTUFF TR L.L.C'}
           </h1>
           <div className="text-xs text-slate-600 mt-1 space-x-2">
@@ -589,8 +641,8 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
             <span>•</span>
             <span>Email: info@zahratfoodstuff.com</span>
           </div>
-          <div className="inline-block mt-3 px-4 py-1 bg-purple-950 text-white rounded font-bold text-xs uppercase tracking-widest">
-            Supplier General Ledger Reporting (سپلائر جنرل لیجر کھاتہ)
+          <div className="inline-block mt-3 px-4 py-1.5 bg-purple-950 text-white rounded-md font-black text-sm uppercase tracking-widest shadow-xs">
+            Supplier General Ledger Reporting
           </div>
         </div>
 
@@ -642,18 +694,18 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
 
         {/* General Ledger Table */}
         <div className="overflow-x-auto mt-2">
-          <table className="w-full text-left border-collapse text-[11px]">
+          <table className={`w-full text-left border-collapse ${reportFontSize === 'sm' ? 'text-xs' : reportFontSize === 'base' ? 'text-sm' : 'text-base'}`}>
             <thead>
-              <tr className="border-y-2 border-slate-900 bg-slate-100 font-extrabold text-slate-900 uppercase">
-                <th className="py-2 px-2 text-center w-12">REF</th>
-                <th className="py-2 px-2 text-center w-16">[REF#]</th>
-                <th className="py-2 px-2.5 w-24">DATE</th>
-                <th className="py-2 px-2 w-20">BILL#</th>
-                <th className="py-2 px-3">NARRATION</th>
-                <th className="py-2 px-3 text-right w-24">DEBIT (PAID)</th>
-                <th className="py-2 px-3 text-right w-24">CREDIT (PURCHASE)</th>
-                <th className="py-2 px-3 text-right w-28">BALANCE</th>
-                <th className="py-2 px-2 text-center w-12 print:hidden">ACTION</th>
+              <tr className={`border-y-2 border-slate-900 bg-slate-100 ${reportFontWeight === 'normal' ? 'font-bold' : 'font-black'} text-slate-950 uppercase ${reportFontSize === 'sm' ? 'text-xs' : reportFontSize === 'base' ? 'text-sm' : 'text-base'}`}>
+                <th className="py-2.5 px-2 text-center w-12">REF</th>
+                <th className="py-2.5 px-2 text-center w-16">[REF#]</th>
+                <th className="py-2.5 px-2.5 w-24">DATE</th>
+                <th className="py-2.5 px-2 w-20">BILL#</th>
+                <th className="py-2.5 px-3">NARRATION</th>
+                <th className="py-2.5 px-3 text-right w-24">DEBIT (PAID)</th>
+                <th className="py-2.5 px-3 text-right w-24">CREDIT (PURCHASE)</th>
+                <th className="py-2.5 px-3 text-right w-28">BALANCE</th>
+                <th className="py-2.5 px-2 text-center w-12 print:hidden">ACTION</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 font-mono">
@@ -665,7 +717,7 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
                 <td className="py-2 px-2 text-center text-slate-400">-</td>
                 <td className="py-2 px-2.5 text-slate-700">{formatDateDisplay(report?.fromDate || fromDate)}</td>
                 <td className="py-2 px-2 text-slate-400">-</td>
-                <td className="py-2 px-3 font-sans font-bold text-slate-950">Opening Balance (سابقہ بقایا)</td>
+                <td className="py-2 px-3 font-sans font-bold text-slate-950">Opening Balance</td>
                 <td className="py-2 px-3 text-right text-slate-400">-</td>
                 <td className="py-2 px-3 text-right text-slate-400">-</td>
                 <td className="py-2 px-3 text-right font-bold text-slate-950">
@@ -786,7 +838,7 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
             <tfoot>
               <tr className="border-t-2 border-slate-900 bg-slate-100 font-extrabold text-slate-950">
                 <td colSpan={5} className="py-2.5 px-3 text-right uppercase tracking-wider font-sans">
-                  Total (میزان):
+                  Total:
                 </td>
                 <td className="py-2.5 px-3 text-right font-mono font-black text-emerald-800">
                   {formatNumber(report?.totalDebit || 0)}
@@ -801,12 +853,12 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
               </tr>
               <tr className="border-b-2 border-slate-900 bg-slate-200/80 font-black text-slate-950">
                 <td colSpan={5} className="py-2 px-3 text-right uppercase tracking-wider font-sans text-xs">
-                  Net Closing Balance (آخری واجب الاداء رقم):
+                  Net Closing Balance:
                 </td>
                 <td colSpan={3} className="py-2 px-3 text-right font-mono text-xs text-slate-950">
                   {currencySymbol()} {formatNumber(report?.closingBalance || 0)}{' '}
                   <span className={report?.closingBalanceType === 'CR' ? 'text-purple-900' : 'text-emerald-800'}>
-                    {report?.closingBalanceType === 'CR' ? 'CREDIT (CR - واجب الاداء بقایا)' : 'DEBIT (DR - ایڈوانس ادائیگی)'}
+                    {report?.closingBalanceType === 'CR' ? 'CREDIT (CR - Payable Due)' : 'DEBIT (DR - Advance Paid)'}
                   </span>
                 </td>
                 <td className="print:hidden"></td>

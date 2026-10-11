@@ -77,6 +77,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
 
   // Header State
   const [discountType, setDiscountType] = useState<'Percentage' | 'Amount'>('Percentage');
+  const [vatType, setVatType] = useState<'Percentage' | 'Amount'>('Percentage');
   const [billDate, setBillDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [billNumber, setBillNumber] = useState<string>('1001');
   const [lpoNo, setLpoNo] = useState<string>('');
@@ -162,6 +163,8 @@ export const SalesView: React.FC<SalesViewProps> = ({
   const ratePerCtnInputRef = useRef<HTMLInputElement>(null);
   const qtyInputRef = useRef<HTMLInputElement>(null);
   const rateInputRef = useRef<HTMLInputElement>(null);
+  const discountInputRef = useRef<HTMLInputElement>(null);
+  const vatPercentInputRef = useRef<HTMLInputElement>(null);
 
   // Added Bill Items Table
   const [billItems, setBillItems] = useState<SaleBillItem[]>([]);
@@ -309,13 +312,18 @@ export const SalesView: React.FC<SalesViewProps> = ({
     const sellPrice = prod.sellingPrice || prod.salePrice || 0;
     setRate(sellPrice);
 
-    const qPerCtn = prod.qtyInCarton || 1;
+    const qPerCtn = prod.qtyInCarton && prod.qtyInCarton > 0 ? prod.qtyInCarton : 1;
     setQtyPerCtn(qPerCtn);
     const rateCtn = prod.ctnSaleRate || Number((sellPrice * qPerCtn).toFixed(2));
     setRatePerCtn(rateCtn);
 
-    const c = typeof ctn === 'number' && ctn > 0 ? ctn : 1;
-    setQty(Number((c * qPerCtn).toFixed(2)));
+    if (qPerCtn > 1) {
+      setCtn(1);
+      setQty('');
+    } else {
+      setCtn(0);
+      setQty(1);
+    }
 
     setIsItemDropdownOpen(false);
     if (ctnInputRef.current) {
@@ -323,56 +331,47 @@ export const SalesView: React.FC<SalesViewProps> = ({
     }
   };
 
-  // Sync CTN and Qty
+  // Independent inputs for Dual Packaging (Whole Cartons + Loose KGs/Grams)
   const handleCtnChange = (val: number | '') => {
     setCtn(val);
-    if (typeof val === 'number') {
-      const qpc = typeof qtyPerCtn === 'number' && qtyPerCtn > 0 ? qtyPerCtn : 1;
-      setQty(Number((val * qpc).toFixed(2)));
-      if (typeof rate === 'number' && rate > 0) {
-        setRatePerCtn(Number((rate * qpc).toFixed(2)));
-      }
-    } else {
-      setQty('');
-    }
   };
 
   const handleRatePerCtnChange = (val: number | '') => {
     setRatePerCtn(val);
-    if (typeof val === 'number') {
-      const qpc = typeof qtyPerCtn === 'number' && qtyPerCtn > 0 ? qtyPerCtn : 1;
-      const unitRate = Number((val / qpc).toFixed(2));
-      setRate(unitRate);
-    }
   };
 
   const handleQtyChange = (val: number | '') => {
     setQty(val);
-    if (typeof val === 'number') {
-      const qpc = typeof qtyPerCtn === 'number' && qtyPerCtn > 0 ? qtyPerCtn : 1;
-      setCtn(Number((val / qpc).toFixed(2)));
-    } else {
-      setCtn('');
-    }
   };
 
   const handleRateChange = (val: number | '') => {
     setRate(val);
-    if (typeof val === 'number') {
-      const qpc = typeof qtyPerCtn === 'number' && qtyPerCtn > 0 ? qtyPerCtn : 1;
-      setRatePerCtn(Number((val * qpc).toFixed(2)));
-    }
   };
 
-  // Current row calculations
+  // Current row calculations (Dual packaging: Subtotal = CTN * RATE/CTN + QTY * RATE)
+  const numericCtn = typeof ctn === 'number' ? ctn : 0;
+  const numericRatePerCtn = typeof ratePerCtn === 'number' ? ratePerCtn : 0;
+  const numericQtyPerCtn = typeof qtyPerCtn === 'number' && qtyPerCtn > 0 ? qtyPerCtn : 1;
   const numericQty = typeof qty === 'number' ? qty : 0;
   const numericRate = typeof rate === 'number' ? rate : 0;
   const numericDiscount = typeof discount === 'number' ? discount : 0;
   const numericVatPercent = typeof vatPercent === 'number' ? vatPercent : 0;
 
-  const currentItemGross = Math.max(0, numericQty * numericRate - numericDiscount);
-  const currentItemVatAmount = Number(((currentItemGross * numericVatPercent) / 100).toFixed(2));
+  const currentItemSubtotal = Number(((numericCtn * numericRatePerCtn) + (numericQty * numericRate)).toFixed(2));
+  const currentItemDiscountAmt = discountType === 'Percentage'
+    ? Number(((currentItemSubtotal * numericDiscount) / 100).toFixed(2))
+    : numericDiscount;
+  const currentItemGross = Math.max(0, Number((currentItemSubtotal - currentItemDiscountAmt).toFixed(2)));
+  const currentItemVatAmount = vatType === 'Percentage'
+    ? Number(((currentItemGross * numericVatPercent) / 100).toFixed(2))
+    : Number(numericVatPercent.toFixed(2));
   const currentItemTotalAmount = Number((currentItemGross + currentItemVatAmount).toFixed(2));
+
+  // Physical inventory consumption = (CTN * QTY/CTN) + QTY (supporting kg & grams)
+  const currentItemTotalConsumed = Number(((numericCtn * numericQtyPerCtn) + numericQty).toFixed(2));
+  const currentItemRemainingStock = Number((itemStock - currentItemTotalConsumed).toFixed(2));
+  const currentItemRemainingCtns = Math.floor(Math.max(0, currentItemRemainingStock) / numericQtyPerCtn);
+  const currentItemRemainingLoose = Number((Math.max(0, currentItemRemainingStock) % numericQtyPerCtn).toFixed(2));
 
   // Active product lookup for instant cost popup & margin intelligence
   const activeProduct = React.useMemo(() => {
@@ -444,11 +443,11 @@ export const SalesView: React.FC<SalesViewProps> = ({
       setErrorMsg('Please select or type an item title.');
       return;
     }
-    if (numericQty <= 0) {
-      setErrorMsg('Item quantity must be greater than 0.');
+    if (currentItemTotalConsumed <= 0) {
+      setErrorMsg('Carton count or loose quantity must be greater than 0.');
       return;
     }
-    if (numericRate <= 0) {
+    if (numericRatePerCtn <= 0 && numericRate <= 0) {
       setErrorMsg('Item rate must be greater than 0.');
       return;
     }
@@ -456,14 +455,14 @@ export const SalesView: React.FC<SalesViewProps> = ({
     // Strictly prevent selling more than available physical stock
     const alreadyInBill = billItems
       .filter((b) => b.productId === selectedProductId || (selectedProductId && b.productId === selectedProductId) || (b.itemTitle.toLowerCase() === itemTitle.trim().toLowerCase()))
-      .reduce((sum, b) => sum + (Number(b.qty) || 0), 0);
+      .reduce((sum, b) => sum + (b.totalDeductedQty !== undefined ? b.totalDeductedQty : (Number(b.qty) || 0)), 0);
     const availablePhysicalStock = itemStock > 0 ? itemStock : (activeProduct?.currentQuantity || 0);
     const netAvailableStock = Math.max(0, Number((availablePhysicalStock - alreadyInBill).toFixed(2)));
 
-    if (itemTitle.trim() && numericQty > netAvailableStock) {
-      const shortage = Number((numericQty - netAvailableStock).toFixed(2));
+    if (itemTitle.trim() && currentItemTotalConsumed > netAvailableStock) {
+      const shortage = Number((currentItemTotalConsumed - netAvailableStock).toFixed(2));
       setErrorMsg(
-        `⚠️ اسٹاک ناکافی ہے! دستیاب اسٹاک: ${netAvailableStock} ${resolvedBaseUnit} ہے۔ آپ نے ${numericQty} ${resolvedBaseUnit} درج کیا ہے (${shortage} ${resolvedBaseUnit} کم ہے)۔ برائے مہربانی پہلے مال خریدیں (Restock کریں)۔`
+        `⚠️ Stock shortage! Available stock: ${netAvailableStock} ${resolvedBaseUnit}. Entered sale consumption: ${currentItemTotalConsumed} ${resolvedBaseUnit} (${shortage} ${resolvedBaseUnit} short).`
       );
       return;
     }
@@ -475,17 +474,19 @@ export const SalesView: React.FC<SalesViewProps> = ({
       category: itemCategory,
       mcode: itemMCode,
       packageType: resolvedPackageType,
-      ctn: typeof ctn === 'number' ? ctn : 0,
-      ratePerCtn: typeof ratePerCtn === 'number' ? ratePerCtn : 0,
-      qtyPerCtn: typeof qtyPerCtn === 'number' ? qtyPerCtn : 1,
+      ctn: numericCtn,
+      ratePerCtn: numericRatePerCtn,
+      qtyPerCtn: numericQtyPerCtn,
       qty: numericQty,
       rate: numericRate,
       discount: numericDiscount,
       vatPercent: numericVatPercent,
       vatAmount: currentItemVatAmount,
+      vatType,
       amount: currentItemTotalAmount,
       stock: itemStock,
-      remainingStock: Math.max(0, Number((itemStock - numericQty).toFixed(2))),
+      remainingStock: Math.max(0, currentItemRemainingStock),
+      totalDeductedQty: currentItemTotalConsumed,
       unit: resolvedBaseUnit,
     };
 
@@ -517,9 +518,11 @@ export const SalesView: React.FC<SalesViewProps> = ({
 
   // Grand Totals Computation
   const computedTotalCtn = billItems.reduce((acc, it) => acc + (it.ctn || 0), 0);
-  const computedTotalQty = billItems.reduce((acc, it) => acc + (it.qty || 0), 0);
+  const computedTotalQty = Number(
+    billItems.reduce((acc, it) => acc + (it.totalDeductedQty !== undefined ? it.totalDeductedQty : (it.qty || 0)), 0).toFixed(2)
+  );
   const computedGrossAmount = Number(
-    billItems.reduce((acc, it) => acc + Math.max(0, it.qty * it.rate - (it.discount || 0)), 0).toFixed(2)
+    billItems.reduce((acc, it) => acc + Math.max(0, it.amount - (it.vatAmount || 0)), 0).toFixed(2)
   );
   const computedTotalVat = Number(billItems.reduce((acc, it) => acc + (it.vatAmount || 0), 0).toFixed(2));
   const computedItemDiscounts = billItems.reduce((acc, it) => acc + (it.discount || 0), 0);
@@ -590,6 +593,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
         partyBalanceBefore,
         paymentType,
         discountType,
+        vatType,
         items: billItems,
         totalCtn: computedTotalCtn,
         totalQty: computedTotalQty,
@@ -664,6 +668,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
       partyBalanceBefore,
       paymentType,
       discountType,
+      vatType,
       items: billItems,
       totalCtn: computedTotalCtn,
       totalQty: computedTotalQty,
@@ -798,7 +803,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
         )}
 
         {/* Invoice Metadata Row (Matching the Exact Visual Style in Image 1 & 2) */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5 mt-4 text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2.5 mt-4 text-xs">
           {/* Discount Type Radio / Toggle */}
           <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-2 flex flex-col justify-center">
             <label className="text-[11px] text-slate-400 font-semibold mb-1">Discount Type</label>
@@ -819,6 +824,33 @@ export const SalesView: React.FC<SalesViewProps> = ({
                   name="discountType"
                   checked={discountType === 'Amount'}
                   onChange={() => setDiscountType('Amount')}
+                  className="accent-emerald-500"
+                />
+                <span>Amount</span>
+              </label>
+            </div>
+          </div>
+
+          {/* VAT Type Radio / Toggle (Default Percentage) */}
+          <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-2 flex flex-col justify-center">
+            <label className="text-[11px] text-slate-400 font-semibold mb-1">VAT Type</label>
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-1 text-slate-200 cursor-pointer">
+                <input
+                  type="radio"
+                  name="vatType"
+                  checked={vatType === 'Percentage'}
+                  onChange={() => setVatType('Percentage')}
+                  className="accent-emerald-500"
+                />
+                <span>Percentage</span>
+              </label>
+              <label className="flex items-center gap-1 text-slate-200 cursor-pointer">
+                <input
+                  type="radio"
+                  name="vatType"
+                  checked={vatType === 'Amount'}
+                  onChange={() => setVatType('Amount')}
                   className="accent-emerald-500"
                 />
                 <span>Amount</span>
@@ -1063,7 +1095,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
         <form onSubmit={handleAddItem} className="space-y-3 text-xs">
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
             {/* Item Title Dropdown Search */}
-            <div className="sm:col-span-4 relative" ref={itemDropdownRef}>
+            <div className="sm:col-span-3 relative" ref={itemDropdownRef}>
               <label className="block text-slate-400 font-semibold mb-1 flex items-center justify-between">
                 <span>Item Title <span className="text-emerald-400">*</span></span>
                 <button
@@ -1180,7 +1212,13 @@ export const SalesView: React.FC<SalesViewProps> = ({
                 step="any"
                 value={ctn}
                 onChange={(e) => handleCtnChange(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-white font-mono text-xs focus:outline-hidden focus:border-emerald-500 text-right"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    ratePerCtnInputRef.current?.focus();
+                  }
+                }}
+                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-white font-mono text-xs focus:outline-hidden focus:border-emerald-500 text-right font-bold"
               />
             </div>
 
@@ -1195,65 +1233,74 @@ export const SalesView: React.FC<SalesViewProps> = ({
                 step="any"
                 value={ratePerCtn}
                 onChange={(e) => handleRatePerCtnChange(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    qtyInputRef.current?.focus();
+                  }
+                }}
                 placeholder="0.00"
-                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-white font-mono text-xs focus:outline-hidden focus:border-emerald-500 text-right"
+                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-white font-mono text-xs focus:outline-hidden focus:border-emerald-500 text-right font-bold"
               />
             </div>
 
-            {/* Qty / Packaging */}
+            {/* Qty / Packaging (Strictly Read-Only / Non-Editable / Skipped on Enter & Tab) */}
             <div className="sm:col-span-1">
-              <label className="block text-slate-400 font-semibold mb-1 truncate" title={`Qty / ${itemPackageType.toUpperCase()}`}>
-                Qty/{itemPackageType.toUpperCase()}
+              <label className="block text-slate-400 font-semibold mb-1 truncate flex items-center justify-between" title={`Qty / ${itemPackageType.toUpperCase()} (Fixed Capacity)`}>
+                <span>Qty/{itemPackageType.toUpperCase()}</span>
+                <span className="text-[10px] text-slate-500">🔒</span>
               </label>
               <input
                 type="number"
-                step="any"
+                readOnly
+                tabIndex={-1}
                 value={qtyPerCtn}
-                onChange={(e) => {
-                  const val = e.target.value === '' ? '' : parseFloat(e.target.value);
-                  setQtyPerCtn(val);
-                  if (typeof val === 'number' && typeof ctn === 'number') {
-                    setQty(Number((ctn * val).toFixed(2)));
-                  }
-                }}
-                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-white font-mono text-xs focus:outline-hidden focus:border-emerald-500 text-right"
+                title="Packaging capacity is fixed from item profile and cannot be edited directly."
+                className="w-full bg-slate-900/60 border border-slate-800 rounded-lg px-2 py-1.5 text-slate-400 font-mono text-xs text-right cursor-not-allowed select-none pointer-events-none"
               />
             </div>
 
-            {/* Total Qty (Sold) */}
+            {/* Loose Qty (Kg / Gram / Loose Units) */}
             <div className="sm:col-span-1">
-              <label className={`block font-semibold mb-1 text-[11px] ${
-                itemTitle.trim() && numericQty > itemStock ? 'text-rose-400 font-bold' : 'text-emerald-400'
-              }`}>
-                {itemTitle.trim() && numericQty > itemStock ? 'Qty (SHORT!)' : 'Total Qty'}
+              <label className="block font-semibold mb-1 text-[11px] text-emerald-400 truncate" title={`Qty / ${resolvedBaseUnit} (Kg/Gram)`}>
+                Qty/{resolvedBaseUnit}
               </label>
               <input
                 ref={qtyInputRef}
                 type="number"
                 step="any"
-                required
                 value={qty}
                 onChange={(e) => handleQtyChange(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                className={`w-full rounded-lg px-2 py-1.5 font-mono font-bold text-xs text-right transition ${
-                  itemTitle.trim() && numericQty > itemStock
-                    ? 'bg-rose-950/70 border-2 border-rose-500 text-rose-100 ring-2 ring-rose-500/50'
-                    : 'bg-slate-950 border border-emerald-500/80 text-white focus:outline-hidden focus:border-emerald-400'
-                }`}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    rateInputRef.current?.focus();
+                  }
+                }}
+                placeholder="0.00"
+                className="w-full rounded-lg px-2 py-1.5 font-mono font-bold text-xs text-right bg-slate-950 border border-emerald-500/80 text-white focus:outline-hidden focus:border-emerald-400"
               />
             </div>
 
-            {/* Rate (Unit Price) */}
+            {/* Loose Rate */}
             <div className="sm:col-span-1">
-              <label className="block text-slate-400 font-semibold mb-1">Rate</label>
+              <label className="block text-slate-400 font-semibold mb-1 truncate" title={`Rate / ${resolvedBaseUnit}`}>
+                Rate/{resolvedBaseUnit}
+              </label>
               <input
                 ref={rateInputRef}
                 type="number"
                 step="any"
-                required
                 value={rate}
                 onChange={(e) => handleRateChange(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    discountInputRef.current?.focus();
+                  }
+                }}
                 placeholder="0.00"
-                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-white font-mono text-xs focus:outline-hidden focus:border-emerald-500 text-right"
+                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-white font-mono text-xs focus:outline-hidden focus:border-emerald-500 text-right font-bold"
               />
             </div>
 
@@ -1261,43 +1308,67 @@ export const SalesView: React.FC<SalesViewProps> = ({
             <div className="sm:col-span-1">
               <label className="block text-slate-400 font-semibold mb-1">Disc.</label>
               <input
+                ref={discountInputRef}
                 type="number"
                 step="any"
                 value={discount}
                 onChange={(e) => setDiscount(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    vatPercentInputRef.current?.focus();
+                  }
+                }}
                 className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-white font-mono text-xs focus:outline-hidden focus:border-emerald-500 text-right"
               />
             </div>
 
-            {/* VAT % */}
+            {/* VAT */}
             <div className="sm:col-span-1">
-              <label className="block text-slate-400 font-semibold mb-1">VAT %</label>
+              <label className="block text-slate-400 font-semibold mb-1 truncate" title={`VAT (${vatType === 'Percentage' ? '%' : currencySymbol()})`}>
+                VAT({vatType === 'Percentage' ? '%' : currencySymbol()})
+              </label>
               <input
+                ref={vatPercentInputRef}
                 type="number"
                 step="any"
                 value={vatPercent}
                 onChange={(e) => setVatPercent(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddItem();
+                  }
+                }}
                 className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-white font-mono text-xs focus:outline-hidden focus:border-emerald-500 text-right"
               />
+            </div>
+
+            {/* Row Amount Live Preview */}
+            <div className="sm:col-span-1">
+              <label className="block text-emerald-400 font-semibold mb-1">Amount</label>
+              <div className="w-full bg-slate-950/80 border border-emerald-500/40 rounded-lg px-2 py-1.5 text-emerald-400 font-mono font-bold text-xs text-right truncate">
+                {currencySymbol()} {currentItemTotalAmount}
+              </div>
             </div>
           </div>
 
           {/* Real-Time Stock Shortage Red Alert Box */}
-          {itemTitle.trim() && numericQty > itemStock && (() => {
-            const shortUnits = Number((numericQty - itemStock).toFixed(1));
+          {itemTitle.trim() && currentItemTotalConsumed > itemStock && (() => {
+            const shortUnits = Number((currentItemTotalConsumed - itemStock).toFixed(2));
             const qpc = typeof qtyPerCtn === 'number' && qtyPerCtn > 1 ? qtyPerCtn : 1;
             const shortCtnInt = Math.floor(shortUnits / qpc);
-            const shortPcs = Number((shortUnits % qpc).toFixed(1));
-            const unitLabel = (activeProduct?.unit || activeProduct?.measure || 'Unit').toUpperCase();
+            const shortPcs = Number((shortUnits % qpc).toFixed(2));
+            const unitLabel = resolvedBaseUnit;
             const isCartonItem = qpc > 1;
-            const shortageCtnText = isCartonItem ? `${shortCtnInt}.${shortPcs} Ctns` : `${shortUnits} ${unitLabel}`;
+            const shortageCtnText = isCartonItem ? `${shortCtnInt}.${shortPcs} ${itemPackageType}s` : `${shortUnits} ${unitLabel}`;
 
             return (
               <div className="p-3 rounded-xl bg-rose-950 border-2 border-rose-500 text-rose-100 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shadow-lg shadow-rose-950/50 animate-in fade-in">
                 <div className="flex items-center gap-2 font-bold">
                   <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 animate-bounce" />
                   <span>
-                    ⚠️ Stock Shortage Alert: Selected sale quantity is <strong className="text-white underline">{numericQty}</strong>, but godown only has <strong className="text-amber-300 underline">{itemStock}</strong> {unitLabel} available. You are SHORT by <strong className="text-white bg-rose-600 px-2 py-0.5 rounded text-sm font-black">{shortageCtnText} ({shortUnits} {unitLabel}) kam hain</strong>!
+                    ⚠️ Stock Shortage Alert: Selected sale consumption is <strong className="text-white underline">{currentItemTotalConsumed} {unitLabel}</strong> ({numericCtn} {itemPackageType} + {numericQty} {unitLabel}), but godown only has <strong className="text-amber-300 underline">{itemStock}</strong> {unitLabel} available. Short by <strong className="text-white bg-rose-600 px-2 py-0.5 rounded text-sm font-black">{shortageCtnText} ({shortUnits} {unitLabel}) kam hain</strong>!
                   </span>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -1419,7 +1490,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
                     {expectedTotalLineProfit >= 0 ? `+${currencySymbol()} ${expectedTotalLineProfit.toLocaleString()}` : `-${currencySymbol()} ${Math.abs(expectedTotalLineProfit).toLocaleString()}`}
                   </span>
                   <span className="block text-[10px] text-slate-400">
-                    {numericQty} units &times; {expectedProfitPerUnit >= 0 ? `+${expectedProfitPerUnit}` : expectedProfitPerUnit} profit
+                    {currentItemTotalConsumed} {resolvedBaseUnit} &times; {expectedProfitPerUnit >= 0 ? `+${expectedProfitPerUnit}` : expectedProfitPerUnit} profit
                   </span>
                 </div>
               </div>
@@ -1430,34 +1501,46 @@ export const SalesView: React.FC<SalesViewProps> = ({
           <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
             <div className="flex flex-wrap items-center gap-4 text-xs">
               <div className="text-slate-400">
-                Current Stock:{' '}
+                Current Godown Stock:{' '}
                 <strong className={`font-mono ${itemStock <= 5 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                  {itemStock} {activeProduct?.measure || activeProduct?.unit || 'units'}
+                  {itemStock} {resolvedBaseUnit}
                 </strong>
               </div>
               <div className="text-slate-400">
-                After Sale:{' '}
-                <strong className={`font-mono ${itemStock - numericQty < 0 ? 'text-rose-400' : 'text-sky-300'}`}>
-                  {itemStock - numericQty >= 0
-                    ? `${Number((itemStock - numericQty).toFixed(2))} ${activeProduct?.measure || activeProduct?.unit || 'units'}`
-                    : `SHORT by ${Number((numericQty - itemStock).toFixed(2))}`}
+                Sale Consumption:{' '}
+                <strong className="font-mono text-amber-300">
+                  {currentItemTotalConsumed} {resolvedBaseUnit}
+                </strong>{' '}
+                <span className="text-[11px] text-slate-500">
+                  ({numericCtn} {itemPackageType} + {numericQty} {resolvedBaseUnit})
+                </span>
+              </div>
+              <div className="text-slate-400">
+                Remaining Stock:{' '}
+                <strong className={`font-mono ${currentItemRemainingStock < 0 ? 'text-rose-400 font-bold' : 'text-sky-300 font-bold'}`}>
+                  {currentItemRemainingStock >= 0
+                    ? `${currentItemRemainingStock} ${resolvedBaseUnit}`
+                    : `SHORT by ${Math.abs(currentItemRemainingStock)} ${resolvedBaseUnit}`}
                 </strong>
-                {activeProduct && Number(activeProduct.qtyInCarton) > 1 && itemStock - numericQty >= 0 && (
+                {currentItemRemainingStock >= 0 && numericQtyPerCtn > 1 && (
                   <span className="text-[11px] text-slate-500 ml-1">
-                    (= {Math.floor((itemStock - numericQty) / Number(activeProduct.qtyInCarton))} {itemPackageType}s + {Number(((itemStock - numericQty) % Number(activeProduct.qtyInCarton)).toFixed(2))} loose)
+                    (= {currentItemRemainingCtns} {itemPackageType}s + {currentItemRemainingLoose} {resolvedBaseUnit})
                   </span>
                 )}
               </div>
               <div className="text-slate-400">
-                VAT Amount: <strong className="text-white font-mono">{currencySymbol()} {currentItemVatAmount}</strong>
+                Subtotal: <strong className="text-slate-200 font-mono">{currencySymbol()} {currentItemSubtotal}</strong>
               </div>
               <div className="text-slate-400">
-                Row Total: <strong className="text-emerald-400 font-mono text-sm">{currencySymbol()} {currentItemTotalAmount}</strong>
+                VAT ({vatType === 'Percentage' ? `${numericVatPercent}%` : currencySymbol()}): <strong className="text-white font-mono">{currencySymbol()} {currentItemVatAmount}</strong>
+              </div>
+              <div className="text-slate-400">
+                Row Total: <strong className="text-emerald-400 font-mono text-sm font-black">{currencySymbol()} {currentItemTotalAmount}</strong>
               </div>
             </div>
 
             <div className="flex items-center gap-2 ml-auto flex-wrap">
-              {itemTitle.trim() && numericQty > itemStock && onNavigateTab && (
+              {itemTitle.trim() && currentItemTotalConsumed > itemStock && onNavigateTab && (
                 <button
                   type="button"
                   onClick={() => onNavigateTab('purchasing')}
@@ -1469,15 +1552,15 @@ export const SalesView: React.FC<SalesViewProps> = ({
               )}
               <button
                 type="submit"
-                disabled={Boolean(itemTitle.trim() && numericQty > itemStock)}
+                disabled={Boolean(itemTitle.trim() && currentItemTotalConsumed > itemStock)}
                 className={`px-4 py-1.5 font-bold rounded-lg text-xs shadow-md transition flex items-center gap-1.5 ${
-                  itemTitle.trim() && numericQty > itemStock
+                  itemTitle.trim() && currentItemTotalConsumed > itemStock
                     ? 'bg-rose-950 border border-rose-600 text-rose-300 cursor-not-allowed opacity-80'
                     : 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer'
                 }`}
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>{itemTitle.trim() && numericQty > itemStock ? 'Stock Short (Cannot Add)' : 'Add Line Item'}</span>
+                <span>{itemTitle.trim() && currentItemTotalConsumed > itemStock ? 'Stock Short (Cannot Add)' : 'Add Line Item'}</span>
               </button>
             </div>
           </div>
@@ -1499,27 +1582,28 @@ export const SalesView: React.FC<SalesViewProps> = ({
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-950/90 text-slate-400 border-b border-slate-800 uppercase tracking-wider font-semibold">
+            <thead className="bg-slate-950/90 text-slate-400 border-b border-slate-800 uppercase tracking-wider font-semibold text-[11px]">
               <tr>
                 <th className="py-2.5 px-3 text-center">#</th>
                 <th className="py-2.5 px-3">Item Title</th>
                 <th className="py-2.5 px-3">M.Code</th>
-                <th className="py-2.5 px-3 text-right">PACKAGES</th>
-                <th className="py-2.5 px-3 text-right">RATE/PKG</th>
-                <th className="py-2.5 px-3 text-right">QTY/PKG</th>
-                <th className="py-2.5 px-3 text-right">TOTAL QTY</th>
-                <th className="py-2.5 px-3 text-right">Rate</th>
+                <th className="py-2.5 px-3 text-right">Packages</th>
+                <th className="py-2.5 px-3 text-right">Rate/Pkg</th>
+                <th className="py-2.5 px-3 text-right">Capacity</th>
+                <th className="py-2.5 px-3 text-right">Loose Qty</th>
+                <th className="py-2.5 px-3 text-right">Loose Rate</th>
                 <th className="py-2.5 px-3 text-right">Disc.</th>
-                <th className="py-2.5 px-3 text-right">VAT%</th>
+                <th className="py-2.5 px-3 text-right">VAT</th>
                 <th className="py-2.5 px-3 text-right">VAT Amt</th>
                 <th className="py-2.5 px-3 text-right">Total Amount</th>
+                <th className="py-2.5 px-3 text-center">Remaining Stock</th>
                 <th className="py-2.5 px-3 text-center">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/80 text-slate-300">
               {billItems.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className="py-8 text-center text-slate-500">
+                  <td colSpan={14} className="py-8 text-center text-slate-500">
                     No items added yet. Select a product and click &quot;Add Line Item&quot; above.
                   </td>
                 </tr>
@@ -1534,22 +1618,20 @@ export const SalesView: React.FC<SalesViewProps> = ({
                     </td>
                     <td className="py-2.5 px-3 text-right font-mono">{it.ratePerCtn}</td>
                     <td className="py-2.5 px-3 text-right font-mono text-slate-400">{it.qtyPerCtn} {it.unit || 'Units'}/{it.packageType || 'CTN'}</td>
-                    <td className="py-2.5 px-3 text-right font-mono font-bold">
-                      <span className={it.stock !== undefined && it.qty > it.stock ? 'text-rose-400 font-black' : 'text-white'}>
-                        {it.qty} <span className="text-[10px] text-sky-300 font-normal">{it.unit || 'KG'}</span>
-                      </span>
-                      {it.stock !== undefined && it.qty > it.stock && (
-                        <div className="text-[10px] text-rose-300 font-bold bg-rose-950/90 px-1.5 py-0.5 rounded border border-rose-800 whitespace-nowrap mt-0.5">
-                          Short by {(Number(it.qty || 0) - Number(it.stock || 0)).toFixed(1)}
-                        </div>
-                      )}
+                    <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-300">
+                      {it.qty} <span className="text-[10px] text-sky-300 font-normal">{it.unit || 'KG'}</span>
                     </td>
                     <td className="py-2.5 px-3 text-right font-mono">{it.rate}</td>
                     <td className="py-2.5 px-3 text-right font-mono">{it.discount || 0}</td>
-                    <td className="py-2.5 px-3 text-right font-mono">{it.vatPercent}%</td>
+                    <td className="py-2.5 px-3 text-right font-mono">
+                      {it.vatPercent}{it.vatType === 'Amount' ? ` ${currencySymbol()}` : '%'}
+                    </td>
                     <td className="py-2.5 px-3 text-right font-mono">{it.vatAmount}</td>
                     <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-400">
                       {currencySymbol()} {it.amount.toLocaleString()}
+                    </td>
+                    <td className="py-2.5 px-3 text-center font-mono font-semibold text-sky-400">
+                      {it.remainingStock !== undefined ? `${it.remainingStock} ${it.unit || 'Units'}` : '-'}
                     </td>
                     <td className="py-2.5 px-3 text-center">
                       <button

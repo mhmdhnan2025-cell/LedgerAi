@@ -296,6 +296,8 @@ export const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({
       address: address.trim(),
       cnic: cnic.trim(),
       status: isActive ? 'ACTIVE' : 'INACTIVE',
+      openingBalance: Number(payableToSupplier) || 0,
+      openingBalanceType: payableType,
       payableToSupplier: Number(payableToSupplier) || 0,
       balanceOwed: Number(payableToSupplier) || 0,
       payableType,
@@ -1216,10 +1218,10 @@ export const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
                     <DollarSign className="w-3.5 h-3.5 text-amber-400" />
-                    Payable to Supplier
+                    Opening Balance / Payable to Supplier
                   </span>
                   <span className="px-2 py-0.5 rounded bg-amber-950/80 border border-amber-800 text-[10px] font-mono font-bold text-amber-300">
-                    {payableType}
+                    {payableType === 'CR' ? 'CR (Payable Due)' : 'DR (Advance Paid)'}
                   </span>
                 </div>
 

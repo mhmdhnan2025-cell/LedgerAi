@@ -148,14 +148,14 @@ export const ProfitIntelligenceView: React.FC<ProfitIntelligenceViewProps> = ({
           {/* Total Revenue */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
             <div className="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
-              <span>Total Revenue (Billed)</span>
+              <span>Total Sale / Revenue</span>
               <CircleDollarSign className="w-4 h-4 text-indigo-400" />
             </div>
             <div className="text-2xl font-black text-white mt-2">
               {currencySymbol()} {(diagnosis?.totalRevenue ?? 0).toLocaleString()}
             </div>
             <div className="text-xs text-slate-400 mt-1 flex items-center gap-1">
-              <span>Cost of Goods: {currencySymbol()} {(diagnosis?.totalCostOfGoods ?? 0).toLocaleString()}</span>
+              <span>COGS / Purchase Cost: {currencySymbol()} {(diagnosis?.totalCostOfGoods ?? 0).toLocaleString()}</span>
             </div>
           </div>
 
@@ -350,8 +350,8 @@ export const ProfitIntelligenceView: React.FC<ProfitIntelligenceViewProps> = ({
               <tr>
                 <th className="py-3.5 px-4">Restaurant</th>
                 <th className="py-3.5 px-4 text-center">Orders</th>
-                <th className="py-3.5 px-4 text-right">Revenue (Sale)</th>
-                <th className="py-3.5 px-4 text-right">Product Cost</th>
+                <th className="py-3.5 px-4 text-right">Total Sale / Revenue</th>
+                <th className="py-3.5 px-4 text-right">COGS / Purchase Cost</th>
                 <th className="py-3.5 px-4 text-right">Petrol & Calling</th>
                 <th className="py-3.5 px-4 text-right">NET PROFIT / LOSS</th>
                 <th className="py-3.5 px-4 text-right">Paid / Balance Due</th>

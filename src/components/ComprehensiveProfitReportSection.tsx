@@ -523,12 +523,11 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
         { header: 'Qty Sold', accessor: (it) => it.qtySold },
         { header: 'Ctn Sold', accessor: (it) => it.ctnSold },
         { header: 'Avg Cost', accessor: (it) => it.avgPurchaseRate },
-        { header: 'Avg Sale', accessor: (it) => it.avgSaleRate },
-        { header: 'Revenue', accessor: (it) => it.totalRevenue },
-        { header: 'COGS', accessor: (it) => it.totalCostOfGoods },
-        { header: 'Gross Profit', accessor: (it) => it.grossProfit },
+        { header: 'Total Sale / Revenue', accessor: (it) => it.totalRevenue },
+        { header: 'COGS / Purchase Cost', accessor: (it) => it.totalCostOfGoods },
+        { header: 'Item Profit', accessor: (it) => it.grossProfit },
         { header: 'Margin %', accessor: (it) => it.profitMarginPct },
-        { header: 'Remaining Stock', accessor: (it) => it.currentRemainingStock },
+        { header: 'In Stock / Warehouse', accessor: (it) => it.currentRemainingStock },
         { header: 'Status', accessor: (it) => it.status },
       ]);
     } else if (activeTab === 'perBill') {
@@ -1248,11 +1247,11 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
                     <th className="py-2.5 px-3 text-center">Quantity</th>
                     <th className="py-2.5 px-3 text-right">Avg Cost</th>
                     <th className="py-2.5 px-3 text-right">Avg Sale</th>
-                    <th className="py-2.5 px-3 text-right">Revenue</th>
-                    <th className="py-2.5 px-3 text-right">COGS</th>
-                    <th className="py-2.5 px-3 text-right">Gross Profit</th>
+                    <th className="py-2.5 px-3 text-right">Total Sale / Revenue</th>
+                    <th className="py-2.5 px-3 text-right">COGS / Purchase Cost</th>
+                    <th className="py-2.5 px-3 text-right text-emerald-400 font-extrabold">Item Profit</th>
                     <th className="py-2.5 px-3 text-right">Margin %</th>
-                    <th className="py-2.5 px-3 text-center">In Warehouse</th>
+                    <th className="py-2.5 px-3 text-center">In Stock / Warehouse</th>
                     <th className="py-2.5 px-3 text-center">Status</th>
                   </tr>
                 </thead>
@@ -1277,8 +1276,10 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
                         <td className="py-2.5 px-3 text-right text-slate-200">{currencySymbol()} {it.avgSaleRate.toLocaleString()}</td>
                         <td className="py-2.5 px-3 text-right font-bold text-white">{currencySymbol()} {it.totalRevenue.toLocaleString()}</td>
                         <td className="py-2.5 px-3 text-right text-slate-400">{currencySymbol()} {it.totalCostOfGoods.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right font-bold text-emerald-400">
-                          {currencySymbol()} {it.grossProfit.toLocaleString()}
+                        <td className="py-2.5 px-3 text-right font-black text-emerald-400 text-sm">
+                          <span className="px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-700/60 inline-block shadow-sm">
+                            +{currencySymbol()} {it.grossProfit.toLocaleString()}
+                          </span>
                         </td>
                         <td className="py-2.5 px-3 text-right font-bold">
                           <span className={it.profitMarginPct >= 15 ? 'text-emerald-400' : it.profitMarginPct > 0 ? 'text-amber-400' : 'text-rose-400'}>
@@ -1336,8 +1337,8 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
                     <th className="py-2.5 px-3 text-right">Gross Total</th>
                     <th className="py-2.5 px-3 text-right">Discount</th>
                     <th className="py-2.5 px-3 text-right">Net Total</th>
-                    <th className="py-2.5 px-3 text-right">COGS (Cost)</th>
-                    <th className="py-2.5 px-3 text-right">Net Profit</th>
+                    <th className="py-2.5 px-3 text-right">COGS / Purchase Cost</th>
+                    <th className="py-2.5 px-3 text-right text-emerald-400 font-extrabold">Bill Profit</th>
                     <th className="py-2.5 px-3 text-right">Margin %</th>
                     <th className="py-2.5 px-3 text-center">Actions</th>
                   </tr>
@@ -1437,9 +1438,9 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
                     <th className="py-2.5 px-3 text-center">Bills Count</th>
                     <th className="py-2.5 px-3 text-center">Cartons</th>
                     <th className="py-2.5 px-3 text-center">Quantity</th>
-                    <th className="py-2.5 px-3 text-right">Total Revenue</th>
-                    <th className="py-2.5 px-3 text-right">Cost of Goods</th>
-                    <th className="py-2.5 px-3 text-right">Gross Profit</th>
+                    <th className="py-2.5 px-3 text-right">Total Sale / Revenue</th>
+                    <th className="py-2.5 px-3 text-right">COGS / Purchase Cost</th>
+                    <th className="py-2.5 px-3 text-right text-emerald-400 font-extrabold">Customer Profit</th>
                     <th className="py-2.5 px-3 text-right">Margin %</th>
                     <th className="py-2.5 px-3 text-right">Ledger Udhaar (Bal)</th>
                     <th className="py-2.5 px-3 text-center">Status</th>
@@ -1524,9 +1525,9 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
                     <th className="py-2.5 px-3 text-center">Bills Made</th>
                     <th className="py-2.5 px-3 text-center">Cartons Sold</th>
                     <th className="py-2.5 px-3 text-center">Quantity Sold</th>
-                    <th className="py-2.5 px-3 text-right">Total Sales Volume</th>
-                    <th className="py-2.5 px-3 text-right">Cost of Goods</th>
-                    <th className="py-2.5 px-3 text-right">Profit Generated</th>
+                    <th className="py-2.5 px-3 text-right">Total Sale / Revenue</th>
+                    <th className="py-2.5 px-3 text-right">COGS / Purchase Cost</th>
+                    <th className="py-2.5 px-3 text-right text-emerald-400 font-extrabold">Salesman Profit</th>
                     <th className="py-2.5 px-3 text-right">Margin %</th>
                     <th className="py-2.5 px-3 text-center">Customers Handled (Hover)</th>
                     <th className="py-2.5 px-3 text-center">Contribution</th>

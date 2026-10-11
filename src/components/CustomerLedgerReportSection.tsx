@@ -62,6 +62,10 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  // Font Size & Boldness Customization (Corner Adjustment)
+  const [reportFontSize, setReportFontSize] = useState<'sm' | 'base' | 'lg'>('base');
+  const [reportFontWeight, setReportFontWeight] = useState<'normal' | 'bold' | 'black'>('bold');
+
   // Delete transaction modal
   const [confirmEntry, setConfirmEntry] = useState<CustomerLedgerEntry | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -358,14 +362,14 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
               ) : (
                 <Square className="w-4 h-4 text-slate-500" />
               )}
-              <span className="font-semibold">Audit (آڈٹ)</span>
+              <span className="font-semibold">Audit</span>
             </button>
           </div>
 
           {/* Account Title Dropdown (Code - Title) */}
           <div className="relative lg:col-span-2" ref={dropdownRef}>
             <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1">
-              Account Title (گاہک کا کھاتہ)
+              Account Title / Customer
             </label>
             <div
               onClick={handleToggleDropdown}
@@ -374,7 +378,7 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
               <span className={`truncate ${selectedCustomer ? 'text-white font-semibold' : 'text-sky-300 font-bold'}`}>
                 {selectedCustomer
                   ? `${selectedCustomer.code || selectedCustomer.accountCode || ''} - ${selectedCustomer.accountTitle || selectedCustomer.name}`
-                  : 'All Accounts / Nothing Selected (تمام کسٹمرز / تمام کھاتے)'}
+                  : 'All Accounts / Nothing Selected'}
               </span>
               <div className="flex items-center gap-1.5 ml-2 shrink-0">
                 {selectedCustomer && (
@@ -439,8 +443,8 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
                     <div className="flex items-center gap-2">
                       <span className="text-sky-400 font-bold text-sm">★</span>
                       <div>
-                        <div className="font-bold text-white">All Accounts / Nothing Selected (تمام کھاتے)</div>
-                        <div className="text-[11px] text-slate-400">تمام کسٹمرز کا مشترکہ لیجر اور تمام ٹرانزیکشنز ڈیلیٹ آپشنز کے ساتھ</div>
+                        <div className="font-bold text-white">All Accounts / Nothing Selected</div>
+                        <div className="text-[11px] text-slate-400">Combined ledger of all customer accounts with full transaction history</div>
                       </div>
                     </div>
                     <span className="text-[10px] px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold">
@@ -502,7 +506,7 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
           {/* P.O # Filter */}
           <div>
             <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1">
-              P.O # (آرڈر نمبر)
+              P.O # / Bill #
             </label>
             <input
               type="text"
@@ -523,7 +527,7 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
               className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition shadow-sm cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-              <span>Generate (رپورٹ تیار کریں)</span>
+              <span>Generate Report</span>
             </button>
           </div>
 
@@ -534,7 +538,7 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
               className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 hover:text-white rounded-lg border border-slate-700 text-xs font-semibold transition cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5 text-sky-400" />
-              <span>Print (پرنٹ)</span>
+              <span>Print Ledger</span>
             </button>
             <button
               onClick={handleExportCSV}
@@ -570,11 +574,59 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
         </div>
       )}
 
+      {/* Font & Display Settings Toolbar (Corner Adjustment) */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 print:hidden shadow-sm">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+            Customer General Ledger Preview
+          </span>
+        </div>
+
+        {/* Font Customizer Controls in Top Corner */}
+        <div className="flex items-center gap-3 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-300">
+          <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">
+            Font Settings:
+          </span>
+          <div className="flex items-center gap-1 border-r border-slate-800 pr-2.5">
+            <span className="text-[10px] text-slate-400 font-medium">Size:</span>
+            {(['sm', 'base', 'lg'] as const).map((sz) => (
+              <button
+                key={sz}
+                type="button"
+                onClick={() => setReportFontSize(sz)}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold transition cursor-pointer ${
+                  reportFontSize === sz ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-850 hover:bg-slate-700 text-slate-300'
+                }`}
+              >
+                {sz === 'sm' ? 'Normal' : sz === 'base' ? 'Large' : 'Extra Large'}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] text-slate-400 font-medium">Boldness:</span>
+            {(['normal', 'bold', 'black'] as const).map((bw) => (
+              <button
+                key={bw}
+                type="button"
+                onClick={() => setReportFontWeight(bw)}
+                className={`px-2 py-0.5 rounded text-[11px] transition cursor-pointer ${
+                  bw === 'normal' ? 'font-medium' : bw === 'bold' ? 'font-bold' : 'font-black'
+                } ${
+                  reportFontWeight === bw ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-850 hover:bg-slate-700 text-slate-300'
+                }`}
+              >
+                {bw === 'normal' ? 'Normal' : bw === 'bold' ? 'Bold' : 'Extra Bold'}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Report Canvas (Exact Match to Image 1: General Ledger Reporting) */}
       <div className="bg-white text-slate-900 rounded-xl shadow-xl p-6 sm:p-8 font-sans border border-slate-200 print:shadow-none print:border-none print:p-0 print:m-0">
         {/* Header (Branded Company Header) */}
         <div className="text-center pb-4 border-b border-slate-300">
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-wide uppercase">
+          <h1 className="text-xl sm:text-3xl font-black text-slate-900 tracking-wide uppercase">
             {companyProfile?.name || 'ZAHRAT AL FAJR FOODSTUFF TR L.L.C'}
           </h1>
           <div className="text-xs text-slate-600 mt-1 space-x-2">
@@ -584,8 +636,8 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
             <span>•</span>
             <span>Email: info@zahratfoodstuff.com</span>
           </div>
-          <div className="inline-block mt-3 px-4 py-1 bg-slate-900 text-white rounded font-bold text-xs uppercase tracking-widest">
-            General Ledger Reporting
+          <div className="inline-block mt-3 px-4 py-1.5 bg-slate-950 text-white rounded-md font-black text-sm uppercase tracking-widest shadow-xs">
+            Customer General Ledger Reporting
           </div>
         </div>
 
@@ -632,18 +684,18 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
 
         {/* General Ledger Table (Exact Match to Columns from Image 1) */}
         <div className="overflow-x-auto mt-2">
-          <table className="w-full text-left border-collapse text-[11px]">
+          <table className={`w-full text-left border-collapse ${reportFontSize === 'sm' ? 'text-xs' : reportFontSize === 'base' ? 'text-sm' : 'text-base'}`}>
             <thead>
-              <tr className="border-y-2 border-slate-900 bg-slate-100 font-extrabold text-slate-900 uppercase">
-                <th className="py-2 px-2 text-center w-12">REF</th>
-                <th className="py-2 px-2 text-center w-16">[REF#]</th>
-                <th className="py-2 px-2.5 w-24">DATE</th>
-                <th className="py-2 px-2 w-20">BILL#</th>
-                <th className="py-2 px-3">NARRATION</th>
-                <th className="py-2 px-3 text-right w-24">DEBIT</th>
-                <th className="py-2 px-3 text-right w-24">CREDIT</th>
-                <th className="py-2 px-3 text-right w-28">BALANCE</th>
-                <th className="py-2 px-2 text-center w-12 print:hidden">ACTION</th>
+              <tr className={`border-y-2 border-slate-900 bg-slate-100 ${reportFontWeight === 'normal' ? 'font-bold' : 'font-black'} text-slate-950 uppercase ${reportFontSize === 'sm' ? 'text-xs' : reportFontSize === 'base' ? 'text-sm' : 'text-base'}`}>
+                <th className="py-2.5 px-2 text-center w-12">REF</th>
+                <th className="py-2.5 px-2 text-center w-16">[REF#]</th>
+                <th className="py-2.5 px-2.5 w-24">DATE</th>
+                <th className="py-2.5 px-2 w-20">BILL#</th>
+                <th className="py-2.5 px-3">NARRATION</th>
+                <th className="py-2.5 px-3 text-right w-24">DEBIT</th>
+                <th className="py-2.5 px-3 text-right w-24">CREDIT</th>
+                <th className="py-2.5 px-3 text-right w-28">BALANCE</th>
+                <th className="py-2.5 px-2 text-center w-12 print:hidden">ACTION</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 font-mono">
@@ -774,7 +826,7 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
             <tfoot>
               <tr className="border-t-2 border-slate-900 bg-slate-100 font-extrabold text-slate-950">
                 <td colSpan={5} className="py-2.5 px-3 text-right uppercase tracking-wider font-sans">
-                  Total (میزان):
+                  Total:
                 </td>
                 <td className="py-2.5 px-3 text-right font-mono font-black text-slate-950">
                   {formatNumber(report?.totalDebit || 0)}
@@ -789,12 +841,12 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
               </tr>
               <tr className="border-b-2 border-slate-900 bg-slate-200/80 font-black text-slate-950">
                 <td colSpan={5} className="py-2 px-3 text-right uppercase tracking-wider font-sans text-xs">
-                  Closing Balance (آخری بقایا رقم):
+                  Net Closing Balance:
                 </td>
                 <td colSpan={3} className="py-2 px-3 text-right font-mono text-xs text-slate-950">
                   {currencySymbol()} {formatNumber(report?.closingBalance || 0)}{' '}
                   <span className={report?.closingBalanceType === 'DR' ? 'text-blue-800' : 'text-emerald-800'}>
-                    {report?.closingBalanceType === 'DR' ? 'DEBIT (DR - وصول طلب)' : 'CREDIT (CR - واجب الاداء)'}
+                    {report?.closingBalanceType === 'DR' ? 'DEBIT (DR - Receivable Due)' : 'CREDIT (CR - Advance Paid)'}
                   </span>
                 </td>
                 <td className="print:hidden"></td>

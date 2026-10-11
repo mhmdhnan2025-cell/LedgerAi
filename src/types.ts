@@ -277,6 +277,8 @@ export interface Supplier {
   status: 'ACTIVE' | 'INACTIVE'; // switch unswitch activation
   payableToSupplier: number;    // amount e.g. 15681.46
   payableType?: 'CR' | 'DR';    // CR or DR (default CR)
+  openingBalance?: number;      // Initial ledger opening balance
+  openingBalanceType?: 'CR' | 'DR'; // Initial opening balance type (default CR)
   documents?: { id: string; name: string; date: string; url?: string; size?: string }[];
   categories?: string[];
   totalPurchases?: number;
@@ -688,6 +690,8 @@ export interface Customer {
   assignedSalesman?: string;    // Handling Salesman name
   status: 'ACTIVE' | 'INACTIVE';
   outstandingBalance: number;   // Current balance receivable
+  openingBalance?: number;      // Initial ledger opening balance
+  openingBalanceType?: 'DR' | 'CR'; // Initial opening balance type (default DR)
   creditLimit?: number;
   totalSales?: number;
   createdAt: string;
@@ -704,14 +708,16 @@ export interface SaleBillItem {
   ctn: number;
   ratePerCtn: number;
   qtyPerCtn: number;
-  qty: number;
-  rate: number;
+  qty: number;                   // loose qty or total qty
+  rate: number;                  // loose rate or unit rate
   discount: number;
   vatPercent: number;
   vatAmount: number;
+  vatType?: 'Percentage' | 'Amount';
   amount: number;
   stock?: number;
   remainingStock?: number;        // Stock after sale deduction
+  totalDeductedQty?: number;      // Total units deducted from inventory (ctn * qtyPerCtn + loose qty)
   unit?: string;              // Packing unit printed on Tax Invoice (BAG / TIN / CTN)
 }
 
@@ -731,6 +737,7 @@ export interface SaleBill {
   partyBalanceBefore?: number;    // Party Bal prior to bill
   paymentType: 'Account' | 'Cash' | 'Card';
   discountType: 'Percentage' | 'Amount';
+  vatType?: 'Percentage' | 'Amount';
   items: SaleBillItem[];
   totalCtn: number;
   totalQty: number;

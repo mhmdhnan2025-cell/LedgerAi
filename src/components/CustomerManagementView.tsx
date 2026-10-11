@@ -146,6 +146,8 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
     notes: '',
     status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE',
     outstandingBalance: 0,
+    openingBalance: 0,
+    openingBalanceType: 'DR' as 'DR' | 'CR',
     creditLimit: 30000,
   });
 
@@ -198,6 +200,8 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
       notes: '',
       status: 'ACTIVE',
       outstandingBalance: 0,
+      openingBalance: 0,
+      openingBalanceType: 'DR' as 'DR' | 'CR',
       creditLimit: 30000,
     });
     setActionMsg(null);
@@ -238,6 +242,8 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
       notes: cust.notes || '',
       status: cust.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
       outstandingBalance: cust.outstandingBalance || 0,
+      openingBalance: cust.openingBalance !== undefined ? cust.openingBalance : (cust.outstandingBalance || 0),
+      openingBalanceType: cust.openingBalanceType || 'DR',
       creditLimit: cust.creditLimit || 30000,
     });
     setViewMode('details');
@@ -1142,16 +1148,37 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
               <span>4. Khata &amp; Credit Configuration</span>
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Opening Outstanding Balance ({currencySymbol()})</label>
+                <label className="block text-slate-300 font-semibold mb-1">
+                  Opening Balance ({currencySymbol()})
+                </label>
                 <input
                   type="number"
-                  value={formData.outstandingBalance}
-                  onChange={(e) => setFormData({ ...formData, outstandingBalance: parseFloat(e.target.value) || 0 })}
+                  value={formData.openingBalance}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value) || 0;
+                    setFormData({
+                      ...formData,
+                      openingBalance: val,
+                      outstandingBalance: editingCustomerId ? formData.outstandingBalance : val,
+                    });
+                  }}
                   placeholder="0.00"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-hidden focus:border-orange-500 font-mono"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-hidden focus:border-orange-500 font-mono font-bold"
                 />
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Opening Balance Type</label>
+                <select
+                  value={formData.openingBalanceType}
+                  onChange={(e) => setFormData({ ...formData, openingBalanceType: e.target.value as 'DR' | 'CR' })}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-hidden focus:border-orange-500 font-bold"
+                >
+                  <option value="DR">DEBIT (DR - Customer Owes / Receivable)</option>
+                  <option value="CR">CREDIT (CR - Customer Advance / Paid)</option>
+                </select>
               </div>
 
               <div>

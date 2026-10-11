@@ -173,7 +173,7 @@ export const SalesBillReceiptModal: React.FC<SalesBillReceiptModalProps> = ({
   // ---------------------------------------------------------------
   const itemsGross = items.reduce(
     (sum, it) =>
-      sum + Math.max(0, (Number(it.qty) || 0) * (Number(it.rate) || 0) - (Number(it.discount) || 0)),
+      sum + Math.max(0, it.amount ? (Number(it.amount) - (Number(it.vatAmount) || 0)) : ((Number(it.qty) || 0) * (Number(it.rate) || 0) - (Number(it.discount) || 0))),
     0
   );
   const openingBalance = Number(bill.partyBalanceBefore) || 0;
@@ -607,17 +607,23 @@ ${items
               </thead>
               <tbody className="text-slate-900">
                 {items.map((it, idx) => {
-                  const beforeVat = Math.max(
-                    0,
-                    Number(((Number(it.qty) || 0) * (Number(it.rate) || 0) - (Number(it.discount) || 0)).toFixed(2))
-                  );
+                  const beforeVat = it.amount !== undefined
+                    ? Math.max(0, Number((Number(it.amount) - (Number(it.vatAmount) || 0)).toFixed(2)))
+                    : Math.max(
+                        0,
+                        Number(((Number(it.qty) || 0) * (Number(it.rate) || 0) - (Number(it.discount) || 0)).toFixed(2))
+                      );
                   const lineVat = Number(it.vatAmount) || 0;
                   const lineNet = Number((beforeVat + lineVat).toFixed(2));
                   const unit = (it.unit || 'PCS').toUpperCase();
+                  const isDual = Number(it.ctn) > 0 && Number(it.qty) > 0;
+                  const desc = isDual
+                    ? `${it.itemTitle} (${it.ctn} ${it.packageType || 'CTN'} @ ${money(it.ratePerCtn)} + ${it.qty} ${unit} @ ${money(it.rate)})`
+                    : it.itemTitle;
                   return (
                     <tr key={it.id || idx} className="align-top">
                       <td className="border border-slate-400 px-1.5 py-1.5 text-center font-mono">{idx + 1}</td>
-                      <td className="border border-slate-400 px-1.5 py-1.5 font-black">{it.itemTitle}</td>
+                      <td className="border border-slate-400 px-1.5 py-1.5 font-black">{desc}</td>
                       <td className="border border-slate-400 px-1.5 py-1.5 text-center">{unit}</td>
                       <td className="border border-slate-400 px-1.5 py-1.5 text-center font-black">{money(it.qty)}</td>
                       <td className="border border-slate-400 px-1.5 py-1.5 text-right font-mono">{money(it.rate)}</td>
