@@ -1233,6 +1233,47 @@ export interface CustomerLedgerReport {
 }
 
 // -------------------------------------------------------------
+// SUPPLIER GENERAL LEDGER REPORTING
+// -------------------------------------------------------------
+export interface SupplierLedgerEntry {
+  id: string;
+  refType: 'PB#' | 'CP#' | 'BP#' | 'CB#' | 'PR#' | 'JV#' | 'OB';
+  refNumber: string | number;
+  date: string;
+  billNumber?: string;
+  narration: string;
+  debit: number; // Payments to supplier, purchase returns, cash discounts (decreases payable)
+  credit: number; // Purchases / purchase bills (increases payable)
+  balance: number; // Running balance
+  balanceType: 'CR' | 'DR'; // Normally CR (we owe supplier), DR if advance paid
+  entityId?: string;
+  entityType?: 'purchaseBill' | 'voucher' | 'purchaseReturn' | 'payment';
+  supplierName?: string;
+  supplierAccountTitle?: string;
+}
+
+export interface SupplierLedgerReport {
+  supplierId: string;
+  supplierCode: string;
+  supplierName: string;
+  accountTitle: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  trn?: string;
+  fromDate: string;
+  toDate: string;
+  generatedDate: string;
+  openingBalance: number;
+  openingBalanceType: 'CR' | 'DR';
+  closingBalance: number;
+  closingBalanceType: 'CR' | 'DR';
+  totalDebit: number; // Total payments + returns
+  totalCredit: number; // Total purchases
+  entries: SupplierLedgerEntry[];
+}
+
+// -------------------------------------------------------------
 // SALES RETURN & PURCHASE RETURN
 // -------------------------------------------------------------
 export interface SaleReturnItem {

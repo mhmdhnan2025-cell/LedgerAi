@@ -38,6 +38,7 @@ import { PurchaseBillVoucherModal } from './PurchaseBillVoucherModal';
 import { CashRecoveredReportSection } from './CashRecoveredReportSection';
 import { CashPaidReportSection } from './CashPaidReportSection';
 import { CustomerLedgerReportSection } from './CustomerLedgerReportSection';
+import { SupplierLedgerReportSection } from './SupplierLedgerReportSection';
 import { SaleReturnReportSection } from './SaleReturnReportSection';
 import { PurchaseReturnReportSection } from './PurchaseReturnReportSection';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -61,12 +62,12 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 }) => {
   // Breadcrumb / Report sub-tabs
   const [activeReportTab, setActiveReportTab] = useState<
-    'purchases' | 'sales' | 'profit' | 'stockHistory' | 'aiLedgerAudit' | 'cashRecovered' | 'cashPaid' | 'customerLedger' | 'saleReturns' | 'purchaseReturns'
+    'purchases' | 'sales' | 'profit' | 'stockHistory' | 'aiLedgerAudit' | 'cashRecovered' | 'cashPaid' | 'customerLedger' | 'supplierLedger' | 'saleReturns' | 'purchaseReturns'
   >(() => {
     try {
       if (typeof window !== 'undefined') {
         const saved = sessionStorage.getItem('erp_active_report_tab');
-        if (saved && ['purchases', 'sales', 'profit', 'stockHistory', 'aiLedgerAudit', 'cashRecovered', 'cashPaid', 'customerLedger', 'saleReturns', 'purchaseReturns'].includes(saved)) {
+        if (saved && ['purchases', 'sales', 'profit', 'stockHistory', 'aiLedgerAudit', 'cashRecovered', 'cashPaid', 'customerLedger', 'supplierLedger', 'saleReturns', 'purchaseReturns'].includes(saved)) {
           return saved as any;
         }
       }
@@ -403,6 +404,17 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               <span>Customer Ledger (جنرل لیجر)</span>
             </button>
             <button
+              onClick={() => setActiveReportTab('supplierLedger')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                activeReportTab === 'supplierLedger'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Building2 className="w-3.5 h-3.5 text-purple-300" />
+              <span>Supplier Ledger (سپلائر کھاتہ)</span>
+            </button>
+            <button
               onClick={() => setActiveReportTab('saleReturns')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                 activeReportTab === 'saleReturns'
@@ -536,6 +548,13 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       ) : activeReportTab === 'customerLedger' ? (
         <ErrorBoundary fallbackTitle="Customer Ledger Report">
           <CustomerLedgerReportSection
+            companyProfile={companyProfile}
+            onNavigateTab={onNavigateTab}
+          />
+        </ErrorBoundary>
+      ) : activeReportTab === 'supplierLedger' ? (
+        <ErrorBoundary fallbackTitle="Supplier Ledger Report">
+          <SupplierLedgerReportSection
             companyProfile={companyProfile}
             onNavigateTab={onNavigateTab}
           />

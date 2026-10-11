@@ -37,6 +37,7 @@ import {
   SaleReturn,
   PurchaseReturn,
   CustomerLedgerReport,
+  SupplierLedgerReport,
 } from '../types';
 import { OfflineStorageService } from './offlineStorage';
 import { setCurrency } from '../utils/currency';
@@ -1778,6 +1779,46 @@ export const api = {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to delete ledger entry');
+    }
+    return res.json();
+  },
+
+  // Supplier Ledger Report (سپلائر جنرل لیجر)
+  async getSupplierLedgerReport(params: {
+    supplierId: string;
+    fromDate?: string;
+    toDate?: string;
+    poNumber?: string;
+  }): Promise<SupplierLedgerReport> {
+    const query = new URLSearchParams();
+    query.set('supplierId', params.supplierId);
+    if (params.fromDate) query.set('fromDate', params.fromDate);
+    if (params.toDate) query.set('toDate', params.toDate);
+    if (params.poNumber) query.set('poNumber', params.poNumber);
+
+    const res = await fetch(`/api/reports/supplier-ledger?${query.toString()}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to generate supplier general ledger report');
+    }
+    return res.json();
+  },
+
+  async deleteSupplierLedgerEntry(params: {
+    id?: string;
+    entityId?: string;
+    entityType?: string;
+    refType?: string;
+    refNumber?: string | number;
+  }): Promise<{ success: boolean; message?: string }> {
+    const res = await fetch('/api/reports/supplier-ledger/delete-entry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to delete supplier ledger entry');
     }
     return res.json();
   },

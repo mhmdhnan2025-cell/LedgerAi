@@ -1640,6 +1640,53 @@ app.delete('/api/reports/customer-ledger/:id', (req, res) => {
 });
 
 // -------------------------------------------------------------
+// SUPPLIER GENERAL LEDGER REPORT (سپلائر جنرل لیجر)
+// -------------------------------------------------------------
+app.get('/api/reports/supplier-ledger', (req, res) => {
+  try {
+    const { supplierId, fromDate, toDate, poNumber } = req.query;
+    if (!supplierId) {
+      return res.status(400).json({ error: 'supplierId is required' });
+    }
+    const report = db.getSupplierLedgerReport(
+      String(supplierId),
+      fromDate ? String(fromDate) : undefined,
+      toDate ? String(toDate) : undefined,
+      poNumber ? String(poNumber) : undefined
+    );
+    res.json(report);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/reports/supplier-ledger/delete-entry', (req, res) => {
+  try {
+    const userName = (req as any).user?.name || 'Admin';
+    const ok = db.deleteSupplierLedgerEntry(req.body, userName);
+    if (!ok) {
+      return res.status(404).json({ error: 'Supplier ledger entry not found or could not be deleted.' });
+    }
+    res.json({ success: true, message: 'Supplier ledger entry deleted and accounts recalculated successfully.' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/reports/supplier-ledger/:id', (req, res) => {
+  try {
+    const userName = (req as any).user?.name || 'Admin';
+    const ok = db.deleteSupplierLedgerEntry({ id: req.params.id }, userName);
+    if (!ok) {
+      return res.status(404).json({ error: 'Supplier ledger entry not found or could not be deleted.' });
+    }
+    res.json({ success: true, message: 'Supplier ledger entry deleted and accounts recalculated successfully.' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// -------------------------------------------------------------
 // SALES RETURNS API
 // -------------------------------------------------------------
 app.get('/api/sale-returns', (req, res) => {

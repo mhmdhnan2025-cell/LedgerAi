@@ -67,6 +67,8 @@ import {
   PurchaseReturnItem,
   CustomerLedgerEntry,
   CustomerLedgerReport,
+  SupplierLedgerEntry,
+  SupplierLedgerReport,
 } from '../src/types';
 
 export interface DatabaseSchema {
@@ -8541,6 +8543,389 @@ class DatabaseService {
   }
 
   // =========================================================================
+  // SUPPLIER GENERAL LEDGER REPORTING (کھاتہ / سپلائر لیجر)
+  // =========================================================================
+  public getSupplierLedgerReport(
+    supplierId: string,
+    fromDate?: string,
+    toDate?: string,
+    poNumber?: string
+  ): SupplierLedgerReport {
+    const isAll = !supplierId || supplierId.trim() === '' || supplierId.trim().toUpperCase() === 'ALL' || supplierId.trim() === '*';
+    const suppSearch = (supplierId || '').trim().toLowerCase();
+    const supplier = isAll
+      ? undefined
+      : (this.data.suppliers || []).find(
+          (s) =>
+            s.id?.toLowerCase() === suppSearch ||
+            s.code?.toLowerCase() === suppSearch ||
+            (s.accountNumber && s.accountNumber.toLowerCase() === suppSearch) ||
+            (s.accountTitle && s.accountTitle.toLowerCase() === suppSearch) ||
+            (s.title && s.title.toLowerCase() === suppSearch) ||
+            (s.name && s.name.toLowerCase() === suppSearch)
+        );
+
+    const suppId = isAll ? 'ALL' : (supplier?.id || supplierId);
+    const suppCode = isAll ? 'ALL' : (supplier?.code || supplier?.accountNumber || '');
+    const suppTitle = isAll ? 'All Supplier Accounts (تمام سپلائرز / تمام کھاتے)' : (supplier?.accountTitle || supplier?.title || supplier?.name || 'Supplier');
+
+    const matchesSupplier = (id?: string, code?: string, title?: string) => {
+      if (isAll) return true;
+      if (id && (id.toLowerCase() === suppId.toLowerCase() || (suppCode && id.toLowerCase() === suppCode.toLowerCase()))) return true;
+      if (code && (code.toLowerCase() === suppCode.toLowerCase() || code.toLowerCase() === suppId.toLowerCase())) return true;
+      if (title && suppTitle && title.trim().toLowerCase() === suppTitle.trim().toLowerCase()) return true;
+      if (supplier && title && (supplier.title && title.trim().toLowerCase() === supplier.title.trim().toLowerCase())) return true;
+      if (supplier && title && (supplier.name && title.trim().toLowerCase() === supplier.name.trim().toLowerCase())) return true;
+      return false;
+    };
+
+    const isSupplierVoucherEntry = (e: any, vType: string) => {
+      if (!isAll) {
+        return matchesSupplier(e.accountId, e.accountCode, e.accountTitle);
+      }
+      // When All accounts mode is selected, check if this is a supplier-related entry
+      const typeLower = (e.accountType || '').toLowerCase();
+      const code = String(e.accountCode || '');
+      const titleLower = String(e.accountTitle || '').toLowerCase();
+      if (typeLower.includes('supplier') || typeLower.includes('vendor')) return true;
+      if (code.startsWith('02') || code.startsWith('04')) return true;
+      if (vType === 'CP' || vType === 'BP') {
+        const isExpense =
+          typeLower.includes('expense') ||
+          code.startsWith('05') ||
+          (this.data.expenseAccounts || []).some(
+            (exp) => exp.id === e.accountId || exp.code === code || (exp.name && exp.name.toLowerCase() === titleLower)
+          );
+        if (!isExpense) return true;
+      }
+      return (this.data.suppliers || []).some(
+        (s) =>
+          s.id === e.accountId ||
+          s.code === code ||
+          s.accountNumber === code ||
+          (s.accountTitle && s.accountTitle.toLowerCase() === titleLower) ||
+          (s.title && s.title.toLowerCase() === titleLower)
+      );
+    };
+
+    const normFrom = fromDate ? this.normalizeDateToYMD(fromDate) : '2000-01-01';
+    const normTo = toDate ? this.normalizeDateToYMD(toDate) : '2099-12-31';
+
+    // 1. Calculate Opening Balance before normFrom (Credit = Payable to Supplier)
+    let calcOpening = 0;
+
+    // Add Purchase Bills prior to fromDate
+    for (const b of (this.data.purchaseBills || [])) {
+      if (b.status === 'Cancelled') continue;
+      if (!matchesSupplier(b.supplierId, undefined, b.supplierAccountTitle)) continue;
+      const bDate = this.normalizeDateToYMD(b.date);
+      if (bDate < normFrom) {
+        calcOpening += Number(b.netTotal || b.totalAmount || 0); // Credit: Increases payable
+        const paid = Number(b.paidAmount) || 0;
+        if (paid > 0) {
+          const hasVoucher = (this.data.vouchers || []).some(
+            (v) => ((v as any).referenceNumber && (v as any).referenceNumber === b.billNumber) ||
+                   (v.entries || []).some((e) => e.narration?.includes(b.billNumber))
+          );
+          if (!hasVoucher) {
+            calcOpening -= paid; // Debit: Decreases payable
+          }
+        }
+      }
+    }
+
+    // Subtract supplier payments/vouchers prior to fromDate
+    for (const v of (this.data.vouchers || [])) {
+      if (v.status !== 'POSTED') continue;
+      const vDate = this.normalizeDateToYMD(v.date);
+      if (vDate >= normFrom) continue;
+
+      for (const e of (v.entries || [])) {
+        if (!isSupplierVoucherEntry(e, v.voucherType)) continue;
+        if (v.voucherType === 'CP' || v.voucherType === 'BP') {
+          calcOpening -= Number(e.amount || 0);
+        } else if (v.voucherType === 'CB') {
+          calcOpening -= Number(e.payment || e.amount || 0);
+        } else if (v.voucherType === 'JV') {
+          // JV: Credit increases payable, Debit decreases payable
+          calcOpening += (Number(e.credit || 0) - Number(e.debit || 0));
+        }
+      }
+    }
+
+    // Subtract purchase returns prior to fromDate
+    for (const pr of (this.data.purchaseReturns || [])) {
+      if (pr.status === 'CANCELLED') continue;
+      if (!matchesSupplier(pr.supplierId, pr.supplierCode, pr.supplierAccountTitle)) continue;
+      const prDate = this.normalizeDateToYMD(pr.date);
+      if (prDate < normFrom) {
+        calcOpening -= Number(pr.netTotal || pr.totalAmount || 0);
+      }
+    }
+
+    // Subtract direct payments prior to fromDate
+    for (const p of (this.data.payments || [])) {
+      if ((p as any).isDeleted || p.status === 'Cancelled' || (p as any).status === 'DELETED') continue;
+      const pDate = this.normalizeDateToYMD(p.paymentDate || p.date || (p as any).createdAt || '');
+      if (pDate >= normFrom) continue;
+      if (matchesSupplier((p as any).supplierId || p.restaurantId)) {
+        calcOpening -= Number(p.amount || 0);
+      }
+    }
+
+    const openingBalanceVal = Number(calcOpening.toFixed(2));
+    const openingBalance = Math.abs(openingBalanceVal);
+    const openingBalanceType: 'CR' | 'DR' = openingBalanceVal >= 0 ? 'CR' : 'DR';
+
+    // 2. Collect entries between normFrom and normTo
+    const entries: SupplierLedgerEntry[] = [];
+
+    // Purchase Bills
+    for (const b of (this.data.purchaseBills || [])) {
+      if (b.status === 'Cancelled') continue;
+      if (!matchesSupplier(b.supplierId, undefined, b.supplierAccountTitle)) continue;
+      const bDate = this.normalizeDateToYMD(b.date);
+      if (bDate < normFrom || bDate > normTo) continue;
+      if (
+        poNumber &&
+        !String(b.billNumber || '').toLowerCase().includes(poNumber.toLowerCase()) &&
+        !String(b.vendorBillNumber || '').toLowerCase().includes(poNumber.toLowerCase()) &&
+        !String(b.gatePassNumber || '').toLowerCase().includes(poNumber.toLowerCase())
+      ) {
+        continue;
+      }
+
+      const itemLines = (b.items || []).map((it) => {
+        const pkg = (it as any).packageType || (it as any).unit || (it.ctn ? 'CTN' : '');
+        const pkgStr = it.ctn ? ` (${it.ctn} ${pkg || 'CTN'} QTY=${it.qty} @${it.rate})` : ` (QTY=${it.qty} @${it.rate})`;
+        return `${it.itemTitle || 'Item'}${pkgStr}`;
+      }).join('\n');
+      const partyTag = isAll ? `[${b.supplierAccountTitle || (b as any).supplierName || 'Supplier'}] ` : '';
+      const invTag = b.vendorBillNumber ? ` (Inv#${b.vendorBillNumber})` : '';
+      const narration = `${partyTag}Purchase Bill#${b.billNumber}${invTag}${itemLines ? '\n' + itemLines : ''}`;
+
+      entries.push({
+        id: b.id,
+        refType: 'PB#',
+        refNumber: b.billNumber,
+        date: b.date,
+        billNumber: b.billNumber,
+        narration,
+        debit: 0,
+        credit: Number(b.netTotal || b.totalAmount || 0),
+        balance: 0,
+        balanceType: 'CR',
+        entityId: b.id,
+        entityType: 'purchaseBill',
+        supplierName: b.supplierAccountTitle || (b as any).supplierName || 'Supplier',
+        supplierAccountTitle: b.supplierAccountTitle || (b as any).supplierName || 'Supplier',
+      });
+
+      // Direct payment on purchase bill
+      const paid = Number(b.paidAmount) || 0;
+      if (paid > 0) {
+        const hasVoucher = (this.data.vouchers || []).some(
+          (v) => ((v as any).referenceNumber && (v as any).referenceNumber === b.billNumber) ||
+                 (v.entries || []).some((e) => e.narration?.includes(b.billNumber))
+        );
+        if (!hasVoucher) {
+          entries.push({
+            id: `pb-paid-${b.id}`,
+            refType: 'CP#',
+            refNumber: b.billNumber,
+            date: b.date,
+            billNumber: b.billNumber,
+            narration: `${partyTag}Cash Paid for Bill#${b.billNumber}${b.isCash ? ' (Counter Cash)' : ''}`,
+            debit: paid,
+            credit: 0,
+            balance: 0,
+            balanceType: 'CR',
+            entityId: `pb-paid-${b.id}`,
+            entityType: 'purchaseBill',
+            supplierName: b.supplierAccountTitle || (b as any).supplierName || 'Supplier',
+            supplierAccountTitle: b.supplierAccountTitle || (b as any).supplierName || 'Supplier',
+          });
+        }
+      }
+    }
+
+    // Vouchers (CP, BP, CB, JV)
+    for (const v of (this.data.vouchers || [])) {
+      if (v.status !== 'POSTED') continue;
+      const vDate = this.normalizeDateToYMD(v.date);
+      if (vDate < normFrom || vDate > normTo) continue;
+      if (poNumber && v.poNumber && !v.poNumber.toLowerCase().includes(poNumber.toLowerCase())) continue;
+
+      for (const e of (v.entries || [])) {
+        if (!isSupplierVoucherEntry(e, v.voucherType)) continue;
+        const partyTag = isAll ? `[${e.accountTitle || 'Supplier'}] ` : '';
+
+        if (v.voucherType === 'CP' || v.voucherType === 'BP') {
+          const amt = Number(e.amount || 0);
+          if (amt <= 0) continue;
+          entries.push({
+            id: `${v.id}-${e.id}`,
+            refType: v.voucherType === 'CP' ? 'CP#' : 'BP#',
+            refNumber: v.voucherNumber || v.voucherNumberFormatted,
+            date: v.date,
+            billNumber: v.poNumber || '',
+            narration: `${partyTag}${e.narration || `${v.voucherType === 'CP' ? 'Cash' : 'Bank'} Paid${v.bankAccountTitle ? ' (' + v.bankAccountTitle + ')' : ''}`}`,
+            debit: amt,
+            credit: 0,
+            balance: 0,
+            balanceType: 'CR',
+            entityId: v.id,
+            entityType: 'voucher',
+            supplierName: e.accountTitle || 'Supplier',
+            supplierAccountTitle: e.accountTitle || 'Supplier',
+          });
+        } else if (v.voucherType === 'CB') {
+          const paidAmt = Number(e.payment || e.amount || 0);
+          if (paidAmt <= 0) continue;
+          entries.push({
+            id: `${v.id}-${e.id}`,
+            refType: 'CB#',
+            refNumber: v.voucherNumber || v.voucherNumberFormatted,
+            date: v.date,
+            billNumber: v.poNumber || '',
+            narration: `${partyTag}${e.narration || 'Cash Book Payment'}`,
+            debit: paidAmt,
+            credit: 0,
+            balance: 0,
+            balanceType: 'CR',
+            entityId: v.id,
+            entityType: 'voucher',
+            supplierName: e.accountTitle || 'Supplier',
+            supplierAccountTitle: e.accountTitle || 'Supplier',
+          });
+        } else if (v.voucherType === 'JV') {
+          const dr = Number(e.debit || 0);
+          const cr = Number(e.credit || 0);
+          if (dr <= 0 && cr <= 0) continue;
+          entries.push({
+            id: `${v.id}-${e.id}`,
+            refType: 'JV#',
+            refNumber: v.jvNumber,
+            date: v.date,
+            billNumber: v.poNumber || '',
+            narration: `${partyTag}${e.narration || 'Journal Voucher'}`,
+            debit: dr,
+            credit: cr,
+            balance: 0,
+            balanceType: 'CR',
+            entityId: v.id,
+            entityType: 'voucher',
+            supplierName: e.accountTitle || 'Supplier',
+            supplierAccountTitle: e.accountTitle || 'Supplier',
+          });
+        }
+      }
+    }
+
+    // Direct Payments in payments table
+    for (const p of (this.data.payments || [])) {
+      if ((p as any).isDeleted || p.status === 'Cancelled' || (p as any).status === 'DELETED') continue;
+      if (!matchesSupplier((p as any).supplierId || p.restaurantId)) continue;
+      const pDate = this.normalizeDateToYMD(p.paymentDate || p.date || (p as any).createdAt || '');
+      if (pDate < normFrom || pDate > normTo) continue;
+      if (entries.some((e) => e.entityId === p.id)) continue;
+      const partyTag = isAll ? `[${(p as any).supplierName || p.restaurantName || 'Supplier'}] ` : '';
+
+      entries.push({
+        id: p.id,
+        refType: 'CP#',
+        refNumber: (p as any).referenceNo || `PAY-${p.id}`,
+        date: p.paymentDate || p.date || pDate,
+        billNumber: p.orderId || '',
+        narration: `${partyTag}${p.notes || `Payment to Supplier (${p.paymentMethod || 'Cash'})`}`,
+        debit: Number(p.amount || 0),
+        credit: 0,
+        balance: 0,
+        balanceType: 'CR',
+        entityId: p.id,
+        entityType: 'payment',
+        supplierName: (p as any).supplierName || p.restaurantName || 'Supplier',
+        supplierAccountTitle: (p as any).supplierName || p.restaurantName || 'Supplier',
+      });
+    }
+
+    // Purchase Returns
+    for (const pr of (this.data.purchaseReturns || [])) {
+      if (pr.status === 'CANCELLED') continue;
+      if (!matchesSupplier(pr.supplierId, pr.supplierCode, pr.supplierAccountTitle)) continue;
+      const prDate = this.normalizeDateToYMD(pr.date);
+      if (prDate < normFrom || prDate > normTo) continue;
+
+      const retItemLines = (pr.items || []).map((it) => {
+        return `${it.itemTitle || 'Item'} (QTY=${it.qty} @${it.rate})`;
+      }).join('\n');
+      const partyTag = isAll ? `[${pr.supplierAccountTitle || pr.supplierName || 'Supplier'}] ` : '';
+      const narration = `${partyTag}${pr.reason || 'Purchase Return'}${retItemLines ? '\n' + retItemLines : ''}`;
+
+      entries.push({
+        id: pr.id,
+        refType: 'PR#',
+        refNumber: pr.returnNumber || pr.returnNumberFormatted,
+        date: pr.date,
+        billNumber: pr.originalBillNumber || '',
+        narration,
+        debit: Number(pr.netTotal || pr.totalAmount || 0),
+        credit: 0,
+        balance: 0,
+        balanceType: 'CR',
+        entityId: pr.id,
+        entityType: 'purchaseReturn',
+        supplierName: pr.supplierAccountTitle || pr.supplierName || 'Supplier',
+        supplierAccountTitle: pr.supplierAccountTitle || pr.supplierName || 'Supplier',
+      });
+    }
+
+    // Sort entries by date ascending
+    entries.sort((a, b) => {
+      const cmp = a.date.localeCompare(b.date);
+      if (cmp !== 0) return cmp;
+      return String(a.refNumber).localeCompare(String(b.refNumber));
+    });
+
+    // 3. Compute running balances (Credit increases liability, Debit decreases)
+    let running = openingBalanceVal;
+    let totalDebit = 0;
+    let totalCredit = 0;
+
+    for (const ent of entries) {
+      totalDebit += ent.debit;
+      totalCredit += ent.credit;
+      running += (ent.credit - ent.debit);
+      ent.balance = Math.abs(Number(running.toFixed(2)));
+      ent.balanceType = running >= 0 ? 'CR' : 'DR';
+    }
+
+    const closingBalance = Math.abs(Number(running.toFixed(2)));
+    const closingBalanceType: 'CR' | 'DR' = running >= 0 ? 'CR' : 'DR';
+
+    return {
+      supplierId: suppId,
+      supplierCode: suppCode,
+      supplierName: suppTitle,
+      accountTitle: suppTitle,
+      phone: isAll ? 'All Suppliers Consolidated' : (supplier?.mobile || supplier?.telephones || ''),
+      address: isAll ? 'All Locations' : (supplier?.address || supplier?.city || '').trim(),
+      city: isAll ? 'All Cities' : (supplier?.city || ''),
+      trn: isAll ? '' : (supplier?.vatNumber || supplier?.ntnNumber || ''),
+      fromDate: normFrom,
+      toDate: normTo,
+      generatedDate: new Date().toISOString(),
+      openingBalance,
+      openingBalanceType,
+      closingBalance,
+      closingBalanceType,
+      totalDebit: Number(totalDebit.toFixed(2)),
+      totalCredit: Number(totalCredit.toFixed(2)),
+      entries,
+    };
+  }
+
+  // =========================================================================
   // REPORT ENTRY DELETIONS & LEDGER REVERSALS
   // =========================================================================
   public deleteCashRecoveredItem(id: string, userName: string = 'Admin'): boolean {
@@ -8687,6 +9072,82 @@ class DatabaseService {
     }
     if ((this.data.saleReturns || []).some((r) => r.id === targetId)) {
       return this.deleteSaleReturn(targetId, userName);
+    }
+    if ((this.data.payments || []).some((p) => p.id === targetId)) {
+      return this.deletePayment(targetId, { id: 'admin', name: userName, role: 'Admin' });
+    }
+
+    return false;
+  }
+
+  public deleteSupplierLedgerEntry(
+    params: { id?: string; entityId?: string; entityType?: string; refType?: string; refNumber?: string | number },
+    userName: string = 'Admin'
+  ): boolean {
+    const targetId = params.entityId || params.id || '';
+    const refType = params.refType || '';
+    const entityType = params.entityType || '';
+
+    // 1. Direct Purchase Bill payment reversal (pb-paid-...)
+    if (targetId.startsWith('pb-paid-')) {
+      return this.deleteCashPaidItem(targetId, userName);
+    }
+
+    // 2. Purchase Bill (PB#)
+    if (refType === 'PB#' || entityType === 'purchaseBill') {
+      const bill = (this.data.purchaseBills || []).find(
+        (b) => b.id === targetId || b.billNumber === String(params.refNumber || targetId)
+      );
+      if (bill) {
+        return this.deletePurchaseBill(bill.id, { id: 'admin', name: userName, role: 'Admin' });
+      }
+    }
+
+    // 3. Purchase Return (PR#)
+    if (refType === 'PR#' || entityType === 'purchaseReturn') {
+      const pr = (this.data.purchaseReturns || []).find(
+        (r) =>
+          r.id === targetId ||
+          r.returnNumber === String(params.refNumber || targetId) ||
+          r.returnNumberFormatted === String(params.refNumber || targetId)
+      );
+      if (pr) {
+        return this.deletePurchaseReturn(pr.id, userName);
+      }
+    }
+
+    // 4. Voucher (CP#, BP#, CB#, JV#)
+    if (['CP#', 'BP#', 'CB#', 'JV#'].includes(refType) || entityType === 'voucher') {
+      const actualVoucherId =
+        targetId.includes('-') && (this.data.vouchers || []).some((v) => v.id === targetId.split('-')[0])
+          ? targetId.split('-')[0]
+          : targetId;
+      const v = (this.data.vouchers || []).find(
+        (v) =>
+          v.id === actualVoucherId ||
+          v.id === targetId ||
+          String(v.jvNumber) === String(params.refNumber) ||
+          v.voucherNumberFormatted === String(params.refNumber)
+      );
+      if (v) {
+        return this.deleteVoucher(v.id, userName);
+      }
+    }
+
+    // 5. Direct Payment
+    if (entityType === 'payment' || (this.data.payments || []).some((p) => p.id === targetId)) {
+      return this.deletePayment(targetId, { id: 'admin', name: userName, role: 'Admin' });
+    }
+
+    // General fallback across purchaseBills, purchaseReturns, vouchers, payments
+    if ((this.data.purchaseBills || []).some((b) => b.id === targetId)) {
+      return this.deletePurchaseBill(targetId, { id: 'admin', name: userName, role: 'Admin' });
+    }
+    if ((this.data.purchaseReturns || []).some((r) => r.id === targetId)) {
+      return this.deletePurchaseReturn(targetId, userName);
+    }
+    if ((this.data.vouchers || []).some((v) => v.id === targetId)) {
+      return this.deleteVoucher(targetId, userName);
     }
     if ((this.data.payments || []).some((p) => p.id === targetId)) {
       return this.deletePayment(targetId, { id: 'admin', name: userName, role: 'Admin' });
