@@ -564,42 +564,65 @@ ${items
 
           {/* ---------------- LINE ITEMS ---------------- */}
           <div className="border border-slate-400 mb-3 overflow-x-auto">
-            <table className="w-full border-collapse text-[11.5px] min-w-[560px]">
+            <table className="w-full border-collapse text-[11.5px] min-w-[680px]">
               <thead>
                 <tr className="bg-[#f4efe1] text-slate-900 align-bottom">
-                  <th className="border border-slate-400 px-1.5 py-1.5 w-[40px]">
+                  {/* 1. SL# */}
+                  <th className="border border-slate-400 px-1.5 py-1.5 w-[36px] text-center">
                     <div dir="rtl" className="text-[10px] font-semibold leading-tight">الرقم</div>
                     <div className="font-black leading-tight">SL#</div>
                   </th>
-                  <th className="border border-slate-400 px-1.5 py-1.5 text-left">
-                    <div dir="rtl" className="text-[10px] font-semibold leading-tight">الوصف</div>
-                    <div className="font-black leading-tight">Description</div>
+
+                  {/* 2. Title */}
+                  <th className="border border-slate-400 px-2 py-1.5 text-left min-w-[150px]">
+                    <div dir="rtl" className="text-[10px] font-semibold leading-tight">اسم الصنف</div>
+                    <div className="font-black leading-tight">Title</div>
                   </th>
-                  <th className="border border-slate-400 px-1.5 py-1.5 w-[54px]">
-                    <div dir="rtl" className="text-[10px] font-semibold leading-tight">الوحدة</div>
-                    <div className="font-black leading-tight">Unit</div>
+
+                  {/* 3. Carton / Packaging */}
+                  <th className="border border-slate-400 px-1.5 py-1.5 w-[75px] text-center">
+                    <div dir="rtl" className="text-[10px] font-semibold leading-tight">الكرتون/العبوة</div>
+                    <div className="font-black leading-tight">Carton / PKG</div>
                   </th>
-                  <th className="border border-slate-400 px-1.5 py-1.5 w-[62px]">
-                    <div dir="rtl" className="text-[10px] font-semibold leading-tight">الكمية</div>
-                    <div className="font-black leading-tight">Qty</div>
+
+                  {/* 4. Loose Measure / Qty */}
+                  <th className="border border-slate-400 px-1.5 py-1.5 w-[70px] text-center">
+                    <div dir="rtl" className="text-[10px] font-semibold leading-tight">كمية إضافية</div>
+                    <div className="font-black leading-tight">Loose Qty</div>
                   </th>
-                  <th className="border border-slate-400 px-1.5 py-1.5 w-[78px]">
+
+                  {/* 5. Total Qty / Total Stock */}
+                  <th className="border border-slate-400 px-1.5 py-1.5 w-[75px] text-center bg-[#f0eadd]">
+                    <div dir="rtl" className="text-[10px] font-semibold leading-tight">إجمالي الكمية</div>
+                    <div className="font-black leading-tight">Total Qty</div>
+                  </th>
+
+                  {/* 6. Unit Price */}
+                  <th className="border border-slate-400 px-1.5 py-1.5 w-[75px] text-right">
                     <div dir="rtl" className="text-[10px] font-semibold leading-tight">سعر الوحدة</div>
                     <div className="font-black leading-tight">Unit Price</div>
                   </th>
-                  <th className="border border-slate-400 px-1.5 py-1.5 w-[86px]">
-                    <div dir="rtl" className="text-[10px] font-semibold leading-tight">المجموع بدون ضريبة</div>
+
+                  {/* 7. Before VAT */}
+                  <th className="border border-slate-400 px-1.5 py-1.5 w-[80px] text-right">
+                    <div dir="rtl" className="text-[10px] font-semibold leading-tight">بدون ضريبة</div>
                     <div className="font-black leading-tight">Before VAT</div>
                   </th>
-                  <th className="border border-slate-400 px-1.5 py-1.5 w-[54px]">
+
+                  {/* 8. VAT % */}
+                  <th className="border border-slate-400 px-1.5 py-1.5 w-[46px] text-center">
                     <div dir="rtl" className="text-[10px] font-semibold leading-tight">الضريبة</div>
                     <div className="font-black leading-tight">VAT %</div>
                   </th>
-                  <th className="border border-slate-400 px-1.5 py-1.5 w-[76px]">
+
+                  {/* 9. VAT Amount */}
+                  <th className="border border-slate-400 px-1.5 py-1.5 w-[72px] text-right">
                     <div dir="rtl" className="text-[10px] font-semibold leading-tight">قيمة الضريبة</div>
                     <div className="font-black leading-tight">VAT Amount</div>
                   </th>
-                  <th className="border border-slate-400 px-1.5 py-1.5 w-[86px] bg-[#f4efe1]">
+
+                  {/* 10. Net Amount */}
+                  <th className="border border-slate-400 px-1.5 py-1.5 w-[86px] text-right bg-[#f4efe1]">
                     <div dir="rtl" className="text-[10px] font-semibold leading-tight">صافي المجموع</div>
                     <div className="font-black leading-tight">Net Amount</div>
                   </th>
@@ -615,25 +638,69 @@ ${items
                       );
                   const lineVat = Number(it.vatAmount) || 0;
                   const lineNet = Number((beforeVat + lineVat).toFixed(2));
-                  const unit = (it.unit || 'PCS').toUpperCase();
-                  const isDual = Number(it.ctn) > 0 && Number(it.qty) > 0;
-                  const desc = isDual
-                    ? `${it.itemTitle} (${it.ctn} ${it.packageType || 'CTN'} @ ${money(it.ratePerCtn)} + ${it.qty} ${unit} @ ${money(it.rate)})`
-                    : it.itemTitle;
+                  const unit = (it.unit || 'KG').toUpperCase();
+                  const ctnCount = Number(it.ctn) || 0;
+                  const looseQty = Number(it.qty) || 0;
+                  const pkgType = it.packageType || 'Carton';
+                  const qtyInPkg = Number(it.qtyPerCtn) || (ctnCount > 0 && it.totalDeductedQty && it.totalDeductedQty > looseQty ? Math.round((it.totalDeductedQty - looseQty) / ctnCount) : 1);
+                  const totalStock = it.totalDeductedQty !== undefined && Number(it.totalDeductedQty) > 0
+                    ? Number(it.totalDeductedQty)
+                    : ((ctnCount * qtyInPkg) + looseQty);
+
                   return (
                     <tr key={it.id || idx} className="align-top">
+                      {/* 1. SL# */}
                       <td className="border border-slate-400 px-1.5 py-1.5 text-center font-mono">{idx + 1}</td>
-                      <td className="border border-slate-400 px-1.5 py-1.5 font-black">{desc}</td>
-                      <td className="border border-slate-400 px-1.5 py-1.5 text-center">{unit}</td>
-                      <td className="border border-slate-400 px-1.5 py-1.5 text-center font-black">{money(it.qty)}</td>
-                      <td className="border border-slate-400 px-1.5 py-1.5 text-right font-mono">{money(it.rate)}</td>
+
+                      {/* 2. Title (Only clean title, no messy formula in title!) */}
+                      <td className="border border-slate-400 px-2 py-1.5 font-black text-slate-950">
+                        {it.itemTitle}
+                      </td>
+
+                      {/* 3. Carton / Packaging (e.g. 1 Carton or 2 Bags) */}
+                      <td className="border border-slate-400 px-1.5 py-1.5 text-center font-bold">
+                        {ctnCount > 0 ? (
+                          <span>{ctnCount} <span className="text-[10px] font-semibold text-slate-700">{pkgType}</span></span>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
+                      </td>
+
+                      {/* 4. Loose Qty (e.g. 20 KG) */}
+                      <td className="border border-slate-400 px-1.5 py-1.5 text-center font-bold">
+                        {looseQty > 0 ? (
+                          <span>{money(looseQty)} <span className="text-[10px] font-semibold text-slate-700">{unit}</span></span>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
+                      </td>
+
+                      {/* 5. Total Qty / Total Stock (e.g. 70 KG) */}
+                      <td className="border border-slate-400 px-1.5 py-1.5 text-center font-black bg-[#faf8f1]">
+                        {money(totalStock)} <span className="text-[10px] font-bold text-slate-700">{unit}</span>
+                      </td>
+
+                      {/* 6. Unit Price */}
+                      <td className="border border-slate-400 px-1.5 py-1.5 text-right font-mono font-medium">
+                        {money(it.rate)}
+                      </td>
+
+                      {/* 7. Before VAT */}
                       <td className="border border-slate-400 px-1.5 py-1.5 text-right font-black font-mono">
                         {money(beforeVat)}
                       </td>
+
+                      {/* 8. VAT % */}
                       <td className="border border-slate-400 px-1.5 py-1.5 text-center font-mono">
                         {Number(it.vatPercent ?? 5)}%
                       </td>
-                      <td className="border border-slate-400 px-1.5 py-1.5 text-right font-mono">{money(lineVat)}</td>
+
+                      {/* 9. VAT Amount */}
+                      <td className="border border-slate-400 px-1.5 py-1.5 text-right font-mono">
+                        {money(lineVat)}
+                      </td>
+
+                      {/* 10. Net Amount */}
                       <td className="border border-slate-400 px-1.5 py-1.5 text-right font-black font-mono bg-[#faf8f1]">
                         {money(lineNet)}
                       </td>
@@ -643,6 +710,7 @@ ${items
                 {Array.from({ length: fillerRows }).map((_, i) => (
                   <tr key={`filler-${i}`}>
                     <td className="border border-slate-400 h-[26px]" />
+                    <td className="border border-slate-400" />
                     <td className="border border-slate-400" />
                     <td className="border border-slate-400" />
                     <td className="border border-slate-400" />
