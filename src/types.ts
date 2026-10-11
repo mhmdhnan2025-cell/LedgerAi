@@ -135,6 +135,8 @@ export interface PurchaseBillItem {
   newStock?: number;              // Stock after addition
   extraPiece?: number;
   unit?: string;
+  totalIntakeQty?: number;        // Physical units added to warehouse inventory
+  vatType?: 'Percentage' | 'Amount';
 }
 
 export interface PurchaseBill {
@@ -149,6 +151,7 @@ export interface PurchaseBill {
   partyBalanceBefore?: number;     // Party Bal prior to bill
   isCash: boolean;                 // Cash checkbox
   discountType: 'Percentage' | 'Amount' | 'Percent';
+  vatType?: 'Percentage' | 'Amount';
   items: PurchaseBillItem[];
   totalCtn: number;
   totalQty: number;

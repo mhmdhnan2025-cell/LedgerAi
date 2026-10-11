@@ -41,7 +41,7 @@ interface PurchasingViewProps {
   currentRole: UserRole;
   companyProfile?: any;
   currentUser?: any;
-  onRefreshData?: () => void;
+  onRefreshData?: () => Promise<void> | void;
   onNavigateTab?: (tab: string) => void;
   onOpenOcr?: () => void;
 }
@@ -101,6 +101,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
   // MASTER INVOICE HEADER STATE (Matching Image 1 & 2)
   // -------------------------------------------------------------
   const [discountType, setDiscountType] = useState<'Percentage' | 'Amount'>('Amount');
+  const [vatType, setVatType] = useState<'Percentage' | 'Amount'>('Percentage');
   const [billDate, setBillDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [billNumber, setBillNumber] = useState<string>('1714');
   const [vendorBillNumber, setVendorBillNumber] = useState<string>('');
@@ -150,6 +151,8 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
   const ratePerCtnInputRef = useRef<HTMLInputElement>(null);
   const qtyInputRef = useRef<HTMLInputElement>(null);
   const rateInputRef = useRef<HTMLInputElement>(null);
+  const discountInputRef = useRef<HTMLInputElement>(null);
+  const vatPercentInputRef = useRef<HTMLInputElement>(null);
 
   // Added bill items table
   const [billItems, setBillItems] = useState<PurchaseBillItem[]>([]);
@@ -374,80 +377,71 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
     }, 50);
   };
 
-  // When CTN changes: QTY = CTN * qtyPerCtn
+  // Dual Packaging Change Handlers
   const handleCtnChange = (val: number | '') => {
     setCtn(val);
-    if (typeof val === 'number') {
-      const qpc = typeof qtyPerCtn === 'number' && qtyPerCtn > 0 ? qtyPerCtn : 1;
-      setQty(val * qpc);
-    } else {
-      setQty('');
-    }
   };
 
-  // When QTY changes directly: CTN = QTY / qtyPerCtn
   const handleQtyDirectChange = (val: number | '') => {
     setQty(val);
-    if (typeof val === 'number') {
-      const qpc = typeof qtyPerCtn === 'number' && qtyPerCtn > 0 ? qtyPerCtn : 1;
-      setCtn(parseFloat((val / qpc).toFixed(2)));
-    } else {
-      setCtn('');
-    }
   };
 
-  // When Rate/CTN changes: Rate = Rate/CTN / qtyPerCtn
   const handleRatePerCtnChange = (val: number | '') => {
     setRatePerCtn(val);
-    if (typeof val === 'number') {
-      const qpc = typeof qtyPerCtn === 'number' && qtyPerCtn > 0 ? qtyPerCtn : 1;
-      setRate(parseFloat((val / qpc).toFixed(3)));
-    }
   };
 
-  // When Rate changes: Rate/CTN = Rate * qtyPerCtn
   const handleRateChange = (val: number | '') => {
     setRate(val);
-    if (typeof val === 'number') {
-      const qpc = typeof qtyPerCtn === 'number' && qtyPerCtn > 0 ? qtyPerCtn : 1;
-      setRatePerCtn(parseFloat((val * qpc).toFixed(2)));
-    }
   };
 
   const handleQtyPerCtnChange = (val: number | '') => {
     setQtyPerCtn(val);
-    const qpc = typeof val === 'number' && val > 0 ? val : 1;
-    if (typeof ctn === 'number') {
-      setQty(ctn * qpc);
-    }
-    if (typeof ratePerCtn === 'number' && ratePerCtn > 0) {
-      setRate(parseFloat((ratePerCtn / qpc).toFixed(3)));
-    }
   };
 
-  // Calculate live row amount matching Screenshot 4
+  // Synchronize itemStock automatically whenever products prop updates (without needing page reload!)
+  useEffect(() => {
+    if (selectedProductId) {
+      const p = products.find((prod) => prod.id === selectedProductId);
+      if (p) {
+        const rawStock = Number(p.totalStock !== undefined ? p.totalStock : p.currentQuantity) || 0;
+        setItemStock(rawStock);
+      }
+    }
+  }, [products, selectedProductId]);
+
+  // Dual packaging row calculations (Subtotal = CTN * RATE/CTN + QTY * RATE)
   const numCtn = typeof ctn === 'number' ? ctn : 0;
-  const numQty = typeof qty === 'number' ? qty : (numCtn * (Number(qtyPerCtn) || 1));
-  const numRate = typeof rate === 'number' ? rate : (typeof ratePerCtn === 'number' && typeof qtyPerCtn === 'number' && qtyPerCtn > 0 ? ratePerCtn / qtyPerCtn : 0);
-  const numRatePerCtn = typeof ratePerCtn === 'number' ? ratePerCtn : (numRate * (Number(qtyPerCtn) || 1));
+  const numRatePerCtn = typeof ratePerCtn === 'number' ? ratePerCtn : 0;
+  const numQtyPerCtn = typeof qtyPerCtn === 'number' && qtyPerCtn > 0 ? qtyPerCtn : 1;
+  const numQty = typeof qty === 'number' ? qty : 0;
+  const numRate = typeof rate === 'number' ? rate : 0;
   const numDiscount = typeof discount === 'number' ? discount : 0;
+  const numVatPercent = typeof vatPercent === 'number' ? vatPercent : 0;
+
+  const currentItemSubtotal = Number(((numCtn * numRatePerCtn) + (numQty * numRate)).toFixed(2));
+  const currentItemDiscountAmt = discountType === 'Percentage'
+    ? Number(((currentItemSubtotal * numDiscount) / 100).toFixed(2))
+    : numDiscount;
+  const currentItemGross = Math.max(0, Number((currentItemSubtotal - currentItemDiscountAmt).toFixed(2)));
+  const currentItemVatAmount = vatType === 'Percentage'
+    ? Number(((currentItemGross * numVatPercent) / 100).toFixed(2))
+    : Number(numVatPercent.toFixed(2));
+  const currentItemTotalAmount = Number((currentItemGross + currentItemVatAmount).toFixed(2));
+
+  // Physical inventory intake into warehouse = (CTN * QTY/CTN) + QTY (supporting kg & grams)
+  const currentItemTotalIntake = Number(((numCtn * numQtyPerCtn) + numQty).toFixed(2));
+  const currentItemNewStock = Number((itemStock + currentItemTotalIntake).toFixed(2));
+
+  // Backward compatibility alias variables
   const numericQty = numQty;
   const numericRate = numRate;
   const numericDiscount = numDiscount;
+  const numericVatPercent = numVatPercent;
+  const liveRowVatAmount = currentItemVatAmount;
+  const liveRowAmount = currentItemTotalAmount;
+  const liveRowStockPreview = currentItemNewStock;
 
-  let liveRowGross = 0;
-  if (numCtn > 0 && numRatePerCtn > 0) {
-    liveRowGross = numCtn * numRatePerCtn;
-  } else if (numQty > 0 && numRate > 0) {
-    liveRowGross = numQty * numRate;
-  }
-  const lineSubtotal = Math.max(0, liveRowGross - numDiscount);
-  const numericVatPercent = typeof vatPercent === 'number' ? vatPercent : 5;
-  const liveRowVatAmount = parseFloat((lineSubtotal * (numericVatPercent / 100)).toFixed(2));
-  const liveRowAmount = parseFloat((lineSubtotal + liveRowVatAmount).toFixed(2));
-  const liveRowStockPreview = itemStock + numQty;
-
-  // Add Item Action (Triggered by blue [ Enter ] button)
+  // Add Item Action (Triggered by blue [ Enter ] button or keyboard Enter)
   const handleAddRowItem = () => {
     setErrorMsg(null);
     if (!itemTitle.trim()) {
@@ -456,9 +450,15 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
       return;
     }
 
-    if (numericQty <= 0) {
-      setErrorMsg('Item quantity must be greater than 0.');
-      qtyInputRef.current?.focus();
+    if (currentItemTotalIntake <= 0) {
+      setErrorMsg('Carton count or loose quantity must be greater than 0.');
+      ctnInputRef.current?.focus();
+      return;
+    }
+
+    if (numRatePerCtn <= 0 && numRate <= 0) {
+      setErrorMsg('Please enter purchase rate for carton/bag or loose quantity.');
+      ratePerCtnInputRef.current?.focus();
       return;
     }
 
@@ -469,19 +469,21 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
       category: itemCategory || 'General',
       mcode: itemMCode || '',
       packageType: resolvedPackageType,
-      ctn: typeof ctn === 'number' ? ctn : 0,
-      extraPiece: typeof extraPiece === 'number' ? extraPiece : 0,
+      ctn: numCtn,
+      extraPiece: 0,
       unit: resolvedBaseUnit,
-      ratePerCtn: typeof ratePerCtn === 'number' ? ratePerCtn : 0,
-      qtyPerCtn: typeof qtyPerCtn === 'number' ? qtyPerCtn : 1,
-      qty: numericQty,
-      rate: numericRate,
-      discount: numericDiscount,
-      vatPercent: numericVatPercent,
-      vatAmount: liveRowVatAmount,
-      amount: liveRowAmount,
+      ratePerCtn: numRatePerCtn,
+      qtyPerCtn: numQtyPerCtn,
+      qty: numQty,
+      rate: numRate,
+      discount: numDiscount,
+      vatPercent: numVatPercent,
+      vatAmount: currentItemVatAmount,
+      amount: currentItemTotalAmount,
       stock: itemStock,
-      newStock: liveRowStockPreview,
+      newStock: currentItemNewStock,
+      totalIntakeQty: currentItemTotalIntake,
+      vatType,
     };
 
     setBillItems((prev) => [...prev, newItem]);
@@ -499,6 +501,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
     setQty('');
     setRate('');
     setDiscount(0);
+    setVatPercent(5);
     setItemStock(0);
     setHighlightedItemIndex(0);
 
@@ -518,12 +521,13 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
 
   // Bill Totals
   const totalBillCtn = billItems.reduce((acc, it) => acc + (it.ctn || 0), 0);
-  const totalBillQty = billItems.reduce((acc, it) => acc + (it.qty || 0), 0);
-  const grossBillAmount = billItems.reduce((acc, it) => acc + (it.qty * it.rate), 0);
+  const totalBillQty = billItems.reduce((acc, it) => acc + (it.totalIntakeQty !== undefined ? it.totalIntakeQty : (it.qty || 0)), 0);
+  const grossBillAmount = billItems.reduce((acc, it) => acc + Math.max(0, it.amount - (it.vatAmount || 0)), 0);
   const totalBillVatAmount = billItems.reduce((acc, it) => acc + (it.vatAmount || 0), 0);
+  const totalBillItemDiscounts = billItems.reduce((acc, it) => acc + (it.discount || 0), 0);
   const numLoadExp = typeof loadExp === 'number' ? loadExp : 0;
   const netTotal = parseFloat(
-    (grossBillAmount + totalBillVatAmount + (isLoadExpDeduction ? -numLoadExp : numLoadExp)).toFixed(2)
+    (billItems.reduce((acc, it) => acc + it.amount, 0) + (isLoadExpDeduction ? -numLoadExp : numLoadExp)).toFixed(2)
   );
 
   // Auto-fill paidAmount if cash is checked
@@ -618,7 +622,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
 
     let itemsToSave = [...billItems];
     // If bill list is empty but an item is currently entered/selected in the input row, automatically add it!
-    if (itemsToSave.length === 0 && itemTitle.trim() && numericQty > 0) {
+    if (itemsToSave.length === 0 && itemTitle.trim() && currentItemTotalIntake > 0) {
       const stagedItem: PurchaseBillItem = {
         id: `pbi-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
         productId: selectedProductId || undefined,
@@ -626,18 +630,21 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
         category: itemCategory || 'General',
         mcode: itemMCode || '',
         packageType: resolvedPackageType,
-        ctn: typeof ctn === 'number' ? ctn : 0,
-        extraPiece: typeof extraPiece === 'number' ? extraPiece : 0,
+        ctn: numCtn,
+        extraPiece: 0,
         unit: resolvedBaseUnit,
-        ratePerCtn: typeof ratePerCtn === 'number' ? ratePerCtn : 0,
-        qtyPerCtn: typeof qtyPerCtn === 'number' ? qtyPerCtn : 1,
-        qty: numericQty,
-        rate: numericRate,
-        discount: numericDiscount,
-        vatPercent: numericVatPercent,
-        vatAmount: liveRowVatAmount,
-        amount: liveRowAmount,
+        ratePerCtn: numRatePerCtn,
+        qtyPerCtn: numQtyPerCtn,
+        qty: numQty,
+        rate: numRate,
+        discount: numDiscount,
+        vatPercent: numVatPercent,
+        vatAmount: currentItemVatAmount,
+        amount: currentItemTotalAmount,
         stock: itemStock,
+        newStock: currentItemNewStock,
+        totalIntakeQty: currentItemTotalIntake,
+        vatType,
       };
       itemsToSave = [stagedItem];
       setBillItems([stagedItem]);
@@ -651,7 +658,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
     const effectiveIsCash = Boolean(isCash);
     const supplierName = cashSupplierName.trim() || (selectedSupplier ? (selectedSupplier.accountTitle || selectedSupplier.title) : '');
     if (!supplierName) {
-      setErrorMsg('Please enter or select Supplier Name (کس سے مال خریدا ہے، سپلائر کا نام لکھیں یا کھاتہ منتخب کریں)');
+      setErrorMsg('Please enter or select Supplier Name (سپلائر کا نام لکھیں یا کھاتہ منتخب کریں)');
       return;
     }
 
@@ -675,6 +682,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
         supplierAccountTitle: supplierName,
         isCash: Boolean(isCash),
         discountType,
+        vatType,
         items: itemsToSave,
         loadExp: numLoadExp,
         isLoadExpDeduction,
@@ -695,11 +703,21 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
       setIsInvoiceModalOpen(true);
 
       setSuccessMsg(
-        `Purchase Bill #${created.billNumber} created successfully and added to Inventory Stock!`
+        `Purchase Bill #${created.billNumber} created successfully! Real-time stock updated in inventory automatically without reload.`
       );
 
       // Reset form
       setBillItems([]);
+      setSelectedProductId('');
+      setItemTitle('');
+      setCtn('');
+      setRatePerCtn('');
+      setQtyPerCtn(1);
+      setQty('');
+      setRate('');
+      setDiscount(0);
+      setVatPercent(5);
+      setItemStock(0);
       setVendorBillNumber('');
       setGatePassNumber('');
       setNotes('');
@@ -714,7 +732,10 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
       const nextNum = (parseInt(billNumber.replace(/\D/g, ''), 10) || 1714) + 1;
       setBillNumber(String(nextNum));
 
-      if (onRefreshData) onRefreshData();
+      // Trigger app-wide silent background data refresh
+      if (onRefreshData) {
+        await onRefreshData();
+      }
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to save purchase bill.');
     } finally {
@@ -821,31 +842,57 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Top Bar: Discount Type Radio & View Switcher */}
+      {/* Top Bar: Discount Type Radio & VAT Type & View Switcher */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-3 shadow-sm">
-        {/* Discount Type:R (Image 1) */}
-        <div className="flex items-center gap-3 text-xs font-semibold text-slate-300">
-          <span className="text-slate-400 font-bold">Discount Type:R</span>
-          <label className="flex items-center gap-1.5 cursor-pointer hover:text-white">
-            <input
-              type="radio"
-              name="discountType"
-              checked={discountType === 'Percentage'}
-              onChange={() => setDiscountType('Percentage')}
-              className="accent-sky-500"
-            />
-            <span>Percentage</span>
-          </label>
-          <label className="flex items-center gap-1.5 cursor-pointer hover:text-white">
-            <input
-              type="radio"
-              name="discountType"
-              checked={discountType === 'Amount'}
-              onChange={() => setDiscountType('Amount')}
-              className="accent-sky-500"
-            />
-            <span>Amount</span>
-          </label>
+        {/* Discount Type & VAT Type */}
+        <div className="flex items-center gap-5 flex-wrap text-xs font-semibold text-slate-300">
+          <div className="flex items-center gap-2.5">
+            <span className="text-slate-400 font-bold">Discount Type:</span>
+            <label className="flex items-center gap-1.5 cursor-pointer hover:text-white">
+              <input
+                type="radio"
+                name="discountType"
+                checked={discountType === 'Percentage'}
+                onChange={() => setDiscountType('Percentage')}
+                className="accent-sky-500"
+              />
+              <span>Percentage</span>
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer hover:text-white">
+              <input
+                type="radio"
+                name="discountType"
+                checked={discountType === 'Amount'}
+                onChange={() => setDiscountType('Amount')}
+                className="accent-sky-500"
+              />
+              <span>Amount</span>
+            </label>
+          </div>
+
+          <div className="flex items-center gap-2.5 border-l border-slate-700/80 pl-4">
+            <span className="text-sky-300 font-bold">VAT Type:</span>
+            <label className="flex items-center gap-1.5 cursor-pointer hover:text-white">
+              <input
+                type="radio"
+                name="purVatType"
+                checked={vatType === 'Percentage'}
+                onChange={() => setVatType('Percentage')}
+                className="accent-sky-500"
+              />
+              <span>Percentage (%)</span>
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer hover:text-white">
+              <input
+                type="radio"
+                name="purVatType"
+                checked={vatType === 'Amount'}
+                onChange={() => setVatType('Amount')}
+                className="accent-sky-500"
+              />
+              <span>Amount ({currencySymbol()})</span>
+            </label>
+          </div>
         </div>
 
         {/* Action Link to Reports & Purchase Return & OCR */}
@@ -1436,12 +1483,14 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                     type="number"
                     min="0"
                     step="any"
+                    placeholder="0"
                     value={ctn}
                     onChange={(e) => handleCtnChange(e.target.value === '' ? '' : Number(e.target.value))}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
                         ratePerCtnInputRef.current?.focus();
+                        ratePerCtnInputRef.current?.select();
                       }
                     }}
                     className="w-full bg-slate-800 border border-slate-700 rounded px-1.5 py-1 text-center font-mono font-bold text-white text-xs focus:border-sky-500 focus:outline-none"
@@ -1455,33 +1504,30 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                     type="number"
                     min="0"
                     step="any"
-                    placeholder="0"
+                    placeholder="0.00"
                     value={ratePerCtn}
                     onChange={(e) => handleRatePerCtnChange(e.target.value === '' ? '' : Number(e.target.value))}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
-                        if (typeof ctn === 'number' && ctn > 0 && typeof ratePerCtn === 'number' && ratePerCtn > 0) {
-                          handleAddRowItem();
-                        } else {
-                          qtyInputRef.current?.focus();
-                          qtyInputRef.current?.select();
-                        }
+                        // Strictly skip QTY/CTN capacity and jump directly to loose QTY input!
+                        qtyInputRef.current?.focus();
+                        qtyInputRef.current?.select();
                       }
                     }}
                     className="w-full bg-slate-800 border border-slate-700 rounded px-1.5 py-1 text-right font-mono font-bold text-white text-xs focus:border-sky-500 focus:outline-none"
                   />
                 </td>
 
-                {/* QTY/CTN */}
+                {/* QTY/CTN (Strictly Non-Editable, skipped on Enter/Tab) */}
                 <td className="py-2 px-2">
                   <input
                     type="number"
-                    min="1"
-                    step="any"
+                    readOnly
+                    tabIndex={-1}
                     value={qtyPerCtn}
-                    onChange={(e) => handleQtyPerCtnChange(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full bg-slate-800 border border-slate-700 rounded px-1.5 py-1 text-center font-mono text-slate-300 text-xs focus:border-sky-500 focus:outline-none"
+                    className="w-full bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-center font-mono text-slate-400 text-xs pointer-events-none select-none"
+                    title={`Capacity: ${qtyPerCtn} ${resolvedBaseUnit} per ${resolvedPackageType} (Non-editable)`}
                   />
                 </td>
 
@@ -1492,13 +1538,14 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                     type="number"
                     min="0"
                     step="any"
-                    placeholder={`Qty (${resolvedBaseUnit})`}
+                    placeholder="0"
                     value={qty}
                     onChange={(e) => handleQtyDirectChange(e.target.value === '' ? '' : Number(e.target.value))}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
                         rateInputRef.current?.focus();
+                        rateInputRef.current?.select();
                       }
                     }}
                     className="w-full bg-slate-800 border border-slate-700 rounded px-1.5 py-1 text-right font-mono font-bold text-white text-xs focus:border-sky-500 focus:outline-none"
@@ -1512,12 +1559,14 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                     type="number"
                     min="0"
                     step="any"
+                    placeholder="0.00"
                     value={rate}
                     onChange={(e) => handleRateChange(e.target.value === '' ? '' : Number(e.target.value))}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
-                        handleAddRowItem();
+                        discountInputRef.current?.focus();
+                        discountInputRef.current?.select();
                       }
                     }}
                     className="w-full bg-slate-800 border border-slate-700 rounded px-1.5 py-1 text-right font-mono font-bold text-white text-xs focus:border-sky-500 focus:outline-none"
@@ -1527,11 +1576,20 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                 {/* DISC RS. */}
                 <td className="py-2 px-2">
                   <input
+                    ref={discountInputRef}
                     type="number"
                     min="0"
                     step="any"
+                    placeholder="0"
                     value={discount}
                     onChange={(e) => setDiscount(e.target.value === '' ? '' : Number(e.target.value))}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        vatPercentInputRef.current?.focus();
+                        vatPercentInputRef.current?.select();
+                      }
+                    }}
                     className="w-full bg-slate-800 border border-slate-700 rounded px-1.5 py-1 text-right font-mono text-slate-300 text-xs focus:border-sky-500 focus:outline-none"
                   />
                 </td>
@@ -1539,32 +1597,40 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                 {/* VAT@% */}
                 <td className="py-2 px-2">
                   <input
+                    ref={vatPercentInputRef}
                     type="number"
                     min="0"
                     step="any"
+                    placeholder={vatType === 'Percentage' ? '5' : '0.00'}
                     value={vatPercent}
                     onChange={(e) => setVatPercent(e.target.value === '' ? '' : Number(e.target.value))}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddRowItem();
+                      }
+                    }}
                     className="w-full bg-slate-800 border border-slate-700 rounded px-1.5 py-1 text-center font-mono text-slate-300 text-xs focus:border-sky-500 focus:outline-none"
                   />
                 </td>
 
                 {/* VAT AMOUNT */}
                 <td className="py-2 px-2 text-right font-mono font-semibold text-slate-300">
-                  {liveRowVatAmount.toFixed(2)}
+                  {currentItemVatAmount.toFixed(2)}
                 </td>
 
                 {/* AMOUNT */}
                 <td className="py-2 px-2 text-right font-mono font-bold text-emerald-400">
-                  {liveRowAmount.toFixed(2)}
+                  {currentItemTotalAmount.toFixed(2)}
                 </td>
 
-                {/* STOCK (Image 4: shows current stock 868.5 and live updated preview) */}
+                {/* STOCK */}
                 <td className="py-2 px-2 text-center font-mono">
                   <div className="flex flex-col items-center justify-center">
                     <span className="text-slate-200 font-bold">{itemStock}</span>
-                    {numQty > 0 && (
+                    {currentItemTotalIntake > 0 && (
                       <span className="text-[10px] text-emerald-400 font-semibold whitespace-nowrap">
-                        +{numQty} ➔ {liveRowStockPreview}
+                        +{currentItemTotalIntake} ➔ {currentItemNewStock}
                       </span>
                     )}
                   </div>
@@ -1595,16 +1661,22 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                     )}
                   </td>
                   <td className="py-2 px-2 text-center font-mono font-bold text-white">
-                    {item.ctn} <span className="text-[10px] text-sky-300 font-normal">{item.packageType || 'CTN'}</span>
+                    {item.ctn > 0 ? (
+                      <span>{item.ctn} <span className="text-[10px] text-sky-300 font-normal">{item.packageType || 'CTN'}</span></span>
+                    ) : '—'}
                   </td>
                   <td className="py-2 px-2 text-right font-mono">{item.ratePerCtn ? `${currencySymbol()} ${item.ratePerCtn}` : '—'}</td>
-                  <td className="py-2 px-2 text-center font-mono text-slate-400">{item.qtyPerCtn} {item.unit || 'Units'}/{item.packageType || 'CTN'}</td>
+                  <td className="py-2 px-2 text-center font-mono text-slate-400">{item.qtyPerCtn} {item.unit || 'KG'}/{item.packageType || 'CTN'}</td>
                   <td className="py-2 px-2 text-right font-mono font-bold text-white">
-                    {item.qty} <span className="text-[10px] text-sky-300 font-normal">{item.unit || 'KG'}</span>
+                    {item.qty > 0 ? (
+                      <span>{item.qty} <span className="text-[10px] text-sky-300 font-normal">{item.unit || 'KG'}</span></span>
+                    ) : '—'}
                   </td>
-                  <td className="py-2 px-2 text-right font-mono">{item.rate}</td>
+                  <td className="py-2 px-2 text-right font-mono">{item.rate ? item.rate : '—'}</td>
                   <td className="py-2 px-2 text-right font-mono text-amber-400">{item.discount || 0}</td>
-                  <td className="py-2 px-2 text-center font-mono text-slate-400">{item.vatPercent}%</td>
+                  <td className="py-2 px-2 text-center font-mono text-slate-400">
+                    {item.vatType === 'Amount' ? `${currencySymbol()} ${item.vatPercent}` : `${item.vatPercent}%`}
+                  </td>
                   <td className="py-2 px-2 text-right font-mono text-slate-300">{item.vatAmount.toFixed(2)}</td>
                   <td className="py-2 px-2 text-right font-mono font-bold text-emerald-400">
                     {item.amount.toFixed(2)}
@@ -1636,7 +1708,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
             {/* Total Row (Image 2 & Image 4) */}
             <tfoot className="bg-slate-950 font-bold border-t border-slate-700 text-white text-xs">
               <tr>
-                <td className="py-2.5 px-3 uppercase tracking-wider text-slate-400">Total</td>
+                <td className="py-2.5 px-3 uppercase tracking-wider text-slate-400">TOTAL</td>
                 <td className="py-2.5 px-2 text-center font-mono text-sky-300">
                   {totalBillCtn.toFixed(2)} <span className="text-[10px] text-slate-400 font-normal">{dominantPackageLabel}</span>
                 </td>
@@ -1647,7 +1719,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                 </td>
                 <td className="py-2.5 px-2 text-center text-slate-600">---</td>
                 <td className="py-2.5 px-2 text-right font-mono text-amber-400">
-                  {billItems.reduce((acc, it) => acc + (it.discount || 0), 0).toFixed(2)}
+                  {totalBillItemDiscounts.toFixed(2)}
                 </td>
                 <td className="py-2.5 px-2 text-center text-slate-600">---</td>
                 <td className="py-2.5 px-2 text-right font-mono text-sky-300">{totalBillVatAmount.toFixed(2)}</td>
@@ -1749,8 +1821,17 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                 className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold text-xs shadow-md shadow-blue-600/30 transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
                 title="Save purchasing details into database report"
               >
-                <Save className="w-4 h-4" />
-                <span>{isSaving ? 'Saving Report...' : 'Save Report'}</span>
+                {isSaving ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                    <span>Processing &amp; Updating Stock...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span>Save Report</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

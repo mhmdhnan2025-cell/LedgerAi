@@ -6527,24 +6527,37 @@ class DatabaseService {
       const ratePerCtn = Number(it.ratePerCtn) || 0;
       const qtyPerCtn = Number(it.qtyPerCtn) || 1;
       const extraPiece = Number((it as any).extraPiece) || 0;
-      let qty = Number(it.qty);
-      if (!qty || isNaN(qty)) {
-        if (qtyPerCtn > 1) {
-          qty = (ctn * qtyPerCtn) + extraPiece;
-        } else {
-          qty = extraPiece > 0 ? Number((ctn + (extraPiece * 0.1)).toFixed(2)) : (ctn > 0 ? ctn : 1);
-        }
-      }
+      let qty = Number(it.qty) || 0;
+
+      // Dual packaging: total physical intake into warehouse
+      const totalIntakeQty = it.totalIntakeQty !== undefined && Number(it.totalIntakeQty) > 0
+        ? Number(it.totalIntakeQty)
+        : Number(((ctn * qtyPerCtn) + qty).toFixed(2));
+
       const rate = Number(it.rate) || (ratePerCtn > 0 && qtyPerCtn > 0 ? ratePerCtn / qtyPerCtn : 0);
       const discount = Number(it.discount) || 0;
       const vatPercent = Number(it.vatPercent) || 0;
-      const lineSubtotal = Math.max(0, (qty * rate) - discount);
-      const vatAmount = Number((lineSubtotal * (vatPercent / 100)).toFixed(2));
-      const amount = Number((lineSubtotal + vatAmount).toFixed(2));
+      const vatType = it.vatType || (billData as any).vatType || 'Percentage';
+
+      // Subtotal = (Cartons * Rate/Carton) + (Loose Qty * Loose Rate)
+      let lineSubtotal = 0;
+      if (ctn > 0 || qty > 0) {
+        lineSubtotal = Number(((ctn * ratePerCtn) + (qty * rate)).toFixed(2));
+      } else {
+        lineSubtotal = Number(it.amount) || 0;
+      }
+
+      const lineGross = Math.max(0, Number((lineSubtotal - discount).toFixed(2)));
+      const vatAmount = vatType === 'Percentage'
+        ? Number(((lineGross * (vatPercent / 100))).toFixed(2))
+        : Number(vatPercent.toFixed(2));
+      const amount = Number((lineGross + vatAmount).toFixed(2));
 
       // Effective purchase prices inclusive of VAT (Stock + VAT = Total / Purchase Price)
-      const effectiveRateWithVat = qty > 0 ? Number((amount / qty).toFixed(2)) : (rate > 0 ? Number((rate * (1 + vatPercent / 100)).toFixed(2)) : 0);
-      const effectiveCtnRateWithVat = ctn > 0 ? Number(((amount - (extraPiece * effectiveRateWithVat)) / ctn).toFixed(2)) : (ratePerCtn > 0 ? Number((ratePerCtn * (1 + vatPercent / 100)).toFixed(2)) : 0);
+      const effectiveRateWithVat = totalIntakeQty > 0
+        ? Number((amount / totalIntakeQty).toFixed(2))
+        : (rate > 0 ? Number((rate * (1 + (vatType === 'Percentage' ? vatPercent / 100 : 0))).toFixed(2)) : 0);
+      const effectiveCtnRateWithVat = Number((effectiveRateWithVat * qtyPerCtn).toFixed(2));
 
       const salePrice = Number((it as any).salePrice || (it as any).sellingPrice) || 0;
       const resolvedPkgType = (it as any).packageType || 'Bag';
@@ -6556,7 +6569,7 @@ class DatabaseService {
       // Update warehouse inventory for this product if shouldAddToStock is true
       if (product) {
         if (shouldAddToStock) {
-          const newQty = product.currentQuantity + qty;
+          const newQty = Number((product.currentQuantity + totalIntakeQty).toFixed(2));
           const qCtn = (product.qtyInCarton && product.qtyInCarton > 0) ? product.qtyInCarton : (qtyPerCtn > 0 ? qtyPerCtn : 1);
           const newCarton = qCtn > 1 ? Math.floor(newQty / qCtn) : product.carton;
           const newExtraKg = qCtn > 1 ? Number((newQty % qCtn).toFixed(2)) : product.extraKg;
@@ -6595,8 +6608,8 @@ class DatabaseService {
             category: it.category || 'General',
             unit: ((it as any).unit as any) || 'KG',
             measure: (it as any).packageType || ((it as any).unit as any) || resolvedPkgType,
-            currentQuantity: shouldAddToStock ? qty : 0,
-            totalStock: shouldAddToStock ? qty : 0,
+            currentQuantity: shouldAddToStock ? totalIntakeQty : 0,
+            totalStock: shouldAddToStock ? totalIntakeQty : 0,
             carton: ctn,
             ctn: ctn,
             extraKg: extraPiece,
@@ -6622,13 +6635,13 @@ class DatabaseService {
           productId: product.id,
           productName: product.name,
           type: 'PURCHASE',
-          quantity: qty,
+          quantity: totalIntakeQty,
           unit: (product.unit || (it as any).unit || 'KG') as any,
           unitCost: effectiveRateWithVat || rate,
           totalAmount: amount,
           referenceType: 'SUPPLIER_PURCHASE',
           referenceId: `bill-${billNumber}`,
-          notes: `Purchase Bill #${billNumber} from ${supplierAccountTitle} (${ctn} ${(it as any).packageType || product.packageType || resolvedPkgType}s)`,
+          notes: `Purchase Bill #${billNumber} from ${supplierAccountTitle} (${ctn} ${(it as any).packageType || product.packageType || resolvedPkgType}s + ${qty} ${product.unit || 'KG'})`,
           date: billData.date || new Date().toISOString().split('T')[0],
           performedBy: user.name,
         });
@@ -6651,15 +6664,18 @@ class DatabaseService {
         vatAmount,
         amount,
         stock: stockBefore,
+        newStock: stockBefore + totalIntakeQty,
         extraPiece,
-        unit: (it as any).unit || product.measure || product.unit || 'CTN',
+        unit: (it as any).unit || product.measure || product.unit || 'KG',
+        totalIntakeQty,
+        vatType,
       });
 
       totalCtn += ctn;
-      totalQty += qty;
+      totalQty += totalIntakeQty;
       totalDiscount += discount;
       totalVatAmount += vatAmount;
-      grossAmount += qty * rate;
+      grossAmount += lineSubtotal;
     }
 
     const loadExp = Number(billData.loadExp) || 0;

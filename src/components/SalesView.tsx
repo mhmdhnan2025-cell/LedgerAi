@@ -50,7 +50,7 @@ interface SalesViewProps {
   currentRole: UserRole;
   companyProfile?: CompanyProfile | null;
   currentUser?: User | null;
-  onRefreshData?: () => void;
+  onRefreshData?: () => Promise<void> | void;
   onNavigateTab?: (tab: string) => void;
 }
 
@@ -388,6 +388,17 @@ export const SalesView: React.FC<SalesViewProps> = ({
     return null;
   }, [selectedProductId, itemTitle, products]);
 
+  // Synchronize live itemStock automatically whenever products prop updates (without needing page reload!)
+  useEffect(() => {
+    if (selectedProductId) {
+      const p = products.find((prod) => prod.id === selectedProductId);
+      if (p) {
+        const rawStock = Number(p.totalStock !== undefined ? p.totalStock : p.currentQuantity) || 0;
+        setItemStock(rawStock);
+      }
+    }
+  }, [products, selectedProductId]);
+
   // Synchronize itemPackageType whenever activeProduct changes
   useEffect(() => {
     if (activeProduct) {
@@ -621,12 +632,12 @@ export const SalesView: React.FC<SalesViewProps> = ({
       setIsReceiptModalOpen(true);
 
       setSuccessMsg(
-        `Sale Bill #${savedBill.billNumber} saved successfully! Real-time stock deducted from inventory. Customer invoice opened.`
+        `Sale Bill #${savedBill.billNumber} saved successfully! Real-time stock deducted from inventory automatically without reload.`
       );
 
       // Trigger app-wide data reload
       if (onRefreshData) {
-        onRefreshData();
+        await onRefreshData();
       }
 
       // Reset form and increment bill number
@@ -765,8 +776,17 @@ export const SalesView: React.FC<SalesViewProps> = ({
               disabled={isSaving || billItems.length === 0}
               className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold rounded-lg shadow-md transition flex items-center gap-1.5 cursor-pointer"
             >
-              <Save className="w-4 h-4" />
-              <span>{isSaving ? 'Saving & Deducting...' : 'Save Report (F10)'}</span>
+              {isSaving ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                  <span>Processing &amp; Updating Stock...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  <span>Save Report (F10)</span>
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -1823,8 +1843,17 @@ export const SalesView: React.FC<SalesViewProps> = ({
                 disabled={isSaving || billItems.length === 0}
                 className="flex-1 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold rounded-lg text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
               >
-                <Save className="w-4 h-4" />
-                <span>{isSaving ? 'Saving & Deducting Stock...' : 'Save Report (F10)'}</span>
+                {isSaving ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                    <span>Processing &amp; Updating Stock...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span>Save Report (F10)</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
