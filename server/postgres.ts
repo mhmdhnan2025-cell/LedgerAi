@@ -1711,11 +1711,19 @@ class PostgresService {
           cust.address || '',
           cust.status || 'ACTIVE',
           openBal,
-          openType,
-          cust.outstandingBalance || 0,
+          cust.outstandingBalance !== undefined && cust.outstandingBalance !== null && cust.outstandingBalance !== 0
+            ? cust.outstandingBalance
+            : (openType === 'CR' ? -Math.abs(openBal) : Math.abs(openBal)),
           cust.creditLimit || 0,
           cust.totalSales || 0,
-          JSON.stringify({ ...cust, openingBalance: openBal, openingBalanceType: openType }),
+          JSON.stringify({
+            ...cust,
+            openingBalance: openBal,
+            openingBalanceType: openType,
+            outstandingBalance: cust.outstandingBalance !== undefined && cust.outstandingBalance !== null && cust.outstandingBalance !== 0
+              ? cust.outstandingBalance
+              : (openType === 'CR' ? -Math.abs(openBal) : Math.abs(openBal)),
+          }),
         ]
       );
     } catch (err: any) {
