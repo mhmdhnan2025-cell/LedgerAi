@@ -1538,7 +1538,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
             <div className="flex items-center justify-between flex-wrap gap-2">
               <span className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-2">
                 <span className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-bold">1</span>
-                <span>Select Bill Type Before Uploading (بل کی قسم منتخب کریں):</span>
+                <span>Select Bill Type Before Uploading:</span>
               </span>
               <span className="text-[11px] text-slate-400">
                 Details sirf muntakhib karda section me aayen gi
@@ -1570,7 +1570,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                   <div className="flex items-center justify-between gap-1">
                     <span className="font-extrabold text-xs text-white truncate">Stock &amp; Purchase Bill</span>
                     <span className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 whitespace-nowrap">
-                      اسٹاک / پرچیز
+                      Purchase
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-300 mt-1 leading-snug line-clamp-2">
@@ -1607,7 +1607,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                   <div className="flex items-center justify-between gap-1">
                     <span className="font-extrabold text-xs text-white truncate">Customer Sale Bill</span>
                     <span className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 whitespace-nowrap">
-                      کسٹمر سیل
+                      Sale Bill
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-300 mt-1 leading-snug line-clamp-2">
@@ -1644,7 +1644,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                   <div className="flex items-center justify-between gap-1">
                     <span className="font-extrabold text-xs text-white truncate">Cash Slip &amp; Voucher</span>
                     <span className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 whitespace-nowrap">
-                      کیش سلپ / واؤچر
+                      Cash Voucher
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-300 mt-1 leading-snug line-clamp-2">
@@ -1706,7 +1706,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                     {isAnalyzing ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>AI Heavy Detection Running (پرچی پڑھی جا رہی ہے)...</span>
+                        <span>AI Heavy Detection Running...</span>
                       </>
                     ) : (
                       <>
@@ -1714,10 +1714,10 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                         <span>
                           Run Heavy AI OCR Extraction (
                           {ocrMode === 'purchase'
-                            ? 'پرچیز بل پڑھیں'
+                            ? 'Scan Purchase Bill'
                             : ocrMode === 'sale'
-                            ? 'کسٹمر سیل بل پڑھیں'
-                            : 'کیش سلپ / واؤچر پڑھیں'}
+                            ? 'Scan Customer Sale Bill'
+                            : 'Scan Cash Slip / Voucher'}
                           )
                         </span>
                       </>
@@ -1853,7 +1853,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                     <div className="flex items-center gap-2">
                       <Truck className="w-4 h-4 text-emerald-400" />
                       <span className="font-extrabold text-xs text-white">
-                        Supplier Khata &amp; Verification (سپلائر تصدیق اور پرانا / نیا حساب)
+                        Supplier Khata &amp; Verification
                       </span>
                     </div>
                     {selectedSupplier ? (
@@ -1864,7 +1864,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                     ) : (
                       <span className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
                         <Sparkles className="w-3 h-3 text-amber-400" />
-                        ✨ New Supplier (سسٹم میں نیا سپلائر خودکار بن جائے گا)
+                        ✨ New Supplier (Will be created automatically)
                       </span>
                     )}
                   </div>
@@ -1874,10 +1874,10 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                     <div className="sm:col-span-2">
                       <div className="flex items-center justify-between mb-1">
                         <label className="text-[11px] font-bold text-slate-300">
-                          Supplier Name / Header Title (سپلائر کا نام):
+                          Supplier Name / Header Title:
                         </label>
                         {suppliers && suppliers.length > 0 && (
-                          <span className="text-[10px] text-slate-400">یا نیچے لسٹ سے منتخب کریں</span>
+                          <span className="text-[10px] text-slate-400">or select from directory below</span>
                         )}
                       </div>
                       <input
@@ -1903,10 +1903,10 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                           }}
                           className="mt-1.5 w-full px-3 py-1.5 bg-slate-950 rounded-xl border border-slate-800 text-[11px] text-slate-300 outline-none focus:ring-1 focus:ring-emerald-500"
                         >
-                          <option value="">-- Ya Registered Supplier Khata Select Karein --</option>
+                          <option value="">-- Or Select Registered Supplier Khata --</option>
                           {(suppliers || []).map((s) => (
                             <option key={s.id} value={s.id}>
-                              [{s.code || 'SUP'}] {s.accountTitle || s.title} &bull; Sabqa Baqaya: {currencySymbol()}{' '}
+                              [{s.code || 'SUP'}] {s.accountTitle || s.title} &bull; Prev Balance: {currencySymbol()}{' '}
                               {(s.payableToSupplier !== undefined ? s.payableToSupplier : (s as any).balance || 0).toLocaleString()}
                             </option>
                           ))}
@@ -1940,51 +1940,51 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                     </div>
                   </div>
 
-                  {/* 5 FINANCIAL COMPUTATION CARDS: Purana Hisab, Naya Hisab, Kul Payable, Kitna Pay Kiya, Baqaya Khata */}
+                  {/* 5 FINANCIAL COMPUTATION CARDS: Previous Balance, Current Bill, Total Due, Amount Paid, Closing Balance */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs">
-                    {/* Card 1: Purana Hisab (Previous Balance) */}
+                    {/* Card 1: Previous Balance */}
                     <div className="bg-amber-950/20 border border-amber-800/40 p-2.5 rounded-xl">
                       <div className="flex items-center justify-between text-amber-400 mb-1">
-                        <span className="text-[10px] font-bold uppercase tracking-wider">1. Purana Hisab</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider">1. Prev Balance</span>
                         <History className="w-3.5 h-3.5" />
                       </div>
-                      <span className="text-[10px] text-slate-400 block">سابقة بقایا (Sabqa):</span>
+                      <span className="text-[10px] text-slate-400 block">Previous Balance:</span>
                       <span className="font-mono font-extrabold text-amber-300 text-base mt-0.5 block">
                         {currencySymbol()} {supplierPrevPayable.toLocaleString()}
                       </span>
                     </div>
 
-                    {/* Card 2: Naya Hisab (Current Bill Total) */}
+                    {/* Card 2: Current Bill Total */}
                     <div className="bg-indigo-950/20 border border-indigo-800/40 p-2.5 rounded-xl">
                       <div className="flex items-center justify-between text-indigo-400 mb-1">
-                        <span className="text-[10px] font-bold uppercase tracking-wider">2. Naya Hisab</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider">2. Bill Total</span>
                         <FileText className="w-3.5 h-3.5" />
                       </div>
-                      <span className="text-[10px] text-slate-400 block">موجودہ بل (Bill Total):</span>
+                      <span className="text-[10px] text-slate-400 block">Current Bill:</span>
                       <span className="font-mono font-extrabold text-indigo-300 text-base mt-0.5 block">
                         + {currencySymbol()} {displayTotal.toLocaleString()}
                       </span>
                     </div>
 
-                    {/* Card 3: Kul Payable (Total Payable) */}
+                    {/* Card 3: Total Due */}
                     <div className="bg-purple-950/20 border border-purple-800/40 p-2.5 rounded-xl">
                       <div className="flex items-center justify-between text-purple-400 mb-1">
-                        <span className="text-[10px] font-bold uppercase tracking-wider">3. Kul Payable</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider">3. Total Due</span>
                         <Calculator className="w-3.5 h-3.5" />
                       </div>
-                      <span className="text-[10px] text-slate-400 block">کل واجب الادا:</span>
+                      <span className="text-[10px] text-slate-400 block">Total Due:</span>
                       <span className="font-mono font-extrabold text-purple-300 text-base mt-0.5 block">
                         = {currencySymbol()} {(supplierPrevPayable + displayTotal).toLocaleString()}
                       </span>
                     </div>
 
-                    {/* Card 4: Kitna Pay Kiya (Amount Paid) */}
+                    {/* Card 4: Amount Paid */}
                     <div className="bg-emerald-950/25 border border-emerald-700/50 p-2.5 rounded-xl">
                       <div className="flex items-center justify-between text-emerald-400 mb-1">
-                        <span className="text-[10px] font-bold uppercase tracking-wider">4. Kitna Pay Kiya</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider">4. Amount Paid</span>
                         <Banknote className="w-3.5 h-3.5" />
                       </div>
-                      <span className="text-[10px] text-slate-400 block">ادا شدہ رقم (Paid):</span>
+                      <span className="text-[10px] text-slate-400 block">Paid Amount:</span>
                       <input
                         type="number"
                         min="0"
@@ -2025,28 +2025,28 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                             setPurchasePaidAmount(0);
                           }}
                           className="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-[9px] text-slate-300 font-bold rounded cursor-pointer transition"
-                          title="Set 0 (Unpaid / Udhaar)"
+                          title="Set 0 (Credit)"
                         >
-                          Udhaar
+                          Credit
                         </button>
                       </div>
                     </div>
 
-                    {/* Card 5: Baqaya Khata (Remaining Balance) */}
+                    {/* Card 5: Closing Balance */}
                     <div className="bg-rose-950/20 border border-rose-800/40 p-2.5 rounded-xl">
                       <div className="flex items-center justify-between text-rose-400 mb-1">
-                        <span className="text-[10px] font-bold uppercase tracking-wider">5. Baqaya Khata</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider">5. Closing Balance</span>
                         <Wallet className="w-3.5 h-3.5" />
                       </div>
-                      <span className="text-[10px] text-slate-400 block">باقی کھاتہ (Closing):</span>
+                      <span className="text-[10px] text-slate-400 block">Closing Balance:</span>
                       <span className="font-mono font-extrabold text-rose-300 text-base mt-0.5 block">
                         = {currencySymbol()} {newSupplierPayable.toLocaleString()}
                       </span>
                       <span className="text-[9px] font-bold text-slate-400 block mt-1">
                         {newSupplierPayable === 0 ? (
-                          <span className="text-emerald-400">✓ All Cleared (بیباق)</span>
+                          <span className="text-emerald-400">✓ All Cleared (Settled)</span>
                         ) : (
-                          <span className="text-amber-400">⚠️ Udhaar Baqi</span>
+                          <span className="text-amber-400">⚠️ Balance Due</span>
                         )}
                       </span>
                     </div>
@@ -2061,7 +2061,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                         className="w-4 h-4 rounded text-emerald-600 bg-slate-800 border-slate-700 cursor-pointer"
                       />
                       <span className="text-slate-300 font-semibold">
-                        Cash Purchase (مکمل نقد خریداری — کوئی نیا ادھار نہیں)
+                        Cash Purchase (Full cash payment - no credit)
                       </span>
                     </label>
 
@@ -2073,7 +2073,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                         className="w-4 h-4 rounded text-emerald-600 bg-slate-800 border-slate-700 cursor-pointer"
                       />
                       <span className="text-slate-300 font-semibold text-emerald-400">
-                        Automatically add to warehouse stock inventory (اسٹاک میں جمع کریں)
+                        Automatically add to warehouse stock inventory
                       </span>
                     </label>
                   </div>
@@ -2089,7 +2089,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                     <div className="flex items-center gap-2">
                       <Store className="w-4 h-4 text-indigo-400" />
                       <span className="font-bold text-xs text-white">
-                        Customer Verification &amp; Khata (گاہک تصدیق اور وصولی)
+                        Customer Verification &amp; Khata
                       </span>
                     </div>
                     {selectedCustomer ? (
@@ -2144,7 +2144,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                       )}
                       {!selectedCustomerId && !selectedCustomer && (
                         <span className="text-[10px] text-rose-400 font-bold block mt-1">
-                          ⚠️ Report k liye customer select karna laazmi hai
+                          ⚠️ Customer selection is required for reports
                         </span>
                       )}
                     </div>
@@ -2176,7 +2176,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs">
                     <div>
                       <span className="text-[10px] text-slate-400 block uppercase">
-                        Previous Receivable (پچھلا بقایا)
+                        Previous Receivable
                       </span>
                       <span className="font-mono font-bold text-amber-400 text-sm mt-0.5 block">
                         {currencySymbol()} {customerPrevReceivable.toLocaleString()}
@@ -2185,7 +2185,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
 
                     <div>
                       <span className="text-[10px] text-slate-400 block uppercase">
-                        Current Sale (موجودہ سیل)
+                        Current Sale
                       </span>
                       <span className="font-mono font-bold text-emerald-400 text-sm mt-0.5 block">
                         + {currencySymbol()} {displayTotal.toLocaleString()}
@@ -2194,7 +2194,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
 
                     <div>
                       <span className="text-[10px] text-slate-400 block uppercase">
-                        Cash Received (وصول شدہ رقم)
+                        Cash Received
                       </span>
                       <input
                         type="number"
@@ -2208,7 +2208,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
 
                     <div>
                       <span className="text-[10px] text-slate-400 block uppercase">
-                        New Receivable (نیا کل بقایا)
+                        New Receivable
                       </span>
                       <span className="font-mono font-bold text-cyan-400 text-sm mt-0.5 block">
                         = {currencySymbol()} {newCustomerReceivable.toLocaleString()}
@@ -2225,7 +2225,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                         className="w-4 h-4 rounded text-indigo-600 bg-slate-800 border-slate-700 cursor-pointer"
                       />
                       <span className="text-slate-300 font-semibold">
-                        Cash Counter Sale (فوری مکمل نقد ادائیگی — کھاتہ صفر)
+                        Cash Counter Sale (Immediate full cash payment)
                       </span>
                     </label>
 
@@ -2247,7 +2247,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                     <div className="flex items-center gap-2">
                       <Receipt className="w-4 h-4 text-amber-400" />
                       <span className="font-bold text-xs text-white">
-                        Cash Voucher Slip Type (واؤچر کی نوعیت منتخب کریں):
+                        Cash Voucher Slip Type:
                       </span>
                     </div>
 
@@ -2312,7 +2312,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
 
                         <div>
                           <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                            Vehicle # (گاڑی نمبر):
+                            Vehicle #:
                           </label>
                           <input
                             type="text"
@@ -2325,7 +2325,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
 
                         <div>
                           <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                            Total Amount (کل خرچہ):
+                            Total Amount:
                           </label>
                           <div className="relative">
                             <span className="absolute left-3 top-2 text-xs font-bold text-emerald-400">
@@ -2372,7 +2372,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
 
                         <div>
                           <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                            Paid From Cash Drawer (کھاتہ):
+                            Paid From Cash Drawer:
                           </label>
                           <select
                             value={receiptCashAccountId}
@@ -2427,7 +2427,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                       {/* Double Entry Accounting Ledger Effect Preview */}
                       <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div className="bg-rose-950/30 p-2.5 rounded-lg border border-rose-900/50">
-                          <span className="text-[10px] text-rose-300 block font-bold uppercase">Debit (خرچہ اضافہ)</span>
+                          <span className="text-[10px] text-rose-300 block font-bold uppercase">Debit (Expense)</span>
                           <span className="font-bold text-xs text-white block mt-0.5">
                             {receiptCategory} {receiptVehicleNo ? `(${receiptVehicleNo})` : ''}
                           </span>
@@ -2437,7 +2437,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                         </div>
 
                         <div className="bg-amber-950/30 p-2.5 rounded-lg border border-amber-900/50">
-                          <span className="text-[10px] text-amber-300 block font-bold uppercase">Credit (کیش دراز سے منہا)</span>
+                          <span className="text-[10px] text-amber-300 block font-bold uppercase">Credit (Cash Out)</span>
                           <span className="font-bold text-xs text-white block mt-0.5">
                             {cashAccounts.find((c) => c.id === receiptCashAccountId)?.title || 'Cash in Hand'}
                           </span>
@@ -2462,7 +2462,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div className="sm:col-span-2">
                           <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                            Select Customer / Gahak (Directory se muntakhib karein):
+                            Select Customer (From directory):
                           </label>
                           <div className="relative mb-2">
                             <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
@@ -2498,7 +2498,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
 
                         <div>
                           <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                            Received Cash Amount (وصول شدہ رقم):
+                            Received Cash Amount:
                           </label>
                           <div className="relative">
                             <span className="absolute left-3 top-2 text-xs font-bold text-emerald-400">
@@ -2520,28 +2520,28 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                       {/* Customer Balance Calculation Row */}
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs">
                         <div>
-                          <span className="text-[10px] text-slate-400 block uppercase">Previous Receivable (پچھلا بقایا)</span>
+                          <span className="text-[10px] text-slate-400 block uppercase">Previous Receivable</span>
                           <span className="font-mono font-bold text-amber-400 text-sm mt-0.5 block">
                             {currencySymbol()} {customerPrevReceivable.toLocaleString()}
                           </span>
                         </div>
 
                         <div>
-                          <span className="text-[10px] text-slate-400 block uppercase">Cash Received (وصولی)</span>
+                          <span className="text-[10px] text-slate-400 block uppercase">Cash Received</span>
                           <span className="font-mono font-bold text-emerald-400 text-sm mt-0.5 block">
                             - {currencySymbol()} {receiptAmount.toLocaleString()}
                           </span>
                         </div>
 
                         <div>
-                          <span className="text-[10px] text-slate-400 block uppercase">Remaining Balance (باقی کھاتہ)</span>
+                          <span className="text-[10px] text-slate-400 block uppercase">Remaining Balance</span>
                           <span className="font-mono font-bold text-cyan-400 text-sm mt-0.5 block">
                             = {currencySymbol()} {Math.max(0, customerPrevReceivable - receiptAmount).toLocaleString()}
                           </span>
                         </div>
 
                         <div>
-                          <span className="text-[10px] text-slate-400 block uppercase">Deposit To (کیش دراز)</span>
+                          <span className="text-[10px] text-slate-400 block uppercase">Deposit To</span>
                           <select
                             value={receiptCashAccountId}
                             onChange={(e) => setReceiptCashAccountId(e.target.value)}
@@ -2738,19 +2738,19 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                                 onChange={(e) => handleUpdateItemField(index, 'packageType', e.target.value)}
                                 className="px-1.5 py-1 text-xs bg-slate-950 rounded-lg text-emerald-300 font-semibold border border-slate-700 outline-none"
                               >
-                                <option value="Bag">Bag (بوری)</option>
-                                <option value="Carton">Carton (کارٹن)</option>
-                                <option value="Tin">Tin (ٹین)</option>
-                                <option value="Box">Box (ڈبہ)</option>
-                                <option value="Pack">Pack (پیکٹ)</option>
-                                <option value="Drum">Drum (ڈرم)</option>
+                                <option value="Bag">Bag</option>
+                                <option value="Carton">Carton</option>
+                                <option value="Tin">Tin</option>
+                                <option value="Box">Box</option>
+                                <option value="Pack">Pack</option>
+                                <option value="Drum">Drum</option>
                                 <option value="Single">Single / Kg</option>
                               </select>
                             </div>
 
                             {/* Cartons */}
                             <div className="flex items-center gap-1">
-                              <span className="text-[10px] text-slate-400 font-medium">Ctns (کارٹن/بوری):</span>
+                              <span className="text-[10px] text-slate-400 font-medium">Ctns:</span>
                               <input
                                 type="number"
                                 min="0"
@@ -2765,7 +2765,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
 
                             {/* Pcs per Carton */}
                             <div className="flex items-center gap-1">
-                              <span className="text-[10px] text-slate-400 font-medium">Qty/Ctn (فی کارٹن):</span>
+                              <span className="text-[10px] text-slate-400 font-medium">Qty/Ctn:</span>
                               <input
                                 type="number"
                                 min="1"
@@ -2780,7 +2780,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
 
                             {/* Extra Loose KG */}
                             <div className="flex items-center gap-1">
-                              <span className="text-[10px] text-amber-300 font-medium">+ Extra Loose (اضافی):</span>
+                              <span className="text-[10px] text-amber-300 font-medium">+ Extra Loose:</span>
                               <input
                                 type="number"
                                 min="0"
@@ -2797,7 +2797,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
 
                             {/* Total Quantity */}
                             <div className="flex items-center gap-1">
-                              <span className="text-[10px] text-slate-400 font-medium">= Total Qty (کل تعداد):</span>
+                              <span className="text-[10px] text-slate-400 font-medium">= Total Qty:</span>
                               <input
                                 type="number"
                                 min="0.1"
@@ -2825,7 +2825,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
 
                             {/* Rate per Carton */}
                             <div className="flex items-center gap-1">
-                              <span className="text-[10px] text-slate-400 font-medium">Rate/Ctn (کارٹن ریٹ):</span>
+                              <span className="text-[10px] text-slate-400 font-medium">Rate/Ctn:</span>
                               <input
                                 type="number"
                                 min="0"
@@ -2842,7 +2842,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                             {/* Rate per Piece / Unit (Khareed Price) */}
                             <div className="flex items-center gap-1">
                               <span className="text-[10px] text-slate-400 font-medium">
-                                {ocrMode === 'purchase' ? 'Khareed Rate (خرید):' : 'Sale Rate (سیل ریٹ):'}
+                                {ocrMode === 'purchase' ? 'Purchase Rate:' : 'Sale Rate:'}
                               </span>
                               <input
                                 type="number"
@@ -2864,7 +2864,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                             {/* CRITICAL USER REQUIREMENT: Ask Sale Price during Purchase Bill */}
                             {ocrMode === 'purchase' && (
                               <div className="flex items-center gap-1 bg-emerald-950/40 px-2 py-0.5 rounded-lg border border-emerald-800/60">
-                                <span className="text-[10px] text-emerald-300 font-bold">Sale Price (سیل ریٹ):</span>
+                                <span className="text-[10px] text-emerald-300 font-bold">Sale Price:</span>
                                 <input
                                   type="number"
                                   min="0"
@@ -2882,7 +2882,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
 
                             {/* Stock Subtotal */}
                             <div className="flex items-center gap-1">
-                              <span className="text-[10px] text-slate-400 font-medium">Stock (خالص):</span>
+                              <span className="text-[10px] text-slate-400 font-medium">Stock:</span>
                               <input
                                 type="number"
                                 min="0"
@@ -2916,7 +2916,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
 
                             {/* VAT Amount */}
                             <div className="flex items-center gap-1">
-                              <span className="text-[10px] text-sky-400 font-medium">VAT (ویٹ):</span>
+                              <span className="text-[10px] text-sky-400 font-medium">VAT:</span>
                               <input
                                 type="number"
                                 min="0"

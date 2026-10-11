@@ -2991,15 +2991,43 @@ class DatabaseService {
           const pgData = await postgresService.loadCompanyData(cid);
           if (pgData) {
             const current = this.tenants.get(cid) || getCleanEmptyData();
-            // Merge customers
+            // Merge customers: preserve opening balances from either PG or local memory
             const tenantCustomers = pgData.customers || [];
+            const existingCustMap = new Map<string, Customer>();
+            for (const c of (current.customers || [])) {
+              const k = (c.id || c.code || c.accountCode || '').trim().toLowerCase();
+              if (k) existingCustMap.set(k, c);
+              if (c.code) existingCustMap.set(c.code.trim().toLowerCase(), c);
+            }
+
             const existingCustCodes = new Set(tenantCustomers.map((c: any) => (c.code || c.accountCode || '').trim().toLowerCase()).filter(Boolean));
-            const mergedCustomers: Customer[] = [...tenantCustomers];
+            const mergedCustomers: Customer[] = tenantCustomers.map((tc) => {
+              const k = (tc.id || tc.code || tc.accountCode || '').trim().toLowerCase();
+              const prev = existingCustMap.get(k) || (tc.code ? existingCustMap.get(tc.code.trim().toLowerCase()) : undefined);
+              if (!prev) return tc;
+              const openBal = tc.openingBalance !== undefined && tc.openingBalance !== 0
+                ? tc.openingBalance
+                : (prev.openingBalance !== undefined ? prev.openingBalance : (tc.openingBalance || 0));
+              const openType = tc.openingBalanceType || prev.openingBalanceType || 'DR';
+              const outBal = tc.outstandingBalance !== undefined && tc.outstandingBalance !== 0
+                ? tc.outstandingBalance
+                : (prev.outstandingBalance !== undefined ? prev.outstandingBalance : (tc.outstandingBalance || 0));
+              return {
+                ...prev,
+                ...tc,
+                openingBalance: openBal,
+                openingBalanceType: openType,
+                outstandingBalance: outBal,
+              };
+            });
+
             for (const cust of DEFAULT_SEED_CUSTOMERS) {
               const cKey = (cust.code || cust.accountCode || '').trim().toLowerCase();
               if (cKey && !existingCustCodes.has(cKey)) {
+                const prev = existingCustMap.get(cKey);
                 mergedCustomers.push({
                   ...cust,
+                  ...(prev || {}),
                   companyId: cid,
                 });
                 existingCustCodes.add(cKey);
@@ -3123,6 +3151,7 @@ class DatabaseService {
             const purchaseReturns = mergedPR;
 
             this.tenants.set(cid, { ...current, ...pgData, customers, restaurants, employees, suppliers, vouchers, banks, expenseAccounts, saleReturns, purchaseReturns });
+            this.persist(this.tenants.get(cid), cid);
 
             // Backfill PostgreSQL customers table if missing or less than all 329 customers
             if (DEFAULT_SEED_CUSTOMERS.length > 0 && (!pgData.customers || pgData.customers.length < DEFAULT_SEED_CUSTOMERS.length)) {
@@ -4538,6 +4567,9 @@ class DatabaseService {
     });
 
     this.persist();
+    postgresService.upsertSupplier(newSupplier, getActiveCompanyId()).catch((err) =>
+      console.warn('[PostgreSQL upsertSupplier error]:', err.message)
+    );
     return newSupplier;
   }
 
@@ -4596,6 +4628,9 @@ class DatabaseService {
     });
 
     this.persist();
+    postgresService.upsertSupplier(updated, getActiveCompanyId()).catch((err) =>
+      console.warn('[PostgreSQL upsertSupplier error]:', err.message)
+    );
     return updated;
   }
 
@@ -4629,6 +4664,9 @@ class DatabaseService {
     });
 
     this.persist();
+    postgresService.upsertSupplier(prev, getActiveCompanyId()).catch((err) =>
+      console.warn('[PostgreSQL upsertSupplier error]:', err.message)
+    );
     return prev;
   }
 
@@ -4655,6 +4693,9 @@ class DatabaseService {
     });
 
     this.persist();
+    postgresService.deleteSupplier(removed.id, getActiveCompanyId()).catch((err) =>
+      console.warn('[PostgreSQL deleteSupplier error]:', err.message)
+    );
     return true;
   }
 
@@ -7319,6 +7360,9 @@ class DatabaseService {
     });
 
     this.persist();
+    postgresService.upsertCustomer(newCustomer, getActiveCompanyId()).catch((err) =>
+      console.warn('[PostgreSQL upsertCustomer error]:', err.message)
+    );
     return newCustomer;
   }
 
@@ -7396,6 +7440,9 @@ class DatabaseService {
     });
 
     this.persist();
+    postgresService.upsertCustomer(updated, getActiveCompanyId()).catch((err) =>
+      console.warn('[PostgreSQL upsertCustomer error]:', err.message)
+    );
     return updated;
   }
 
@@ -7434,6 +7481,9 @@ class DatabaseService {
     });
 
     this.persist();
+    postgresService.deleteCustomer(cust.id, getActiveCompanyId()).catch((err) =>
+      console.warn('[PostgreSQL deleteCustomer error]:', err.message)
+    );
     return true;
   }
 

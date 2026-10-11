@@ -134,6 +134,7 @@ export const api = {
         payments: data.payments,
         expenses: data.expenses,
         suppliers: data.suppliers,
+        customers: data.customers,
         employees: data.employees,
         auditLogs: data.auditLogs,
         users: data.users,
@@ -152,6 +153,7 @@ export const api = {
           payments: cached.payments || [],
           expenses: cached.expenses || [],
           suppliers: cached.suppliers || [],
+          customers: cached.customers || [],
           employees: cached.employees || [],
           auditLogs: cached.auditLogs || [],
           summary: cached.businessSummary || {
@@ -1784,7 +1786,7 @@ export const api = {
     return res.json();
   },
 
-  // Supplier Ledger Report (سپلائر جنرل لیجر)
+  // Supplier Ledger Report
   async getSupplierLedgerReport(params: {
     supplierId: string;
     fromDate?: string;

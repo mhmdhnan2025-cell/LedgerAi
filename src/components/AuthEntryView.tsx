@@ -37,12 +37,12 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
   const [showThemeMenu, setShowThemeMenu] = useState(false);
 
   const themeOptions: { id: AppTheme; name: string; urdu: string; icon: string }[] = [
-    { id: 'cream', name: 'Creamish White', urdu: 'آئیوری کریم (لائٹ)', icon: '🍦' },
-    { id: 'pearl', name: 'Pearl Slate', urdu: 'پرل سلور (کول لائٹ)', icon: '💎' },
-    { id: 'sand', name: 'Warm Sand', urdu: 'وارم سینڈ (لیٹے)', icon: '☕' },
-    { id: 'dark', name: 'Midnight Slate', urdu: 'مڈ نائٹ (ڈارک موڈ)', icon: '🌙' },
-    { id: 'dark_blue', name: 'Royal Dark Blue', urdu: 'گہرا نیلا (ڈارک نائٹ)', icon: '🌌' },
-    { id: 'light_blue', name: 'Sky Ice Blue', urdu: 'ہلکا نیلا (لائٹ ڈے)', icon: '❄️' },
+    { id: 'cream', name: 'Creamish White', urdu: 'Ivory Cream (Light)', icon: '🍦' },
+    { id: 'pearl', name: 'Pearl Slate', urdu: 'Pearl Silver (Cool Light)', icon: '💎' },
+    { id: 'sand', name: 'Warm Sand', urdu: 'Warm Sand (Latte)', icon: '☕' },
+    { id: 'dark', name: 'Midnight Slate', urdu: 'Midnight (Dark Mode)', icon: '🌙' },
+    { id: 'dark_blue', name: 'Royal Dark Blue', urdu: 'Royal Navy (Dark Night)', icon: '🌌' },
+    { id: 'light_blue', name: 'Sky Ice Blue', urdu: 'Ice Sky (Light Day)', icon: '❄️' },
   ];
 
   const activeThemeObj = themeOptions.find((t) => t.id === currentTheme) || themeOptions[0];
@@ -263,7 +263,7 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
                 ? 'bg-slate-800/90 hover:bg-slate-700/80 border-slate-700 text-slate-200'
                 : 'bg-white/95 hover:bg-white border-slate-300 text-slate-800'
             }`}
-            title="Switch Theme (تھیم تبدیل کریں)"
+            title="Switch Theme"
           >
             <Palette className="w-3.5 h-3.5 text-amber-500" />
             <span>{activeThemeObj.icon}</span>
@@ -280,7 +280,7 @@ export const AuthEntryView: React.FC<AuthEntryViewProps> = ({
               <div className={`px-2 py-1 text-[10px] font-bold uppercase tracking-wider border-b ${
                 isDark ? 'text-slate-400 border-slate-800' : 'text-slate-500 border-slate-100'
               }`}>
-                Select Theme (تھیم منتخب کریں)
+                Select Theme
               </div>
               {themeOptions.map((t) => (
                 <button

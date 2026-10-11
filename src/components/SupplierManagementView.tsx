@@ -220,8 +220,13 @@ export const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({
     setAddress(sup.address || '');
     setCnic(sup.cnic || '');
     setIsActive(sup.status === 'ACTIVE');
-    setPayableToSupplier(sup.payableToSupplier !== undefined ? sup.payableToSupplier : (sup.balanceOwed || 0));
-    setPayableType(sup.payableType || 'CR');
+    const initPayable = sup.payableToSupplier !== undefined && sup.payableToSupplier !== 0
+      ? sup.payableToSupplier
+      : (sup.openingBalance !== undefined && sup.openingBalance !== 0
+          ? sup.openingBalance
+          : (sup.balanceOwed || 0));
+    setPayableToSupplier(initPayable);
+    setPayableType(sup.payableType || sup.openingBalanceType || 'CR');
     setDocuments(sup.documents || []);
     setSelectedFileName('');
     setFeedback(null);
@@ -685,14 +690,14 @@ export const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({
                     </tr>
                   ) : (
                     filteredList.map((sup, idx) => {
-                      const payable = Number(sup.payableToSupplier) || Number((sup as any).payable_to_supplier) || Number((sup as any).balanceOwed) || 0;
+                      const payable = Number(sup.payableToSupplier) || Number((sup as any).payable_to_supplier) || Number(sup.openingBalance) || Number((sup as any).balanceOwed) || 0;
                       const supTitle = sup.title || sup.name || (sup as any).account_title || (sup as any).accountTitle || 'Supplier';
                       const supGroup = sup.supplierGroup || (sup as any).supplier_group || 'General';
                       const supVat = sup.vatNumber || (sup as any).vat_number || '';
                       const supPerson = sup.contactPerson || (sup as any).contact_person || (sup as any).contactPerson || '-';
                       const supPhone = sup.mobile || (sup as any).mobile || sup.telephones || sup.phone || (sup as any).phone || '-';
                       const supCity = sup.city || (sup as any).city || '-';
-                      const supPayableType = sup.payableType || (sup as any).payable_type || 'CR';
+                      const supPayableType = sup.payableType || sup.openingBalanceType || (sup as any).payable_type || 'CR';
                       return (
                         <tr
                           key={sup.id || (sup as any).code || idx}
@@ -728,6 +733,11 @@ export const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({
                           <td className="px-3 py-3 text-right font-mono font-bold text-amber-300">
                             {currencySymbol()} {payable.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
                             <span className="text-[10px] text-amber-400/80">{supPayableType}</span>
+                            {sup.openingBalance !== undefined && sup.openingBalance !== 0 && (
+                              <div className="text-[10px] text-slate-500 font-normal">
+                                OB: {currencySymbol()} {Number(sup.openingBalance).toLocaleString()} {sup.openingBalanceType || 'CR'}
+                              </div>
+                            )}
                           </td>
                           {/* Switch / Unswitch Supplier Activation */}
                           <td

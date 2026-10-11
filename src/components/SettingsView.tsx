@@ -36,6 +36,7 @@ import {
   Laptop,
   Globe,
   Copy,
+  Type,
 } from 'lucide-react';
 import { CompanyProfile, Employee, Product, Supplier, User } from '../types';
 import { CURRENCY_OPTIONS } from '../utils/currency';
@@ -80,7 +81,8 @@ type SettingsSubSection =
   | 'expenseAccounts'
   | 'categories'
   | 'brands'
-  | 'measures';
+  | 'measures'
+  | 'typography';
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   companyProfile,
@@ -115,6 +117,48 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordMsg, setPasswordMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Typography & font settings
+  const [ledgerFontSize, setLedgerFontSize] = useState<'sm' | 'base' | 'lg'>(() => {
+    try {
+      return (localStorage.getItem('erp_ledger_font_size') as any) || 'sm';
+    } catch {
+      return 'sm';
+    }
+  });
+  const [ledgerFontWeight, setLedgerFontWeight] = useState<'normal' | 'bold' | 'black'>(() => {
+    try {
+      return (localStorage.getItem('erp_ledger_font_weight') as any) || 'bold';
+    } catch {
+      return 'bold';
+    }
+  });
+  const [ledgerHighContrast, setLedgerHighContrast] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('erp_ledger_high_contrast') !== 'false';
+    } catch {
+      return true;
+    }
+  });
+  const [fontToastMsg, setFontToastMsg] = useState<string | null>(null);
+
+  const handleApplyTypography = (
+    size: 'sm' | 'base' | 'lg',
+    weight: 'normal' | 'bold' | 'black',
+    highContrast: boolean
+  ) => {
+    setLedgerFontSize(size);
+    setLedgerFontWeight(weight);
+    setLedgerHighContrast(highContrast);
+    try {
+      localStorage.setItem('erp_ledger_font_size', size);
+      localStorage.setItem('erp_ledger_font_weight', weight);
+      localStorage.setItem('erp_ledger_high_contrast', highContrast ? 'true' : 'false');
+      window.dispatchEvent(new Event('erp_ledger_font_change'));
+    } catch {}
+    setFontToastMsg('Font and typography settings saved and applied to all ledgers!');
+    setTimeout(() => setFontToastMsg(null), 3000);
+  };
 
   // Bank accounts local state
   const [banks, setBanks] = useState([
@@ -667,7 +711,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </button>
             <span>/</span>
             <span className="text-sky-300 font-bold">
-              {activeSection === 'banks' ? 'Banks Management (بینک کھاتے)' : 'Cash / Bank & Vouchers (کیش اور بینک واؤچرز)'}
+              {activeSection === 'banks' ? 'Banks Management' : 'Cash / Bank & Vouchers'}
             </span>
           </div>
 
@@ -723,7 +767,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <span>/</span>
             <span className="text-cyan-400 font-bold flex items-center gap-1.5">
               <Database className="w-3.5 h-3.5" />
-              PostgreSQL Database &amp; Multi-Device Sync (ملٹی ڈیوائس ڈیٹابیس)
+              PostgreSQL Database &amp; Multi-Device Sync
             </span>
           </div>
 
@@ -843,7 +887,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <Laptop className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white">Multi-Device Access (کسی بھی دوسری ڈیوائس سے لاگ اِن)</h3>
+                  <h3 className="text-sm font-bold text-white">Multi-Device Access</h3>
                   <p className="text-[11px] text-slate-400">Open on Phone, Laptop, or Tablet</p>
                 </div>
               </div>
@@ -853,7 +897,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
 
             <p className="text-xs text-slate-300">
-              Apne mobile phone ya doosre computer ko same Wi-Fi par connect karein aur neeche dia gaya address browser main kholen:
+              Connect your mobile phone or another computer to the same Wi-Fi and open the address below in your browser:
             </p>
 
             <div className="flex items-center gap-2 bg-slate-950 border border-slate-700/80 rounded-xl p-2.5">
@@ -882,7 +926,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                 <span>Zero Data Loss &amp; Live Synchronized</span>
               </div>
-              <p>Jo bhi bill, item, ya payment aap ek device se save karenge, foran doosri device main A to Z nazar aayega.</p>
+              <p>Any bill, product, or payment saved on one device will instantly reflect across all other connected devices.</p>
             </div>
           </div>
 
@@ -894,7 +938,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <UserCheck className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white">System Accounts (رجسٹرڈ اکاؤنٹس)</h3>
+                  <h3 className="text-sm font-bold text-white">System Accounts</h3>
                   <p className="text-[11px] text-slate-400">Genuinely registered staff and owner credentials</p>
                 </div>
               </div>
@@ -930,7 +974,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <div className="flex items-center justify-between pb-2 border-b border-slate-800">
             <div className="flex items-center gap-2">
               <Server className="w-4 h-4 text-cyan-400" />
-              <h3 className="text-sm font-bold text-white">PostgreSQL Database Tables &amp; Records Count (ڈیٹابیس ریکارڈز)</h3>
+              <h3 className="text-sm font-bold text-white">PostgreSQL Database Tables &amp; Records Count</h3>
             </div>
             <span className="text-xs text-slate-400 font-mono">
               Total Tables: 16
@@ -939,16 +983,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {[
-              { label: 'Users (آپریٹرز)', table: 'users', count: tableCounts.users ?? 4 },
-              { label: 'Customers (گاہک)', table: 'customers', count: tableCounts.customers ?? 21 },
-              { label: 'Products (اسٹاک آئٹمز)', table: 'products', count: tableCounts.products ?? products.length },
-              { label: 'Sale Bills (سیل بل)', table: 'sale_bills', count: tableCounts.sale_bills ?? 1 },
-              { label: 'Purchase Bills (خریداری)', table: 'purchase_bills', count: tableCounts.purchase_bills ?? 1 },
-              { label: 'Suppliers (سپلائرز)', table: 'suppliers', count: tableCounts.suppliers ?? suppliers.length },
-              { label: 'Employees (ملازمین)', table: 'employees', count: tableCounts.employees ?? employees.length },
+              { label: 'Users', table: 'users', count: tableCounts.users ?? 4 },
+              { label: 'Customers', table: 'customers', count: tableCounts.customers ?? 21 },
+              { label: 'Products', table: 'products', count: tableCounts.products ?? products.length },
+              { label: 'Sale Bills', table: 'sale_bills', count: tableCounts.sale_bills ?? 1 },
+              { label: 'Purchase Bills', table: 'purchase_bills', count: tableCounts.purchase_bills ?? 1 },
+              { label: 'Suppliers', table: 'suppliers', count: tableCounts.suppliers ?? suppliers.length },
+              { label: 'Employees', table: 'employees', count: tableCounts.employees ?? employees.length },
               { label: 'Company Profile', table: 'company_profile', count: tableCounts.company_profile ?? 1 },
-              { label: 'Tijori / Cash', table: 'cash_register', count: tableCounts.cash_register ?? 1 },
-              { label: 'Audit Logs (لاگز)', table: 'audit_logs', count: tableCounts.audit_logs ?? 11 },
+              { label: 'Cash Register', table: 'cash_register', count: tableCounts.cash_register ?? 1 },
+              { label: 'Audit Logs', table: 'audit_logs', count: tableCounts.audit_logs ?? 11 },
             ].map((tbl) => (
               <div key={tbl.table} className="bg-slate-950 border border-slate-800/80 rounded-xl p-3 text-center">
                 <span className="text-[11px] text-slate-400 block truncate">{tbl.label}</span>
@@ -965,7 +1009,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
           <div className="flex items-center gap-2 pb-2 border-b border-slate-800">
             <KeyRound className="w-4 h-4 text-purple-400" />
-            <h3 className="text-sm font-bold text-white">PostgreSQL Connection Settings (کنکشن سیٹنگز)</h3>
+            <h3 className="text-sm font-bold text-white">PostgreSQL Connection Settings</h3>
           </div>
 
           <form onSubmit={handleConfigurePostgres} className="space-y-4">
@@ -1073,9 +1117,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </button>
             <span>/</span>
             <span className={`font-bold ${isCategory ? 'text-teal-300' : isBrand ? 'text-indigo-300' : 'text-amber-300'}`}>
-              {isCategory && 'Categories Management (کیٹیگریز)'}
-              {isBrand && 'Brands Management (برانڈز)'}
-              {isMeasure && 'Units & Measures (پیمائش کے یونٹس)'}
+              {isCategory && 'Categories Management'}
+              {isBrand && 'Brands Management'}
+              {isMeasure && 'Units & Measures'}
             </span>
           </div>
 
@@ -1210,9 +1254,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
               <Plus className="w-3.5 h-3.5 text-blue-400" />
               <span>
-                {isCategory && 'Add New Category (نیا کیٹیگری شامل کریں)'}
-                {isBrand && 'Add New Brand (نیا برانڈ شامل کریں)'}
-                {isMeasure && 'Add New Measure / Unit (نیا پیمائش کا یونٹ شامل کریں)'}
+                {isCategory && 'Add New Category'}
+                {isBrand && 'Add New Brand'}
+                {isMeasure && 'Add New Measure / Unit'}
               </span>
             </h3>
 
@@ -1525,7 +1569,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold rounded-xl shadow-md transition cursor-pointer"
             >
               <Banknote className="w-3.5 h-3.5" />
-              <span>Cash / Bank &amp; Vouchers (کیش اور بینک)</span>
+              <span>Cash / Bank &amp; Vouchers</span>
             </button>
 
             <button
@@ -1533,7 +1577,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold rounded-xl shadow-md transition cursor-pointer"
             >
               <Database className="w-3.5 h-3.5" />
-              <span>PostgreSQL Database &amp; Sync (ڈیٹابیس)</span>
+              <span>PostgreSQL Database &amp; Sync</span>
             </button>
 
             <button
@@ -1558,6 +1602,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             >
               <Scale className="w-3.5 h-3.5" />
               <span>Measures ({measuresList.length})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveSection('typography')}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold rounded-xl shadow-md transition cursor-pointer"
+            >
+              <Type className="w-3.5 h-3.5" />
+              <span>Typography &amp; Fonts</span>
             </button>
 
             <button
@@ -1884,8 +1936,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
             <h3 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-emerald-400 transition-colors flex items-center gap-1.5">
               <span>Cash / Bank &amp; Vouchers</span>
-              <span className="text-[10px] px-1.5 py-0.2 bg-emerald-500/15 text-emerald-300 rounded font-semibold font-urdu border border-emerald-500/30">
-                کیش اور بینک واؤچرز
+              <span className="text-[10px] px-1.5 py-0.2 bg-emerald-500/15 text-emerald-300 rounded font-semibold border border-emerald-500/30">
+                Vouchers
               </span>
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
@@ -1915,8 +1967,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
             <h3 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-sky-400 transition-colors flex items-center gap-1.5">
               <span>Banks Management</span>
-              <span className="text-[10px] px-1.5 py-0.2 bg-sky-500/15 text-sky-300 rounded font-semibold font-urdu border border-sky-500/30">
-                بینک کھاتے
+              <span className="text-[10px] px-1.5 py-0.2 bg-sky-500/15 text-sky-300 rounded font-semibold border border-sky-500/30">
+                Accounts
               </span>
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
@@ -1946,8 +1998,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
             <h3 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-amber-400 transition-colors flex items-center gap-1.5">
               <span>Expense Accounts</span>
-              <span className="text-[10px] px-1.5 py-0.2 bg-amber-500/15 text-amber-300 rounded font-semibold font-urdu border border-amber-500/30">
-                اخراجات کے کھاتے
+              <span className="text-[10px] px-1.5 py-0.2 bg-amber-500/15 text-amber-300 rounded font-semibold border border-amber-500/30">
+                Expense Heads
               </span>
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
@@ -2039,8 +2091,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
             <h3 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-300 transition-colors flex items-center gap-1.5">
               <span>Categories</span>
-              <span className="text-[10px] px-1.5 py-0.2 bg-teal-500/15 text-teal-700 dark:text-teal-200 rounded font-semibold font-urdu border border-teal-500/30">
-                کیٹیگریز
+              <span className="text-[10px] px-1.5 py-0.2 bg-teal-500/15 text-teal-700 dark:text-teal-200 rounded font-semibold border border-teal-500/30">
+                Categories
               </span>
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
@@ -2070,8 +2122,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
             <h3 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors flex items-center gap-1.5">
               <span>Company Brands</span>
-              <span className="text-[10px] px-1.5 py-0.2 bg-indigo-500/15 text-indigo-700 dark:text-indigo-200 rounded font-semibold font-urdu border border-indigo-500/30">
-                برانڈز
+              <span className="text-[10px] px-1.5 py-0.2 bg-indigo-500/15 text-indigo-700 dark:text-indigo-200 rounded font-semibold border border-indigo-500/30">
+                Brands
               </span>
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
@@ -2101,8 +2153,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
             <h3 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-300 transition-colors flex items-center gap-1.5">
               <span>Units &amp; Measures</span>
-              <span className="text-[10px] px-1.5 py-0.2 bg-amber-500/15 text-amber-700 dark:text-amber-200 rounded font-semibold font-urdu border border-amber-500/30">
-                پیمائش
+              <span className="text-[10px] px-1.5 py-0.2 bg-amber-500/15 text-amber-700 dark:text-amber-200 rounded font-semibold border border-amber-500/30">
+                Measures
               </span>
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
@@ -2111,6 +2163,37 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
           <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-xs text-amber-600 dark:text-amber-400 font-semibold">
             <span>Manage Measures</span>
+            <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+          </div>
+        </div>
+
+        {/* 11. Typography & Font Settings */}
+        <div
+          id="setting-card-typography"
+          onClick={() => setActiveSection('typography')}
+          className="bg-slate-900/90 border border-slate-800 hover:border-violet-500/60 rounded-xl p-4 transition-all duration-150 hover:bg-slate-800/60 cursor-pointer group shadow-sm flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-lg bg-violet-500/15 border border-violet-500/30 flex items-center justify-center text-violet-600 dark:text-violet-400 group-hover:scale-105 transition-transform">
+                <Type className="w-5 h-5" />
+              </div>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/30 font-mono">
+                {ledgerFontSize.toUpperCase()} • {ledgerFontWeight.toUpperCase()}
+              </span>
+            </div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-violet-600 dark:group-hover:text-violet-300 transition-colors flex items-center gap-1.5">
+              <span>Typography &amp; Font Settings</span>
+              <span className="text-[10px] px-1.5 py-0.2 bg-violet-500/15 text-violet-700 dark:text-violet-200 rounded font-semibold border border-violet-500/30">
+                Ledger Fonts
+              </span>
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+              Customer &amp; Supplier ledger font size (Small, Medium, Large), text weight / boldness, and high-contrast row clarity.
+            </p>
+          </div>
+          <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-xs text-violet-600 dark:text-violet-400 font-semibold">
+            <span>Configure Font Scale</span>
             <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
           </div>
         </div>
@@ -2498,6 +2581,178 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 })}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* SUB-SECTION: TYPOGRAPHY & FONT SETTINGS */}
+      {activeSection === 'typography' && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-md max-w-3xl mx-auto space-y-6 animate-in fade-in duration-150">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+            <div className="flex items-center gap-2.5">
+              <Type className="w-5 h-5 text-violet-400" />
+              <div>
+                <h2 className="text-base font-bold text-white">Typography &amp; Ledger Font Settings</h2>
+                <p className="text-xs text-slate-400">Control font size, boldness, and row contrast across customer and supplier ledgers.</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setActiveSection('overview')}
+              className="text-xs text-slate-400 hover:text-white px-2.5 py-1 rounded-lg hover:bg-slate-800 transition cursor-pointer"
+            >
+              Back to Hub
+            </button>
+          </div>
+
+          {fontToastMsg && (
+            <div className="p-3 rounded-xl bg-emerald-950/70 border border-emerald-800 text-emerald-200 text-xs flex items-center gap-2 animate-in fade-in">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{fontToastMsg}</span>
+            </div>
+          )}
+
+          {/* Controls Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Font Size Selector */}
+            <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-3">
+              <label className="text-xs font-bold text-slate-200 uppercase tracking-wider block">
+                1. Ledger Font Size
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: 'sm', label: 'Small', sub: '12px Compact', icon: 'A-' },
+                  { id: 'base', label: 'Medium', sub: '14px Standard', icon: 'A' },
+                  { id: 'lg', label: 'Large', sub: '16px Readable', icon: 'A+' },
+                ].map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => handleApplyTypography(s.id as any, ledgerFontWeight, ledgerHighContrast)}
+                    className={`p-3 rounded-xl border text-center transition cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                      ledgerFontSize === s.id
+                        ? 'bg-violet-600 text-white border-violet-500 shadow-md ring-2 ring-violet-500/40'
+                        : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
+                    }`}
+                  >
+                    <span className="font-mono font-black text-sm">{s.icon}</span>
+                    <span className="text-xs font-bold">{s.label}</span>
+                    <span className="text-[10px] text-slate-400 group-hover:text-slate-200">{s.sub}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Font Weight / Boldness Selector */}
+            <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-3">
+              <label className="text-xs font-bold text-slate-200 uppercase tracking-wider block">
+                2. Font Boldness &amp; Weight
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: 'normal', label: 'Normal', sub: 'Regular (400)', sample: 'Aa' },
+                  { id: 'bold', label: 'Bold', sub: 'Bold (700)', sample: 'Aa' },
+                  { id: 'black', label: 'Black', sub: 'Ultra (900)', sample: 'Aa' },
+                ].map((w) => (
+                  <button
+                    key={w.id}
+                    type="button"
+                    onClick={() => handleApplyTypography(ledgerFontSize, w.id as any, ledgerHighContrast)}
+                    className={`p-3 rounded-xl border text-center transition cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                      ledgerFontWeight === w.id
+                        ? 'bg-violet-600 text-white border-violet-500 shadow-md ring-2 ring-violet-500/40'
+                        : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
+                    }`}
+                  >
+                    <span
+                      className={`text-sm ${
+                        w.id === 'normal' ? 'font-normal' : w.id === 'bold' ? 'font-bold' : 'font-black'
+                      }`}
+                    >
+                      {w.sample}
+                    </span>
+                    <span className="text-xs font-bold">{w.label}</span>
+                    <span className="text-[10px] text-slate-400">{w.sub}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* High Contrast Borders Toggle */}
+          <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+            <div className="space-y-0.5">
+              <span className="text-xs font-bold text-white block">High Contrast Table Grid Lines</span>
+              <span className="text-[11px] text-slate-400 block">
+                Draws distinct high-contrast column dividers between Date, Description, Debit, Credit, and Balance.
+              </span>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={ledgerHighContrast}
+                onChange={(e) => handleApplyTypography(ledgerFontSize, ledgerFontWeight, e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600"></div>
+            </label>
+          </div>
+
+          {/* Live Interactive Ledger Preview Box */}
+          <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-black uppercase text-violet-400 tracking-wider">
+                Live Interactive Ledger Preview
+              </span>
+              <span className="text-[10px] text-slate-400 font-mono">
+                Size: {ledgerFontSize} &bull; Weight: {ledgerFontWeight}
+              </span>
+            </div>
+            <div className="overflow-x-auto border border-slate-700/80 rounded-lg">
+              <table className={`w-full text-left border-collapse ${
+                ledgerFontSize === 'sm' ? 'text-xs' : ledgerFontSize === 'lg' ? 'text-base' : 'text-sm'
+              }`}>
+                <thead>
+                  <tr className="bg-slate-900 border-b border-slate-700 text-slate-300">
+                    <th className="py-2 px-3">Date</th>
+                    <th className="py-2 px-3">Bill / Ref #</th>
+                    <th className="py-2 px-3">Description</th>
+                    <th className="py-2 px-3 text-right">Debit (Dr)</th>
+                    <th className="py-2 px-3 text-right">Credit (Cr)</th>
+                    <th className="py-2 px-3 text-right">Balance</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-slate-950 divide-y divide-slate-800">
+                  <tr className="hover:bg-slate-900/50">
+                    <td className="py-2 px-3 text-slate-400 font-mono">01/10/2026</td>
+                    <td className="py-2 px-3 text-sky-400 font-mono">OB-001</td>
+                    <td className="py-2 px-3 text-slate-200">Opening Balance Forwarded</td>
+                    <td className="py-2 px-3 text-right font-mono text-slate-400">—</td>
+                    <td className="py-2 px-3 text-right font-mono text-slate-400">—</td>
+                    <td className={`py-2 px-3 text-right font-mono text-amber-400 ${
+                      ledgerFontWeight === 'black' ? 'font-black' : ledgerFontWeight === 'bold' ? 'font-bold' : 'font-normal'
+                    }`}>
+                      5,000.00 DR
+                    </td>
+                  </tr>
+                  <tr className="hover:bg-slate-900/50">
+                    <td className="py-2 px-3 text-slate-400 font-mono">12/10/2026</td>
+                    <td className="py-2 px-3 text-indigo-400 font-mono">INV-1049</td>
+                    <td className={`py-2 px-3 text-white ${
+                      ledgerFontWeight === 'black' ? 'font-black' : ledgerFontWeight === 'bold' ? 'font-bold' : 'font-normal'
+                    }`}>
+                      Fresh Basmati Rice 50kg (2 Bags)
+                    </td>
+                    <td className="py-2 px-3 text-right font-mono text-rose-400 font-bold">1,250.00</td>
+                    <td className="py-2 px-3 text-right font-mono text-slate-400">—</td>
+                    <td className={`py-2 px-3 text-right font-mono text-rose-400 ${
+                      ledgerFontWeight === 'black' ? 'font-black' : ledgerFontWeight === 'bold' ? 'font-bold' : 'font-normal'
+                    }`}>
+                      6,250.00 DR
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

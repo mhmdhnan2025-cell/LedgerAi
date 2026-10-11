@@ -26,13 +26,17 @@ import { currencySymbol } from '../utils/currency';
 
 interface SupplierLedgerReportSectionProps {
   companyProfile?: CompanyProfile | null;
+  suppliers?: Supplier[];
   initialSupplierId?: string;
+  onRefreshData?: () => void;
   onNavigateTab?: (tab: string) => void;
 }
 
 export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionProps> = ({
   companyProfile,
+  suppliers: initialSuppliers,
   initialSupplierId,
+  onRefreshData,
   onNavigateTab,
 }) => {
   // Filters
@@ -64,8 +68,49 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // Font Size & Boldness Customization (Corner Adjustment)
-  const [reportFontSize, setReportFontSize] = useState<'sm' | 'base' | 'lg'>('base');
-  const [reportFontWeight, setReportFontWeight] = useState<'normal' | 'bold' | 'black'>('bold');
+  const [reportFontSize, setReportFontSize] = useState<'sm' | 'base' | 'lg'>(() => {
+    try {
+      return (localStorage.getItem('erp_ledger_font_size') as any) || 'base';
+    } catch {
+      return 'base';
+    }
+  });
+  const [reportFontWeight, setReportFontWeight] = useState<'normal' | 'bold' | 'black'>(() => {
+    try {
+      return (localStorage.getItem('erp_ledger_font_weight') as any) || 'bold';
+    } catch {
+      return 'bold';
+    }
+  });
+
+  useEffect(() => {
+    const handleFontChange = () => {
+      try {
+        const sz = localStorage.getItem('erp_ledger_font_size') as any;
+        if (sz) setReportFontSize(sz);
+        const bw = localStorage.getItem('erp_ledger_font_weight') as any;
+        if (bw) setReportFontWeight(bw);
+      } catch {}
+    };
+    window.addEventListener('erp_ledger_font_change', handleFontChange);
+    return () => window.removeEventListener('erp_ledger_font_change', handleFontChange);
+  }, []);
+
+  const handleUpdateFontSize = (sz: 'sm' | 'base' | 'lg') => {
+    setReportFontSize(sz);
+    try {
+      localStorage.setItem('erp_ledger_font_size', sz);
+      window.dispatchEvent(new Event('erp_ledger_font_change'));
+    } catch {}
+  };
+
+  const handleUpdateFontWeight = (bw: 'normal' | 'bold' | 'black') => {
+    setReportFontWeight(bw);
+    try {
+      localStorage.setItem('erp_ledger_font_weight', bw);
+      window.dispatchEvent(new Event('erp_ledger_font_change'));
+    } catch {}
+  };
 
   // Delete transaction modal
   const [confirmEntry, setConfirmEntry] = useState<SupplierLedgerEntry | null>(null);
@@ -96,6 +141,24 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
 
   // Load Suppliers list
   useEffect(() => {
+    if (initialSuppliers && initialSuppliers.length > 0) {
+      setSuppliers(initialSuppliers);
+      if (initialSupplierId) {
+        const found = initialSuppliers.find(
+          (s) =>
+            s.id === initialSupplierId ||
+            s.code === initialSupplierId ||
+            s.accountNumber === initialSupplierId
+        );
+        if (found) {
+          setSelectedSupplier(found);
+          setSupplierSearch('');
+          handleGenerateReport(found);
+          return;
+        }
+      }
+      return;
+    }
     const fetchSuppliers = async () => {
       try {
         const list = await api.getSuppliers();
@@ -124,7 +187,7 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
       }
     };
     fetchSuppliers();
-  }, [initialSupplierId]);
+  }, [initialSupplierId, initialSuppliers]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -464,7 +527,12 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
                     filteredSuppliers.map((s, index) => {
                       const isSelected = selectedSupplier?.id === s.id;
                       const isHighlighted = highlightedIndex === index;
-                      const payableBalance = s.payableToSupplier !== undefined ? s.payableToSupplier : (s.balanceOwed || 0);
+                      const effSupplierBal = s.payableToSupplier !== undefined && s.payableToSupplier !== 0
+                        ? s.payableToSupplier
+                        : (s.openingBalance !== undefined && s.openingBalance !== 0
+                            ? (s.openingBalanceType === 'DR' ? -Math.abs(s.openingBalance) : Math.abs(s.openingBalance))
+                            : (s.balanceOwed || 0));
+                      const supType = effSupplierBal < 0 ? 'DR' : (effSupplierBal > 0 ? 'CR' : (s.openingBalanceType || s.payableType || 'CR'));
                       return (
                         <div
                           key={s.id}
@@ -496,7 +564,7 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
                             <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
                               isHighlighted ? 'text-stock-highlight font-bold' : 'bg-slate-900 text-slate-300'
                             }`}>
-                              {currencySymbol()} {formatNumber(payableBalance)}
+                              {currencySymbol()} {formatNumber(Math.abs(effSupplierBal))} {effSupplierBal !== 0 ? supType : ''}
                             </span>
                           </div>
                         </div>
@@ -598,7 +666,7 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
               <button
                 key={sz}
                 type="button"
-                onClick={() => setReportFontSize(sz)}
+                onClick={() => handleUpdateFontSize(sz)}
                 className={`px-2 py-0.5 rounded text-[11px] font-bold transition cursor-pointer ${
                   reportFontSize === sz ? 'bg-purple-600 text-white shadow-xs' : 'bg-slate-850 hover:bg-slate-700 text-slate-300'
                 }`}
@@ -613,7 +681,7 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
               <button
                 key={bw}
                 type="button"
-                onClick={() => setReportFontWeight(bw)}
+                onClick={() => handleUpdateFontWeight(bw)}
                 className={`px-2 py-0.5 rounded text-[11px] transition cursor-pointer ${
                   bw === 'normal' ? 'font-medium' : bw === 'bold' ? 'font-bold' : 'font-black'
                 } ${

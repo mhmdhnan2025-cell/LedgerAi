@@ -90,38 +90,35 @@ const formatTime = (iso?: string): string => {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
-const MetaRow: React.FC<{ label: string; ar: string; value: React.ReactNode; divider?: boolean }> = ({
+const MetaRow: React.FC<{ label: string; ar?: string; value: React.ReactNode; divider?: boolean }> = ({
   label,
-  ar,
   value,
   divider = true,
 }) => (
   <div
-    className={`flex items-center gap-2 px-2.5 py-[7px] ${divider ? 'border-b border-slate-400' : ''}`}
+    className={`flex items-center justify-between gap-2 px-2.5 py-[7px] ${divider ? 'border-b border-slate-400' : ''}`}
   >
-    <span className="font-bold text-slate-900 shrink-0 w-[92px]">{label}</span>
-    <span className="flex-1 text-right font-black font-mono text-slate-900 pr-2">{value}</span>
-    <span dir="rtl" className="shrink-0 w-[88px] text-right text-slate-700 font-semibold">{ar}</span>
+    <span className="font-bold text-slate-900 shrink-0">{label}</span>
+    <span className="text-right font-black font-mono text-slate-900">{value}</span>
   </div>
 );
 
 const TotalRow: React.FC<{
   label: string;
-  ar: string;
+  ar?: string;
   value: string;
   highlight?: boolean;
-}> = ({ label, ar, value, highlight }) => (
+}> = ({ label, value, highlight }) => (
   <div
-    className={`flex items-center gap-2 px-2.5 py-[7px] border-b border-slate-400 last:border-b-0 ${
+    className={`flex items-center justify-between gap-2 px-2.5 py-[7px] border-b border-slate-400 last:border-b-0 ${
       highlight ? 'bg-[#eef4e6]' : ''
     }`}
   >
     <span className={`font-bold text-slate-900 shrink-0 ${highlight ? 'text-[12.5px]' : 'text-[11.5px]'}`}>
       {label}
     </span>
-    <span dir="rtl" className="flex-1 text-right text-slate-700 font-semibold text-[11px]">{ar}</span>
     <span
-      className={`shrink-0 w-[92px] text-right font-mono ${
+      className={`shrink-0 text-right font-mono ${
         highlight ? 'font-black text-[15px] text-[#0f7b3f]' : 'font-bold text-slate-900 text-[12.5px]'
       }`}
     >
@@ -270,16 +267,16 @@ export const SalesBillReceiptModal: React.FC<SalesBillReceiptModalProps> = ({
   };
 
   const handleCopyWhatsApp = () => {
-    const text = `*فاتورة ضريبية / TAX INVOICE #${invoiceNo}*
+    const text = `*TAX INVOICE #${invoiceNo}*
 *${companyName}*
 ${fullAddress ? `${fullAddress}\n` : ''}${poBox ? `P.O. Box: ${poBox}\n` : ''}${phoneLine ? `Tel: ${phoneLine}\n` : ''}${companyTrn ? `TRN: ${companyTrn}\n` : ''}----------------------------------------
-*Customer / العميل:* ${bill.customerAccountTitle}
-${customerTrn ? `*Customer TRN / الرقم الضريبي:* ${customerTrn}\n` : ''}*Date / التاريخ:* ${invoiceDate} ${invoiceTime}
-*L.P.O No / رقم أمر الشراء:* ${bill.lpoNo || '-'}
-*Payment Terms / شروط الدفع:* ${paymentTerms}
-*Sales Man / مندوب المبيعات:* ${salesMan}
-${billUser ? `*User / المستخدم:* ${billUser}\n` : ''}----------------------------------------
-*Items / الأصناف:*
+*Customer:* ${bill.customerAccountTitle}
+${customerTrn ? `*Customer TRN:* ${customerTrn}\n` : ''}*Date:* ${invoiceDate} ${invoiceTime}
+*L.P.O No:* ${bill.lpoNo || '-'}
+*Payment Terms:* ${paymentTerms}
+*Sales Man:* ${salesMan}
+${billUser ? `*User:* ${billUser}\n` : ''}----------------------------------------
+*Items:*
 ${items
   .map(
     (it, idx) =>
@@ -287,16 +284,16 @@ ${items
   )
   .join('\n')}
 ----------------------------------------
-*Total Before VAT / المجموع بدون الضريبة:* ${cur} ${money(totalBeforeVat)}
-*Discount / الخصم:* ${cur} ${money(billDiscount)}
-*VAT Total (${vatPercent}%) / مجموع الضريبة:* ${cur} ${money(vatTotal)}
-*NET TOTAL / صافي المجموع:* *${cur} ${money(netTotal)}*
+*Total Before VAT:* ${cur} ${money(totalBeforeVat)}
+*Discount:* ${cur} ${money(billDiscount)}
+*VAT Total (${vatPercent}%):* ${cur} ${money(vatTotal)}
+*NET TOTAL:* *${cur} ${money(netTotal)}*
 ----------------------------------------
-*Opening Balance / الرصيد الافتتاحي:* ${money(openingBalance)}
-*Current Balance / الرصيد الحالي:* ${money(currentTotalBalance)}
-*Closing Balance / الرصيد الإجمالي:* ${money(closingBalance)}
+*Opening Balance:* ${money(openingBalance)}
+*Current Balance:* ${money(currentTotalBalance)}
+*Closing Balance:* ${money(closingBalance)}
 ----------------------------------------
-شكراً لتعاملكم معنا / Thank you for your business!`;
+Thank you for your business!`;
 
     navigator.clipboard.writeText(text);
     setCopied(true);
@@ -312,7 +309,7 @@ ${items
         <div className="px-4 sm:px-6 py-3 bg-slate-950 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 shrink-0 print:hidden">
           <div className="flex items-center gap-2 text-white font-bold text-sm">
             <Receipt className="w-5 h-5 text-emerald-400" />
-            <span>Customer Sales Bill &amp; Tax Invoice / فاتورة ضريبية للعميل</span>
+            <span>Customer Sales Bill &amp; Tax Invoice</span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -354,7 +351,7 @@ ${items
               className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition shadow-sm cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Print Bill (طباعة)</span>
+              <span>Print Bill</span>
             </button>
 
             {/* Close Button */}
@@ -485,25 +482,25 @@ ${items
                 </div>
               </div>
 
-              {/* Right — Arabic block */}
-              {!isThermal && (
+              {/* Right — Arabic block (only if Arabic company name configured) */}
+              {!isThermal && nameAr && (
                 <div className="leading-snug text-slate-800 text-right" dir="rtl">
                   <div className="text-[#0f7b3f] font-black text-[22px] leading-none">{nameAr}</div>
                   {legalLine && <div className="font-black mt-1 text-[12px] leading-tight">{legalLine}</div>}
                   <div className="mt-1.5 space-y-0.5">
                     {phoneLine && (
                       <div>
-                        <span className="font-black">هاتف :</span> {phoneLine}
+                        <span className="font-black">Tel:</span> {phoneLine}
                       </div>
                     )}
                     {fullAddress && (
                       <div>
-                        <span className="font-black">العنوان :</span> {fullAddress}
+                        <span className="font-black">Address:</span> {fullAddress}
                       </div>
                     )}
                     {poBox && (
                       <div>
-                        <span className="font-black">ص.ب :</span> {poBox}
+                        <span className="font-black">P.O. Box:</span> {poBox}
                       </div>
                     )}
                   </div>
@@ -530,7 +527,6 @@ ${items
                       </div>
                     )}
                   </div>
-                  <div dir="rtl" className="shrink-0 text-slate-700 font-semibold">العميل</div>
                 </div>
 
                 <div className="border-t border-dashed border-slate-400 my-2" />
@@ -540,7 +536,6 @@ ${items
                     Customer TRN:{' '}
                     <span className="font-mono font-bold">{customerTrn || '—'}</span>
                   </div>
-                  <div dir="rtl" className="text-slate-700 font-semibold">الرقم الضريبي:</div>
                 </div>
               </div>
 
@@ -548,15 +543,14 @@ ${items
               <div>
                 <MetaRow
                   label="Invoice Date"
-                  ar="تاريخ الفاتورة"
                   value={`${invoiceDate}${invoiceTime ? ` | ${invoiceTime}` : ''}`}
                 />
-                <MetaRow label="Invoice No." ar="رقم الفاتورة" value={invoiceNo} />
-                <MetaRow label="L.P.O No" ar="رقم أمر الشراء" value={bill.lpoNo || '—'} />
-                <MetaRow label="Payment Terms" ar="شروط الدفع" value={paymentTerms} />
-                <MetaRow label="Sales Man" ar="مندوب المبيعات" value={salesMan} divider={Boolean(billUser)} />
+                <MetaRow label="Invoice No." value={invoiceNo} />
+                <MetaRow label="L.P.O No" value={bill.lpoNo || '—'} />
+                <MetaRow label="Payment Terms" value={paymentTerms} />
+                <MetaRow label="Sales Man" value={salesMan} divider={Boolean(billUser)} />
                 {billUser && (
-                  <MetaRow label="User / Cashier" ar="المستخدم" value={billUser} divider={false} />
+                  <MetaRow label="User / Cashier" value={billUser} divider={false} />
                 )}
               </div>
             </div>
@@ -568,63 +562,53 @@ ${items
               <thead>
                 <tr className="bg-[#f4efe1] text-slate-900 align-bottom">
                   {/* 1. SL# */}
-                  <th className="border border-slate-400 px-1.5 py-1.5 w-[36px] text-center">
-                    <div dir="rtl" className="text-[10px] font-semibold leading-tight">الرقم</div>
-                    <div className="font-black leading-tight">SL#</div>
+                  <th className="border border-slate-400 px-1.5 py-2 w-[36px] text-center font-black">
+                    SL#
                   </th>
 
                   {/* 2. Title */}
-                  <th className="border border-slate-400 px-2 py-1.5 text-left min-w-[150px]">
-                    <div dir="rtl" className="text-[10px] font-semibold leading-tight">اسم الصنف</div>
-                    <div className="font-black leading-tight">Title</div>
+                  <th className="border border-slate-400 px-2 py-2 text-left min-w-[150px] font-black">
+                    Title
                   </th>
 
                   {/* 3. Carton / Packaging */}
-                  <th className="border border-slate-400 px-1.5 py-1.5 w-[75px] text-center">
-                    <div dir="rtl" className="text-[10px] font-semibold leading-tight">الكرتون/العبوة</div>
-                    <div className="font-black leading-tight">Carton / PKG</div>
+                  <th className="border border-slate-400 px-1.5 py-2 w-[85px] text-center font-black">
+                    Carton / PKG
                   </th>
 
                   {/* 4. Loose Measure / Qty */}
-                  <th className="border border-slate-400 px-1.5 py-1.5 w-[70px] text-center">
-                    <div dir="rtl" className="text-[10px] font-semibold leading-tight">كمية إضافية</div>
-                    <div className="font-black leading-tight">Loose Qty</div>
+                  <th className="border border-slate-400 px-1.5 py-2 w-[80px] text-center font-black">
+                    Loose Qty
                   </th>
 
                   {/* 5. Total Qty / Total Stock */}
-                  <th className="border border-slate-400 px-1.5 py-1.5 w-[75px] text-center bg-[#f0eadd]">
-                    <div dir="rtl" className="text-[10px] font-semibold leading-tight">إجمالي الكمية</div>
-                    <div className="font-black leading-tight">Total Qty</div>
+                  <th className="border border-slate-400 px-1.5 py-2 w-[85px] text-center bg-[#f0eadd] font-black">
+                    Total Qty
                   </th>
 
                   {/* 6. Unit Price */}
-                  <th className="border border-slate-400 px-1.5 py-1.5 w-[75px] text-right">
-                    <div dir="rtl" className="text-[10px] font-semibold leading-tight">سعر الوحدة</div>
-                    <div className="font-black leading-tight">Unit Price</div>
+                  <th className="border border-slate-400 px-1.5 py-2 w-[80px] text-right font-black">
+                    Unit Price
                   </th>
 
                   {/* 7. Before VAT */}
-                  <th className="border border-slate-400 px-1.5 py-1.5 w-[80px] text-right">
-                    <div dir="rtl" className="text-[10px] font-semibold leading-tight">بدون ضريبة</div>
-                    <div className="font-black leading-tight">Before VAT</div>
+                  <th className="border border-slate-400 px-1.5 py-2 w-[85px] text-right font-black">
+                    Before VAT
                   </th>
 
                   {/* 8. VAT % */}
-                  <th className="border border-slate-400 px-1.5 py-1.5 w-[46px] text-center">
-                    <div dir="rtl" className="text-[10px] font-semibold leading-tight">الضريبة</div>
-                    <div className="font-black leading-tight">VAT %</div>
+                  <th className="border border-slate-400 px-1.5 py-2 w-[50px] text-center font-black">
+                    VAT %
                   </th>
 
                   {/* 9. VAT Amount */}
-                  <th className="border border-slate-400 px-1.5 py-1.5 w-[72px] text-right">
-                    <div dir="rtl" className="text-[10px] font-semibold leading-tight">قيمة الضريبة</div>
-                    <div className="font-black leading-tight">VAT Amount</div>
+                  <th className="border border-slate-400 px-1.5 py-2 w-[80px] text-right font-black">
+                    VAT Amount
                   </th>
 
                   {/* 10. Net Amount */}
-                  <th className="border border-slate-400 px-1.5 py-1.5 w-[86px] text-right bg-[#f4efe1]">
-                    <div dir="rtl" className="text-[10px] font-semibold leading-tight">صافي المجموع</div>
-                    <div className="font-black leading-tight">Net Amount</div>
+                  <th className="border border-slate-400 px-1.5 py-2 w-[90px] text-right bg-[#f4efe1] font-black">
+                    Net Amount
                   </th>
                 </tr>
               </thead>
@@ -733,17 +717,14 @@ ${items
               <div className="font-black text-[12.5px] uppercase leading-snug mt-0.5">{totalInWords}</div>
 
               <div className="grid grid-cols-3 border border-slate-400 mt-2.5">
-                <div className="text-center px-1 py-1 border-r border-slate-400">
-                  <div className="font-black leading-tight">Opening Balance</div>
-                  <div dir="rtl" className="text-[10px] text-slate-700 leading-tight">الرصيد الافتتاحي</div>
+                <div className="text-center px-1 py-1.5 border-r border-slate-400">
+                  <div className="font-black leading-tight text-slate-800">Opening Balance</div>
                 </div>
-                <div className="text-center px-1 py-1 border-r border-slate-400">
-                  <div className="font-black leading-tight">Current Balance</div>
-                  <div dir="rtl" className="text-[10px] text-slate-700 leading-tight">الرصيد الحالي</div>
+                <div className="text-center px-1 py-1.5 border-r border-slate-400">
+                  <div className="font-black leading-tight text-slate-800">Current Balance</div>
                 </div>
-                <div className="text-center px-1 py-1">
-                  <div className="font-black leading-tight">Closing Balance</div>
-                  <div dir="rtl" className="text-[10px] text-slate-700 leading-tight">الرصيد الإجمالي</div>
+                <div className="text-center px-1 py-1.5">
+                  <div className="font-black leading-tight text-slate-800">Closing Balance</div>
                 </div>
               </div>
 
@@ -762,10 +743,10 @@ ${items
 
             {/* Right: totals box */}
             <div className="bg-[#f7f3e7]">
-              <TotalRow label="Total Before VAT" ar="المجموع بدون الضريبة" value={money(totalBeforeVat)} />
-              <TotalRow label="Discount" ar="الخصم" value={money(billDiscount)} />
-              <TotalRow label={`VAT Total (${vatPercent}%)`} ar="مجموع الضريبة" value={money(vatTotal)} />
-              <TotalRow label={`Net Total (${cur})`} ar="صافي المجموع" value={money(netTotal)} highlight />
+              <TotalRow label="Total Before VAT" value={money(totalBeforeVat)} />
+              <TotalRow label="Discount" value={money(billDiscount)} />
+              <TotalRow label={`VAT Total (${vatPercent}%)`} value={money(vatTotal)} />
+              <TotalRow label={`Net Total (${cur})`} value={money(netTotal)} highlight />
             </div>
           </div>
 
@@ -803,13 +784,13 @@ ${items
             <div>
               <div className="border-t border-dotted border-slate-500 mb-1" />
               <span className="font-black text-[11.5px]">
-                Customer Sign / Contact No. / <span dir="rtl">ختم المستلم</span>
+                Customer Sign / Contact No.
               </span>
             </div>
             <div>
               <div className="border-t border-dotted border-slate-500 mb-1" />
               <span className="font-black text-[11.5px]">
-                Sales Rep. Sign / <span dir="rtl">توقيع المندوب</span>
+                Sales Rep. Sign
               </span>
             </div>
           </div>

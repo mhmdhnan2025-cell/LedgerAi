@@ -675,6 +675,7 @@ export default function App() {
         {currentTab === 'reports' && (
           <ReportsView
             suppliers={suppliers}
+            customers={customers}
             products={products}
             companyProfile={companyProfile}
             currentRole={currentRole}

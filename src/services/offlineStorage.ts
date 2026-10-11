@@ -21,6 +21,7 @@ export class OfflineStorageService {
         payments: data.payments || existing.payments || [],
         expenses: data.expenses || existing.expenses || [],
         suppliers: data.suppliers || existing.suppliers || [],
+        customers: data.customers || existing.customers || [],
         employees: data.employees || existing.employees || [],
         auditLogs: data.auditLogs || existing.auditLogs || [],
         users: data.users || existing.users || [],

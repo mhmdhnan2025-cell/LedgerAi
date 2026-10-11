@@ -518,6 +518,7 @@ export interface DatabaseSnapshot {
   payments: Payment[];
   expenses: Expense[];
   suppliers?: Supplier[];
+  customers?: Customer[];
   auditLogs: AuditLog[];
   users: User[];
   companyProfile?: CompanyProfile | null;

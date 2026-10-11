@@ -25,13 +25,17 @@ import { currencySymbol } from '../utils/currency';
 
 interface CustomerLedgerReportSectionProps {
   companyProfile?: CompanyProfile | null;
+  customers?: Customer[];
   initialCustomerId?: string;
+  onRefreshData?: () => void;
   onNavigateTab?: (tab: string) => void;
 }
 
 export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionProps> = ({
   companyProfile,
+  customers: initialCustomers,
   initialCustomerId,
+  onRefreshData,
   onNavigateTab,
 }) => {
   // Filters
@@ -63,8 +67,49 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // Font Size & Boldness Customization (Corner Adjustment)
-  const [reportFontSize, setReportFontSize] = useState<'sm' | 'base' | 'lg'>('base');
-  const [reportFontWeight, setReportFontWeight] = useState<'normal' | 'bold' | 'black'>('bold');
+  const [reportFontSize, setReportFontSize] = useState<'sm' | 'base' | 'lg'>(() => {
+    try {
+      return (localStorage.getItem('erp_ledger_font_size') as any) || 'base';
+    } catch {
+      return 'base';
+    }
+  });
+  const [reportFontWeight, setReportFontWeight] = useState<'normal' | 'bold' | 'black'>(() => {
+    try {
+      return (localStorage.getItem('erp_ledger_font_weight') as any) || 'bold';
+    } catch {
+      return 'bold';
+    }
+  });
+
+  useEffect(() => {
+    const handleFontChange = () => {
+      try {
+        const sz = localStorage.getItem('erp_ledger_font_size') as any;
+        if (sz) setReportFontSize(sz);
+        const bw = localStorage.getItem('erp_ledger_font_weight') as any;
+        if (bw) setReportFontWeight(bw);
+      } catch {}
+    };
+    window.addEventListener('erp_ledger_font_change', handleFontChange);
+    return () => window.removeEventListener('erp_ledger_font_change', handleFontChange);
+  }, []);
+
+  const handleUpdateFontSize = (sz: 'sm' | 'base' | 'lg') => {
+    setReportFontSize(sz);
+    try {
+      localStorage.setItem('erp_ledger_font_size', sz);
+      window.dispatchEvent(new Event('erp_ledger_font_change'));
+    } catch {}
+  };
+
+  const handleUpdateFontWeight = (bw: 'normal' | 'bold' | 'black') => {
+    setReportFontWeight(bw);
+    try {
+      localStorage.setItem('erp_ledger_font_weight', bw);
+      window.dispatchEvent(new Event('erp_ledger_font_change'));
+    } catch {}
+  };
 
   // Delete transaction modal
   const [confirmEntry, setConfirmEntry] = useState<CustomerLedgerEntry | null>(null);
@@ -95,6 +140,21 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
 
   // Load Customers list
   useEffect(() => {
+    if (initialCustomers && initialCustomers.length > 0) {
+      setCustomers(initialCustomers);
+      if (initialCustomerId) {
+        const found = initialCustomers.find(
+          (c) => c.id === initialCustomerId || c.code === initialCustomerId || c.accountCode === initialCustomerId
+        );
+        if (found) {
+          setSelectedCustomer(found);
+          setCustomerSearch('');
+          handleGenerateReport(found);
+          return;
+        }
+      }
+      return;
+    }
     const fetchCustomers = async () => {
       try {
         const list = await api.getCustomers();
@@ -120,7 +180,7 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
       }
     };
     fetchCustomers();
-  }, [initialCustomerId]);
+  }, [initialCustomerId, initialCustomers]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -488,11 +548,21 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
                             </div>
                           </div>
                           <div className="text-right shrink-0 ml-2">
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
-                              isHighlighted ? 'text-stock-highlight font-bold' : 'bg-slate-900 text-slate-300'
-                            }`}>
-                              {currencySymbol()} {formatNumber(c.outstandingBalance)}
-                            </span>
+                            {(() => {
+                              const effBal = c.outstandingBalance !== undefined && c.outstandingBalance !== 0
+                                ? c.outstandingBalance
+                                : (c.openingBalance !== undefined && c.openingBalance !== 0
+                                    ? (c.openingBalanceType === 'CR' ? -Math.abs(c.openingBalance) : Math.abs(c.openingBalance))
+                                    : 0);
+                              const balType = effBal < 0 ? 'CR' : (effBal > 0 ? 'DR' : (c.openingBalanceType || 'DR'));
+                              return (
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
+                                  isHighlighted ? 'text-stock-highlight font-bold' : 'bg-slate-900 text-slate-300'
+                                }`}>
+                                  {currencySymbol()} {formatNumber(Math.abs(effBal))} {effBal !== 0 ? balType : ''}
+                                </span>
+                              );
+                            })()}
                           </div>
                         </div>
                       );
@@ -593,7 +663,7 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
               <button
                 key={sz}
                 type="button"
-                onClick={() => setReportFontSize(sz)}
+                onClick={() => handleUpdateFontSize(sz)}
                 className={`px-2 py-0.5 rounded text-[11px] font-bold transition cursor-pointer ${
                   reportFontSize === sz ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-850 hover:bg-slate-700 text-slate-300'
                 }`}
@@ -608,7 +678,7 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
               <button
                 key={bw}
                 type="button"
-                onClick={() => setReportFontWeight(bw)}
+                onClick={() => handleUpdateFontWeight(bw)}
                 className={`px-2 py-0.5 rounded text-[11px] transition cursor-pointer ${
                   bw === 'normal' ? 'font-medium' : bw === 'bold' ? 'font-bold' : 'font-black'
                 } ${

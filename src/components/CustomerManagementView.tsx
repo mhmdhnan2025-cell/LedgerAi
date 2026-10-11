@@ -249,9 +249,11 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
       location: cust.location || '',
       notes: cust.notes || '',
       status: cust.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
-      outstandingBalance: cust.outstandingBalance || 0,
-      openingBalance: cust.openingBalance !== undefined ? cust.openingBalance : (cust.outstandingBalance || 0),
-      openingBalanceType: cust.openingBalanceType || 'DR',
+      outstandingBalance: cust.outstandingBalance !== undefined ? cust.outstandingBalance : 0,
+      openingBalance: cust.openingBalance !== undefined && cust.openingBalance !== null
+        ? Math.abs(Number(cust.openingBalance))
+        : (cust.outstandingBalance !== undefined ? Math.abs(Number(cust.outstandingBalance)) : 0),
+      openingBalanceType: cust.openingBalanceType || ((cust.outstandingBalance || 0) < 0 ? 'CR' : 'DR'),
       creditLimit: cust.creditLimit || 30000,
     });
     setViewMode('details');
@@ -605,7 +607,12 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
                   </tr>
                 ) : (
                   filteredCustomers.map((cust) => {
-                    const isPositiveBal = (cust.outstandingBalance || 0) > 0;
+                    const effBal = cust.outstandingBalance !== undefined && cust.outstandingBalance !== 0
+                      ? cust.outstandingBalance
+                      : (cust.openingBalance !== undefined && cust.openingBalance !== 0
+                          ? (cust.openingBalanceType === 'CR' ? -Math.abs(cust.openingBalance) : Math.abs(cust.openingBalance))
+                          : 0);
+                    const balType = effBal < 0 ? 'CR' : (effBal > 0 ? 'DR' : (cust.openingBalanceType || 'DR'));
                     return (
                       <tr key={cust.id} className="hover:bg-slate-800/40 transition">
                         <td className="py-2.5 px-3 font-mono font-bold text-orange-400">
@@ -643,9 +650,14 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
                           </div>
                         </td>
                         <td className="py-2.5 px-3 text-right font-mono font-bold">
-                          <span className={isPositiveBal ? 'text-amber-400' : 'text-slate-400'}>
-                            {currencySymbol()} {(cust.outstandingBalance || 0).toLocaleString()}
+                          <span className={effBal > 0 ? 'text-amber-400' : (effBal < 0 ? 'text-emerald-400' : 'text-slate-400')}>
+                            {currencySymbol()} {Math.abs(effBal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {effBal !== 0 ? balType : ''}
                           </span>
+                          {cust.openingBalance !== undefined && cust.openingBalance !== 0 && (
+                            <div className="text-[10px] text-slate-500 font-normal">
+                              OB: {currencySymbol()} {Math.abs(Number(cust.openingBalance)).toLocaleString()} {cust.openingBalanceType || 'DR'}
+                            </div>
+                          )}
                         </td>
                         <td className="py-2.5 px-3 text-center">
                           <button

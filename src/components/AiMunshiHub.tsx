@@ -122,7 +122,7 @@ const InlineChatProfitReport: React.FC<{
       <div className="bg-slate-950 px-4 py-2.5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <TrendingUp className="w-4 h-4 text-emerald-400" />
-          <span className="font-bold text-white text-xs">Profit Intelligence (نفع کی رپورٹ)</span>
+          <span className="font-bold text-white text-xs">Profit Intelligence</span>
           <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-semibold">
             {sum.overallMarginPct}% Margin
           </span>
@@ -328,12 +328,12 @@ const DEFAULT_WELCOME_MESSAGE: ChatMessage = {
   text: `Assalam-o-Alaikum! Main aapka AI Financial & Reports Munshi hoon.
 Aap mujh se tamam official ERP reports aur customer bills foran nikalwa sakty hain:
 
-1. 📦 Purchase Report (خریداری رپورٹ)
-2. 💰 Sale Report (سیل رپورٹ)
-3. 📈 Profit Intelligence (نفع کی رپورٹ)
-4. ☸ Stock Movement History (اسٹاک کھاتہ)
-5. 🛡️ Master Business Audit Report (ماسٹر آڈٹ رپورٹ)
-6. 📄 Customer Sale Bill (کسی بھی گاہک کا نام لے کر بل دیکھیں)
+1. 📦 Purchase Report
+2. 💰 Sale Report
+3. 📈 Profit Intelligence
+4. ☸ Stock Movement History
+5. 🛡️ Master Business Audit Report
+6. 📄 Customer Sale Bill
 
 Aap kisi bhi customer ka naam bol kar unka bill mangen (e.g. "Al Madina ka bill dikhao" ya "Hannan ka bill"), ya koi bhi report mangen, main foran verified data aur printable bill provide karunga!`,
 };
@@ -830,10 +830,10 @@ Please process this into the database (create inventory, record order, or expens
           <button
             onClick={handleClearChat}
             className="text-xs text-rose-300 hover:text-white bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/60 flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition cursor-pointer font-bold shadow-xs"
-            title="Clear entire chat history (چیٹ صاف کریں)"
+            title="Clear entire chat history"
           >
             <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-            <span>Clear Chat (چیٹ صاف کریں)</span>
+            <span>Clear Chat</span>
           </button>
         </div>
 
@@ -928,7 +928,7 @@ Please process this into the database (create inventory, record order, or expens
                           className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold shadow transition cursor-pointer"
                         >
                           <Printer className="w-3.5 h-3.5" />
-                          <span>👁️ View &amp; Print Master Audit (ماسٹر آڈٹ کھولیں)</span>
+                          <span>👁️ View &amp; Print Master Audit</span>
                         </button>
                         <a
                           href={msg.report.downloadUrl.replace('format=doc', 'format=html')}
@@ -984,7 +984,7 @@ Please process this into the database (create inventory, record order, or expens
                           className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
                         >
                           <Receipt className="w-3.5 h-3.5" />
-                          <span>👁️ View &amp; Print Purchase Voucher (واؤچر دیکھیں / پرنٹ کریں)</span>
+                          <span>👁️ View &amp; Print Purchase Voucher</span>
                         </button>
                       </div>
                     </div>
@@ -1031,7 +1031,7 @@ Please process this into the database (create inventory, record order, or expens
                           className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
                         >
                           <Receipt className="w-3.5 h-3.5" />
-                          <span>👁️ View &amp; Print Tax Invoice (بل دیکھیں / پرنٹ کریں)</span>
+                          <span>👁️ View &amp; Print Tax Invoice</span>
                         </button>
                       </div>
                     </div>
@@ -1052,7 +1052,7 @@ Please process this into the database (create inventory, record order, or expens
                       <div className="bg-slate-950 px-4 py-2.5 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2">
                         <div className="flex items-center gap-2">
                           <Coins className="w-4 h-4 text-cyan-400" />
-                          <span className="font-bold text-white text-xs">Sale Report (فروخت رپورٹ)</span>
+                          <span className="font-bold text-white text-xs">Sale Report</span>
                           <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono font-semibold">
                             {msg.saleReportData.bills.length} Bills
                           </span>
@@ -1135,7 +1135,7 @@ Please process this into the database (create inventory, record order, or expens
                       <div className="bg-slate-950 px-4 py-2.5 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2">
                         <div className="flex items-center gap-2">
                           <Package className="w-4 h-4 text-indigo-400" />
-                          <span className="font-bold text-white text-xs">Stock Movement History (اسٹاک کھاتہ)</span>
+                          <span className="font-bold text-white text-xs">Stock Movement History</span>
                         </div>
                         <div className="text-[11px] text-slate-400">
                           Warehouse Stock Value: <strong className="text-emerald-400 font-mono">{currencySymbol()} {(msg.stockHistoryData.stockData.totalStockValue || 0).toLocaleString()}</strong>
@@ -1200,7 +1200,7 @@ Please process this into the database (create inventory, record order, or expens
                           className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
                         >
                           <Printer className="w-3.5 h-3.5" />
-                          <span>🛡️ View &amp; Print Master Audit (ماسٹر آڈٹ کھولیں)</span>
+                          <span>🛡️ View &amp; Print Master Audit</span>
                         </button>
                       )}
                       <button
@@ -1208,7 +1208,7 @@ Please process this into the database (create inventory, record order, or expens
                         className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
                       >
                         <ChevronRight className="w-3.5 h-3.5 text-indigo-400" />
-                        <span>📑 Open in Reports Tab (مکمل رپورٹ کھولیں)</span>
+                        <span>📑 Open in Reports Tab</span>
                       </button>
                     </div>
                   )}
@@ -1258,7 +1258,7 @@ Please process this into the database (create inventory, record order, or expens
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[11px] text-red-300">Zaban: {voiceLang === 'ur-PK' ? 'اردو' : 'Roman/English'}</span>
+              <span className="text-[11px] text-red-300">Language: {voiceLang === 'ur-PK' ? 'Urdu Voice' : 'Roman/English'}</span>
               <button
                 type="button"
                 onClick={toggleRecording}
@@ -1323,7 +1323,7 @@ Please process this into the database (create inventory, record order, or expens
                 title="Switch voice recognition between Urdu script and Roman Urdu / English"
                 className="px-2.5 py-3 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white rounded-xl border border-slate-800 text-[11px] font-semibold transition shrink-0 cursor-pointer"
               >
-                {voiceLang === 'ur-PK' ? 'اردو' : 'Roman'}
+                {voiceLang === 'ur-PK' ? 'Urdu Voice' : 'Roman'}
               </button>
             )}
 

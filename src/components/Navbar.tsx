@@ -111,11 +111,11 @@ export const Navbar: React.FC<NavbarProps> = ({
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
 
-  const themeOptions: { id: AppTheme; name: string; urdu: string; desc: string; icon: string; badge?: string }[] = [
+  const themeOptions: { id: AppTheme; name: string; subtitle: string; desc: string; icon: string; badge?: string }[] = [
     {
       id: 'cream',
       name: 'Creamish White',
-      urdu: 'آئیوری کریم (لائٹ)',
+      subtitle: 'Ivory Cream (Light)',
       desc: 'Warm ivory off-white, soothing with zero darkness (User favorite)',
       icon: '🍨',
       badge: 'Recommended',
@@ -123,35 +123,35 @@ export const Navbar: React.FC<NavbarProps> = ({
     {
       id: 'pearl',
       name: 'Pearl Slate',
-      urdu: 'سفید پرل (لائٹ)',
+      subtitle: 'Pearl Silver (Cool Light)',
       desc: 'Clean cool soft gray off-white with crisp modern contrast',
       icon: '🐚',
     },
     {
       id: 'sand',
       name: 'Warm Sand Latte',
-      urdu: 'سینڈ لاتے (وارم)',
+      subtitle: 'Warm Sand (Latte)',
       desc: 'Desert sand latte shade with warm coffee/espresso accents',
       icon: '🌾',
     },
     {
       id: 'dark',
       name: 'Midnight Dark',
-      urdu: 'اصل ڈارک (نائٹ)',
+      subtitle: 'Midnight Slate (Night)',
       desc: 'Original deep slate high-contrast dark theme',
       icon: '🌙',
     },
     {
       id: 'dark_blue',
       name: 'Royal Dark Blue',
-      urdu: 'گہرا نیلا (ڈارک نائٹ)',
+      subtitle: 'Royal Deep Blue (Night)',
       desc: 'Deep royal navy blue with high-contrast text and glowing accents',
       icon: '🌌',
     },
     {
       id: 'light_blue',
       name: 'Sky Ice Blue',
-      urdu: 'ہلکا نیلا (لائٹ ڈے)',
+      subtitle: 'Daylight Sky Blue (Light)',
       desc: 'Crisp corporate daylight sky-blue shade with crystal clear contrast',
       icon: '❄️',
     },
@@ -209,7 +209,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     subItems?: {
       id: string;
       label: string;
-      urdu: string;
+      tag?: string;
       icon?: string;
     }[];
   }
@@ -220,23 +220,23 @@ export const Navbar: React.FC<NavbarProps> = ({
       id: 'sales-menu',
       label: '💰 Sales',
       subItems: [
-        { id: 'sales', label: 'Sale Bill', urdu: 'سیل بل', icon: '📝' },
-        { id: 'sales-return', label: 'Sale Return', urdu: 'سیل واپسی', icon: '🔄' },
+        { id: 'sales', label: 'Sale Bill', tag: 'Bill', icon: '📝' },
+        { id: 'sales-return', label: 'Sale Return', tag: 'Return', icon: '🔄' },
       ],
     },
     {
       id: 'purchasing-menu',
       label: '🧾 Purchasing',
       subItems: [
-        { id: 'purchasing', label: 'Purchase Bill', urdu: 'خریداری بل', icon: '📥' },
-        { id: 'purchasing-return', label: 'Purchase Return', urdu: 'خریداری واپسی', icon: '↩️' },
+        { id: 'purchasing', label: 'Purchase Bill', tag: 'Bill', icon: '📥' },
+        { id: 'purchasing-return', label: 'Purchase Return', tag: 'Return', icon: '↩️' },
       ],
     },
     { id: 'cashbank', label: '💵 Cash / Bank' },
     { id: 'reports', label: '📑 Reports' },
     { id: 'inventory', label: '📦 Inventory & Stock' },
     { id: 'customers', label: '🏢 Customers & Khata' },
-    { id: 'employees', label: '👥 Employees (ملازمین)' },
+    { id: 'employees', label: '👥 Employees & Staff' },
     { id: 'expenses', label: '💳 Expense Management' },
     { id: 'settings', label: '⚙️ Settings' },
   ];
@@ -352,7 +352,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {isThemeDropdownOpen && (
               <div className="theme-menu-popup absolute right-0 mt-1.5 w-64 rounded-xl shadow-2xl z-50 p-1.5 text-xs space-y-1 bg-white border border-slate-300 text-slate-900">
                 <div className="px-2 py-1 text-[10px] font-black uppercase tracking-wider text-slate-600 border-b border-slate-200">
-                  Select Theme (تھیم منتخب کریں)
+                  Select Theme
                 </div>
                 {themeOptions.map((t) => (
                   <button
@@ -378,7 +378,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                           </span>
                         )}
                       </div>
-                      <div className="text-[10px] text-amber-800 font-urdu font-bold">{t.urdu}</div>
+                      <div className="text-[10px] text-amber-700 font-bold">{t.subtitle}</div>
                       <p className="text-[10px] text-slate-600 mt-0.5 leading-tight">{t.desc}</p>
                     </div>
                   </button>
@@ -603,9 +603,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                             <span>{sub.icon}</span>
                             <span className="font-semibold">{sub.label}</span>
                           </div>
-                          <span className={`text-[11px] font-urdu font-medium ${isSubActive ? 'text-indigo-200' : 'text-amber-400'}`}>
-                            {sub.urdu}
-                          </span>
+                          {sub.tag && (
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${isSubActive ? 'bg-indigo-700 text-indigo-100' : 'bg-slate-800 text-slate-400'}`}>
+                              {sub.tag}
+                            </span>
+                          )}
                         </button>
                       );
                     })}

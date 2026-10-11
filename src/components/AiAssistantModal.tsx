@@ -197,7 +197,7 @@ const StockReportDualWidget: React.FC<{
           }`}
         >
           <Layers className="w-3.5 h-3.5" />
-          <span>Product Stock Balances (اسٹاک کا موجودہ کھاتہ)</span>
+          <span>Product Stock Balances</span>
           <span className="px-1.5 py-0.2 text-[10px] rounded-full bg-slate-800 text-slate-300 font-mono">
             {itemsSummary.length}
           </span>
@@ -213,7 +213,7 @@ const StockReportDualWidget: React.FC<{
           }`}
         >
           <Clock className="w-3.5 h-3.5" />
-          <span>Detailed Movement Audit Trail (ایک ایک مال کی حرکت)</span>
+          <span>Detailed Movement Audit Trail</span>
           <span className="px-1.5 py-0.2 text-[10px] rounded-full bg-slate-800 text-slate-300 font-mono">
             {transactions.length}
           </span>
@@ -379,7 +379,7 @@ const ProfitIntelligenceWidget: React.FC<{
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <TrendingUp className="w-4 h-4 text-emerald-400" />
-          <h4 className="font-extrabold text-sm text-white">Profit Intelligence (نفع کی رپورٹ)</h4>
+          <h4 className="font-extrabold text-sm text-white">Profit Intelligence</h4>
         </div>
         <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-mono">
           {summary.overallMarginPct || 0}% Margin
@@ -845,10 +845,10 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
             <button
               onClick={handleClearModalChat}
               className="flex items-center gap-1.5 text-rose-300 hover:text-white text-xs px-2.5 py-1 rounded-lg bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/60 transition cursor-pointer font-bold shadow-xs"
-              title="Clear chat history (چیٹ صاف کریں)"
+              title="Clear chat history"
             >
               <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-              <span>Clear Chat (صاف کریں)</span>
+              <span>Clear Chat</span>
             </button>
             <button
               onClick={onClose}
@@ -955,7 +955,7 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
                                   className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
                                 >
                                   <Receipt className="w-3.5 h-3.5" />
-                                  <span>👁️ View &amp; Print Bill (بل دیکھیں / پرنٹ کریں)</span>
+                                  <span>👁️ View &amp; Print Bill</span>
                                 </button>
                               </div>
                             </div>
@@ -986,7 +986,7 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
                                   className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
                                 >
                                   <Receipt className="w-3.5 h-3.5" />
-                                  <span>👁️ View &amp; Print Voucher (واؤچر دیکھیں / پرنٹ کریں)</span>
+                                  <span>👁️ View &amp; Print Voucher</span>
                                 </button>
                               </div>
                             </div>
@@ -1047,7 +1047,7 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
                                   className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
                                 >
                                   <Printer className="w-3.5 h-3.5" />
-                                  <span>👁️ View &amp; Print Master Audit (ماسٹر آڈٹ کھولیں)</span>
+                                  <span>👁️ View &amp; Print Master Audit</span>
                                 </button>
                                 {tool.result.downloadUrl && (
                                   <a

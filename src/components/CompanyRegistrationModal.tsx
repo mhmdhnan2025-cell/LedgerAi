@@ -477,12 +477,11 @@ export const CompanyRegistrationModal: React.FC<CompanyRegistrationModalProps> =
                 </select>
               </div>
               <div className="sm:col-span-3">
-                <label className="block text-xs font-bold text-slate-300 mb-1" dir="rtl">اسم الشركة بالعربية (Optional)</label>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Company Name in Arabic (Optional)</label>
                 <input
                   id="input-company-name-ar"
                   type="text"
-                  dir="rtl"
-                  placeholder="زھرة الفجر"
+                  placeholder="e.g. Arabic Trade Name"
                   value={nameAr}
                   onChange={(e) => setNameAr(e.target.value)}
                   className="w-full bg-slate-800/90 border border-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 outline-none transition"

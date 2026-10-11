@@ -46,6 +46,7 @@ import { ErrorBoundary } from './ErrorBoundary';
 
 interface ReportsViewProps {
   suppliers: Supplier[];
+  customers?: Customer[];
   products?: Product[];
   companyProfile?: CompanyProfile | null;
   currentRole: UserRole;
@@ -55,6 +56,7 @@ interface ReportsViewProps {
 
 export const ReportsView: React.FC<ReportsViewProps> = ({
   suppliers,
+  customers = [],
   products = [],
   companyProfile,
   currentRole,
@@ -677,6 +679,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         <ErrorBoundary fallbackTitle="Customer Ledger Report">
           <CustomerLedgerReportSection
             companyProfile={companyProfile}
+            customers={customers}
+            onRefreshData={onRefreshData}
             onNavigateTab={onNavigateTab}
           />
         </ErrorBoundary>
@@ -684,6 +688,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         <ErrorBoundary fallbackTitle="Supplier Ledger Report">
           <SupplierLedgerReportSection
             companyProfile={companyProfile}
+            suppliers={suppliers}
+            onRefreshData={onRefreshData}
             onNavigateTab={onNavigateTab}
           />
         </ErrorBoundary>

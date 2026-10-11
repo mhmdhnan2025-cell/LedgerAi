@@ -179,13 +179,13 @@ export const PurchaseBillVoucherModal: React.FC<PurchaseBillVoucherModalProps> =
             <table className="w-full text-left text-xs min-w-[850px] border-collapse">
               <thead className="bg-slate-950 print:bg-gray-100 text-slate-400 print:text-black font-bold border-b border-slate-800 print:border-black uppercase text-[10px] tracking-wider">
                 <tr>
-                  <th className="py-2.5 px-2.5 text-center w-8">#</th>
-                  <th className="py-2.5 px-3 min-w-[180px]">Item Description</th>
-                  <th className="py-2.5 px-2 text-center text-sky-300 print:text-black">Packaging</th>
+                  <th className="py-2.5 px-2 text-center w-8">#</th>
+                  <th className="py-2.5 px-3 min-w-[170px]">Title</th>
+                  <th className="py-2.5 px-2 text-center text-sky-300 print:text-black">CTN / PKG</th>
                   <th className="py-2.5 px-2 text-right text-sky-300 print:text-black">Rate / PKG</th>
                   <th className="py-2.5 px-2 text-center text-slate-400 print:text-black">Qty / PKG</th>
-                  <th className="py-2.5 px-2 text-right text-sky-300 print:text-black">Loose Qty</th>
-                  <th className="py-2.5 px-2 text-right text-white print:text-black">Total Intake</th>
+                  <th className="py-2.5 px-2 text-right text-sky-300 print:text-black">Measure (Qty)</th>
+                  <th className="py-2.5 px-2 text-right text-emerald-400 print:text-black">Total Stock</th>
                   <th className="py-2.5 px-2 text-right">Rate</th>
                   <th className="py-2.5 px-2 text-right text-amber-300 print:text-black">Disc Rs.</th>
                   <th className="py-2.5 px-2 text-center">VAT@%</th>
@@ -218,11 +218,11 @@ export const PurchaseBillVoucherModal: React.FC<PurchaseBillVoucherModalProps> =
                   return (
                     <tr key={it.id || idx} className="hover:bg-slate-800/40 print:hover:bg-transparent text-slate-300 print:text-black">
                       {/* # */}
-                      <td className="py-2.5 px-2.5 text-center font-mono text-slate-500 print:text-gray-600 font-bold">
+                      <td className="py-2.5 px-2 text-center font-mono text-slate-500 print:text-gray-600 font-bold">
                         {idx + 1}
                       </td>
 
-                      {/* Item Description */}
+                      {/* Title */}
                       <td className="py-2.5 px-3">
                         <div className="font-bold text-white print:text-black text-xs sm:text-sm">
                           {it.itemTitle}
@@ -230,17 +230,18 @@ export const PurchaseBillVoucherModal: React.FC<PurchaseBillVoucherModalProps> =
                             {pkgLabel}
                           </span>
                         </div>
-                        <div className="text-[10px] text-slate-400 print:text-gray-600 flex items-center gap-2 mt-0.5">
-                          {it.category && <span>Category: {it.category}</span>}
-                          {it.mcode && <span>&bull; M.Code: <span className="font-mono">{it.mcode}</span></span>}
-                        </div>
+                        {it.category && (
+                          <div className="text-[10px] text-slate-400 print:text-gray-600 mt-0.5">
+                            {it.category} {it.mcode ? `• ${it.mcode}` : ''}
+                          </div>
+                        )}
                       </td>
 
-                      {/* Packaging (e.g. 2 Tins / 10 Cartons) */}
+                      {/* CTN / PKG */}
                       <td className="py-2.5 px-2 text-center font-mono font-bold text-sky-300 print:text-black">
                         {ctnCount > 0 ? (
                           <span>
-                            {ctnCount} <span className="text-[10px] font-normal text-slate-400 print:text-gray-600">{pkgLabel}s</span>
+                            {ctnCount} <span className="text-[10px] font-normal text-slate-400 print:text-gray-600">{pkgLabel}</span>
                           </span>
                         ) : (
                           <span className="text-slate-600 print:text-gray-400">—</span>
@@ -256,12 +257,12 @@ export const PurchaseBillVoucherModal: React.FC<PurchaseBillVoucherModalProps> =
                         )}
                       </td>
 
-                      {/* Qty / PKG (Capacity) */}
+                      {/* Qty / PKG */}
                       <td className="py-2.5 px-2 text-center font-mono text-slate-400 print:text-gray-700">
                         {qtyPerCtn > 0 ? `${qtyPerCtn} ${looseUnit}/${pkgLabel}` : '—'}
                       </td>
 
-                      {/* Loose Qty (e.g. 10 Ltr / 5 Kg) */}
+                      {/* Measure (Qty) */}
                       <td className="py-2.5 px-2 text-right font-mono font-bold text-sky-300 print:text-black">
                         {looseQty > 0 ? (
                           <span>
@@ -272,8 +273,8 @@ export const PurchaseBillVoucherModal: React.FC<PurchaseBillVoucherModalProps> =
                         )}
                       </td>
 
-                      {/* Total Intake (Physical intake units into warehouse) */}
-                      <td className="py-2.5 px-2 text-right font-mono font-bold text-white print:text-black">
+                      {/* Total Stock */}
+                      <td className="py-2.5 px-2 text-right font-mono font-black text-emerald-400 print:text-black">
                         {totalIntake > 0 ? (
                           <span>
                             {totalIntake.toLocaleString()} <span className="text-[10px] font-normal text-slate-400 print:text-gray-600">{looseUnit}</span>
@@ -319,13 +320,13 @@ export const PurchaseBillVoucherModal: React.FC<PurchaseBillVoucherModalProps> =
                     TOTAL SUMMARY
                   </td>
                   <td className="py-2.5 px-2 text-center font-mono text-sky-300 print:text-black">
-                    {totalCtn.toFixed(2)}
+                    {totalCtn > 0 ? `${totalCtn} PKG` : '—'}
                   </td>
                   <td className="py-2.5 px-2 text-center text-slate-600 print:text-gray-400">---</td>
                   <td className="py-2.5 px-2 text-center text-slate-600 print:text-gray-400">---</td>
                   <td className="py-2.5 px-2 text-center text-slate-600 print:text-gray-400">---</td>
-                  <td className="py-2.5 px-2 text-right font-mono text-white print:text-black">
-                    {totalQty.toFixed(2)} Units
+                  <td className="py-2.5 px-2 text-right font-mono font-bold text-emerald-400 print:text-black">
+                    {totalQty.toFixed(2)} Total Stock
                   </td>
                   <td className="py-2.5 px-2 text-center text-slate-600 print:text-gray-400">---</td>
                   <td className="py-2.5 px-2 text-right font-mono text-amber-400 print:text-black">

@@ -295,6 +295,8 @@ class PostgresService {
             location VARCHAR(255),
             address TEXT,
             status VARCHAR(50) DEFAULT 'ACTIVE',
+            opening_balance NUMERIC(15,2) DEFAULT 0,
+            opening_balance_type VARCHAR(10) DEFAULT 'DR',
             outstanding_balance NUMERIC(15,2) DEFAULT 0,
             credit_limit NUMERIC(15,2) DEFAULT 0,
             total_sales NUMERIC(15,2) DEFAULT 0,
@@ -337,6 +339,8 @@ class PostgresService {
             city VARCHAR(100),
             address TEXT,
             status VARCHAR(50) DEFAULT 'ACTIVE',
+            opening_balance NUMERIC(15,2) DEFAULT 0,
+            opening_balance_type VARCHAR(10) DEFAULT 'CR',
             payable_to_supplier NUMERIC(15,2) DEFAULT 0,
             payable_type VARCHAR(50) DEFAULT 'CR',
             categories JSONB DEFAULT '[]',
@@ -668,6 +672,12 @@ class PostgresService {
           await client.query(`ALTER TABLE ${tbl} ADD COLUMN IF NOT EXISTS company_id VARCHAR(100);`);
           await client.query(`CREATE INDEX IF NOT EXISTS idx_${tbl}_company_id ON ${tbl}(company_id);`);
         }
+
+        // Dedicated Opening Balance migrations for Customers and Suppliers
+        await client.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS opening_balance NUMERIC(15,2) DEFAULT 0;`);
+        await client.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS opening_balance_type VARCHAR(10) DEFAULT 'DR';`);
+        await client.query(`ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS opening_balance NUMERIC(15,2) DEFAULT 0;`);
+        await client.query(`ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS opening_balance_type VARCHAR(10) DEFAULT 'CR';`);
 
         // Indexes for performance
         await client.query(`
@@ -1030,6 +1040,12 @@ class PostgresService {
 
         const extractCustomer = (row: any): Customer => {
           const d = row.data || {};
+          const openBal = row.opening_balance !== undefined && row.opening_balance !== null
+            ? parseFloat(row.opening_balance)
+            : (d.openingBalance !== undefined && d.openingBalance !== null ? parseFloat(d.openingBalance) : parseFloat(row.outstanding_balance ?? 0));
+          const openType = ((row.opening_balance_type || d.openingBalanceType || 'DR') as string).toUpperCase() as 'DR' | 'CR';
+          const outBal = parseFloat(row.outstanding_balance ?? d.outstandingBalance ?? (openType === 'CR' ? -Math.abs(openBal) : Math.abs(openBal)));
+
           return {
             ...d,
             ...row,
@@ -1049,7 +1065,9 @@ class PostgresService {
             location: row.location || d.location || '',
             address: row.address || d.address || '',
             status: (row.status || d.status || 'ACTIVE').toUpperCase() as any,
-            outstandingBalance: parseFloat(row.outstanding_balance ?? d.outstandingBalance ?? 0),
+            openingBalance: openBal,
+            openingBalanceType: openType,
+            outstandingBalance: outBal,
             creditLimit: parseFloat(row.credit_limit ?? d.creditLimit ?? 50000),
             totalSales: parseFloat(row.total_sales ?? d.totalSales ?? 0),
             companyId,
@@ -1060,6 +1078,12 @@ class PostgresService {
         const extractSupplier = (row: any): Supplier => {
           const d = row.data || {};
           const title = row.title || d.title || row.account_title || d.accountTitle || row.name || d.name || 'Supplier';
+          const openBal = row.opening_balance !== undefined && row.opening_balance !== null
+            ? parseFloat(row.opening_balance)
+            : (d.openingBalance !== undefined && d.openingBalance !== null ? parseFloat(d.openingBalance) : parseFloat(row.payable_to_supplier ?? 0));
+          const openType = ((row.opening_balance_type || d.openingBalanceType || row.payable_type || 'CR') as string).toUpperCase() as 'CR' | 'DR';
+          const payable = parseFloat(row.payable_to_supplier ?? d.payableToSupplier ?? row.balance_owed ?? d.balanceOwed ?? openBal);
+
           return {
             ...d,
             ...row,
@@ -1086,8 +1110,10 @@ class PostgresService {
             address: row.address || d.address || '',
             cnic: row.cnic || d.cnic || '',
             status: ((row.status || d.status || 'ACTIVE').toUpperCase() === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE') as any,
-            payableToSupplier: parseFloat(row.payable_to_supplier ?? d.payableToSupplier ?? row.balance_owed ?? d.balanceOwed ?? 0),
-            payableType: (row.payable_type || d.payableType || 'CR').toUpperCase() as any,
+            openingBalance: openBal,
+            openingBalanceType: openType,
+            payableToSupplier: payable,
+            payableType: openType,
             categories: Array.isArray(row.categories) ? row.categories : (Array.isArray(d.categories) ? d.categories : []),
             companyId,
             data: undefined,
@@ -1626,9 +1652,14 @@ class PostgresService {
   public async upsertCustomer(cust: Customer, companyId = 'comp_default_01'): Promise<void> {
     if (!this.pool) return;
     try {
+      const openBal = cust.openingBalance !== undefined && cust.openingBalance !== null
+        ? parseFloat(String(cust.openingBalance)) || 0
+        : (cust.outstandingBalance !== undefined ? Math.abs(parseFloat(String(cust.outstandingBalance)) || 0) : 0);
+      const openType = cust.openingBalanceType || ((cust.outstandingBalance || 0) < 0 ? 'CR' : 'DR');
+
       await this.pool.query(
-        `INSERT INTO customers (id, company_id, code, account_code, manual_code, account_title, name, title, customer_group, reg_date, mobile, city, area, sector, location, address, status, outstanding_balance, credit_limit, total_sales, data, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, NOW())
+        `INSERT INTO customers (id, company_id, code, account_code, manual_code, account_title, name, title, customer_group, reg_date, mobile, city, area, sector, location, address, status, opening_balance, opening_balance_type, outstanding_balance, credit_limit, total_sales, data, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, NOW())
          ON CONFLICT (id) DO UPDATE SET
            company_id = EXCLUDED.company_id,
            code = EXCLUDED.code,
@@ -1646,6 +1677,8 @@ class PostgresService {
            location = EXCLUDED.location,
            address = EXCLUDED.address,
            status = EXCLUDED.status,
+           opening_balance = EXCLUDED.opening_balance,
+           opening_balance_type = EXCLUDED.opening_balance_type,
            outstanding_balance = EXCLUDED.outstanding_balance,
            credit_limit = EXCLUDED.credit_limit,
            total_sales = EXCLUDED.total_sales,
@@ -1669,10 +1702,12 @@ class PostgresService {
           cust.location || '',
           cust.address || '',
           cust.status || 'ACTIVE',
+          openBal,
+          openType,
           cust.outstandingBalance || 0,
           cust.creditLimit || 0,
           cust.totalSales || 0,
-          JSON.stringify(cust),
+          JSON.stringify({ ...cust, openingBalance: openBal, openingBalanceType: openType }),
         ]
       );
     } catch (err: any) {
@@ -1692,9 +1727,14 @@ class PostgresService {
   public async upsertSupplier(sup: Supplier, companyId = 'comp_default_01'): Promise<void> {
     if (!this.pool) return;
     try {
+      const openBal = sup.openingBalance !== undefined && sup.openingBalance !== null
+        ? parseFloat(String(sup.openingBalance)) || 0
+        : (sup.payableToSupplier !== undefined ? parseFloat(String(sup.payableToSupplier)) || 0 : (sup.balanceOwed || 0));
+      const openType = sup.openingBalanceType || sup.payableType || 'CR';
+
       await this.pool.query(
-        `INSERT INTO suppliers (id, company_id, code, title, account_title, name, supplier_group, mobile, vat_number, phone, city, address, status, payable_to_supplier, payable_type, categories, data, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW())
+        `INSERT INTO suppliers (id, company_id, code, title, account_title, name, supplier_group, mobile, vat_number, phone, city, address, status, opening_balance, opening_balance_type, payable_to_supplier, payable_type, categories, data, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, NOW())
          ON CONFLICT (id) DO UPDATE SET
            company_id = EXCLUDED.company_id,
            code = EXCLUDED.code,
@@ -1708,6 +1748,8 @@ class PostgresService {
            city = EXCLUDED.city,
            address = EXCLUDED.address,
            status = EXCLUDED.status,
+           opening_balance = EXCLUDED.opening_balance,
+           opening_balance_type = EXCLUDED.opening_balance_type,
            payable_to_supplier = EXCLUDED.payable_to_supplier,
            payable_type = EXCLUDED.payable_type,
            categories = EXCLUDED.categories,
@@ -1727,10 +1769,12 @@ class PostgresService {
           sup.city || '',
           sup.address || '',
           sup.status || 'ACTIVE',
+          openBal,
+          openType,
           sup.payableToSupplier || 0,
           sup.payableType || 'CR',
           JSON.stringify(sup.categories || []),
-          JSON.stringify(sup),
+          JSON.stringify({ ...sup, openingBalance: openBal, openingBalanceType: openType }),
         ]
       );
     } catch (err: any) {
