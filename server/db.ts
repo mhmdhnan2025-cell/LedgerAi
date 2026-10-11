@@ -3007,11 +3007,17 @@ class DatabaseService {
               if (!prev) return tc;
               const openBal = tc.openingBalance !== undefined && tc.openingBalance !== 0
                 ? tc.openingBalance
-                : (prev.openingBalance !== undefined ? prev.openingBalance : (tc.openingBalance || 0));
-              const openType = tc.openingBalanceType || prev.openingBalanceType || 'DR';
+                : (prev.openingBalance !== undefined && prev.openingBalance !== 0
+                    ? prev.openingBalance
+                    : (tc.outstandingBalance !== undefined && tc.outstandingBalance !== 0
+                        ? Math.abs(tc.outstandingBalance)
+                        : (prev.outstandingBalance !== undefined ? Math.abs(prev.outstandingBalance) : 0)));
+              const openType = tc.openingBalanceType || prev.openingBalanceType || ((tc.outstandingBalance || prev.outstandingBalance || 0) < 0 ? 'CR' : 'DR');
               const outBal = tc.outstandingBalance !== undefined && tc.outstandingBalance !== 0
                 ? tc.outstandingBalance
-                : (prev.outstandingBalance !== undefined ? prev.outstandingBalance : (tc.outstandingBalance || 0));
+                : (prev.outstandingBalance !== undefined && prev.outstandingBalance !== 0
+                    ? prev.outstandingBalance
+                    : (openType === 'CR' ? -Math.abs(openBal) : Math.abs(openBal)));
               return {
                 ...prev,
                 ...tc,
@@ -3066,20 +3072,53 @@ class DatabaseService {
                       companyId: cid,
                     })));
 
-            // Merge suppliers: ensure all default seed suppliers exist alongside any company-created suppliers (e.g. Ali Traders)
+            // Merge suppliers: ensure opening balances are preserved from either PG or local memory
             const tenantSuppliers = Array.isArray(pgData.suppliers) ? pgData.suppliers : [];
+            const existingSupMap = new Map<string, Supplier>();
+            for (const s of (current.suppliers || [])) {
+              const k = (s.id || s.code || s.title || s.name || '').trim().toLowerCase();
+              if (k) existingSupMap.set(k, s);
+              if (s.code) existingSupMap.set(s.code.trim().toLowerCase(), s);
+              if (s.title) existingSupMap.set(s.title.trim().toLowerCase(), s);
+            }
+
             const existingSupCodes = new Set(tenantSuppliers.map((s: any) => (s.code || '').trim().toLowerCase()).filter(Boolean));
             const existingSupTitles = new Set(tenantSuppliers.map((s: any) => (s.title || s.name || s.accountTitle || '').trim().toLowerCase()).filter(Boolean));
 
-            const mergedSuppliers: Supplier[] = [...tenantSuppliers];
+            const mergedSuppliers: Supplier[] = tenantSuppliers.map((ts) => {
+              const k = (ts.id || ts.code || ts.title || ts.name || '').trim().toLowerCase();
+              const prev = existingSupMap.get(k) || (ts.code ? existingSupMap.get(ts.code.trim().toLowerCase()) : undefined);
+              if (!prev) return ts;
+              const openBal = ts.openingBalance !== undefined && ts.openingBalance !== 0
+                ? ts.openingBalance
+                : (prev.openingBalance !== undefined && prev.openingBalance !== 0
+                    ? prev.openingBalance
+                    : (ts.payableToSupplier !== undefined && ts.payableToSupplier !== 0
+                        ? ts.payableToSupplier
+                        : (prev.payableToSupplier !== undefined ? prev.payableToSupplier : 0)));
+              const openType = ts.openingBalanceType || prev.openingBalanceType || ts.payableType || prev.payableType || 'CR';
+              const payable = ts.payableToSupplier !== undefined && ts.payableToSupplier !== 0
+                ? ts.payableToSupplier
+                : (prev.payableToSupplier !== undefined && prev.payableToSupplier !== 0 ? prev.payableToSupplier : openBal);
+              return {
+                ...prev,
+                ...ts,
+                openingBalance: openBal,
+                openingBalanceType: openType,
+                payableToSupplier: payable,
+                payableType: openType,
+              };
+            });
             const suppliersToBackfill: Supplier[] = [];
 
             for (const seed of DEFAULT_SEED_SUPPLIERS) {
               const codeKey = (seed.code || '').trim().toLowerCase();
               const titleKey = (seed.title || seed.name || seed.accountTitle || '').trim().toLowerCase();
               if ((!codeKey || !existingSupCodes.has(codeKey)) && (!titleKey || !existingSupTitles.has(titleKey))) {
+                const prev = existingSupMap.get(codeKey) || (titleKey ? existingSupMap.get(titleKey) : undefined);
                 const companySupplier: Supplier = {
                   ...seed,
+                  ...(prev || {}),
                   id: `sup_${cid}_${seed.code || Math.random().toString(36).substring(2, 8)}`,
                   companyId: cid,
                 };
@@ -4479,7 +4518,22 @@ class DatabaseService {
       this.persist();
     }
 
-    return this.data.suppliers;
+    return this.data.suppliers.map((s) => {
+      const openBal = s.openingBalance !== undefined && s.openingBalance !== null && s.openingBalance !== 0
+        ? s.openingBalance
+        : (s.payableToSupplier !== undefined && s.payableToSupplier !== 0 ? s.payableToSupplier : (s.balanceOwed || 0));
+      const openType = s.openingBalanceType || s.payableType || 'CR';
+      const payable = s.payableToSupplier !== undefined && s.payableToSupplier !== null
+        ? s.payableToSupplier
+        : openBal;
+      return {
+        ...s,
+        openingBalance: openBal,
+        openingBalanceType: openType,
+        payableToSupplier: payable,
+        payableType: openType,
+      };
+    });
   }
 
   public getSupplierById(id: string): Supplier | undefined {
@@ -7120,7 +7174,21 @@ class DatabaseService {
     status?: string;
     search?: string;
   }): Customer[] {
-    let list = [...(this.data.customers || [])];
+    let list = (this.data.customers || []).map((c) => {
+      const openBal = c.openingBalance !== undefined && c.openingBalance !== null && c.openingBalance !== 0
+        ? c.openingBalance
+        : (c.outstandingBalance !== undefined && c.outstandingBalance !== 0 ? Math.abs(c.outstandingBalance) : 0);
+      const openType = c.openingBalanceType || ((c.outstandingBalance || 0) < 0 ? 'CR' : 'DR');
+      const outBal = c.outstandingBalance !== undefined && c.outstandingBalance !== null
+        ? c.outstandingBalance
+        : (openType === 'CR' ? -Math.abs(openBal) : Math.abs(openBal));
+      return {
+        ...c,
+        openingBalance: openBal,
+        openingBalanceType: openType,
+        outstandingBalance: outBal,
+      };
+    });
 
     if (filters) {
       if (filters.search) {
@@ -7219,7 +7287,21 @@ class DatabaseService {
   }
 
   public getCustomerById(id: string): Customer | undefined {
-    return this.data.customers.find((c) => c.id === id || c.code === id);
+    const c = this.data.customers.find((c) => c.id === id || c.code === id);
+    if (!c) return undefined;
+    const openBal = c.openingBalance !== undefined && c.openingBalance !== null && c.openingBalance !== 0
+      ? c.openingBalance
+      : (c.outstandingBalance !== undefined && c.outstandingBalance !== 0 ? Math.abs(c.outstandingBalance) : 0);
+    const openType = c.openingBalanceType || ((c.outstandingBalance || 0) < 0 ? 'CR' : 'DR');
+    const outBal = c.outstandingBalance !== undefined && c.outstandingBalance !== null
+      ? c.outstandingBalance
+      : (openType === 'CR' ? -Math.abs(openBal) : Math.abs(openBal));
+    return {
+      ...c,
+      openingBalance: openBal,
+      openingBalanceType: openType,
+      outstandingBalance: outBal,
+    };
   }
 
   public findCustomerByCodeOrName(identifier: string): Customer | undefined {

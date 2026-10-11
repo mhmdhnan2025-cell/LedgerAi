@@ -27,8 +27,9 @@ import {
   Undo2,
   BookOpen,
   Type,
+  Users,
 } from 'lucide-react';
-import { CompanyProfile, Product, PurchaseBill, Supplier, UserRole } from '../types';
+import { CompanyProfile, Customer, Product, PurchaseBill, Supplier, UserRole } from '../types';
 import { api } from '../services/api';
 import { SalesReportSection } from './SalesReportSection';
 import { ComprehensiveProfitReportSection } from './ComprehensiveProfitReportSection';

@@ -1040,10 +1040,14 @@ class PostgresService {
 
         const extractCustomer = (row: any): Customer => {
           const d = row.data || {};
-          const openBal = row.opening_balance !== undefined && row.opening_balance !== null
+          const openBal = (row.opening_balance !== undefined && row.opening_balance !== null && parseFloat(row.opening_balance) !== 0)
             ? parseFloat(row.opening_balance)
-            : (d.openingBalance !== undefined && d.openingBalance !== null ? parseFloat(d.openingBalance) : parseFloat(row.outstanding_balance ?? 0));
-          const openType = ((row.opening_balance_type || d.openingBalanceType || 'DR') as string).toUpperCase() as 'DR' | 'CR';
+            : (d.openingBalance !== undefined && d.openingBalance !== null && parseFloat(d.openingBalance) !== 0
+                ? parseFloat(d.openingBalance)
+                : (row.outstanding_balance !== undefined && parseFloat(row.outstanding_balance) !== 0
+                    ? Math.abs(parseFloat(row.outstanding_balance))
+                    : (d.outstandingBalance !== undefined ? Math.abs(parseFloat(d.outstandingBalance)) : 0)));
+          const openType = ((row.opening_balance_type || d.openingBalanceType || (parseFloat(row.outstanding_balance ?? 0) < 0 ? 'CR' : 'DR')) as string).toUpperCase() as 'DR' | 'CR';
           const outBal = parseFloat(row.outstanding_balance ?? d.outstandingBalance ?? (openType === 'CR' ? -Math.abs(openBal) : Math.abs(openBal)));
 
           return {
@@ -1078,9 +1082,15 @@ class PostgresService {
         const extractSupplier = (row: any): Supplier => {
           const d = row.data || {};
           const title = row.title || d.title || row.account_title || d.accountTitle || row.name || d.name || 'Supplier';
-          const openBal = row.opening_balance !== undefined && row.opening_balance !== null
+          const openBal = (row.opening_balance !== undefined && row.opening_balance !== null && parseFloat(row.opening_balance) !== 0)
             ? parseFloat(row.opening_balance)
-            : (d.openingBalance !== undefined && d.openingBalance !== null ? parseFloat(d.openingBalance) : parseFloat(row.payable_to_supplier ?? 0));
+            : (d.openingBalance !== undefined && d.openingBalance !== null && parseFloat(d.openingBalance) !== 0
+                ? parseFloat(d.openingBalance)
+                : (row.payable_to_supplier !== undefined && parseFloat(row.payable_to_supplier) !== 0
+                    ? parseFloat(row.payable_to_supplier)
+                    : (row.balance_owed !== undefined && parseFloat(row.balance_owed) !== 0
+                        ? parseFloat(row.balance_owed)
+                        : (d.payableToSupplier !== undefined ? parseFloat(d.payableToSupplier) : 0))));
           const openType = ((row.opening_balance_type || d.openingBalanceType || row.payable_type || 'CR') as string).toUpperCase() as 'CR' | 'DR';
           const payable = parseFloat(row.payable_to_supplier ?? d.payableToSupplier ?? row.balance_owed ?? d.balanceOwed ?? openBal);
 
