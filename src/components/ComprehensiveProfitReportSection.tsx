@@ -19,6 +19,7 @@ import {
   Eye,
   CheckCircle2,
   X,
+  RotateCcw,
 } from 'lucide-react';
 import {
   ComprehensiveProfitReport,
@@ -51,9 +52,13 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PROFITABLE' | 'LOSS' | 'LOW_MARGIN'>('ALL');
   const [activeDatePreset, setActiveDatePreset] = useState<string>('all');
 
-  // Dedicated Live Search & Filters per Tab
-  const [itemSearch, setItemSearch] = useState('');
+  // Dedicated Master Live Search & Filters (Cross-tab Filtering)
+  const [liveSearch, setLiveSearch] = useState('');
   const [itemSelectFilter, setItemSelectFilter] = useState('ALL');
+  const [salesmanSelectFilter, setSalesmanSelectFilter] = useState('ALL');
+  const [customerSelectFilter, setCustomerSelectFilter] = useState('ALL');
+  const [billSelectFilter, setBillSelectFilter] = useState('ALL');
+  const [itemSearch, setItemSearch] = useState('');
   const [billSearch, setBillSearch] = useState('');
   const [restaurantSearch, setRestaurantSearch] = useState('');
   const [salesmanSearch, setSalesmanSearch] = useState('');
@@ -141,12 +146,122 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
     }
   };
 
-  // Filtered Per-Item
+  // Unique item options for item select filter
+  const itemOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    if (reportData?.perItem) {
+      for (const it of reportData.perItem) {
+        if (it?.mcode && !map.has(it.mcode)) {
+          map.set(it.mcode, it.itemTitle || it.mcode);
+        }
+      }
+    }
+    if (reportData?.perBill) {
+      for (const b of reportData.perBill) {
+        if (Array.isArray(b?.items)) {
+          for (const it of b.items) {
+            const key = it?.mcode || it?.itemTitle;
+            if (key && !map.has(key)) {
+              map.set(key, it?.itemTitle || key);
+            }
+          }
+        }
+      }
+    }
+    return Array.from(map.entries())
+      .map(([mcode, title]) => ({ mcode, title }))
+      .sort((a, b) => a.title.localeCompare(b.title));
+  }, [reportData]);
+
+  // Unique salesman options
+  const salesmanOptions = useMemo(() => {
+    const set = new Set<string>();
+    if (reportData?.perSalesman) {
+      for (const sm of reportData.perSalesman) {
+        if (sm?.salesmanName?.trim()) set.add(sm.salesmanName.trim());
+      }
+    }
+    if (reportData?.perBill) {
+      for (const b of reportData.perBill) {
+        if (b?.salesmanName?.trim()) set.add(b.salesmanName.trim());
+      }
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [reportData]);
+
+  // Unique customer options
+  const customerOptions = useMemo(() => {
+    const set = new Set<string>();
+    if (reportData?.perRestaurant) {
+      for (const r of reportData.perRestaurant) {
+        if (r?.accountTitle?.trim()) set.add(r.accountTitle.trim());
+      }
+    }
+    if (reportData?.perBill) {
+      for (const b of reportData.perBill) {
+        if (b?.customerAccountTitle?.trim()) set.add(b.customerAccountTitle.trim());
+      }
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [reportData]);
+
+  // Unique bill options
+  const billOptions = useMemo(() => {
+    if (!reportData?.perBill) return [];
+    const set = new Set<string>();
+    for (const b of reportData.perBill) {
+      if (b?.billNumber?.trim()) set.add(b.billNumber.trim());
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  }, [reportData]);
+
+  // Filter Active Check & Reset
+  const hasActiveFilters = useMemo(() => {
+    return (
+      itemSelectFilter !== 'ALL' ||
+      salesmanSelectFilter !== 'ALL' ||
+      customerSelectFilter !== 'ALL' ||
+      billSelectFilter !== 'ALL' ||
+      statusFilter !== 'ALL' ||
+      liveSearch.trim() !== '' ||
+      itemSearch.trim() !== '' ||
+      billSearch.trim() !== '' ||
+      restaurantSearch.trim() !== '' ||
+      salesmanSearch.trim() !== ''
+    );
+  }, [
+    itemSelectFilter,
+    salesmanSelectFilter,
+    customerSelectFilter,
+    billSelectFilter,
+    statusFilter,
+    liveSearch,
+    itemSearch,
+    billSearch,
+    restaurantSearch,
+    salesmanSearch,
+  ]);
+
+  const resetAllFilters = () => {
+    setItemSelectFilter('ALL');
+    setSalesmanSelectFilter('ALL');
+    setCustomerSelectFilter('ALL');
+    setBillSelectFilter('ALL');
+    setStatusFilter('ALL');
+    setLiveSearch('');
+    setItemSearch('');
+    setBillSearch('');
+    setRestaurantSearch('');
+    setSalesmanSearch('');
+  };
+
+  // Filtered Per-Item (Cross-filtering with Item, Salesman, Customer, Bill, Status, Search)
   const filteredItems = useMemo(() => {
     if (!reportData?.perItem) return [];
     let list = reportData.perItem;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
+
+    const q = (liveSearch || itemSearch || searchQuery).trim().toLowerCase();
+    if (q) {
       list = list.filter(
         (it) =>
           (it?.itemTitle || '').toLowerCase().includes(q) ||
@@ -154,112 +269,244 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
           (it?.category || '').toLowerCase().includes(q)
       );
     }
-    if (itemSearch.trim()) {
-      const q = itemSearch.toLowerCase();
-      list = list.filter(
-        (it) =>
-          (it?.itemTitle || '').toLowerCase().includes(q) ||
-          (it?.mcode || '').toLowerCase().includes(q) ||
-          (it?.category || '').toLowerCase().includes(q)
-      );
-    }
+
     if (itemSelectFilter !== 'ALL') {
       list = list.filter(
         (it) => (it?.mcode || '') === itemSelectFilter || (it?.itemTitle || '') === itemSelectFilter
       );
     }
+
     if (statusFilter !== 'ALL') {
       list = list.filter((it) => it?.status === statusFilter);
     }
-    return list;
-  }, [reportData, searchQuery, itemSearch, itemSelectFilter, statusFilter]);
 
-  // Unique item options for item select filter
-  const itemOptions = useMemo(() => {
-    if (!reportData?.perItem) return [];
-    const map = new Map<string, string>();
-    for (const it of reportData.perItem) {
-      if (it?.mcode && !map.has(it.mcode)) {
-        map.set(it.mcode, it.itemTitle || it.mcode);
+    const hasBillFilter = billSelectFilter !== 'ALL';
+    const hasSalesmanFilter = salesmanSelectFilter !== 'ALL';
+    const hasCustomerFilter = customerSelectFilter !== 'ALL';
+
+    if ((hasBillFilter || hasSalesmanFilter || hasCustomerFilter) && reportData?.perBill) {
+      const validItemKeys = new Set<string>();
+      for (const b of reportData.perBill) {
+        if (hasBillFilter && (b?.billNumber || '') !== billSelectFilter) continue;
+        if (hasSalesmanFilter && (b?.salesmanName || '') !== salesmanSelectFilter) continue;
+        if (hasCustomerFilter && (b?.customerAccountTitle || '') !== customerSelectFilter) continue;
+
+        if (Array.isArray(b.items)) {
+          for (const it of b.items) {
+            if (it?.mcode) validItemKeys.add(it.mcode);
+            if (it?.itemTitle) validItemKeys.add(it.itemTitle);
+          }
+        }
       }
+      list = list.filter((it) => validItemKeys.has(it.mcode || '') || validItemKeys.has(it.itemTitle || ''));
     }
-    return Array.from(map.entries()).map(([mcode, title]) => ({ mcode, title }));
-  }, [reportData]);
 
-  // Filtered Per-Bill
+    return list;
+  }, [
+    reportData,
+    liveSearch,
+    itemSearch,
+    searchQuery,
+    itemSelectFilter,
+    statusFilter,
+    billSelectFilter,
+    salesmanSelectFilter,
+    customerSelectFilter,
+  ]);
+
+  // Filtered Per-Bill (Cross-filtering with Bill, Salesman, Customer, Item, Status, Search)
   const filteredBills = useMemo(() => {
     if (!reportData?.perBill) return [];
     let list = reportData.perBill;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter(
-        (b) =>
-          (b?.billNumber || '').toLowerCase().includes(q) ||
-          (b?.customerAccountTitle || '').toLowerCase().includes(q) ||
-          (b?.salesmanName || '').toLowerCase().includes(q)
-      );
-    }
-    if (billSearch.trim()) {
-      const q = billSearch.toLowerCase();
-      list = list.filter(
-        (b) =>
-          (b?.billNumber || '').toLowerCase().includes(q) ||
-          (b?.customerAccountTitle || '').toLowerCase().includes(q) ||
-          (b?.salesmanName || '').toLowerCase().includes(q)
-      );
-    }
-    return list;
-  }, [reportData, searchQuery, billSearch]);
 
-  // Filtered Per-Restaurant
+    const q = (liveSearch || billSearch || searchQuery).trim().toLowerCase();
+    if (q) {
+      list = list.filter(
+        (b) =>
+          (b?.billNumber || '').toLowerCase().includes(q) ||
+          (b?.customerAccountTitle || '').toLowerCase().includes(q) ||
+          (b?.salesmanName || '').toLowerCase().includes(q) ||
+          (Array.isArray(b?.items) &&
+            b.items.some(
+              (it) =>
+                (it?.itemTitle || '').toLowerCase().includes(q) ||
+                (it?.mcode || '').toLowerCase().includes(q)
+            ))
+      );
+    }
+
+    if (billSelectFilter !== 'ALL') {
+      list = list.filter((b) => (b?.billNumber || '') === billSelectFilter);
+    }
+
+    if (salesmanSelectFilter !== 'ALL') {
+      list = list.filter((b) => (b?.salesmanName || '') === salesmanSelectFilter);
+    }
+
+    if (customerSelectFilter !== 'ALL') {
+      list = list.filter((b) => (b?.customerAccountTitle || '') === customerSelectFilter);
+    }
+
+    if (itemSelectFilter !== 'ALL') {
+      list = list.filter(
+        (b) =>
+          Array.isArray(b?.items) &&
+          b.items.some(
+            (it) => (it?.mcode || '') === itemSelectFilter || (it?.itemTitle || '') === itemSelectFilter
+          )
+      );
+    }
+
+    if (statusFilter !== 'ALL') {
+      if (statusFilter === 'PROFITABLE') {
+        list = list.filter((b) => (b?.netProfit || 0) > 0);
+      } else if (statusFilter === 'LOSS') {
+        list = list.filter((b) => (b?.netProfit || 0) < 0);
+      } else if (statusFilter === 'LOW_MARGIN') {
+        list = list.filter((b) => (b?.profitMarginPct || 0) >= 0 && (b?.profitMarginPct || 0) < 10);
+      }
+    }
+
+    return list;
+  }, [
+    reportData,
+    liveSearch,
+    billSearch,
+    searchQuery,
+    billSelectFilter,
+    salesmanSelectFilter,
+    customerSelectFilter,
+    itemSelectFilter,
+    statusFilter,
+  ]);
+
+  // Filtered Per-Restaurant (Cross-filtering with Customer, Salesman, Bill, Item, Status, Search)
   const filteredRestaurants = useMemo(() => {
     if (!reportData?.perRestaurant) return [];
     let list = reportData.perRestaurant;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter(
-        (r) =>
-          (r?.accountTitle || '').toLowerCase().includes(q) ||
-          (r?.city || '').toLowerCase().includes(q) ||
-          (r?.customerGroup || '').toLowerCase().includes(q) ||
-          (r?.code ? String(r.code) : '').toLowerCase().includes(q)
-      );
-    }
-    if (restaurantSearch.trim()) {
-      const q = restaurantSearch.toLowerCase();
-      list = list.filter(
-        (r) =>
-          (r?.accountTitle || '').toLowerCase().includes(q) ||
-          (r?.city || '').toLowerCase().includes(q) ||
-          (r?.customerGroup || '').toLowerCase().includes(q) ||
-          (r?.code ? String(r.code) : '').toLowerCase().includes(q)
-      );
-    }
-    return list;
-  }, [reportData, searchQuery, restaurantSearch]);
 
-  // Filtered Per-Salesman
+    const q = (liveSearch || restaurantSearch || searchQuery).trim().toLowerCase();
+    if (q) {
+      list = list.filter(
+        (r) =>
+          (r?.accountTitle || '').toLowerCase().includes(q) ||
+          (r?.city || '').toLowerCase().includes(q) ||
+          (r?.customerGroup || '').toLowerCase().includes(q) ||
+          (r?.code ? String(r.code) : '').toLowerCase().includes(q)
+      );
+    }
+
+    if (customerSelectFilter !== 'ALL') {
+      list = list.filter((r) => (r?.accountTitle || '') === customerSelectFilter);
+    }
+
+    if (statusFilter !== 'ALL') {
+      if (statusFilter === 'PROFITABLE') {
+        list = list.filter((r) => (r?.grossProfit || 0) > 0);
+      } else if (statusFilter === 'LOSS') {
+        list = list.filter((r) => (r?.grossProfit || 0) < 0 || r?.status === 'LOSS');
+      } else if (statusFilter === 'LOW_MARGIN') {
+        list = list.filter((r) => (r?.profitMarginPct || 0) < 10);
+      }
+    }
+
+    const hasBillFilter = billSelectFilter !== 'ALL';
+    const hasSalesmanFilter = salesmanSelectFilter !== 'ALL';
+    const hasItemFilter = itemSelectFilter !== 'ALL';
+
+    if ((hasBillFilter || hasSalesmanFilter || hasItemFilter) && reportData?.perBill) {
+      const validCustomers = new Set<string>();
+      for (const b of reportData.perBill) {
+        if (hasBillFilter && (b?.billNumber || '') !== billSelectFilter) continue;
+        if (hasSalesmanFilter && (b?.salesmanName || '') !== salesmanSelectFilter) continue;
+        if (hasItemFilter) {
+          const hasItem =
+            Array.isArray(b?.items) &&
+            b.items.some(
+              (it) => (it?.mcode || '') === itemSelectFilter || (it?.itemTitle || '') === itemSelectFilter
+            );
+          if (!hasItem) continue;
+        }
+        if (b?.customerAccountTitle) validCustomers.add(b.customerAccountTitle);
+      }
+      list = list.filter((r) => validCustomers.has(r.accountTitle || ''));
+    }
+
+    return list;
+  }, [
+    reportData,
+    liveSearch,
+    restaurantSearch,
+    searchQuery,
+    customerSelectFilter,
+    statusFilter,
+    billSelectFilter,
+    salesmanSelectFilter,
+    itemSelectFilter,
+  ]);
+
+  // Filtered Per-Salesman (Cross-filtering with Salesman, Customer, Bill, Item, Status, Search)
   const filteredSalesmen = useMemo(() => {
     if (!reportData?.perSalesman) return [];
     let list = reportData.perSalesman;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
+
+    const q = (liveSearch || salesmanSearch || searchQuery).trim().toLowerCase();
+    if (q) {
       list = list.filter(
         (sm) =>
           (sm?.salesmanName || '').toLowerCase().includes(q) ||
           (sm?.designation ? String(sm.designation) : '').toLowerCase().includes(q)
       );
     }
-    if (salesmanSearch.trim()) {
-      const q = salesmanSearch.toLowerCase();
-      list = list.filter(
-        (sm) =>
-          (sm?.salesmanName || '').toLowerCase().includes(q) ||
-          (sm?.designation ? String(sm.designation) : '').toLowerCase().includes(q)
-      );
+
+    if (salesmanSelectFilter !== 'ALL') {
+      list = list.filter((sm) => (sm?.salesmanName || '') === salesmanSelectFilter);
     }
+
+    if (statusFilter !== 'ALL') {
+      if (statusFilter === 'PROFITABLE') {
+        list = list.filter((sm) => (sm?.totalProfit || 0) > 0);
+      } else if (statusFilter === 'LOSS') {
+        list = list.filter((sm) => (sm?.totalProfit || 0) < 0);
+      } else if (statusFilter === 'LOW_MARGIN') {
+        list = list.filter((sm) => (sm?.profitMarginPct || 0) < 10);
+      }
+    }
+
+    const hasBillFilter = billSelectFilter !== 'ALL';
+    const hasCustomerFilter = customerSelectFilter !== 'ALL';
+    const hasItemFilter = itemSelectFilter !== 'ALL';
+
+    if ((hasBillFilter || hasCustomerFilter || hasItemFilter) && reportData?.perBill) {
+      const validSalesmen = new Set<string>();
+      for (const b of reportData.perBill) {
+        if (hasBillFilter && (b?.billNumber || '') !== billSelectFilter) continue;
+        if (hasCustomerFilter && (b?.customerAccountTitle || '') !== customerSelectFilter) continue;
+        if (hasItemFilter) {
+          const hasItem =
+            Array.isArray(b?.items) &&
+            b.items.some(
+              (it) => (it?.mcode || '') === itemSelectFilter || (it?.itemTitle || '') === itemSelectFilter
+            );
+          if (!hasItem) continue;
+        }
+        if (b?.salesmanName) validSalesmen.add(b.salesmanName);
+      }
+      list = list.filter((sm) => validSalesmen.has(sm.salesmanName || ''));
+    }
+
     return list;
-  }, [reportData, searchQuery, salesmanSearch]);
+  }, [
+    reportData,
+    liveSearch,
+    salesmanSearch,
+    searchQuery,
+    salesmanSelectFilter,
+    statusFilter,
+    billSelectFilter,
+    customerSelectFilter,
+    itemSelectFilter,
+  ]);
 
   // Export to CSV
   const handleExportCSV = () => {
@@ -731,76 +978,265 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
           </button>
         </div>
 
+        {/* ------------------------------------------------------------- */}
+        {/* MASTER CROSS-FILTER TOOLBAR                                   */}
+        {/* (Item, Salesman, Customer, Bill, Margin Status, Live Search)  */}
+        {/* ------------------------------------------------------------- */}
+        <div className="p-3.5 sm:p-4 bg-slate-950/90 border-b border-slate-800 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5 items-end">
+            {/* 1. Item Filter */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-300 mb-1 flex items-center gap-1">
+                <Package className="w-3.5 h-3.5 text-emerald-400" />
+                <span>1. Item (آئٹم فلٹر)</span>
+              </label>
+              <select
+                value={itemSelectFilter}
+                onChange={(e) => setItemSelectFilter(e.target.value)}
+                className={`w-full bg-slate-900 border rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-hidden focus:border-emerald-500 transition cursor-pointer ${
+                  itemSelectFilter !== 'ALL'
+                    ? 'border-emerald-500 bg-emerald-950/40 font-bold text-emerald-300 shadow-xs'
+                    : 'border-slate-700'
+                }`}
+              >
+                <option value="ALL">All Items (تمام آئٹمز - {itemOptions.length})</option>
+                {itemOptions.map((opt) => (
+                  <option key={opt.mcode} value={opt.mcode}>
+                    {opt.title} ({opt.mcode})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 2. Salesman Filter */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-300 mb-1 flex items-center gap-1">
+                <Users className="w-3.5 h-3.5 text-teal-400" />
+                <span>2. Salesman (سیلز مین)</span>
+              </label>
+              <select
+                value={salesmanSelectFilter}
+                onChange={(e) => setSalesmanSelectFilter(e.target.value)}
+                className={`w-full bg-slate-900 border rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-hidden focus:border-emerald-500 transition cursor-pointer ${
+                  salesmanSelectFilter !== 'ALL'
+                    ? 'border-teal-500 bg-teal-950/40 font-bold text-teal-300 shadow-xs'
+                    : 'border-slate-700'
+                }`}
+              >
+                <option value="ALL">All Salesmen (تمام سیلزمین - {salesmanOptions.length})</option>
+                {salesmanOptions.map((sm) => (
+                  <option key={sm} value={sm}>
+                    {sm}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 3. Customer Filter */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-300 mb-1 flex items-center gap-1">
+                <Store className="w-3.5 h-3.5 text-indigo-400" />
+                <span>3. Customer (گاہک / پارٹی)</span>
+              </label>
+              <select
+                value={customerSelectFilter}
+                onChange={(e) => setCustomerSelectFilter(e.target.value)}
+                className={`w-full bg-slate-900 border rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-hidden focus:border-emerald-500 transition cursor-pointer ${
+                  customerSelectFilter !== 'ALL'
+                    ? 'border-indigo-500 bg-indigo-950/40 font-bold text-indigo-300 shadow-xs'
+                    : 'border-slate-700'
+                }`}
+              >
+                <option value="ALL">All Customers (تمام گاہک - {customerOptions.length})</option>
+                {customerOptions.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 4. Bill Filter */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-300 mb-1 flex items-center gap-1">
+                <Receipt className="w-3.5 h-3.5 text-amber-400" />
+                <span>4. Bill # (سیل بل)</span>
+              </label>
+              <select
+                value={billSelectFilter}
+                onChange={(e) => setBillSelectFilter(e.target.value)}
+                className={`w-full bg-slate-900 border rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-hidden focus:border-emerald-500 transition cursor-pointer ${
+                  billSelectFilter !== 'ALL'
+                    ? 'border-amber-500 bg-amber-950/40 font-bold text-amber-300 shadow-xs'
+                    : 'border-slate-700'
+                }`}
+              >
+                <option value="ALL">All Bills (تمام بلز - {billOptions.length})</option>
+                {billOptions.map((b) => (
+                  <option key={b} value={b}>
+                    Bill #{b}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 5. Margin Status Filter */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-300 mb-1 flex items-center gap-1">
+                <Filter className="w-3.5 h-3.5 text-sky-400" />
+                <span>5. Margin (منافع کی حالت)</span>
+              </label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as any)}
+                className={`w-full bg-slate-900 border rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-hidden focus:border-emerald-500 transition cursor-pointer ${
+                  statusFilter !== 'ALL'
+                    ? 'border-sky-500 bg-sky-950/40 font-bold text-sky-300 shadow-xs'
+                    : 'border-slate-700'
+                }`}
+              >
+                <option value="ALL">All Margins (تمام)</option>
+                <option value="PROFITABLE">Profitable Only (صرف منافع بخش)</option>
+                <option value="LOW_MARGIN">Low Margin &lt;10% (کم مارجن)</option>
+                <option value="LOSS">Loss Making (نقصان والے)</option>
+              </select>
+            </div>
+
+            {/* 6. Live Search Input */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-300 mb-1 flex items-center gap-1">
+                <Search className="w-3.5 h-3.5 text-slate-400" />
+                <span>Live Search (فوری تلاش)</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={liveSearch}
+                  onChange={(e) => setLiveSearch(e.target.value)}
+                  placeholder={
+                    activeTab === 'perItem'
+                      ? 'Search item title, SKU...'
+                      : activeTab === 'perBill'
+                      ? 'Search bill#, customer...'
+                      : activeTab === 'perRestaurant'
+                      ? 'Search customer, city...'
+                      : 'Search salesman...'
+                  }
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-3 pr-7 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-emerald-500"
+                />
+                {liveSearch && (
+                  <button
+                    onClick={() => setLiveSearch('')}
+                    className="absolute right-2 top-2 text-slate-400 hover:text-white cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Active Badges & Reset Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/60 text-xs">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] text-slate-400 font-semibold">Active Filter:</span>
+              {!hasActiveFilters ? (
+                <span className="text-[11px] text-slate-500 italic">None (تمام ریکارڈز نظر آرہے ہیں)</span>
+              ) : (
+                <>
+                  {itemSelectFilter !== 'ALL' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-950/80 text-emerald-300 border border-emerald-700/60 text-[11px] font-medium">
+                      <span>Item: {itemOptions.find((o) => o.mcode === itemSelectFilter)?.title || itemSelectFilter}</span>
+                      <button onClick={() => setItemSelectFilter('ALL')} className="hover:text-white cursor-pointer">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
+                  {salesmanSelectFilter !== 'ALL' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-teal-950/80 text-teal-300 border border-teal-700/60 text-[11px] font-medium">
+                      <span>Salesman: {salesmanSelectFilter}</span>
+                      <button onClick={() => setSalesmanSelectFilter('ALL')} className="hover:text-white cursor-pointer">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
+                  {customerSelectFilter !== 'ALL' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-950/80 text-indigo-300 border border-indigo-700/60 text-[11px] font-medium">
+                      <span>Customer: {customerSelectFilter}</span>
+                      <button onClick={() => setCustomerSelectFilter('ALL')} className="hover:text-white cursor-pointer">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
+                  {billSelectFilter !== 'ALL' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-950/80 text-amber-300 border border-amber-700/60 text-[11px] font-medium">
+                      <span>Bill: #{billSelectFilter}</span>
+                      <button onClick={() => setBillSelectFilter('ALL')} className="hover:text-white cursor-pointer">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
+                  {statusFilter !== 'ALL' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-950/80 text-sky-300 border border-sky-700/60 text-[11px] font-medium">
+                      <span>Status: {statusFilter}</span>
+                      <button onClick={() => setStatusFilter('ALL')} className="hover:text-white cursor-pointer">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
+                  {liveSearch && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700 text-[11px]">
+                      <span>Search: "{liveSearch}"</span>
+                      <button onClick={() => setLiveSearch('')} className="hover:text-white cursor-pointer">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
+                  <button
+                    onClick={resetAllFilters}
+                    className="ml-2 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-700/60 text-[11px] font-bold cursor-pointer transition"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reset All (فلٹرز ختم کریں)</span>
+                  </button>
+                </>
+              )}
+            </div>
+
+            <div className="text-[11px] font-mono text-slate-400">
+              {activeTab === 'perItem' && (
+                <span>
+                  Showing <strong className="text-emerald-400 font-bold">{filteredItems.length}</strong> items (of{' '}
+                  {reportData?.perItem?.length || 0})
+                </span>
+              )}
+              {activeTab === 'perBill' && (
+                <span>
+                  Showing <strong className="text-emerald-400 font-bold">{filteredBills.length}</strong> bills (of{' '}
+                  {reportData?.perBill?.length || 0})
+                </span>
+              )}
+              {activeTab === 'perRestaurant' && (
+                <span>
+                  Showing <strong className="text-emerald-400 font-bold">{filteredRestaurants.length}</strong> customers (of{' '}
+                  {reportData?.perRestaurant?.length || 0})
+                </span>
+              )}
+              {activeTab === 'perSalesman' && (
+                <span>
+                  Showing <strong className="text-emerald-400 font-bold">{filteredSalesmen.length}</strong> salesmen (of{' '}
+                  {reportData?.perSalesman?.length || 0})
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* ----------------------------------------------------------- */}
         {/* TAB 1: PROFIT PER ITEM                                      */}
         {/* ----------------------------------------------------------- */}
         {activeTab === 'perItem' && (
           <div className="p-4 sm:p-5">
-            {/* Live Search & Filter Bar for Per-Item */}
-            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 mb-4 flex flex-wrap items-center justify-between gap-3 text-xs">
-              <div className="flex flex-wrap items-center gap-3 flex-1">
-                {/* Live Search Input */}
-                <div className="relative min-w-[220px] flex-1 max-w-sm">
-                  <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-500" />
-                  <input
-                    type="text"
-                    value={itemSearch}
-                    onChange={(e) => setItemSearch(e.target.value)}
-                    placeholder="Live Search Item Title, SKU, M.Code..."
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-8 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-emerald-500"
-                  />
-                  {itemSearch && (
-                    <button
-                      onClick={() => setItemSearch('')}
-                      className="absolute right-2.5 top-2 text-slate-400 hover:text-white"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-
-                {/* Item Select Dropdown Filter */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] text-slate-400 font-semibold whitespace-nowrap">
-                    Select Item:
-                  </span>
-                  <select
-                    value={itemSelectFilter}
-                    onChange={(e) => setItemSelectFilter(e.target.value)}
-                    className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-hidden focus:border-emerald-500 max-w-[200px]"
-                  >
-                    <option value="ALL">All Items ({itemOptions.length})</option>
-                    {itemOptions.map((opt) => (
-                      <option key={opt.mcode} value={opt.mcode}>
-                        {opt.title} ({opt.mcode})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Margin Status Filter */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] text-slate-400 font-semibold whitespace-nowrap">
-                    Status:
-                  </span>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value as any)}
-                    className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-hidden focus:border-emerald-500"
-                  >
-                    <option value="ALL">All Margins</option>
-                    <option value="PROFITABLE">Profitable Only</option>
-                    <option value="LOW_MARGIN">Low Margin (&lt;10%)</option>
-                    <option value="LOSS">Loss Making</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="text-slate-400 text-[11px] font-mono">
-                Showing <strong className="text-emerald-400">{filteredItems.length}</strong> items
-              </div>
-            </div>
-
             <div className="overflow-x-auto rounded-xl border border-slate-800">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
@@ -887,32 +1323,6 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
         {/* ----------------------------------------------------------- */}
         {activeTab === 'perBill' && (
           <div className="p-4 sm:p-5">
-            {/* Live Search Bar for Per-Bill */}
-            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 mb-4 flex flex-wrap items-center justify-between gap-3 text-xs">
-              <div className="relative min-w-[240px] flex-1 max-w-md">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-500" />
-                <input
-                  type="text"
-                  value={billSearch}
-                  onChange={(e) => setBillSearch(e.target.value)}
-                  placeholder="Live Search Bill# (e.g. 1025), Customer, Salesman..."
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-8 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-emerald-500"
-                />
-                {billSearch && (
-                  <button
-                    onClick={() => setBillSearch('')}
-                    className="absolute right-2.5 top-2 text-slate-400 hover:text-white"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-
-              <div className="text-slate-400 text-[11px] font-mono">
-                Showing <strong className="text-emerald-400">{filteredBills.length}</strong> sales bills
-              </div>
-            </div>
-
             <div className="overflow-x-auto rounded-xl border border-slate-800">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
@@ -1017,32 +1427,6 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
         {/* ----------------------------------------------------------- */}
         {activeTab === 'perRestaurant' && (
           <div className="p-4 sm:p-5">
-            {/* Live Search Bar for Per-Restaurant / Customer */}
-            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 mb-4 flex flex-wrap items-center justify-between gap-3 text-xs">
-              <div className="relative min-w-[240px] flex-1 max-w-md">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-500" />
-                <input
-                  type="text"
-                  value={restaurantSearch}
-                  onChange={(e) => setRestaurantSearch(e.target.value)}
-                  placeholder="Live Search Customer Name, Restaurant, City, Code..."
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-8 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-emerald-500"
-                />
-                {restaurantSearch && (
-                  <button
-                    onClick={() => setRestaurantSearch('')}
-                    className="absolute right-2.5 top-2 text-slate-400 hover:text-white"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-
-              <div className="text-slate-400 text-[11px] font-mono">
-                Showing <strong className="text-emerald-400">{filteredRestaurants.length}</strong> customers / restaurants
-              </div>
-            </div>
-
             <div className="overflow-x-auto rounded-xl border border-slate-800">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
@@ -1130,32 +1514,6 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
         {/* ----------------------------------------------------------- */}
         {activeTab === 'perSalesman' && (
           <div className="p-4 sm:p-5">
-            {/* Live Search Bar for Per-Salesman */}
-            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 mb-4 flex flex-wrap items-center justify-between gap-3 text-xs">
-              <div className="relative min-w-[240px] flex-1 max-w-md">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-500" />
-                <input
-                  type="text"
-                  value={salesmanSearch}
-                  onChange={(e) => setSalesmanSearch(e.target.value)}
-                  placeholder="Live Search Salesman Name, Designation, Contact..."
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-8 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-emerald-500"
-                />
-                {salesmanSearch && (
-                  <button
-                    onClick={() => setSalesmanSearch('')}
-                    className="absolute right-2.5 top-2 text-slate-400 hover:text-white"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-
-              <div className="text-slate-400 text-[11px] font-mono">
-                Showing <strong className="text-emerald-400">{filteredSalesmen.length}</strong> salesmen
-              </div>
-            </div>
-
             <div className="overflow-x-auto rounded-xl border border-slate-800">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
