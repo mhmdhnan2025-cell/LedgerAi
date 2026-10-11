@@ -122,15 +122,22 @@ async function main() {
     const db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
     let customers = db.customers || [];
 
-    // Ensure Marhaba cafeteria, Noor mohammad restaurant & Qasar al shameel exist
+    // Ensure Marhaba cafeteria, Noor mohammad restaurant & Qasar al shameel exist with UNIQUE codes
     const ensureNames = [
-      { title: 'Marhaba cafeteria', code: '0101040330', balance: 59.39, type: 'DR' },
-      { title: 'Noor mohammad restaurant', code: '0101040331', balance: 225.01, type: 'DR' },
-      { title: 'Qasar al shameel', code: '0101040332', balance: 465.15, type: 'DR', phone: '0527113421', salesman: 'Ashiq Ali' },
+      { title: 'Marhaba cafeteria', code: '0101040336', balance: 59.39, type: 'DR' },
+      { title: 'Noor mohammad restaurant', code: '0101040337', balance: 225.01, type: 'DR' },
+      { title: 'Qasar al shameel', code: '0101040338', balance: 465.15, type: 'DR', phone: '0527113421', salesman: 'Ashiq Ali' },
     ];
     for (const en of ensureNames) {
       const found = customers.find(c => (c.accountTitle || c.name || '').toLowerCase().includes(en.title.toLowerCase()));
-      if (!found) {
+      if (found) {
+        found.code = en.code;
+        found.accountCode = en.code;
+        found.id = `cust-${en.code}`;
+        found.openingBalance = en.balance;
+        found.openingBalanceType = en.type;
+        found.outstandingBalance = en.balance;
+      } else {
         customers.push({
           id: `cust-${en.code}`,
           code: en.code,
@@ -217,7 +224,14 @@ async function main() {
         let cat = JSON.parse(fs.readFileSync(catPath, 'utf8'));
         for (const en of ensureNames) {
           const found = cat.find(c => (c.accountTitle || c.name || '').toLowerCase().includes(en.title.toLowerCase()));
-          if (!found) {
+          if (found) {
+            found.code = en.code;
+            found.accountCode = en.code;
+            found.id = `cust-${en.code}`;
+            found.openingBalance = en.balance;
+            found.openingBalanceType = en.type;
+            found.outstandingBalance = en.balance;
+          } else {
             cat.push({
               id: `cust-${en.code}`,
               code: en.code,
@@ -268,8 +282,8 @@ async function main() {
     const targetCompanies = Array.from(new Set(['comp_default_01', 'comp-muocj00t-j3co', ...compsRes.rows.map(r => r.company_id).filter(Boolean)]));
     for (const cid of targetCompanies) {
       console.log(`\nSyncing PostgreSQL customers for ${cid}...`);
-      // Delete any non-standard IDs for this company
-      await client.query("DELETE FROM customers WHERE company_id = $1 AND id NOT LIKE $2", [cid, `%_${cid}`]);
+      // Delete any non-standard IDs or colliding customer codes for this company
+      await client.query("DELETE FROM customers WHERE company_id = $1 AND (id NOT LIKE $2 OR (code IN ('0101040330', '0101040331', '0101040332') AND (account_title ILIKE '%marhaba%' OR account_title ILIKE '%noor mohammad%' OR account_title ILIKE '%qasar al shameel%')))", [cid, `%_${cid}`]);
       let pgUpdated = 0;
       for (const c of customers) {
         const baseId = c.id.replace(/_comp[_-].*$/, '');
