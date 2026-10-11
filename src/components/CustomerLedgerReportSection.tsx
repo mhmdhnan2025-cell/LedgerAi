@@ -138,45 +138,47 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
     }
   };
 
-  // Load Customers list
+  // Load Customers list and auto-generate report (preserves state on reload)
   useEffect(() => {
-    if (initialCustomers && initialCustomers.length > 0) {
-      setCustomers(initialCustomers);
+    const resolveAndGenerate = (custList: Customer[]) => {
+      setCustomers(custList);
+      let targetCust: Customer | null = null;
       if (initialCustomerId) {
-        const found = initialCustomers.find(
+        targetCust = custList.find(
           (c) => c.id === initialCustomerId || c.code === initialCustomerId || c.accountCode === initialCustomerId
-        );
-        if (found) {
-          setSelectedCustomer(found);
-          setCustomerSearch('');
-          handleGenerateReport(found);
-          return;
-        }
+        ) || null;
       }
+      if (!targetCust) {
+        try {
+          const savedId = sessionStorage.getItem('erp_selected_customer_ledger_id');
+          if (savedId && savedId !== 'ALL') {
+            targetCust = custList.find(
+              (c) => c.id === savedId || c.code === savedId || c.accountCode === savedId
+            ) || null;
+          }
+        } catch {}
+      }
+      setSelectedCustomer(targetCust);
+      if (targetCust) setCustomerSearch('');
+      handleGenerateReport(targetCust);
+    };
+
+    if (initialCustomers && initialCustomers.length > 0) {
+      resolveAndGenerate(initialCustomers);
       return;
     }
+
     const fetchCustomers = async () => {
       try {
         const list = await api.getCustomers();
-        if (Array.isArray(list)) {
-          setCustomers(list);
-          if (initialCustomerId) {
-            const found = list.find(
-              (c) => c.id === initialCustomerId || c.code === initialCustomerId || c.accountCode === initialCustomerId
-            );
-            if (found) {
-              setSelectedCustomer(found);
-              setCustomerSearch('');
-              handleGenerateReport(found);
-              return;
-            }
-          }
-          // Default to Nothing selected / All accounts so all transactions show immediately
-          setSelectedCustomer(null);
+        if (Array.isArray(list) && list.length > 0) {
+          resolveAndGenerate(list);
+        } else {
           handleGenerateReport(null);
         }
       } catch (err) {
         console.warn('Failed to load customers for ledger report:', err);
+        handleGenerateReport(null);
       }
     };
     fetchCustomers();
@@ -258,6 +260,13 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
 
   const handleSelectCustomer = (c: Customer | null) => {
     setSelectedCustomer(c);
+    try {
+      if (c) {
+        sessionStorage.setItem('erp_selected_customer_ledger_id', c.id || c.code);
+      } else {
+        sessionStorage.setItem('erp_selected_customer_ledger_id', 'ALL');
+      }
+    } catch {}
     setCustomerSearch('');
     setIsDropdownOpen(false);
     handleGenerateReport(c);

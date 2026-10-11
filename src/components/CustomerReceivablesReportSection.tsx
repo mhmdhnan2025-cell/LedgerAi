@@ -354,8 +354,10 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
       }
 
       // Ledger Balance
-      const rawBal = Number(c.outstandingBalance !== undefined ? c.outstandingBalance : c.openingBalance) || 0;
-      const balType = (c as any).openingBalanceType || 'DR';
+      const rawOpen = Number(c.openingBalance);
+      const rawOut = Number(c.outstandingBalance);
+      const rawBal = !isNaN(rawOut) && rawOut !== 0 ? rawOut : (!isNaN(rawOpen) ? rawOpen : 0);
+      const balType = (c as any).openingBalanceType || (c as any).opening_balance_type || 'DR';
       const ledgerBalance = balType === 'CR' ? -Math.abs(rawBal) : Math.abs(rawBal);
 
       return {

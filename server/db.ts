@@ -9731,12 +9731,16 @@ class DatabaseService {
     // 1. Calculate Opening Balance before normFrom (incorporates legacy opening balances)
     let calcOpening = 0;
     if (!isAll && customer) {
-      const initBal = Number(customer.openingBalance !== undefined ? customer.openingBalance : customer.outstandingBalance) || 0;
+      const rawOpen = Number(customer.openingBalance);
+      const rawOut = Number(customer.outstandingBalance);
+      const initBal = !isNaN(rawOpen) && rawOpen !== 0 ? rawOpen : (!isNaN(rawOut) ? rawOut : 0);
       const balType = customer.openingBalanceType || 'DR';
       calcOpening += balType === 'CR' ? -Math.abs(initBal) : Math.abs(initBal);
     } else if (isAll) {
       for (const c of (this.data.customers || [])) {
-        const initBal = Number(c.openingBalance !== undefined ? c.openingBalance : c.outstandingBalance) || 0;
+        const rawOpen = Number(c.openingBalance);
+        const rawOut = Number(c.outstandingBalance);
+        const initBal = !isNaN(rawOpen) && rawOpen !== 0 ? rawOpen : (!isNaN(rawOut) ? rawOut : 0);
         const balType = c.openingBalanceType || 'DR';
         calcOpening += balType === 'CR' ? -Math.abs(initBal) : Math.abs(initBal);
       }
@@ -10074,12 +10078,16 @@ class DatabaseService {
     // 1. Calculate Opening Balance before normFrom (Credit = Payable to Supplier; incorporates legacy opening balances)
     let calcOpening = 0;
     if (!isAll && supplier) {
-      const initBal = Number(supplier.openingBalance !== undefined ? supplier.openingBalance : supplier.payableToSupplier) || 0;
+      const rawOpen = Number(supplier.openingBalance);
+      const rawPayable = Number(supplier.payableToSupplier !== undefined ? supplier.payableToSupplier : (supplier as any).outstandingBalance);
+      const initBal = !isNaN(rawOpen) && rawOpen !== 0 ? rawOpen : (!isNaN(rawPayable) ? rawPayable : 0);
       const balType = supplier.payableType || supplier.openingBalanceType || 'CR';
       calcOpening += balType === 'DR' ? -Math.abs(initBal) : Math.abs(initBal);
     } else if (isAll) {
       for (const s of (this.data.suppliers || [])) {
-        const initBal = Number(s.openingBalance !== undefined ? s.openingBalance : s.payableToSupplier) || 0;
+        const rawOpen = Number(s.openingBalance);
+        const rawPayable = Number(s.payableToSupplier !== undefined ? s.payableToSupplier : (s as any).outstandingBalance);
+        const initBal = !isNaN(rawOpen) && rawOpen !== 0 ? rawOpen : (!isNaN(rawPayable) ? rawPayable : 0);
         const balType = s.payableType || s.openingBalanceType || 'CR';
         calcOpening += balType === 'DR' ? -Math.abs(initBal) : Math.abs(initBal);
       }

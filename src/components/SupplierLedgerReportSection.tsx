@@ -139,51 +139,50 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
     }
   };
 
-  // Load Suppliers list
+  // Load Suppliers list and auto-generate report (preserves state on reload)
   useEffect(() => {
-    if (initialSuppliers && initialSuppliers.length > 0) {
-      setSuppliers(initialSuppliers);
+    const resolveAndGenerate = (suppList: Supplier[]) => {
+      setSuppliers(suppList);
+      let targetSupp: Supplier | null = null;
       if (initialSupplierId) {
-        const found = initialSuppliers.find(
+        targetSupp = suppList.find(
           (s) =>
             s.id === initialSupplierId ||
             s.code === initialSupplierId ||
             s.accountNumber === initialSupplierId
-        );
-        if (found) {
-          setSelectedSupplier(found);
-          setSupplierSearch('');
-          handleGenerateReport(found);
-          return;
-        }
+        ) || null;
       }
+      if (!targetSupp) {
+        try {
+          const savedId = sessionStorage.getItem('erp_selected_supplier_ledger_id');
+          if (savedId && savedId !== 'ALL') {
+            targetSupp = suppList.find(
+              (s) => s.id === savedId || s.code === savedId || s.accountNumber === savedId
+            ) || null;
+          }
+        } catch {}
+      }
+      setSelectedSupplier(targetSupp);
+      if (targetSupp) setSupplierSearch('');
+      handleGenerateReport(targetSupp);
+    };
+
+    if (initialSuppliers && initialSuppliers.length > 0) {
+      resolveAndGenerate(initialSuppliers);
       return;
     }
+
     const fetchSuppliers = async () => {
       try {
         const list = await api.getSuppliers();
-        if (Array.isArray(list)) {
-          setSuppliers(list);
-          if (initialSupplierId) {
-            const found = list.find(
-              (s) =>
-                s.id === initialSupplierId ||
-                s.code === initialSupplierId ||
-                s.accountNumber === initialSupplierId
-            );
-            if (found) {
-              setSelectedSupplier(found);
-              setSupplierSearch('');
-              handleGenerateReport(found);
-              return;
-            }
-          }
-          // Default to Nothing selected / All accounts so all transactions show immediately
-          setSelectedSupplier(null);
+        if (Array.isArray(list) && list.length > 0) {
+          resolveAndGenerate(list);
+        } else {
           handleGenerateReport(null);
         }
       } catch (err) {
         console.warn('Failed to load suppliers for ledger report:', err);
+        handleGenerateReport(null);
       }
     };
     fetchSuppliers();
@@ -265,6 +264,13 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
 
   const handleSelectSupplier = (s: Supplier | null) => {
     setSelectedSupplier(s);
+    try {
+      if (s) {
+        sessionStorage.setItem('erp_selected_supplier_ledger_id', s.id || s.code);
+      } else {
+        sessionStorage.setItem('erp_selected_supplier_ledger_id', 'ALL');
+      }
+    } catch {}
     setSupplierSearch('');
     setIsDropdownOpen(false);
     handleGenerateReport(s);
