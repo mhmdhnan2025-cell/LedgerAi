@@ -29,10 +29,21 @@ import {
   UserCheck,
   Wallet,
   Banknote,
+  Calculator,
+  History,
+  Clock,
+  ArrowRight,
+  Tag,
   X,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { currencySymbol } from '../utils/currency';
+import {
+  cleanText,
+  findProductByBilingualName,
+  isBilingualMatch,
+  areBilingualSynonyms,
+} from '../utils/productSynonyms';
 import {
   CashAccount,
   Customer,
@@ -386,32 +397,241 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
     reader.readAsDataURL(file);
   };
 
-  // Auto-detect SKU in catalog or keep existing
-  const matchProductInCatalog = (name: string, mcodeOrSku?: string): Product | undefined => {
+  // ---------------------------------------------------------------------------
+  // WORLD-CLASS PRODUCT MATCHER: Multi-tier Exact -> Cleaned -> Bilingual -> Commodity Stem
+  // ---------------------------------------------------------------------------
+  const findBestProductMatch = (
+    rawName: string,
+    mcodeOrSku?: string,
+    catalog: Product[] = products || []
+  ): Product | undefined => {
+    if (!catalog || catalog.length === 0) return undefined;
+
+    // 1. Direct SKU / MCode match
     if (mcodeOrSku && mcodeOrSku.trim()) {
       const cleanSku = mcodeOrSku.trim().toLowerCase();
-      const bySku = (products || []).find(
+      const bySku = catalog.find(
         (p) =>
           (p.sku && p.sku.toLowerCase() === cleanSku) ||
           (p.mcode && p.mcode.toLowerCase() === cleanSku)
       );
       if (bySku) return bySku;
     }
-    if (!name) return undefined;
-    const lower = name.toLowerCase().trim();
-    return (products || []).find((p) => {
-      if (!p) return false;
-      const pName = (p.name || '').toLowerCase();
-      const pTitle = (p.itemTitle || '').toLowerCase();
-      const pSku = (p.sku || p.mcode || '').toLowerCase();
-      return (
-        pName === lower ||
-        pTitle === lower ||
-        pSku === lower ||
-        (pName && pName.length > 3 && lower.includes(pName)) ||
-        (lower.length > 3 && pName.includes(lower))
-      );
-    });
+
+    if (!rawName || !rawName.trim()) return undefined;
+    const rawLower = rawName.trim().toLowerCase();
+
+    // 2. Exact name or itemTitle match
+    const exact = catalog.find(
+      (p) =>
+        (p.name && p.name.toLowerCase() === rawLower) ||
+        (p.itemTitle && p.itemTitle.toLowerCase() === rawLower)
+    );
+    if (exact) return exact;
+
+    // 3. Clean Title match (strip packaging, weight, and origins e.g. "50 KG", "IND", "CROWN", "BAG")
+    const cleanQ = cleanText(
+      rawLower
+        .replace(/\b\d+(\.\d+)?\s*(kg|kgs|kilo|kilos|gm|g|ltr|ltrs|liter|liters|litre|litres|l|pcs|pc|bag|bags|ctn|carton|tin|box)\b/gi, ' ')
+        .replace(/\b(ind|uae|pak|india|crown|special|wholesale|brand|no\s*\d+|grade\s*[a-z0-9]+)\b/gi, ' ')
+    );
+
+    if (cleanQ) {
+      const cleanMatch = catalog.find((p) => {
+        const pClean = cleanText(p.name || p.itemTitle || '');
+        return (
+          pClean === cleanQ ||
+          (pClean.length > 3 && cleanQ.includes(pClean)) ||
+          (cleanQ.length > 3 && pClean.includes(cleanQ))
+        );
+      });
+      if (cleanMatch) return cleanMatch;
+    }
+
+    // 4. Bilingual Match using Roman Urdu / Urdu / English synonyms
+    const bilingualMatch = findProductByBilingualName(cleanQ || rawName, catalog);
+    if (bilingualMatch) return bilingualMatch;
+
+    // 5. Core wholesale commodity stems (Sugar, Rice, Tea, Oil, Ghee, Flour, Chilly, Dal, Salt)
+    const commodityStems = [
+      { stem: 'sugar', alt: ['cheeni', 'shakar', 'khand'] },
+      { stem: 'rice', alt: ['chawal', 'basmati', 'sonamasoori', 'kainat', 'sella'] },
+      { stem: 'tea', alt: ['chai', 'patti', 'mala'] },
+      { stem: 'oil', alt: ['ghee', 'cooking oil', 'tel'] },
+      { stem: 'flour', alt: ['atta', 'aata', 'maida', 'suji'] },
+      { stem: 'chilly', alt: ['chili', 'mirch', 'lal mirch'] },
+      { stem: 'dal', alt: ['daal', 'lentil', 'moong', 'chana', 'masoor', 'mash'] },
+      { stem: 'salt', alt: ['namak'] },
+    ];
+
+    for (const group of commodityStems) {
+      const matchesQuery = rawLower.includes(group.stem) || group.alt.some((a) => rawLower.includes(a));
+      if (matchesQuery) {
+        const prod = catalog.find((p) => {
+          const pLower = (p.name || p.itemTitle || '').toLowerCase();
+          return pLower.includes(group.stem) || group.alt.some((a) => pLower.includes(a));
+        });
+        if (prod) return prod;
+      }
+    }
+
+    return undefined;
+  };
+
+  // Backwards compatibility alias
+  const matchProductInCatalog = (name: string, mcodeOrSku?: string): Product | undefined => {
+    return findBestProductMatch(name, mcodeOrSku, products);
+  };
+
+  // ---------------------------------------------------------------------------
+  // WHOLESALE COMMODITY PACKAGING & WEIGHT CALCULATOR
+  // e.g. "SUGAR 50 KG IND", Qty 2 -> packageType: 'Bag', ctn: 2, qtyPerCtn: 50, qty: 100 kg
+  // e.g. "Sonamasoori Crown 18kg", Qty 4 -> packageType: 'Bag', ctn: 4, qtyPerCtn: 18, qty: 72 kg
+  // e.g. "INDIA QUEEN CHILLY POWDER 20KG BAG", Qty 1 -> packageType: 'Bag', ctn: 1, qtyPerCtn: 20, qty: 20 kg
+  // e.g. "Mala Black Tea 5 Kg * 2", Qty 5 -> packageType: 'Carton', ctn: 5, qtyPerCtn: 10, qty: 50 kg
+  // ---------------------------------------------------------------------------
+  const parseWholesalePackagingAndWeight = (
+    rawTitle: string,
+    rawQty: number,
+    rawPrice: number,
+    rawLineTotal: number,
+    rawCtn?: number,
+    rawQtyPerCtn?: number,
+    rawPackageType?: string,
+    rawUnit?: string,
+    matchedProduct?: Product
+  ) => {
+    const title = (rawTitle || '').trim();
+    const lower = title.toLowerCase();
+
+    // 1. Detect Package Type
+    let packageType = rawPackageType || 'Carton';
+    if (lower.includes('bag') || lower.includes('bori')) {
+      packageType = 'Bag';
+    } else if (lower.includes('tin') || lower.includes('can') || lower.includes('dabba')) {
+      packageType = 'Tin';
+    } else if (lower.includes('drum')) {
+      packageType = 'Drum';
+    } else if (lower.includes('box') || lower.includes('carton') || lower.includes('ctn')) {
+      packageType = lower.includes('box') ? 'Box' : 'Carton';
+    } else if (lower.includes('pack') || lower.includes('pkt')) {
+      packageType = 'Pack';
+    } else if (matchedProduct?.packageType) {
+      packageType = matchedProduct.packageType;
+    }
+
+    // 2. Detect Weight / Multiplier in Title
+    let detectedWeightPerPackage = 0;
+    let detectedUnit = 'KG';
+
+    // Pattern A: Multiplier e.g. "5 Kg * 2", "5kg x 2", "1 x 5kg", "10 x 1kg", "4 x 5L"
+    const multiplierMatch = title.match(/(\d+(?:\.\d+)?)\s*(?:kg|kilo|ltr|liter|litre|gm|g|l)?\s*[\*xX]\s*(\d+(?:\.\d+)?)\s*(?:kg|kilo|ltr|liter|litre|gm|g|l)?/i);
+    if (multiplierMatch && multiplierMatch[1] && multiplierMatch[2]) {
+      const val1 = parseFloat(multiplierMatch[1]);
+      const val2 = parseFloat(multiplierMatch[2]);
+      if (val1 > 0 && val2 > 0) {
+        detectedWeightPerPackage = val1 * val2;
+        detectedUnit = lower.includes('ltr') || lower.includes('liter') || lower.includes('litre') ? 'LTR' : 'KG';
+      }
+    }
+
+    // Pattern B: Direct weight e.g. "50 KG", "50kg", "18kg", "20KG", "10KG", "5KG", "25KG"
+    if (detectedWeightPerPackage <= 0) {
+      const weightMatch = title.match(/(\d+(?:\.\d+)?)\s*(kg|kgs|kilo|kilos)\b/i);
+      if (weightMatch && weightMatch[1]) {
+        detectedWeightPerPackage = parseFloat(weightMatch[1]);
+        detectedUnit = 'KG';
+        if (!rawPackageType && packageType === 'Carton') {
+          packageType = 'Bag';
+        }
+      }
+    }
+
+    // Pattern C: Liters e.g. "16 Liter", "16L", "5 Liter", "5L"
+    if (detectedWeightPerPackage <= 0) {
+      const literMatch = title.match(/(\d+(?:\.\d+)?)\s*(ltr|ltrs|liter|liters|litre|litres|l)\b/i);
+      if (literMatch && literMatch[1]) {
+        detectedWeightPerPackage = parseFloat(literMatch[1]);
+        detectedUnit = 'LTR';
+        if (!rawPackageType && packageType === 'Carton' && lower.includes('tin')) {
+          packageType = 'Tin';
+        }
+      }
+    }
+
+    // Pattern D: Grams e.g. "500gm", "800g"
+    if (detectedWeightPerPackage <= 0) {
+      const gmMatch = title.match(/(\d+(?:\.\d+)?)\s*(gm|gms|gram|grams)\b/i);
+      if (gmMatch && gmMatch[1]) {
+        detectedWeightPerPackage = parseFloat(gmMatch[1]);
+        detectedUnit = 'GM';
+      }
+    }
+
+    // 3. Resolve Carton Count (ctn), QtyPerCtn, and Total Quantity
+    let ctn = Number(rawCtn) || 0;
+    let qtyPerCtn = Number(rawQtyPerCtn) || (detectedWeightPerPackage > 0 ? detectedWeightPerPackage : (matchedProduct?.qtyInCarton || 1));
+    let looseExtra = 0;
+    let quantity = Number(rawQty) || 0;
+
+    if (detectedWeightPerPackage > 0) {
+      qtyPerCtn = detectedWeightPerPackage;
+      // On wholesale invoice, the raw Qty column represents cartons/bags count!
+      if (ctn <= 0) {
+        ctn = rawQty > 0 ? rawQty : 1;
+      }
+      quantity = ctn * qtyPerCtn;
+    } else if (matchedProduct && matchedProduct.qtyInCarton && matchedProduct.qtyInCarton > 1) {
+      qtyPerCtn = matchedProduct.qtyInCarton;
+      if (ctn <= 0 && rawQty > 0) {
+        ctn = rawQty;
+        quantity = ctn * qtyPerCtn;
+      }
+    } else if (ctn > 0 && qtyPerCtn > 1) {
+      quantity = ctn * qtyPerCtn;
+    } else if (quantity > 0 && ctn <= 0) {
+      ctn = quantity;
+      qtyPerCtn = 1;
+    } else if (quantity <= 0 && ctn <= 0) {
+      ctn = 1;
+      qtyPerCtn = 1;
+      quantity = 1;
+    }
+
+    // 4. Resolve Rates: Carton Rate vs Unit Price vs Total
+    let ratePerCtn = Number(rawPrice) || 0;
+    let price = 0;
+    let total = Number(rawLineTotal) || 0;
+
+    if (qtyPerCtn > 1) {
+      // Slip rate (e.g. 122 for 50kg bag) is ratePerCtn
+      if (ratePerCtn > 0) {
+        price = Number((ratePerCtn / qtyPerCtn).toFixed(2));
+      }
+      if (total <= 0) {
+        total = Number((ctn * ratePerCtn).toFixed(2));
+      }
+    } else {
+      price = ratePerCtn;
+      if (total <= 0) {
+        total = Number((quantity * price).toFixed(2));
+      }
+    }
+
+    const finalUnit = rawUnit ? rawUnit.toUpperCase() : detectedUnit;
+
+    return {
+      cleanTitle: title,
+      packageType,
+      ctn,
+      qtyPerCtn,
+      looseExtra,
+      quantity,
+      unit: finalUnit,
+      ratePerCtn,
+      price,
+      total,
+    };
   };
 
   // Generate unique code for brand new stock
@@ -547,72 +767,23 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
         }
       }
 
-      // Items parsing with SKU detection vs generation, cartons, pieces, loose extra kg, and sale price
+      // Items parsing with wholesale packaging intelligence (Bags, Cartons, Weights, loose extra kg)
       const rows: OCRItemRow[] = (result.items || []).map((it: any, idx: number) => {
-        const itemName = (it.itemTitle || it.name || `Item ${idx + 1}`).trim();
-        const matched = matchProductInCatalog(itemName, it.mcode);
+        const rawName = (it.itemTitle || it.name || `Item ${idx + 1}`).trim();
+        const matched = findBestProductMatch(rawName, it.mcode, products);
 
-        const catalogQtyPerCtn = (matched && matched.qtyInCarton && matched.qtyInCarton > 0)
-          ? matched.qtyInCarton
-          : undefined;
+        const packaging = parseWholesalePackagingAndWeight(
+          rawName,
+          Number(it.quantity) || 0,
+          Number(it.price || it.rate) || 0,
+          Number(it.totalAmount || it.amount || it.total || it.purchaseCost) || 0,
+          Number(it.ctn) || 0,
+          Number(it.qtyPerCtn) || 0,
+          it.packageType,
+          it.unit,
+          matched
+        );
 
-        let ctn = Number(it.ctn) || 0;
-        let qtyPerCtn = Number(it.qtyPerCtn) || catalogQtyPerCtn || (ctn > 0 ? Math.round((Number(it.quantity) || 1) / ctn) || 1 : 1);
-        let looseExtra = Number((it as any).extraKg || (it as any).pcs || (it as any).looseExtra) || 0;
-
-        let qty = Number(it.quantity) || 0;
-        if (ctn > 0 && qty <= 0) {
-          qty = (ctn * qtyPerCtn) + looseExtra;
-        } else if (qty > 0 && ctn <= 0 && qtyPerCtn > 1) {
-          ctn = Math.floor(qty / qtyPerCtn);
-          looseExtra = Number((qty % qtyPerCtn).toFixed(2));
-        } else if (qty <= 0 && ctn <= 0) {
-          qty = 1;
-        }
-
-        let ratePerCtn = Number(it.ratePerCtn) || 0;
-        let rate = Number(it.price || it.rate) || 0;
-        let lineTotal = Number(it.totalAmount || it.amount || it.total || it.purchaseCost) || 0;
-
-        const isLumpSum =
-          it.unit?.toUpperCase() === 'LUMP_SUM' ||
-          (!ctn && !it.ratePerCtn && lineTotal > 0 && rate <= 0 && qty <= 1);
-
-        if (isLumpSum) {
-          qty = 1;
-          if (lineTotal > 0 && rate <= 0) rate = lineTotal;
-        } else {
-          // If carton rate given but piece rate not, derive piece rate
-          if (ratePerCtn > 0 && rate <= 0 && qtyPerCtn > 0) {
-            rate = Number((ratePerCtn / qtyPerCtn).toFixed(2));
-          }
-          // If piece rate given but carton rate not, derive carton rate
-          if (rate > 0 && ratePerCtn <= 0 && qtyPerCtn > 1) {
-            ratePerCtn = Number((rate * qtyPerCtn).toFixed(2));
-          }
-          // Calculate line total
-          if (lineTotal <= 0) {
-            if (ctn > 0 && ratePerCtn > 0) {
-              lineTotal = Number(((ctn * ratePerCtn) + (looseExtra * rate)).toFixed(2));
-            } else if (rate > 0 && qty > 0) {
-              lineTotal = Number((rate * qty).toFixed(2));
-            }
-          }
-        }
-
-        // Sale bill specific: if slip had no price, apply matched catalog selling price!
-        if (ocrMode === 'sale' && rate <= 0 && matched) {
-          rate = matched.sellingPrice || 0;
-          if (qtyPerCtn > 1) ratePerCtn = Number((rate * qtyPerCtn).toFixed(2));
-          lineTotal = Number((qty * rate).toFixed(2));
-        }
-
-        // Purchase bill sale price suggestion (pre-filled from existing product or 20% margin default)
-        const salePrice =
-          it.salePrice ||
-          (matched ? matched.sellingPrice : rate > 0 ? Math.round(rate * 1.2) : 0);
-
-        // SKU / M-Code: existing detection vs new generation
         let mcode = '';
         let isNewItem = false;
         if (matched) {
@@ -623,39 +794,44 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
           isNewItem = true;
         }
 
-        const category = it.category || (matched ? matched.category : mapToProductCategory(itemName));
-        const unit = isLumpSum ? 'LUMP_SUM' : normalizeUnit(it.unit || (matched ? matched.unit : ctn > 0 ? 'CTN' : 'KG'));
-        const packageType = it.packageType || matched?.packageType || (
-          `${category} ${unit} ${itemName}`.toLowerCase().includes('bag') ? 'Bag' :
-          `${category} ${unit} ${itemName}`.toLowerCase().includes('box') ? 'Box' :
-          `${category} ${unit} ${itemName}`.toLowerCase().includes('tin') ? 'Tin' :
-          `${category} ${unit} ${itemName}`.toLowerCase().includes('pack') ? 'Pack' :
-          'Carton'
-        );
+        const category = it.category || (matched ? matched.category : mapToProductCategory(rawName));
+        const salePrice =
+          it.salePrice ||
+          (matched ? (matched.sellingPrice || matched.salePrice || 0) : packaging.price > 0 ? Math.round(packaging.price * 1.2) : 0);
 
         const existingStock = matched ? (matched.totalStock !== undefined ? matched.totalStock : matched.currentQuantity) : undefined;
-        const existingCtn = matched ? (matched.carton !== undefined ? matched.carton : (qtyPerCtn > 1 && existingStock !== undefined ? Math.floor(existingStock / qtyPerCtn) : undefined)) : undefined;
-        const existingExtraKg = matched ? (matched.extraKg !== undefined ? matched.extraKg : (qtyPerCtn > 1 && existingStock !== undefined ? Number((existingStock % qtyPerCtn).toFixed(2)) : undefined)) : undefined;
+        const existingCtn = matched ? (matched.carton !== undefined ? matched.carton : (packaging.qtyPerCtn > 1 && existingStock !== undefined ? Math.floor(existingStock / packaging.qtyPerCtn) : undefined)) : undefined;
+        const existingExtraKg = matched ? (matched.extraKg !== undefined ? matched.extraKg : (packaging.qtyPerCtn > 1 && existingStock !== undefined ? Number((existingStock % packaging.qtyPerCtn).toFixed(2)) : undefined)) : undefined;
+
+        // Sale bill specific: if slip had no price, apply matched catalog selling price!
+        let finalRate = packaging.price;
+        let finalRatePerCtn = packaging.ratePerCtn;
+        let finalTotal = packaging.total;
+        if (ocrMode === 'sale' && finalRate <= 0 && matched) {
+          finalRate = matched.sellingPrice || 0;
+          if (packaging.qtyPerCtn > 1) finalRatePerCtn = Number((finalRate * packaging.qtyPerCtn).toFixed(2));
+          finalTotal = Number((packaging.quantity * finalRate).toFixed(2));
+        }
 
         return {
           id: it.id || `ocr-item-${Date.now()}-${idx + 1}`,
           selected: true,
-          name: matched ? matched.name : itemName,
+          name: matched ? (matched.name || matched.itemTitle || rawName) : packaging.cleanTitle,
           mcode,
           isNewItem,
           category,
-          packageType,
-          ctn,
-          qtyPerCtn,
-          looseExtra,
-          quantity: qty,
-          unit,
-          isLumpSum,
-          ratePerCtn,
-          price: rate,
+          packageType: packaging.packageType,
+          ctn: packaging.ctn,
+          qtyPerCtn: packaging.qtyPerCtn,
+          looseExtra: packaging.looseExtra,
+          quantity: packaging.quantity,
+          unit: packaging.unit,
+          isLumpSum: false,
+          ratePerCtn: finalRatePerCtn,
+          price: finalRate,
           salePrice,
-          total: lineTotal,
-          confidence: it.confidence || 0.9,
+          total: finalTotal,
+          confidence: it.confidence || 0.95,
           matchedProductId: matched ? matched.id : undefined,
           existingStock,
           existingCtn,
@@ -701,7 +877,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
 
         // Match against catalog if user edits name
         if (field === 'name') {
-          const m = matchProductInCatalog(String(value));
+          const m = findBestProductMatch(String(value), updated.mcode, products);
           if (m) {
             updated.matchedProductId = m.id;
             updated.existingStock = m.totalStock !== undefined ? m.totalStock : m.currentQuantity;
@@ -709,6 +885,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
             updated.isNewItem = false;
             if (m.category) updated.category = m.category;
             if (m.sellingPrice) updated.salePrice = m.sellingPrice;
+            if (m.packageType) updated.packageType = m.packageType;
             if (m.qtyInCarton && m.qtyInCarton > 0) {
               updated.qtyPerCtn = m.qtyInCarton;
               if (updated.ctn > 0) {
@@ -728,14 +905,14 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
           const c = Number(field === 'ctn' ? value : updated.ctn) || 0;
           const qpc = Number(field === 'qtyPerCtn' ? value : updated.qtyPerCtn) || 1;
           const extra = Number(field === 'looseExtra' ? value : updated.looseExtra) || 0;
-          if (c > 0 || extra > 0) {
-            updated.quantity = (c * qpc) + extra;
-          }
+          updated.quantity = (c * qpc) + extra;
+
           if (updated.ratePerCtn > 0) {
             const pieceRate = qpc > 0 ? updated.ratePerCtn / qpc : 0;
+            updated.price = Number(pieceRate.toFixed(2));
             updated.total = Number(((c * updated.ratePerCtn) + (extra * pieceRate)).toFixed(2));
-            if (qpc > 0) updated.price = Number(pieceRate.toFixed(2));
           } else if (updated.price > 0) {
+            updated.ratePerCtn = Number((updated.price * qpc).toFixed(2));
             updated.total = Number((updated.quantity * updated.price).toFixed(2));
           }
         } else if (field === 'ratePerCtn') {
@@ -744,23 +921,27 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
           const qpc = Number(updated.qtyPerCtn) || 1;
           const extra = Number(updated.looseExtra) || 0;
           const pieceRate = qpc > 0 ? rpc / qpc : 0;
-          if (c > 0 || extra > 0) {
-            updated.total = Number(((c * rpc) + (extra * pieceRate)).toFixed(2));
-          }
-          if (qpc > 0) {
-            updated.price = Number(pieceRate.toFixed(2));
-          }
-        } else if (field === 'price' || field === 'quantity') {
-          const q = Number(field === 'quantity' ? value : updated.quantity) || 0;
-          const p = Number(field === 'price' ? value : updated.price) || 0;
+          updated.price = Number(pieceRate.toFixed(2));
+          updated.total = Number(((c * rpc) + (extra * pieceRate)).toFixed(2));
+        } else if (field === 'price') {
+          const p = Number(value) || 0;
+          const qpc = Number(updated.qtyPerCtn) || 1;
+          updated.ratePerCtn = Number((p * qpc).toFixed(2));
+          updated.total = Number((updated.quantity * p).toFixed(2));
+        } else if (field === 'quantity') {
+          const q = Number(value) || 0;
+          const p = Number(updated.price) || 0;
           updated.total = Number((q * p).toFixed(2));
-          if (field === 'price' && updated.qtyPerCtn > 1 && (!updated.ratePerCtn || updated.ratePerCtn <= 0)) {
-            updated.ratePerCtn = Number((p * updated.qtyPerCtn).toFixed(2));
-          }
         } else if (field === 'total') {
           const t = Number(value) || 0;
           const q = Number(updated.quantity) || 1;
-          if (q > 0) updated.price = Number((t / q).toFixed(2));
+          const qpc = Number(updated.qtyPerCtn) || 1;
+          if (q > 0) {
+            updated.price = Number((t / q).toFixed(2));
+            if (qpc > 0) {
+              updated.ratePerCtn = Number((updated.price * qpc).toFixed(2));
+            }
+          }
         }
 
         return updated;
@@ -1535,56 +1716,82 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
               {/* SECTION A: PURCHASE BILL DETAILS (ONLY SHOWN IN PURCHASE MODE) */}
               {/* ------------------------------------------------------------- */}
               {ocrMode === 'purchase' && (
-                <div className="bg-slate-900 border border-emerald-900/60 rounded-2xl p-4 space-y-4">
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-800 flex-wrap gap-2">
+                <div className="bg-slate-900 border border-emerald-900/60 rounded-2xl p-4.5 space-y-4 shadow-xl">
+                  {/* Supplier Header & Match Status */}
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-800 flex-wrap gap-2">
                     <div className="flex items-center gap-2">
                       <Truck className="w-4 h-4 text-emerald-400" />
-                      <span className="font-bold text-xs text-white">
-                        Supplier Verification &amp; Khata (سپلائر تصدیق اور پچھلا کھاتہ)
+                      <span className="font-extrabold text-xs text-white">
+                        Supplier Khata &amp; Verification (سپلائر تصدیق اور پرانا / نیا حساب)
                       </span>
                     </div>
                     {selectedSupplier ? (
-                      <span className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-                        <Check className="w-3 h-3" />
-                        System Matched Supplier: [{selectedSupplier.code || 'Registered'}] {selectedSupplier.title}
+                      <span className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1 font-mono">
+                        <Check className="w-3 h-3 text-emerald-400" />
+                        Matched: [{selectedSupplier.code || 'SUP'}] {selectedSupplier.title}
                       </span>
                     ) : (
-                      <span className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                        ✨ New Supplier (System me naya create ho ga)
+                      <span className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-amber-400" />
+                        ✨ New Supplier (سسٹم میں نیا سپلائر خودکار بن جائے گا)
                       </span>
                     )}
                   </div>
 
+                  {/* Supplier Info & Bill Meta Inputs */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <div className="sm:col-span-2">
-                      <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                        Supplier Name / Account Title:
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] font-bold text-slate-300">
+                          Supplier Name / Header Title (سپلائر کا نام):
+                        </label>
+                        {suppliers && suppliers.length > 0 && (
+                          <span className="text-[10px] text-slate-400">یا نیچے لسٹ سے منتخب کریں</span>
+                        )}
+                      </div>
                       <input
                         type="text"
                         value={supplierName}
                         onChange={(e) => setSupplierName(e.target.value)}
-                        placeholder="e.g. Badami Bagh Sabzi Mandi / Haji Traders"
-                        className={`w-full px-3 py-2 bg-slate-950 rounded-xl border text-xs text-white outline-none focus:ring-1 focus:ring-emerald-500 ${
+                        placeholder="e.g. Sands General Trading / Glams International"
+                        className={`w-full px-3 py-2 bg-slate-950 rounded-xl border text-xs text-white outline-none focus:ring-1 focus:ring-emerald-500 font-semibold ${
                           !supplierName.trim() ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-700'
                         }`}
                       />
-                      {!supplierName.trim() && (
-                        <span className="text-[10px] text-rose-400 font-bold block mt-1">
-                          ⚠️ Report k liye supplier name laazmi hai
-                        </span>
+                      {suppliers && suppliers.length > 0 && (
+                        <select
+                          value={selectedSupplierId}
+                          onChange={(e) => {
+                            const supId = e.target.value;
+                            setSelectedSupplierId(supId);
+                            const found = (suppliers || []).find((s) => s.id === supId);
+                            if (found) {
+                              setSelectedSupplier(found);
+                              setSupplierName(found.accountTitle || found.title || found.name);
+                            }
+                          }}
+                          className="mt-1.5 w-full px-3 py-1.5 bg-slate-950 rounded-xl border border-slate-800 text-[11px] text-slate-300 outline-none focus:ring-1 focus:ring-emerald-500"
+                        >
+                          <option value="">-- Ya Registered Supplier Khata Select Karein --</option>
+                          {(suppliers || []).map((s) => (
+                            <option key={s.id} value={s.id}>
+                              [{s.code || 'SUP'}] {s.accountTitle || s.title} &bull; Sabqa Baqaya: {currencySymbol()}{' '}
+                              {(s.payableToSupplier !== undefined ? s.payableToSupplier : (s as any).balance || 0).toLocaleString()}
+                            </option>
+                          ))}
+                        </select>
                       )}
                     </div>
 
                     <div>
                       <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                        Bill / Bilty #:
+                        Bill / Invoice / Bilty #:
                       </label>
                       <input
                         type="text"
                         value={billNumber}
                         onChange={(e) => setBillNumber(e.target.value)}
-                        placeholder="Auto-generated if blank"
+                        placeholder="e.g. 5240 (Auto if blank)"
                         className="w-full px-3 py-2 bg-slate-950 rounded-xl border border-slate-700 text-xs text-white font-mono"
                       />
                     </div>
@@ -1602,58 +1809,114 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Financial Computation Grid for Supplier Khata */}
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs">
-                    <div>
-                      <span className="text-[10px] text-slate-400 block uppercase">
-                        Previous Payable (پچھلا بقایا)
-                      </span>
-                      <span className="font-mono font-bold text-amber-400 text-sm mt-0.5 block">
+                  {/* 5 FINANCIAL COMPUTATION CARDS: Purana Hisab, Naya Hisab, Kul Payable, Kitna Pay Kiya, Baqaya Khata */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs">
+                    {/* Card 1: Purana Hisab (Previous Balance) */}
+                    <div className="bg-amber-950/20 border border-amber-800/40 p-2.5 rounded-xl">
+                      <div className="flex items-center justify-between text-amber-400 mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider">1. Purana Hisab</span>
+                        <History className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="text-[10px] text-slate-400 block">سابقة بقایا (Sabqa):</span>
+                      <span className="font-mono font-extrabold text-amber-300 text-base mt-0.5 block">
                         {currencySymbol()} {supplierPrevPayable.toLocaleString()}
                       </span>
                     </div>
 
-                    <div>
-                      <span className="text-[10px] text-slate-400 block uppercase">
-                        Current Bill (موجودہ بل)
-                      </span>
-                      <span className="font-mono font-bold text-emerald-400 text-sm mt-0.5 block">
+                    {/* Card 2: Naya Hisab (Current Bill Total) */}
+                    <div className="bg-indigo-950/20 border border-indigo-800/40 p-2.5 rounded-xl">
+                      <div className="flex items-center justify-between text-indigo-400 mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider">2. Naya Hisab</span>
+                        <FileText className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="text-[10px] text-slate-400 block">موجودہ بل (Bill Total):</span>
+                      <span className="font-mono font-extrabold text-indigo-300 text-base mt-0.5 block">
                         + {currencySymbol()} {displayTotal.toLocaleString()}
                       </span>
                     </div>
 
-                    <div>
-                      <span className="text-[10px] text-slate-400 block uppercase">
-                        Current Paid (ادا رقم)
+                    {/* Card 3: Kul Payable (Total Payable) */}
+                    <div className="bg-purple-950/20 border border-purple-800/40 p-2.5 rounded-xl">
+                      <div className="flex items-center justify-between text-purple-400 mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider">3. Kul Payable</span>
+                        <Calculator className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="text-[10px] text-slate-400 block">کل واجب الادا:</span>
+                      <span className="font-mono font-extrabold text-purple-300 text-base mt-0.5 block">
+                        = {currencySymbol()} {(supplierPrevPayable + displayTotal).toLocaleString()}
                       </span>
+                    </div>
+
+                    {/* Card 4: Kitna Pay Kiya (Amount Paid) */}
+                    <div className="bg-emerald-950/25 border border-emerald-700/50 p-2.5 rounded-xl">
+                      <div className="flex items-center justify-between text-emerald-400 mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider">4. Kitna Pay Kiya</span>
+                        <Banknote className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="text-[10px] text-slate-400 block">ادا شدہ رقم (Paid):</span>
                       <input
                         type="number"
                         min="0"
+                        step="any"
                         value={isCashPurchase ? displayTotal : purchasePaidAmount}
                         disabled={isCashPurchase}
                         onChange={(e) => setPurchasePaidAmount(Number(e.target.value) || 0)}
-                        className="w-full px-2 py-0.5 bg-slate-900 border border-slate-700 rounded text-xs text-white font-mono mt-0.5"
+                        className="w-full px-2 py-1 bg-slate-900 border border-emerald-500/70 rounded text-xs text-emerald-300 font-mono font-bold mt-1 outline-none"
                       />
+                      {/* Quick 1-Click Action Buttons */}
+                      <div className="flex items-center gap-1 mt-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsCashPurchase(false);
+                            setPurchasePaidAmount(supplierPrevPayable + displayTotal);
+                          }}
+                          className="px-1.5 py-0.5 bg-emerald-900/60 hover:bg-emerald-800 text-[9px] text-emerald-200 font-bold rounded cursor-pointer transition"
+                          title="Set full payable as paid"
+                        >
+                          Full
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsCashPurchase(false);
+                            setPurchasePaidAmount(displayTotal);
+                          }}
+                          className="px-1.5 py-0.5 bg-indigo-900/60 hover:bg-indigo-800 text-[9px] text-indigo-200 font-bold rounded cursor-pointer transition"
+                          title="Set only current bill as paid"
+                        >
+                          Bill
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsCashPurchase(false);
+                            setPurchasePaidAmount(0);
+                          }}
+                          className="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-[9px] text-slate-300 font-bold rounded cursor-pointer transition"
+                          title="Set 0 (Unpaid / Udhaar)"
+                        >
+                          Udhaar
+                        </button>
+                      </div>
                     </div>
 
-                    <div>
-                      <span className="text-[10px] text-slate-400 block uppercase">
-                        Bill Balance (بل کا بقایا)
-                      </span>
-                      <span className="font-mono font-bold text-orange-400 text-sm mt-0.5 block">
-                        = {currencySymbol()}{' '}
-                        {isCashPurchase
-                          ? 0
-                          : Math.max(0, displayTotal - purchasePaidAmount).toLocaleString()}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="text-[10px] text-slate-400 block uppercase">
-                        New Total Payable (نیا کل بقایا)
-                      </span>
-                      <span className="font-mono font-bold text-rose-400 text-sm mt-0.5 block">
+                    {/* Card 5: Baqaya Khata (Remaining Balance) */}
+                    <div className="bg-rose-950/20 border border-rose-800/40 p-2.5 rounded-xl">
+                      <div className="flex items-center justify-between text-rose-400 mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider">5. Baqaya Khata</span>
+                        <Wallet className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="text-[10px] text-slate-400 block">باقی کھاتہ (Closing):</span>
+                      <span className="font-mono font-extrabold text-rose-300 text-base mt-0.5 block">
                         = {currencySymbol()} {newSupplierPayable.toLocaleString()}
+                      </span>
+                      <span className="text-[9px] font-bold text-slate-400 block mt-1">
+                        {newSupplierPayable === 0 ? (
+                          <span className="text-emerald-400">✓ All Cleared (بیباق)</span>
+                        ) : (
+                          <span className="text-amber-400">⚠️ Udhaar Baqi</span>
+                        )}
                       </span>
                     </div>
                   </div>
@@ -2322,11 +2585,29 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                             </button>
                           </div>
 
-                          {/* Measurement & Rates Row: Cartons, Qty/Ctn, Extra Loose, Quantity, Unit, Rate/Ctn, Rate/Piece, Sale Price, Total */}
+                          {/* Measurement & Rates Row: Package Type, Cartons, Qty/Ctn, Extra Loose, Quantity, Unit, Rate/Ctn, Rate/Piece, Sale Price, Total */}
                           <div className="flex items-center gap-3 flex-wrap pl-6 text-slate-300">
+                            {/* Package Type */}
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-emerald-400 font-bold">Pkg:</span>
+                              <select
+                                value={item.packageType || 'Carton'}
+                                onChange={(e) => handleUpdateItemField(index, 'packageType', e.target.value)}
+                                className="px-1.5 py-1 text-xs bg-slate-950 rounded-lg text-emerald-300 font-semibold border border-slate-700 outline-none"
+                              >
+                                <option value="Bag">Bag (بوری)</option>
+                                <option value="Carton">Carton (کارٹن)</option>
+                                <option value="Tin">Tin (ٹین)</option>
+                                <option value="Box">Box (ڈبہ)</option>
+                                <option value="Pack">Pack (پیکٹ)</option>
+                                <option value="Drum">Drum (ڈرم)</option>
+                                <option value="Single">Single / Kg</option>
+                              </select>
+                            </div>
+
                             {/* Cartons */}
                             <div className="flex items-center gap-1">
-                              <span className="text-[10px] text-slate-400 font-medium">Ctns (کارٹن):</span>
+                              <span className="text-[10px] text-slate-400 font-medium">Ctns (کارٹن/بوری):</span>
                               <input
                                 type="number"
                                 min="0"
@@ -2496,6 +2777,18 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                                     {item.unit})
                                   </span>
                                 )}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* New Item Stock Intake Information Badge */}
+                          {item.isNewItem && (
+                            <div className="pl-6 pt-1 flex items-center gap-2 flex-wrap text-[11px]">
+                              <span className="px-2 py-0.5 rounded bg-sky-950/60 text-sky-300 border border-sky-800/60 font-semibold flex items-center gap-1.5">
+                                <Sparkles className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                                <span>
+                                  ✨ Nayi Product (New Item): Catalog me shamil ho gi (SKU: <strong className="font-mono text-white">{item.mcode}</strong>, Stock: <strong className="text-white">+{item.quantity} {item.unit}</strong>, Sale Rate: <strong className="text-white">{currencySymbol()} {item.salePrice || 0}</strong>)
+                                </span>
                               </span>
                             </div>
                           )}

@@ -2504,25 +2504,141 @@ export async function parseDocumentImage(
   const specializedInstructions = isPurchase
     ? `SPECIALIZED MODE: SUPPLIER PURCHASE BILL & STOCK INTAKE (اسٹاک / پرچیز بل)
 CRITICAL INSTRUCTIONS FOR PURCHASE BILL:
-1. Identify the Supplier / Vendor Name accurately (e.g., Mandi commission agent, rice mill, wholesale trader, distributor):
-   - CRITICAL UAE / GULF WHOLESALE TAX INVOICE RULE: The Supplier / Vendor is ALWAYS the header company printed at the very top (company letterhead, logo, seller TRN at top) - e.g. "GLAMS INTERNATIONAL GENERAL TRADING LLC", "AL RAFAH FOODSTUFF TRADING L.L.C", "AL ARABAH FLOUR MILL LLC", etc.
-   - The party printed under "Customer / Buyer / Bill To / M/s" (e.g. "ZAHRAT AL FAJR FOODSTUFF TR LLC") is the BUYER (the client enterprise receiving goods). NEVER report the buyer as supplierName! Always set supplierName to the header company at the top!
-2. Check for Previous Payable Balance (Sabqa Baqaya / پچھلا بقایا / Balance B/F / Prev Bal) if written or printed on the bill (e.g., "3580.75" on invoice).
-3. Detect Cash Paid Amount (Wasool / Naqad Ada / ادا رقم / Advance / handwritten "Paid", "Paid - 1217", "Ashiq Paid", "pushpa Paid"):
-   - If handwritten "Paid" or "Paid - XXX" or "[Person] Paid" is written on the invoice, mark isCash=true and paidAmount=amount paid (or full invoice total if no separate amount specified). Also note payer in notes (e.g., "Ashiq Paid" or "pushpa Paid").
-4. Detect the Grand Total on the bill (Total / Net Amount).
-5. Detect Each Item's Detailed Measurement Breakdown:
-   - Item Name: Clean, standardized wholesale title (e.g., "Mala Black Tea 24x400g", "VEAL CUBE GOLDEN FRESH", "Red Chilly Crushed 5kg", "Khaleej Sugar 50kg", "Sonamasoori Rice 35kg", "Green Tea 5kg", "Indomie Noodles").
-   - Category: Auto-assign wholesale category (Tea & Coffee, Rice & Grains, Pulses & Daal, Flour & Atta, Cooking Oil & Ghee, Spices & Masala, Sugar & Sweeteners, Meat & Poultry, Dairy, Noodles & Pasta, Vegetables & Fresh, Packaging & Containers, Cleaning & Hygiene, Kitchen Supplies).
-   - M-Code / SKU if written on the slip.
-   - Cartons (ctn): Carton / bori count if specified.
-   - Qty per Carton (qtyPerCtn): Units inside 1 carton (e.g. 12 bottles, 24 packs, 4 tins).
-   - Rate per Carton (ratePerCtn): Purchase rate per carton if specified.
-   - Rate per Piece (price): Purchase rate per unit / piece if specified.
-   - CRITICAL: If BOTH rate per carton and rate per piece are written, extract BOTH!
-   - Non-carton / Lump Sum Stock: If an item has NO carton or measurement, but only a stock amount / lump sum cost, set unit='LUMP_SUM', quantity=1, price=amount, purchaseCost=amount.
-   - Line Total: Total line cost (purchaseCost).
-   - Sale Price (salePrice): If sale price / selling rate is mentioned on the slip for this item, extract it.`
+1. Identify the Supplier / Vendor Name accurately:
+   - CRITICAL UAE / GULF WHOLESALE TAX INVOICE RULE: The Supplier / Vendor is ALWAYS the header company printed at the very top (company letterhead, logo, seller TRN at top) - e.g. "GLAMS INTERNATIONAL GENERAL TRADING LLC", "SANDS GENERAL TRADING L.L.C" (SANDS MILL), "AL RAFAH FOODSTUFF TRADING L.L.C", "AL ARABAH FLOUR MILL LLC", etc.
+   - The party printed under "Customer / Buyer / Bill To / M/s" (e.g. "ZAHRAT AL FAJR FOODSTUFF TR LLC" or "ZAHRATH AL FAJR FOODSTUFF") is ALWAYS the BUYER (the client enterprise receiving goods). NEVER report the buyer as supplierName! Always set supplierName to the header company at the top!
+   - Extract supplier TRN (e.g., 100346610700003, 100028847900003, 100002214300003, 100333797700003, 100007670100003).
+
+2. Check for Previous Balance (Sabqa Baqaya / پچھلا بقایا / Purana Hisab / Previous Balance / Balance B/F / Prev Bal):
+   - Look at the bottom summary table or header for printed previous balance (e.g., "Previous Balance: 3,580.75" on invoice). Extract this into previousBalance and previousPayable.
+
+3. Detect Cash Paid Amount & Handwritten Notes (Wasool / Naqad Ada / ادا رقم / handwritten "Paid", "Paid - 1217", "Ashiq Paid", "Pushpa Paid", "Paid"):
+   - Inspect handwritten notes at the bottom or over the invoice:
+     - If handwritten "paid - 1217/-" or "Ashiq Paid" is written, extract paidAmount = 1217.00, isCash = true, notes = "Ashiq Paid".
+     - If handwritten "Pushpa Paid" or "Paid" is written, extract paidAmount = invoice total (or specific amount), isCash = true, notes = "Pushpa Paid".
+     - If stamped or written "Paid", mark isCash = true and paidAmount = invoice grand total.
+     - If handwritten "Added" without paid, mark isCash = false and paidAmount = 0.
+
+4. Detect the Grand Total on the bill (Total / Net Amount / Total Incl VAT).
+
+5. CRITICAL WHOLESALE COMMODITY PACKAGING & WEIGHT INTELLIGENCE (دُنیا کا سب سے بہترین وزن اور کارٹن کیلکولیشن):
+   In wholesale food supply, goods are sold in Bags (بوریاں), Cartons (کارٹن), Tins (ٹین), Boxes (ڈبے), or Packs (پیکٹ).
+   Extract and calculate according to the manual ERP fields:
+   - Packaging (packageType): 'Bag', 'Carton', 'Tin', 'Box', 'Pack', 'Kg', 'Single'.
+   - Quantity inside package (qtyPerCtn / qtyInCarton): The weight or units inside ONE bag/carton!
+   - Cartons / Bags count (ctn): The number of bags/cartons purchased.
+   - Total Base Quantity (quantity): Total units or total kg = (ctn * qtyPerCtn).
+   - Rate per Bag/Carton (ratePerCtn): The price per bag/carton on the invoice.
+   - Unit Rate (price): The price per kg or piece = (ratePerCtn / qtyPerCtn).
+   - Line Total: The total line amount.
+
+   REAL EXAMPLES FROM WHOLESALE SLIPS:
+   a) "SUGAR 50 KG IND" with Qty 2.00, Unit PCS, Price 122.00, Total 244.00:
+      - Name: "Sugar 50kg Ind"
+      - Category: "Sugar & Sweeteners"
+      - PackageType: "Bag"
+      - qtyPerCtn: 50 (50 kg inside each bag)
+      - ctn: 2 (2 bags of 50 kg)
+      - quantity: 100 (2 * 50 = 100 kg total sugar)
+      - unit: "KG"
+      - ratePerCtn: 122.00 (price for one 50kg bag)
+      - price: 2.44 (122 / 50 = 2.44 per kg)
+      - purchaseCost: 244.00
+
+   b) "Khaleej Sugar 50kg" Packing "bag", Qty 1.00, Unit Price 123.00:
+      - Name: "Khaleej Sugar 50kg"
+      - Category: "Sugar & Sweeteners"
+      - PackageType: "Bag"
+      - qtyPerCtn: 50
+      - ctn: 1
+      - quantity: 50 (kg)
+      - unit: "KG"
+      - ratePerCtn: 123.00
+      - price: 2.46 (123 / 50)
+      - purchaseCost: 123.00
+
+   c) "Sonamasoori Crown 18kg" Packing "bag", Qty 4.00, Unit Price 62.00:
+      - Name: "Sonamasoori Crown 18kg"
+      - Category: "Rice & Grains"
+      - PackageType: "Bag"
+      - qtyPerCtn: 18
+      - ctn: 4 (4 bags)
+      - quantity: 72 (4 * 18 = 72 kg)
+      - unit: "KG"
+      - ratePerCtn: 62.00
+      - price: 3.44 (62 / 18)
+      - purchaseCost: 248.00
+
+   d) "Mala Black Tea 5 Kg * 2" Qty 5.00 Ctn, Unit Ctn, Price 116.00:
+      - Name: "Mala Black Tea 5 Kg * 2"
+      - Category: "Tea & Coffee"
+      - PackageType: "Carton"
+      - qtyPerCtn: 10 (5 kg * 2 = 10 kg per carton)
+      - ctn: 5 (5 cartons)
+      - quantity: 50 (5 * 10 = 50 kg)
+      - unit: "KG"
+      - ratePerCtn: 116.00
+      - price: 11.60 (116 / 10)
+      - purchaseCost: 580.00
+
+   e) "INDIA QUEEN CHILLY POWDER 20KG BAG" Qty 1.00 BAG, Price 270.00:
+      - Name: "India Queen Chilly Powder 20kg Bag"
+      - Category: "Spices & Masala"
+      - PackageType: "Bag"
+      - qtyPerCtn: 20
+      - ctn: 1
+      - quantity: 20
+      - unit: "KG"
+      - ratePerCtn: 270.00
+      - price: 13.50 (270 / 20)
+      - purchaseCost: 270.00
+
+   f) "Cooking Oil Tin" Qty 8.00 pcs, Unit Price 89.52:
+      - Name: "Cooking Oil Tin"
+      - Category: "Cooking Oil & Ghee"
+      - PackageType: "Tin"
+      - qtyPerCtn: 1
+      - ctn: 8
+      - quantity: 8
+      - unit: "TIN"
+      - ratePerCtn: 89.52
+      - price: 89.52
+      - purchaseCost: 716.16
+
+   g) "Alokozay Green Tea (100bags inside)" Qty 1.00 pcs, Unit Price 11.00:
+      - Name: "Alokozay Green Tea (100bags inside)"
+      - Category: "Tea & Coffee"
+      - PackageType: "Box"
+      - qtyPerCtn: 100
+      - ctn: 1
+      - quantity: 100
+      - unit: "PCS"
+      - ratePerCtn: 11.00
+      - price: 0.11
+      - purchaseCost: 11.00
+
+   h) "12470 VEAL CUBE GOLDEN FRESH" Qty 1, Rate 285.00:
+      - mcode: "12470"
+      - Name: "Veal Cube Golden Fresh"
+      - Category: "Meat & Poultry"
+      - PackageType: "Carton"
+      - qtyPerCtn: 1
+      - ctn: 1
+      - quantity: 1
+      - unit: "BOX"
+      - price: 285.00
+      - purchaseCost: 285.00
+
+   i) "Red Chilly Long Per Kg" Qty 2.00 kg, Unit Price 21.00:
+      - Name: "Red Chilly Long Per Kg"
+      - Category: "Spices & Masala"
+      - PackageType: "Kg"
+      - qtyPerCtn: 1
+      - ctn: 0
+      - quantity: 2
+      - unit: "KG"
+      - price: 21.00
+      - purchaseCost: 42.00`
     : isSale
     ? `SPECIALIZED MODE: CUSTOMER SALE BILL & DELIVERY MEMO (سیل بل / کسٹمر بل)
 CRITICAL INSTRUCTIONS FOR SALE BILL:
@@ -2642,6 +2758,7 @@ Output JSON strictly adhering to schema.
                     name: { type: Type.STRING },
                     category: { type: Type.STRING },
                     mcode: { type: Type.STRING },
+                    packageType: { type: Type.STRING, description: 'Bag, Carton, Tin, Box, Pack, Kg, or Single' },
                     ctn: { type: Type.NUMBER },
                     ratePerCtn: { type: Type.NUMBER },
                     qtyPerCtn: { type: Type.NUMBER },
@@ -2671,6 +2788,7 @@ Output JSON strictly adhering to schema.
       name: it.name || 'Unnamed item',
       category: it.category || 'Custom',
       mcode: it.mcode || '',
+      packageType: it.packageType || undefined,
       ctn: it.ctn ? Number(it.ctn) : 0,
       ratePerCtn: it.ratePerCtn ? Number(it.ratePerCtn) : 0,
       qtyPerCtn: it.qtyPerCtn ? Number(it.qtyPerCtn) : 1,

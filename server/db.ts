@@ -5277,6 +5277,7 @@ class DatabaseService {
             sellingPrice: salePrice > 0 ? salePrice : (rate > 0 ? Math.round(rate * 1.15) : 0),
             ctnPurchaseRate: ratePerCtn,
             qtyInCarton: qtyPerCtn,
+            packageType: (it as any).packageType || 'Carton',
             supplierId,
             supplierName: supplierAccountTitle,
             lastPurchasePrice: rate,

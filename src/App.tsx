@@ -638,6 +638,7 @@ export default function App() {
             currentUser={currentUser}
             onRefreshData={() => loadBusinessData(true)}
             onNavigateTab={(tab) => setCurrentTab(tab as any)}
+            onOpenOcr={() => setIsOcrModalOpen(true)}
           />
         )}
 

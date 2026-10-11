@@ -22,6 +22,7 @@ import {
   Save,
   ArrowRight,
   RotateCcw,
+  Camera,
 } from 'lucide-react';
 import {
   Product,
@@ -42,6 +43,7 @@ interface PurchasingViewProps {
   currentUser?: any;
   onRefreshData?: () => void;
   onNavigateTab?: (tab: string) => void;
+  onOpenOcr?: () => void;
 }
 
 export const PurchasingView: React.FC<PurchasingViewProps> = ({
@@ -52,6 +54,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
   currentUser,
   onRefreshData,
   onNavigateTab,
+  onOpenOcr,
 }) => {
   // Master categories, brands, measures for quick item creation - loaded from API
   const [categories, setCategories] = useState<string[]>([]);
@@ -845,8 +848,19 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
           </label>
         </div>
 
-        {/* Action Link to Reports & Purchase Return */}
-        <div className="flex items-center gap-2">
+        {/* Action Link to Reports & Purchase Return & OCR */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {onOpenOcr && (
+            <button
+              type="button"
+              onClick={onOpenOcr}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg border border-emerald-400/40 text-xs font-bold transition shadow-sm cursor-pointer shadow-emerald-950/40"
+              title="Scan wholesale supplier bill / mandi slip with AI OCR"
+            >
+              <Camera className="w-3.5 h-3.5 text-white" />
+              <span>📷 Scan Supplier Slip (AI OCR)</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setIsPurchaseReturnModalOpen(true)}
