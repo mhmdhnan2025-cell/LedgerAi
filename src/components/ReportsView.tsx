@@ -65,12 +65,12 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 }) => {
   // Breadcrumb / Report sub-tabs
   const [activeReportTab, setActiveReportTab] = useState<
-    'purchases' | 'sales' | 'profit' | 'stockHistory' | 'aiLedgerAudit' | 'cashRecovered' | 'cashPaid' | 'customerLedger' | 'supplierLedger' | 'saleReturns' | 'purchaseReturns'
+    'purchases' | 'sales' | 'partyReceivables' | 'profit' | 'stockHistory' | 'aiLedgerAudit' | 'cashRecovered' | 'cashPaid' | 'customerLedger' | 'supplierLedger' | 'saleReturns' | 'purchaseReturns'
   >(() => {
     try {
       if (typeof window !== 'undefined') {
         const saved = sessionStorage.getItem('erp_active_report_tab');
-        if (saved && ['purchases', 'sales', 'profit', 'stockHistory', 'aiLedgerAudit', 'cashRecovered', 'cashPaid', 'customerLedger', 'supplierLedger', 'saleReturns', 'purchaseReturns'].includes(saved)) {
+        if (saved && ['purchases', 'sales', 'partyReceivables', 'profit', 'stockHistory', 'aiLedgerAudit', 'cashRecovered', 'cashPaid', 'customerLedger', 'supplierLedger', 'saleReturns', 'purchaseReturns'].includes(saved)) {
           return saved as any;
         }
       }
@@ -446,6 +446,17 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               <span>Cash Paid Report</span>
             </button>
             <button
+              onClick={() => setActiveReportTab('partyReceivables')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                activeReportTab === 'partyReceivables'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5 text-blue-300" />
+              <span>Party Receivable Report</span>
+            </button>
+            <button
               onClick={() => setActiveReportTab('customerLedger')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                 activeReportTab === 'customerLedger'
@@ -672,6 +683,15 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         <ErrorBoundary fallbackTitle="Cash Paid Report">
           <CashPaidReportSection
             companyProfile={companyProfile}
+            onNavigateTab={onNavigateTab}
+          />
+        </ErrorBoundary>
+      ) : activeReportTab === 'partyReceivables' ? (
+        <ErrorBoundary fallbackTitle="Party Receivable Report">
+          <CustomerReceivablesReportSection
+            companyProfile={companyProfile}
+            customers={customers}
+            onRefreshData={onRefreshData}
             onNavigateTab={onNavigateTab}
           />
         </ErrorBoundary>

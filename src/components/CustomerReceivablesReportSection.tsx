@@ -1,88 +1,167 @@
-import { currencySymbol } from '../utils/currency';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
-  DollarSign,
-  Users,
   Search,
-  Filter,
-  FileSpreadsheet,
   Printer,
+  FileSpreadsheet,
   RefreshCw,
-  Phone,
+  Users,
   AlertCircle,
   CheckCircle2,
-  Share2,
-  TrendingDown,
-  ShieldAlert,
-  ArrowUpDown,
-  Building2,
   Calendar,
-  UserCheck,
+  Filter,
 } from 'lucide-react';
-import { Customer, SaleBill, CompanyProfile } from '../types';
+import { Customer, SaleBill, CompanyProfile, Voucher } from '../types';
 import { api } from '../services/api';
 import { exportToCsv } from '../utils/exportCsv';
 
 interface CustomerReceivablesReportSectionProps {
   companyProfile?: CompanyProfile | null;
+  customers?: Customer[];
   onRefreshData?: () => void;
   onNavigateTab?: (tab: string) => void;
 }
 
-export interface EnrichedCustomerReceivable {
+export interface PartyReceivableRow {
   id: string;
-  code: string;
-  manualCode?: string;
+  sNo: number;
+  mCode: string;
+  salesman: string;
   accountTitle: string;
   mobile: string;
-  trn?: string;
+  lastBillNumber: string;
+  lastBillDate: string;
+  lastBillAmount: number;
+  lastReceiptDate: string;
+  lastReceiptAmount: number;
+  ledgerBalance: number;
+  area?: string;
+  sector?: string;
   city?: string;
-  customerGroup?: string;
-  creditLimit: number;
-  outstandingBalance: number;
-  handlingSalesman: string;
-  totalSalesVolume: number;
-  billsCount: number;
-  lastSaleDate?: string;
-  status: 'CLEAR' | 'NORMAL' | 'OVER_LIMIT';
 }
+
+// Format date to DD-MM-YYYY as displayed in the reference images
+export const formatDateDDMMYYYY = (dateStr?: string | null): string => {
+  if (!dateStr || dateStr === '-' || dateStr === '0') return '-';
+  try {
+    const trimmed = String(dateStr).trim();
+    if (/^\d{2}-\d{2}-\d{4}$/.test(trimmed)) return trimmed;
+    if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+      const [y, m, d] = trimmed.split('T')[0].split('-');
+      return `${d.padStart(2, '0')}-${m.padStart(2, '0')}-${y}`;
+    }
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
+      return trimmed.replace(/\//g, '-');
+    }
+    const d = new Date(trimmed);
+    if (!isNaN(d.getTime())) {
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}-${month}-${year}`;
+    }
+  } catch {}
+  return String(dateStr);
+};
+
+// Normalize date to YYYY-MM-DD for range comparison
+const normalizeToYMD = (dateStr?: string | null): string => {
+  if (!dateStr) return '';
+  try {
+    const trimmed = String(dateStr).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) return trimmed.split('T')[0];
+    if (/^\d{2}-\d{2}-\d{4}$/.test(trimmed)) {
+      const [d, m, y] = trimmed.split('-');
+      return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    }
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
+      const [d, m, y] = trimmed.split('/');
+      return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    }
+    const d = new Date(trimmed);
+    if (!isNaN(d.getTime())) {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+  } catch {}
+  return '';
+};
+
+// Format amount to 2 decimal places with thousands separator
+export const formatAmount = (num: number | undefined | null): string => {
+  const n = Number(num) || 0;
+  return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+// Format Ledger Balance with DR / CR suffix
+export const formatLedgerBalance = (bal: number): string => {
+  if (Math.abs(bal) < 0.001) return '0.00';
+  const formatted = Math.abs(bal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return bal >= 0 ? `${formatted} DR` : `${formatted} CR`;
+};
 
 export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesReportSectionProps> = ({
   companyProfile,
+  customers: initialCustomers = [],
   onRefreshData,
   onNavigateTab,
 }) => {
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  // Data states
+  const [customers, setCustomers] = useState<Customer[]>(initialCustomers);
   const [salesBills, setSalesBills] = useState<SaleBill[]>([]);
+  const [vouchers, setVouchers] = useState<Voucher[]>([]);
+  const [cashRecoveredItems, setCashRecoveredItems] = useState<any[]>([]);
   const [salesmenList, setSalesmenList] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Filters
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedSalesman, setSelectedSalesman] = useState<string>('');
-  const [balanceFilter, setBalanceFilter] = useState<'ALL' | 'WITH_BALANCE' | 'OVER_LIMIT'>('WITH_BALANCE');
+  // Selected row for highlight (soft yellow row highlight matching reference Image 2)
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+
+  // Filter States matching Image 1 & Image 3
+  const [fromDate, setFromDate] = useState<string>('');
+  const [toDate, setToDate] = useState<string>(() => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  });
+
+  const [selectedArea, setSelectedArea] = useState<string>('');
+  const [selectedSector, setSelectedSector] = useState<string>('');
   const [selectedCity, setSelectedCity] = useState<string>('');
-  const [sortBy, setSortBy] = useState<'balance-desc' | 'balance-asc' | 'title-asc' | 'sales-desc'>('balance-desc');
+  const [customerQuery, setCustomerQuery] = useState<string>('');
+  const [mobileQuery, setMobileQuery] = useState<string>('');
+  const [selectedGroup, setSelectedGroup] = useState<string>(''); // Handling Salesman Group
+  const [showZeroBalance, setShowZeroBalance] = useState<boolean>(true); // Default true so user sees records immediately
 
   const printAreaRef = useRef<HTMLDivElement>(null);
 
+  // Load all required data
   const loadData = async () => {
     setIsLoading(true);
     setErrorMsg(null);
     try {
-      const [custList, billsList, smList] = await Promise.all([
-        api.getCustomers(),
-        api.getSales(),
-        api.getSalesmen(),
+      const [custList, billsList, vouchersList, smList, cashRecReport] = await Promise.all([
+        api.getCustomers().catch(() => []),
+        api.getSales().catch(() => []),
+        api.getVouchers().catch(() => []),
+        api.getSalesmen().catch(() => []),
+        api.getCashRecoveredReport().catch(() => ({ items: [] })),
       ]);
 
-      setCustomers(custList || []);
+      if (custList && custList.length > 0) {
+        setCustomers(custList);
+      }
       setSalesBills(billsList || []);
+      setVouchers(vouchersList || []);
       setSalesmenList(smList || []);
+      setCashRecoveredItems(cashRecReport?.items || []);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to load receivables data');
+      setErrorMsg(err.message || 'Failed to load report data');
     } finally {
       setIsLoading(false);
     }
@@ -92,327 +171,573 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
     loadData();
   }, []);
 
-  // Compute Handling Salesman and Sales history for every Customer
-  const enrichedReceivables: EnrichedCustomerReceivable[] = useMemo(() => {
-    if (!customers || customers.length === 0) return [];
+  // Update customers when parent props update
+  useEffect(() => {
+    if (initialCustomers && initialCustomers.length > 0) {
+      setCustomers(initialCustomers);
+    }
+  }, [initialCustomers]);
 
-    // Map sales bills by customer
-    const customerBillsMap = new Map<string, SaleBill[]>();
-    salesBills.forEach((bill) => {
-      const cId = bill.customerId;
-      const cTitle = (bill.customerAccountTitle || '').toLowerCase().trim();
-
-      if (cId) {
-        if (!customerBillsMap.has(cId)) customerBillsMap.set(cId, []);
-        customerBillsMap.get(cId)!.push(bill);
-      }
-      if (cTitle) {
-        if (!customerBillsMap.has(cTitle)) customerBillsMap.set(cTitle, []);
-        customerBillsMap.get(cTitle)!.push(bill);
-      }
-    });
-
-    return customers.map((c) => {
-      const matchedBills = customerBillsMap.get(c.id) || customerBillsMap.get((c.accountTitle || c.name || '').toLowerCase().trim()) || [];
-
-      // Determine handling salesman:
-      // Priority 1: explicitly assigned salesman on customer record
-      // Priority 2: salesman from customer's latest or most frequent sale bills
-      // Priority 3: first available salesman from company
-      let handlingSm = c.assignedSalesman || '';
-      if (!handlingSm && matchedBills.length > 0) {
-        const smCounts = new Map<string, number>();
-        matchedBills.forEach((b) => {
-          const sName = (b.salesmanName || b.user || '').trim();
-          if (sName) smCounts.set(sName, (smCounts.get(sName) || 0) + 1);
-        });
-        let topCount = 0;
-        smCounts.forEach((count, name) => {
-          if (count > topCount) {
-            topCount = count;
-            handlingSm = name;
-          }
-        });
-      }
-      if (!handlingSm) {
-        handlingSm = salesmenList[0] || 'HAFIZ ABDUL QADEER';
-      }
-
-      const totalSales = matchedBills.reduce((acc, b) => acc + (b.netTotal || 0), 0);
-      const sortedBills = [...matchedBills].sort((a, b) => b.date.localeCompare(a.date));
-      const lastDate = sortedBills.length > 0 ? sortedBills[0].date : undefined;
-
-      const balance = Number(c.outstandingBalance || 0);
-      const limit = Number(c.creditLimit || 0);
-
-      let status: 'CLEAR' | 'NORMAL' | 'OVER_LIMIT' = 'CLEAR';
-      if (balance > 0) {
-        status = limit > 0 && balance > limit ? 'OVER_LIMIT' : 'NORMAL';
-      }
-
-      return {
-        id: c.id,
-        code: c.code || '0101040001',
-        manualCode: c.manualCode,
-        accountTitle: c.accountTitle || c.name || 'Unnamed Customer',
-        mobile: c.mobile || '',
-        trn: c.trn,
-        city: c.city,
-        customerGroup: c.customerGroup,
-        creditLimit: limit,
-        outstandingBalance: balance,
-        handlingSalesman: handlingSm,
-        totalSalesVolume: Number(totalSales.toFixed(2)),
-        billsCount: matchedBills.length,
-        lastSaleDate: lastDate,
-        status,
-      };
-    });
-  }, [customers, salesBills, salesmenList]);
-
-  // Unique cities for filter
-  const cities = useMemo(() => {
+  // Extract unique areas, sectors, cities, and salesmen for dropdowns
+  const uniqueAreas = useMemo(() => {
     const set = new Set<string>();
     customers.forEach((c) => {
-      if (c.city) set.add(c.city.trim());
+      if (c.area && c.area.trim()) set.add(c.area.trim());
     });
     return Array.from(set).sort();
   }, [customers]);
 
-  // Filtered List
-  const filteredList = useMemo(() => {
-    let list = [...enrichedReceivables];
-
-    // Search query
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      list = list.filter(
-        (c) =>
-          c.accountTitle.toLowerCase().includes(q) ||
-          c.code.toLowerCase().includes(q) ||
-          (c.manualCode && c.manualCode.toLowerCase().includes(q)) ||
-          c.mobile.includes(q) ||
-          (c.trn && c.trn.toLowerCase().includes(q)) ||
-          c.handlingSalesman.toLowerCase().includes(q)
-      );
-    }
-
-    // Salesman Filter
-    if (selectedSalesman) {
-      const smLower = selectedSalesman.toLowerCase().trim();
-      list = list.filter((c) => c.handlingSalesman.toLowerCase().trim() === smLower);
-    }
-
-    // Balance status filter
-    if (balanceFilter === 'WITH_BALANCE') {
-      list = list.filter((c) => c.outstandingBalance > 0);
-    } else if (balanceFilter === 'OVER_LIMIT') {
-      list = list.filter((c) => c.status === 'OVER_LIMIT');
-    }
-
-    // City Filter
-    if (selectedCity) {
-      list = list.filter((c) => c.city === selectedCity);
-    }
-
-    // Sorting
-    list.sort((a, b) => {
-      if (sortBy === 'balance-desc') return b.outstandingBalance - a.outstandingBalance;
-      if (sortBy === 'balance-asc') return a.outstandingBalance - b.outstandingBalance;
-      if (sortBy === 'title-asc') return a.accountTitle.localeCompare(b.accountTitle);
-      if (sortBy === 'sales-desc') return b.totalSalesVolume - a.totalSalesVolume;
-      return 0;
+  const uniqueSectors = useMemo(() => {
+    const set = new Set<string>();
+    customers.forEach((c) => {
+      if (c.sector && c.sector.trim()) set.add(c.sector.trim());
     });
+    return Array.from(set).sort();
+  }, [customers]);
 
-    return list;
-  }, [enrichedReceivables, searchQuery, selectedSalesman, balanceFilter, selectedCity, sortBy]);
-
-  // Overall KPIs
-  const kpis = useMemo(() => {
-    const totalReceivables = enrichedReceivables.reduce((acc, c) => acc + c.outstandingBalance, 0);
-    const withBalanceCount = enrichedReceivables.filter((c) => c.outstandingBalance > 0).length;
-    const overLimitCount = enrichedReceivables.filter((c) => c.status === 'OVER_LIMIT').length;
-    const totalCreditLimit = enrichedReceivables.reduce((acc, c) => acc + c.creditLimit, 0);
-
-    // Salesman receivables map
-    const smReceivablesMap = new Map<string, number>();
-    enrichedReceivables.forEach((c) => {
-      const sm = c.handlingSalesman || 'Unassigned';
-      smReceivablesMap.set(sm, (smReceivablesMap.get(sm) || 0) + c.outstandingBalance);
+  const uniqueCities = useMemo(() => {
+    const set = new Set<string>();
+    customers.forEach((c) => {
+      if (c.city && c.city.trim()) set.add(c.city.trim());
     });
+    return Array.from(set).sort();
+  }, [customers]);
 
-    let topSmName = 'N/A';
-    let topSmBal = 0;
-    smReceivablesMap.forEach((bal, name) => {
-      if (bal > topSmBal) {
-        topSmBal = bal;
-        topSmName = name;
+  const uniqueSalesmen = useMemo(() => {
+    const set = new Set<string>();
+    customers.forEach((c) => {
+      if (c.assignedSalesman && c.assignedSalesman.trim()) {
+        set.add(c.assignedSalesman.trim());
+      }
+    });
+    salesBills.forEach((b) => {
+      if (b.salesmanName && b.salesmanName.trim()) {
+        set.add(b.salesmanName.trim());
+      }
+    });
+    salesmenList.forEach((sm) => {
+      if (sm && sm.trim()) set.add(sm.trim());
+    });
+    return Array.from(set).sort();
+  }, [customers, salesBills, salesmenList]);
+
+  // Build rows per customer with last bill, last receipt, and ledger balance
+  const allRows: PartyReceivableRow[] = useMemo(() => {
+    if (!customers || customers.length === 0) return [];
+
+    const normFrom = fromDate ? normalizeToYMD(fromDate) : '';
+    const normTo = toDate ? normalizeToYMD(toDate) : '';
+
+    // Group sales bills by customer ID and lower-case title
+    const billsByCustId = new Map<string, SaleBill[]>();
+    const billsByCustTitle = new Map<string, SaleBill[]>();
+
+    salesBills.forEach((b) => {
+      if (b.status === 'Cancelled') return;
+      const bDateNorm = normalizeToYMD(b.date);
+      if (normFrom && bDateNorm && bDateNorm < normFrom) return;
+      if (normTo && bDateNorm && bDateNorm > normTo) return;
+
+      if (b.customerId) {
+        if (!billsByCustId.has(b.customerId)) billsByCustId.set(b.customerId, []);
+        billsByCustId.get(b.customerId)!.push(b);
+      }
+      const titleLower = (b.customerAccountTitle || b.customerName || '').toLowerCase().trim();
+      if (titleLower) {
+        if (!billsByCustTitle.has(titleLower)) billsByCustTitle.set(titleLower, []);
+        billsByCustTitle.get(titleLower)!.push(b);
       }
     });
 
+    // Group receipt vouchers by customer ID, code, and lower-case title
+    interface ReceiptRecord {
+      date: string;
+      amount: number;
+    }
+    const receiptsByCustId = new Map<string, ReceiptRecord[]>();
+    const receiptsByCustCode = new Map<string, ReceiptRecord[]>();
+    const receiptsByCustTitle = new Map<string, ReceiptRecord[]>();
+
+    // 1. From Vouchers (CR, BR, CB)
+    vouchers.forEach((v) => {
+      if (v.status !== 'POSTED') return;
+      if (v.voucherType !== 'CR' && v.voucherType !== 'BR' && v.voucherType !== 'CB') return;
+      const vDateNorm = normalizeToYMD(v.date);
+      if (normFrom && vDateNorm && vDateNorm < normFrom) return;
+      if (normTo && vDateNorm && vDateNorm > normTo) return;
+
+      (v.entries || []).forEach((e) => {
+        const amt = v.voucherType === 'CB' ? (Number(e.receipt) || Number(e.amount) || 0) : (Number(e.amount) || 0);
+        if (amt <= 0) return;
+
+        const rec: ReceiptRecord = { date: v.date, amount: amt };
+        if (e.accountId) {
+          if (!receiptsByCustId.has(e.accountId)) receiptsByCustId.set(e.accountId, []);
+          receiptsByCustId.get(e.accountId)!.push(rec);
+        }
+        const cCode = String(e.accountCode || '').trim();
+        if (cCode) {
+          if (!receiptsByCustCode.has(cCode)) receiptsByCustCode.set(cCode, []);
+          receiptsByCustCode.get(cCode)!.push(rec);
+        }
+        const titleLower = (e.accountTitle || '').toLowerCase().trim();
+        if (titleLower) {
+          if (!receiptsByCustTitle.has(titleLower)) receiptsByCustTitle.set(titleLower, []);
+          receiptsByCustTitle.get(titleLower)!.push(rec);
+        }
+      });
+    });
+
+    // 2. From Cash Recovered items
+    cashRecoveredItems.forEach((ci) => {
+      const ciDateNorm = normalizeToYMD(ci.date);
+      if (normFrom && ciDateNorm && ciDateNorm < normFrom) return;
+      if (normTo && ciDateNorm && ciDateNorm > normTo) return;
+      const amt = Number(ci.amount) || 0;
+      if (amt <= 0) return;
+
+      const rec: ReceiptRecord = { date: ci.date, amount: amt };
+      const cCode = String(ci.accountCode || '').trim();
+      if (cCode) {
+        if (!receiptsByCustCode.has(cCode)) receiptsByCustCode.set(cCode, []);
+        receiptsByCustCode.get(cCode)!.push(rec);
+      }
+      const titleLower = (ci.accountTitle || '').toLowerCase().trim();
+      if (titleLower) {
+        if (!receiptsByCustTitle.has(titleLower)) receiptsByCustTitle.set(titleLower, []);
+        receiptsByCustTitle.get(titleLower)!.push(rec);
+      }
+    });
+
+    // Map each customer to a report row
+    return customers.map((c) => {
+      const custTitle = (c.accountTitle || c.name || 'Unnamed Customer').trim();
+      const custTitleLower = custTitle.toLowerCase();
+      const custCode = (c.code || c.accountCode || '').trim();
+
+      // Find matched bills
+      const matchedBills = billsByCustId.get(c.id) || billsByCustTitle.get(custTitleLower) || [];
+      // Sort bills by date descending to find the latest bill
+      matchedBills.sort((a, b) => {
+        const da = normalizeToYMD(a.date);
+        const db = normalizeToYMD(b.date);
+        if (da !== db) return db.localeCompare(da);
+        return (parseInt(b.billNumber, 10) || 0) - (parseInt(a.billNumber, 10) || 0);
+      });
+
+      const latestBill = matchedBills.length > 0 ? matchedBills[0] : null;
+      const lastBillNumber = latestBill ? (latestBill.billNumber || latestBill.id) : '-';
+      const lastBillDate = latestBill ? formatDateDDMMYYYY(latestBill.date) : '-';
+      const lastBillAmount = latestBill ? Number(latestBill.netTotal || latestBill.totalAmount || 0) : 0;
+
+      // Find matched receipts
+      const matchedReceipts = [
+        ...(receiptsByCustId.get(c.id) || []),
+        ...(receiptsByCustCode.get(custCode) || []),
+        ...(receiptsByCustTitle.get(custTitleLower) || []),
+      ];
+      // Sort receipts by date descending to find latest receipt
+      matchedReceipts.sort((a, b) => {
+        const da = normalizeToYMD(a.date);
+        const db = normalizeToYMD(b.date);
+        return db.localeCompare(da);
+      });
+
+      const latestReceipt = matchedReceipts.length > 0 ? matchedReceipts[0] : null;
+      const lastReceiptDate = latestReceipt ? formatDateDDMMYYYY(latestReceipt.date) : '-';
+      const lastReceiptAmount = latestReceipt ? Number(latestReceipt.amount || 0) : 0;
+
+      // Handling Salesman
+      let salesman = c.assignedSalesman?.trim() || '';
+      if (!salesman && latestBill?.salesmanName) {
+        salesman = latestBill.salesmanName.trim();
+      }
+
+      // Ledger Balance
+      const rawBal = Number(c.outstandingBalance !== undefined ? c.outstandingBalance : c.openingBalance) || 0;
+      const balType = (c as any).openingBalanceType || 'DR';
+      const ledgerBalance = balType === 'CR' ? -Math.abs(rawBal) : Math.abs(rawBal);
+
+      return {
+        id: c.id,
+        sNo: 0, // Assigned later
+        mCode: c.manualCode?.trim() || c.code?.trim() || c.accountCode?.trim() || '',
+        salesman,
+        accountTitle: custTitle,
+        mobile: c.mobile?.trim() || (c as any).mobile2?.trim() || '',
+        lastBillNumber,
+        lastBillDate,
+        lastBillAmount,
+        lastReceiptDate,
+        lastReceiptAmount,
+        ledgerBalance,
+        area: c.area,
+        sector: c.sector,
+        city: c.city,
+      };
+    });
+  }, [customers, salesBills, vouchers, cashRecoveredItems, fromDate, toDate]);
+
+  // Filtered Rows based on the user's active filter criteria
+  const filteredRows = useMemo(() => {
+    let list = allRows;
+
+    // 1. Group / Salesman Filter (CRITICAL REQUIREMENT: Auto-updates immediately)
+    if (selectedGroup) {
+      const sgLower = selectedGroup.toLowerCase().trim();
+      list = list.filter((r) => r.salesman.toLowerCase().trim() === sgLower);
+    }
+
+    // 2. Area Filter
+    if (selectedArea) {
+      const saLower = selectedArea.toLowerCase().trim();
+      list = list.filter((r) => (r.area || '').toLowerCase().trim() === saLower);
+    }
+
+    // 3. Sector Filter
+    if (selectedSector) {
+      const ssLower = selectedSector.toLowerCase().trim();
+      list = list.filter((r) => (r.sector || '').toLowerCase().trim() === ssLower);
+    }
+
+    // 4. City Filter
+    if (selectedCity) {
+      const scLower = selectedCity.toLowerCase().trim();
+      list = list.filter((r) => (r.city || '').toLowerCase().trim() === scLower);
+    }
+
+    // 5. Customer search query (Title, Code, Manual Code)
+    if (customerQuery.trim()) {
+      const cq = customerQuery.toLowerCase().trim();
+      list = list.filter(
+        (r) =>
+          r.accountTitle.toLowerCase().includes(cq) ||
+          r.mCode.toLowerCase().includes(cq) ||
+          r.salesman.toLowerCase().includes(cq)
+      );
+    }
+
+    // 6. Mobile search query
+    if (mobileQuery.trim()) {
+      const mq = mobileQuery.trim();
+      list = list.filter((r) => r.mobile.includes(mq));
+    }
+
+    // 7. Show Zero Balance Filter
+    // When unchecked, only show rows with ledger balance != 0 OR rows with bills/receipts
+    // When checked, show all rows including zero balance
+    if (!showZeroBalance) {
+      // If user explicitly chose a salesman or searched customer, keep rows to avoid empty confusion
+      if (!selectedGroup && !customerQuery) {
+        list = list.filter((r) => Math.abs(r.ledgerBalance) > 0.001 || r.lastBillAmount > 0 || r.lastReceiptAmount > 0);
+      } else {
+        list = list.filter((r) => Math.abs(r.ledgerBalance) > 0.001);
+      }
+    }
+
+    // Assign sequential S.NO
+    return list.map((r, idx) => ({
+      ...r,
+      sNo: idx + 1,
+    }));
+  }, [allRows, selectedGroup, selectedArea, selectedSector, selectedCity, customerQuery, mobileQuery, showZeroBalance]);
+
+  // Overall Totals for Table Footer
+  const totals = useMemo(() => {
+    let billAmount = 0;
+    let receiptAmount = 0;
+    let ledgerBalance = 0;
+
+    filteredRows.forEach((r) => {
+      billAmount += r.lastBillAmount || 0;
+      receiptAmount += r.lastReceiptAmount || 0;
+      ledgerBalance += r.ledgerBalance || 0;
+    });
+
     return {
-      totalCustomers: enrichedReceivables.length,
-      withBalanceCount,
-      overLimitCount,
-      totalReceivables: Number(totalReceivables.toFixed(2)),
-      totalCreditLimit: Number(totalCreditLimit.toFixed(2)),
-      topSalesman: topSmName,
-      topSalesmanReceivables: Number(topSmBal.toFixed(2)),
+      billAmount,
+      receiptAmount,
+      ledgerBalance,
     };
-  }, [enrichedReceivables]);
+  }, [filteredRows]);
 
-  // Export to CSV
-  const handleExportCSV = () => {
-    if (filteredList.length === 0) {
-      setErrorMsg('No customer receivable records found to export.');
-      return;
-    }
-
-    const success = exportToCsv(
-      `Customer_Receivables_Ledger_${new Date().toISOString().split('T')[0]}`,
-      filteredList,
-      [
-        { header: 'A/C Code', accessor: (c) => c.code },
-        { header: 'Manual Code', accessor: (c) => c.manualCode || '' },
-        { header: 'Customer Account Title', accessor: (c) => c.accountTitle },
-        { header: 'Customer TRN', accessor: (c) => c.trn || '' },
-        { header: 'Mobile Phone', accessor: (c) => c.mobile },
-        { header: 'City / Area', accessor: (c) => c.city || '' },
-        { header: 'Group', accessor: (c) => c.customerGroup || 'General' },
-        { header: 'Handling Salesman', accessor: (c) => c.handlingSalesman },
-        { header: 'Total Sales Volume', accessor: (c) => c.totalSalesVolume },
-        { header: 'Bills Count', accessor: (c) => c.billsCount },
-        { header: 'Last Sale Date', accessor: (c) => c.lastSaleDate || 'N/A' },
-        { header: 'Credit Limit', accessor: (c) => c.creditLimit },
-        { header: 'Current Outstanding Receivable', accessor: (c) => c.outstandingBalance },
-        { header: 'Status', accessor: (c) => c.status },
-      ]
-    );
-
-    if (success) {
-      setSuccessMsg('Customer receivables report exported to Excel / CSV successfully!');
-      setTimeout(() => setSuccessMsg(null), 3000);
-    }
+  // Handle Search Button Click
+  const handleSearch = () => {
+    // React state is already live and reactive, but this gives explicit user feedback
+    setSuccessMsg(`Report generated with ${filteredRows.length} party records.`);
+    setTimeout(() => setSuccessMsg(null), 3000);
   };
 
-  // Immediate Clean Print
+  // Handle Reset Filters
+  const handleResetFilters = () => {
+    setFromDate('');
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
+    setToDate(`${y}-${m}-${d}`);
+    setSelectedArea('');
+    setSelectedSector('');
+    setSelectedCity('');
+    setCustomerQuery('');
+    setMobileQuery('');
+    setSelectedGroup('');
+    setShowZeroBalance(true);
+    setSelectedRowId(null);
+  };
+
+  // Handle Print Action matching Image 2
   const handlePrint = () => {
     window.print();
   };
 
-  // WhatsApp Reminder Generator
-  const handleSendWhatsAppReminder = (c: EnrichedCustomerReceivable) => {
-    const text = encodeURIComponent(
-      `Dear *${c.accountTitle}*,\n\n` +
-      `Your outstanding receivable balance is *${currencySymbol()} ${c.outstandingBalance.toLocaleString()}*.\n` +
-      `Please arrange settlement at your earliest convenience.\n` +
-      `Sales Representative: *${c.handlingSalesman}*\n\n` +
-      `Thank you,\n*${companyProfile?.name || 'AL-HANAN WHOLESALE TRADERS'}*`
-    );
-    window.open(`https://wa.me/${c.mobile.replace(/[^0-9]/g, '')}?text=${text}`, '_blank');
+  // Handle Export CSV
+  const handleExportCSV = () => {
+    const headers = [
+      'S.NO',
+      'M.CODE',
+      'SALESMAN',
+      'CUSTOMER TITLE',
+      'MOBILE',
+      'LASTBILL #',
+      'BILL DATED',
+      'BILL AMOUNT',
+      'LAST RECEIPT DATE',
+      'RECEIPT AMOUNT',
+      'LEDGER BALANCE',
+    ];
+
+    const rows = filteredRows.map((r) => [
+      String(r.sNo),
+      r.mCode,
+      r.salesman || '0',
+      r.accountTitle,
+      r.mobile,
+      r.lastBillNumber,
+      r.lastBillDate,
+      r.lastBillAmount > 0 ? r.lastBillAmount.toFixed(2) : '0.00',
+      r.lastReceiptDate,
+      r.lastReceiptAmount > 0 ? r.lastReceiptAmount.toFixed(2) : '0.00',
+      formatLedgerBalance(r.ledgerBalance),
+    ]);
+
+    // Totals row
+    rows.push([
+      'TOTAL:',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      totals.billAmount.toFixed(2),
+      '',
+      totals.receiptAmount.toFixed(2),
+      formatLedgerBalance(totals.ledgerBalance),
+    ]);
+
+    exportToCsv('Party_Receivable_Report.csv', [headers, ...rows]);
   };
+
+  // Display subtitle date
+  const subtitleDate = useMemo(() => {
+    if (fromDate && toDate) {
+      return `${formatDateDDMMYYYY(fromDate)} To ${formatDateDDMMYYYY(toDate)}`;
+    }
+    if (toDate) {
+      return formatDateDDMMYYYY(toDate);
+    }
+    const today = new Date();
+    const day = String(today.getDate()).padStart(2, '0');
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const year = today.getFullYear();
+    return `${day}-${month}-${year}`;
+  }, [fromDate, toDate]);
 
   return (
     <div className="space-y-4">
       {/* ------------------------------------------------------------- */}
-      {/* TOP CONTROLS & FILTER BAR                                     */}
+      {/* PRINT STYLESHEET                                              */}
       {/* ------------------------------------------------------------- */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          #party-receivable-printable, #party-receivable-printable * {
+            visibility: visible;
+          }
+          #party-receivable-printable {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            background: white !important;
+            color: black !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+          .print-hide {
+            display: none !important;
+          }
+          table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+            font-size: 10px !important;
+          }
+          th {
+            background-color: #1a2332 !important;
+            color: white !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+            border: 1px solid #334155 !important;
+            padding: 5px 6px !important;
+          }
+          td {
+            border: 1px solid #cbd5e1 !important;
+            padding: 4px 6px !important;
+            color: black !important;
+          }
+          .highlight-row {
+            background-color: #fffde7 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+        }
+      `}</style>
+
+      {/* ------------------------------------------------------------- */}
+      {/* TOP FILTER BAR (Strictly matching Image 1 & Image 3)          */}
+      {/* ------------------------------------------------------------- */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs space-y-3 print-hide">
+        {/* Row 1: From Date, To Date, Area, Sector, City */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 text-xs">
+          {/* From Date */}
           <div>
-            <div className="flex items-center gap-2">
-              <DollarSign className="w-5 h-5 text-amber-400" />
-              <h2 className="text-sm font-bold text-white uppercase tracking-wider">
-                Customer Receivables &amp; Outstanding Ledger
-              </h2>
-            </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Accurate tracking of customer balances, credit limits, and assigned handling sales staff.
-            </p>
+            <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
+              From Date:
+            </label>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md px-2.5 py-1.5 text-slate-900 dark:text-white focus:outline-hidden focus:border-blue-500 text-xs"
+            />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={handleExportCSV}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span>Export CSV</span>
-            </button>
+          {/* To Date */}
+          <div>
+            <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
+              To Date:
+            </label>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md px-2.5 py-1.5 text-slate-900 dark:text-white focus:outline-hidden focus:border-blue-500 text-xs"
+            />
+          </div>
 
-            <button
-              onClick={handlePrint}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg text-xs font-bold transition border border-slate-700 shadow-xs cursor-pointer"
+          {/* Area Dropdown */}
+          <div>
+            <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
+              Area:
+            </label>
+            <select
+              value={selectedArea}
+              onChange={(e) => setSelectedArea(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md px-2.5 py-1.5 text-slate-900 dark:text-white focus:outline-hidden focus:border-blue-500 text-xs"
             >
-              <Printer className="w-3.5 h-3.5 text-sky-400" />
-              <span>Print Ledger</span>
-            </button>
+              <option value="">Nothing selected</option>
+              {uniqueAreas.map((area) => (
+                <option key={area} value={area}>
+                  {area}
+                </option>
+              ))}
+            </select>
+          </div>
 
-            <button
-              onClick={loadData}
-              disabled={isLoading}
-              className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition cursor-pointer"
-              title="Refresh Data"
+          {/* Sector Dropdown */}
+          <div>
+            <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
+              Sector:
+            </label>
+            <select
+              value={selectedSector}
+              onChange={(e) => setSelectedSector(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md px-2.5 py-1.5 text-slate-900 dark:text-white focus:outline-hidden focus:border-blue-500 text-xs"
             >
-              <RefreshCw className={`w-4 h-4 text-emerald-400 ${isLoading ? 'animate-spin' : ''}`} />
-            </button>
+              <option value="">Nothing selected</option>
+              {uniqueSectors.map((sec) => (
+                <option key={sec} value={sec}>
+                  {sec}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* City Dropdown */}
+          <div>
+            <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
+              City:
+            </label>
+            <select
+              value={selectedCity}
+              onChange={(e) => setSelectedCity(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md px-2.5 py-1.5 text-slate-900 dark:text-white focus:outline-hidden focus:border-blue-500 text-xs"
+            >
+              <option value="">Nothing selected</option>
+              {uniqueCities.map((city) => (
+                <option key={city} value={city}>
+                  {city}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
-        {/* Notifications */}
-        {successMsg && (
-          <div className="p-3 bg-emerald-950/80 border border-emerald-800 rounded-xl text-xs text-emerald-300 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>{successMsg}</span>
-            </div>
-            <button onClick={() => setSuccessMsg(null)} className="text-emerald-400 hover:text-white">
-              &times;
-            </button>
-          </div>
-        )}
-
-        {errorMsg && (
-          <div className="p-3 bg-rose-950/80 border border-rose-800 rounded-xl text-xs text-rose-300 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-              <span>{errorMsg}</span>
-            </div>
-            <button onClick={() => setErrorMsg(null)} className="text-rose-400 hover:text-white">
-              &times;
-            </button>
-          </div>
-        )}
-
-        {/* Filters Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2.5 text-xs">
-          {/* Live Search */}
-          <div className="relative">
-            <label className="block text-slate-400 font-semibold mb-1">Search Customer / Code</label>
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-500" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Name, A/C Code, Mobile, TRN..."
-                className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-8 pr-2.5 py-1.5 text-white focus:outline-hidden focus:border-amber-500"
-              />
-            </div>
-          </div>
-
-          {/* Salesman Filter (Dynamic 100% matched with DB) */}
+        {/* Row 2: Customer, Mobile, Group (Salesman), Show Zero Balance, Search & Reset */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 text-xs items-end">
+          {/* Customer Search */}
           <div>
-            <label className="block text-amber-300 font-semibold mb-1">
-              Handling Salesman
+            <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
+              Customer:
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. shah jahan or code"
+              value={customerQuery}
+              onChange={(e) => setCustomerQuery(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md px-2.5 py-1.5 text-slate-900 dark:text-white focus:outline-hidden focus:border-blue-500 text-xs"
+            />
+          </div>
+
+          {/* Mobile Search */}
+          <div>
+            <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
+              Mobile:
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. 8484911114"
+              value={mobileQuery}
+              onChange={(e) => setMobileQuery(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md px-2.5 py-1.5 text-slate-900 dark:text-white focus:outline-hidden focus:border-blue-500 text-xs"
+            />
+          </div>
+
+          {/* Group Dropdown (Salesman) */}
+          <div>
+            <label className="block text-blue-600 dark:text-blue-400 font-bold mb-1">
+              Group:
             </label>
             <select
-              value={selectedSalesman}
-              onChange={(e) => setSelectedSalesman(e.target.value)}
-              className="w-full bg-slate-950 border border-amber-500/50 rounded-lg px-2.5 py-1.5 text-white focus:outline-hidden focus:border-amber-400 font-bold"
+              value={selectedGroup}
+              onChange={(e) => setSelectedGroup(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-slate-950 border border-blue-500 dark:border-blue-500 rounded-md px-2.5 py-1.5 text-slate-900 dark:text-white font-bold focus:outline-hidden focus:ring-1 focus:ring-blue-500 text-xs"
             >
-              <option value="">All Salesmen</option>
-              {salesmenList.map((sm) => (
+              <option value="">Nothing selected</option>
+              {uniqueSalesmen.map((sm) => (
                 <option key={sm} value={sm}>
                   {sm}
                 </option>
@@ -420,248 +745,269 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
             </select>
           </div>
 
-          {/* Balance Filter */}
-          <div>
-            <label className="block text-slate-400 font-semibold mb-1">Balance Status</label>
-            <select
-              value={balanceFilter}
-              onChange={(e) => setBalanceFilter(e.target.value as any)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white focus:outline-hidden focus:border-amber-500"
+          {/* Show Zero Balance Checkbox */}
+          <div className="flex items-center gap-2 pb-2">
+            <input
+              type="checkbox"
+              id="showZeroBalance"
+              checked={showZeroBalance}
+              onChange={(e) => setShowZeroBalance(e.target.checked)}
+              className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+            />
+            <label
+              htmlFor="showZeroBalance"
+              className="text-slate-700 dark:text-slate-300 font-semibold cursor-pointer select-none text-xs"
             >
-              <option value="WITH_BALANCE">Only with Outstanding Balance (&gt; 0)</option>
-              <option value="ALL">All Customers (With &amp; Without Balance)</option>
-              <option value="OVER_LIMIT">Over Credit Limit Only</option>
-            </select>
+              Show Zero Balance
+            </label>
           </div>
 
-          {/* City / Area Filter */}
-          <div>
-            <label className="block text-slate-400 font-semibold mb-1">City / Location</label>
-            <select
-              value={selectedCity}
-              onChange={(e) => setSelectedCity(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white focus:outline-hidden focus:border-amber-500"
-            >
-              <option value="">All Cities</option>
-              {cities.map((city) => (
-                <option key={city} value={city}>
-                  {city}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Sort By */}
-          <div>
-            <label className="block text-slate-400 font-semibold mb-1">Sort By</label>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white focus:outline-hidden focus:border-amber-500"
-            >
-              <option value="balance-desc">Receivable (Highest First)</option>
-              <option value="balance-asc">Receivable (Lowest First)</option>
-              <option value="sales-desc">Sales Volume (Highest)</option>
-              <option value="title-asc">Account Title (A - Z)</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* ------------------------------------------------------------- */}
-      {/* KPI METRIC CARDS                                              */}
-      {/* ------------------------------------------------------------- */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 shadow-xs">
-          <span className="text-[10px] text-slate-400 font-bold uppercase block">Total Receivables Due</span>
-          <span className="text-lg sm:text-xl font-black text-rose-400 font-mono">
-            {currencySymbol()} {kpis.totalReceivables.toLocaleString()}
-          </span>
-          <span className="text-[10px] text-slate-500 block mt-0.5">
-            Across {kpis.withBalanceCount} active accounts
-          </span>
-        </div>
-
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 shadow-xs">
-          <span className="text-[10px] text-slate-400 font-bold uppercase block">Accounts with Balance</span>
-          <span className="text-lg sm:text-xl font-black text-amber-400 font-mono">
-            {kpis.withBalanceCount} <span className="text-xs text-slate-500 font-normal">/ {kpis.totalCustomers}</span>
-          </span>
-          <span className="text-[10px] text-slate-500 block mt-0.5">
-            {kpis.overLimitCount > 0 ? `${kpis.overLimitCount} over credit limit` : 'All within limits'}
-          </span>
-        </div>
-
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 shadow-xs">
-          <span className="text-[10px] text-slate-400 font-bold uppercase block">Total Credit Limits</span>
-          <span className="text-lg sm:text-xl font-black text-sky-400 font-mono">
-            {currencySymbol()} {kpis.totalCreditLimit.toLocaleString()}
-          </span>
-          <span className="text-[10px] text-slate-500 block mt-0.5">Authorized business limit</span>
-        </div>
-
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 shadow-xs">
-          <span className="text-[10px] text-slate-400 font-bold uppercase block">Top Salesman by Receivables</span>
-          <span className="text-sm sm:text-base font-bold text-white truncate block">
-            {kpis.topSalesman}
-          </span>
-          <span className="text-[11px] text-rose-400 font-mono font-bold block mt-0.5">
-            {currencySymbol()} {kpis.topSalesmanReceivables.toLocaleString()}
-          </span>
-        </div>
-      </div>
-
-      {/* ------------------------------------------------------------- */}
-      {/* RECEIVABLES TABLE                                             */}
-      {/* ------------------------------------------------------------- */}
-      <div ref={printAreaRef} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-        {/* Printable Header */}
-        <div className="p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+          {/* Action Buttons: Search, Reset, CSV */}
           <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-amber-400" />
-            <span className="text-xs font-bold text-white">
-              Customer Accounts List ({filteredList.length} matching)
-            </span>
-          </div>
-          <div className="text-xs text-slate-400 font-mono">
-            Filtered Total: <strong className="text-rose-400">{currencySymbol()} {filteredList.reduce((s, c) => s + c.outstandingBalance, 0).toLocaleString()}</strong>
+            <button
+              onClick={handleSearch}
+              className="flex-1 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer text-xs"
+            >
+              <Search className="w-3.5 h-3.5" />
+              <span>Search</span>
+            </button>
+
+            <button
+              onClick={handleResetFilters}
+              className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-md font-semibold transition cursor-pointer text-xs"
+              title="Reset Filters"
+            >
+              Reset
+            </button>
+
+            <button
+              onClick={handleExportCSV}
+              className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold transition flex items-center justify-center shadow-xs cursor-pointer text-xs"
+              title="Export CSV"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+            </button>
+
+            <button
+              onClick={loadData}
+              disabled={isLoading}
+              className="p-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-md border border-slate-300 dark:border-slate-700 transition cursor-pointer"
+              title="Refresh Data"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-blue-500 ${isLoading ? 'animate-spin' : ''}`} />
+            </button>
           </div>
         </div>
+      </div>
 
-        <div className="overflow-x-auto">
+      {/* Notifications */}
+      {successMsg && (
+        <div className="p-3 bg-emerald-950/80 border border-emerald-800 rounded-xl text-xs text-emerald-300 flex items-center justify-between print-hide">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{successMsg}</span>
+          </div>
+          <button onClick={() => setSuccessMsg(null)} className="text-emerald-400 hover:text-white">
+            &times;
+          </button>
+        </div>
+      )}
+
+      {errorMsg && (
+        <div className="p-3 bg-rose-950/80 border border-rose-800 rounded-xl text-xs text-rose-300 flex items-center justify-between print-hide">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+          <button onClick={() => setErrorMsg(null)} className="text-rose-400 hover:text-white">
+            &times;
+          </button>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* MAIN REPORT SECTION (Printable & Interactive)                 */}
+      {/* ------------------------------------------------------------- */}
+      <div id="party-receivable-printable" ref={printAreaRef} className="space-y-2">
+        {/* Top Action Bar with Record Count & Print Button (Print Hidden) */}
+        <div className="flex items-center justify-between px-1 print-hide">
+          <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+            Showing <strong className="text-slate-900 dark:text-white font-bold">{filteredRows.length}</strong> Party Records
+            {selectedGroup && (
+              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200">
+                Group: {selectedGroup}
+              </span>
+            )}
+          </div>
+
+          <button
+            onClick={handlePrint}
+            className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            <span>Print</span>
+          </button>
+        </div>
+
+        {/* Report Header: Exactly matches Image 2 */}
+        <div className="text-center py-2">
+          <h2 className="text-xl sm:text-2xl font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+            Party Receivable Report
+          </h2>
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-0.5">
+            Date : {subtitleDate}
+          </p>
+        </div>
+
+        {/* ------------------------------------------------------------- */}
+        {/* REPORT TABLE: Strictly matching reference Image 2              */}
+        {/* ------------------------------------------------------------- */}
+        <div className="overflow-x-auto border border-slate-300 dark:border-slate-800 rounded-lg shadow-xs bg-white dark:bg-slate-900">
           <table className="w-full text-left text-xs border-collapse">
+            {/* Dark Navy Table Header matching Image 2 */}
             <thead>
-              <tr className="bg-slate-950 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                <th className="py-2.5 px-3">A/C Code</th>
-                <th className="py-2.5 px-3">Customer Account Title</th>
-                <th className="py-2.5 px-3">Customer TRN</th>
-                <th className="py-2.5 px-3">Handling Salesman</th>
-                <th className="py-2.5 px-3">Contact &amp; City</th>
-                <th className="py-2.5 px-3 text-right">Credit Limit</th>
-                <th className="py-2.5 px-3 text-right">Total Sales</th>
-                <th className="py-2.5 px-3 text-center">Last Bill</th>
-                <th className="py-2.5 px-3 text-right">Outstanding Receivable</th>
-                <th className="py-2.5 px-3 text-center">Status</th>
-                <th className="py-2.5 px-3 text-center print:hidden">Action</th>
+              <tr className="bg-[#1a2332] text-white font-bold uppercase tracking-wider text-[11px] select-none">
+                <th className="py-2.5 px-3 text-center w-14 border-r border-[#2d3a4e]">
+                  S.NO
+                </th>
+                <th className="py-2.5 px-3 text-center w-28 border-r border-[#2d3a4e]">
+                  M.CODE
+                </th>
+                <th className="py-2.5 px-3 text-left min-w-[240px] border-r border-[#2d3a4e]">
+                  TITLE
+                </th>
+                <th className="py-2.5 px-3 text-center w-24 border-r border-[#2d3a4e]">
+                  LASTBILL #
+                </th>
+                <th className="py-2.5 px-3 text-center w-28 border-r border-[#2d3a4e]">
+                  BILL DATED
+                </th>
+                <th className="py-2.5 px-3 text-right w-28 border-r border-[#2d3a4e]">
+                  BILL AMOUNT
+                </th>
+                <th className="py-2.5 px-3 text-center w-36 border-r border-[#2d3a4e]">
+                  LAST RECEIPT DATE
+                </th>
+                <th className="py-2.5 px-3 text-right w-32 border-r border-[#2d3a4e]">
+                  RECEIPT AMOUNT
+                </th>
+                <th className="py-2.5 px-3 text-right w-36">
+                  LEDGER BALANCE
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60 font-mono">
-              {filteredList.length === 0 ? (
+
+            {/* Table Body with Soft Yellow Row Highlight (Image 2 Row 11) */}
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-800/80">
+              {filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="text-center py-8 text-slate-500 font-sans">
-                    No customer receivables matching the selected filters.
+                  <td
+                    colSpan={9}
+                    className="text-center py-12 text-slate-500 dark:text-slate-400 font-medium"
+                  >
+                    No party receivable records found for the selected filter criteria.
                   </td>
                 </tr>
               ) : (
-                filteredList.map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-800/40 transition font-sans">
-                    {/* Code */}
-                    <td className="py-2.5 px-3 font-mono text-orange-400 font-semibold">
-                      {c.code}
-                      {c.manualCode && <div className="text-[10px] text-slate-500 font-normal">M: {c.manualCode}</div>}
-                    </td>
+                filteredRows.map((row) => {
+                  const isSelected = selectedRowId === row.id;
 
-                    {/* Customer Account Title */}
-                    <td className="py-2.5 px-3 font-bold text-white">
-                      <div>{c.accountTitle}</div>
-                      <div className="text-[10px] text-slate-400 font-normal">{c.customerGroup || 'General Customer'}</div>
-                    </td>
+                  return (
+                    <tr
+                      key={row.id}
+                      onClick={() => setSelectedRowId(row.id)}
+                      className={`transition-colors cursor-pointer text-xs ${
+                        isSelected
+                          ? 'bg-[#fffde7] dark:bg-amber-950/40 highlight-row'
+                          : 'hover:bg-[#fffde7]/70 dark:hover:bg-slate-800/50 bg-white dark:bg-slate-900'
+                      }`}
+                    >
+                      {/* S.NO */}
+                      <td className="py-2.5 px-3 text-center font-mono font-medium text-slate-700 dark:text-slate-300 border-r border-slate-100 dark:border-slate-800">
+                        {row.sNo}
+                      </td>
 
-                    {/* TRN */}
-                    <td className="py-2.5 px-3 font-mono text-[11px]">
-                      {c.trn ? (
-                        <span className="text-emerald-400 font-semibold bg-emerald-950/60 border border-emerald-800/60 px-1.5 py-0.5 rounded">
-                          {c.trn}
-                        </span>
-                      ) : (
-                        <span className="text-slate-600">—</span>
-                      )}
-                    </td>
+                      {/* M.CODE */}
+                      <td className="py-2.5 px-3 text-center font-mono font-semibold text-slate-900 dark:text-slate-200 border-r border-slate-100 dark:border-slate-800">
+                        {row.mCode || '—'}
+                      </td>
 
-                    {/* Handling Salesman (Prominently Highlighted) */}
-                    <td className="py-2.5 px-3">
-                      <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-indigo-950/80 border border-indigo-700/60 text-indigo-300 text-[11px] font-bold">
-                        <UserCheck className="w-3 h-3 text-indigo-400 shrink-0" />
-                        <span>{c.handlingSalesman}</span>
-                      </div>
-                    </td>
+                      {/* TITLE (3-Line Format: (Salesman) / Customer Title / Mobile) */}
+                      <td className="py-2.5 px-3 border-r border-slate-100 dark:border-slate-800">
+                        <div className="leading-tight">
+                          {/* Line 1: (Salesman Name) or 0 */}
+                          <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                            {row.salesman ? `(${row.salesman})` : '0'}
+                          </div>
+                          {/* Line 2: Customer Account Title */}
+                          <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white capitalize">
+                            {row.accountTitle}
+                          </div>
+                          {/* Line 3: Mobile Phone Number */}
+                          <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                            {row.mobile || '—'}
+                          </div>
+                        </div>
+                      </td>
 
-                    {/* Contact & City */}
-                    <td className="py-2.5 px-3 text-slate-300 text-[11px]">
-                      <div>{c.mobile || 'No Mobile'}</div>
-                      {c.city && <div className="text-[10px] text-slate-500">{c.city}</div>}
-                    </td>
+                      {/* LASTBILL # */}
+                      <td className="py-2.5 px-3 text-center font-mono font-medium text-slate-800 dark:text-slate-200 border-r border-slate-100 dark:border-slate-800">
+                        {row.lastBillNumber}
+                      </td>
 
-                    {/* Credit Limit */}
-                    <td className="py-2.5 px-3 text-right font-mono text-slate-400">
-                      {c.creditLimit > 0 ? `${currencySymbol()} ${c.creditLimit.toLocaleString()}` : '—'}
-                    </td>
+                      {/* BILL DATED */}
+                      <td className="py-2.5 px-3 text-center font-mono text-slate-700 dark:text-slate-300 border-r border-slate-100 dark:border-slate-800">
+                        {row.lastBillDate}
+                      </td>
 
-                    {/* Total Sales */}
-                    <td className="py-2.5 px-3 text-right font-mono text-slate-300">
-                      {currencySymbol()} {c.totalSalesVolume.toLocaleString()}
-                      <div className="text-[10px] text-slate-500">{c.billsCount} bill(s)</div>
-                    </td>
+                      {/* BILL AMOUNT */}
+                      <td className="py-2.5 px-3 text-right font-mono font-semibold text-slate-900 dark:text-slate-100 border-r border-slate-100 dark:border-slate-800">
+                        {row.lastBillAmount > 0 ? formatAmount(row.lastBillAmount) : '0.00'}
+                      </td>
 
-                    {/* Last Bill Date */}
-                    <td className="py-2.5 px-3 text-center font-mono text-[11px] text-slate-400">
-                      {c.lastSaleDate || 'No bills'}
-                    </td>
+                      {/* LAST RECEIPT DATE */}
+                      <td className="py-2.5 px-3 text-center font-mono text-slate-700 dark:text-slate-300 border-r border-slate-100 dark:border-slate-800">
+                        {row.lastReceiptDate}
+                      </td>
 
-                    {/* Outstanding Receivable */}
-                    <td className="py-2.5 px-3 text-right font-mono font-bold text-sm">
-                      <span className={c.outstandingBalance > 0 ? 'text-rose-400' : 'text-emerald-400'}>
-                        {currencySymbol()} {c.outstandingBalance.toLocaleString()}
-                      </span>
-                    </td>
+                      {/* RECEIPT AMOUNT */}
+                      <td className="py-2.5 px-3 text-right font-mono font-semibold text-slate-900 dark:text-slate-100 border-r border-slate-100 dark:border-slate-800">
+                        {row.lastReceiptAmount > 0 ? formatAmount(row.lastReceiptAmount) : '0.00'}
+                      </td>
 
-                    {/* Status Badge */}
-                    <td className="py-2.5 px-3 text-center">
-                      {c.status === 'CLEAR' ? (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
-                          Clear (0)
-                        </span>
-                      ) : c.status === 'OVER_LIMIT' ? (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-950 text-rose-300 border border-rose-800 flex items-center justify-center gap-1">
-                          <ShieldAlert className="w-3 h-3 text-rose-400" />
-                          <span>Over Limit</span>
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-800">
-                          Active Khata
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Action */}
-                    <td className="py-2.5 px-3 text-center print:hidden">
-                      <div className="flex items-center justify-center gap-1">
-                        {c.mobile && c.outstandingBalance > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => handleSendWhatsAppReminder(c)}
-                            className="p-1 hover:bg-emerald-950 text-emerald-400 hover:text-emerald-300 rounded cursor-pointer transition"
-                            title="Send WhatsApp Balance Reminder"
-                          >
-                            <Share2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                        {onNavigateTab && (
-                          <button
-                            type="button"
-                            onClick={() => onNavigateTab('customers')}
-                            className="text-[10px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded cursor-pointer"
-                            title="Open Customer Profile"
-                          >
-                            Profile
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      {/* LEDGER BALANCE (e.g. 1576.61 DR) */}
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">
+                        {formatLedgerBalance(row.ledgerBalance)}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
+
+            {/* Table Footer: Totals Row matching Image 2 */}
+            <tfoot>
+              <tr className="bg-slate-100 dark:bg-slate-950 font-bold border-t-2 border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white">
+                <td
+                  colSpan={5}
+                  className="py-3 px-3 text-right font-extrabold uppercase tracking-wider border-r border-slate-200 dark:border-slate-800"
+                >
+                  TOTAL:
+                </td>
+                <td className="py-3 px-3 text-right font-mono font-black text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-800">
+                  {formatAmount(totals.billAmount)}
+                </td>
+                <td className="py-3 px-3 text-center text-slate-400 border-r border-slate-200 dark:border-slate-800">
+                  —
+                </td>
+                <td className="py-3 px-3 text-right font-mono font-black text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-800">
+                  {formatAmount(totals.receiptAmount)}
+                </td>
+                <td className="py-3 px-3 text-right font-mono font-black text-slate-900 dark:text-white">
+                  {formatLedgerBalance(totals.ledgerBalance)}
+                </td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>
