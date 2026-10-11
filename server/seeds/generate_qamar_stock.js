@@ -83,37 +83,21 @@ function normalizeUnit(type, name) {
 // User-specified Qty In Carton lookup
 function getQtyInCarton(sr, name) {
   const n = name.toLowerCase();
-  // 1. Black Chana: 15 kg
   if (sr === 6 || n.includes('black chana')) return 15;
-  // 2. Sugar (RENUKA) 50 kg: 50 kg
   if (sr === 11 || n.includes('sugar')) return 50;
-  // 3. Haldi No 1: 25 kg
   if (sr === 86 || n.includes('haldi no 1')) return 25;
-  // 4. SEMOLINA (SUJI): 25 kg
   if (sr === 88 || n.includes('semolina') || n.includes('suji')) return 25;
-  // 5. rice sona masoori: 18 kg
   if (sr === 89 || n.includes('sona masoori')) return 18;
-  // 6. red chilly (919): 25 kg
   if (sr === 103 || n.includes('red chilly')) return 25;
-  // 7. AL FAJR STEAM RICE: 35 kg
   if (sr === 118 || n.includes('al fajr steam rice')) return 35;
-  // 8. White chana 12mm 25kg: 25 kg
   if (sr === 129 || n.includes('white chana 12mm')) return 25;
-  // 9. Sella Rice: 37 kg
   if (sr === 165 || n === 'sella rice') return 37;
-  // 10. green peas: 20 kg
   if (sr === 185 || n.includes('green peas')) return 20;
-  // 11. Cream fresh: 25 kg
-  if (sr === 240 || n.includes('cream fresh')) return 25;
-  // 12. Carry Bag Large: 20
+  if (sr === 240 || n.includes('cream fresh')) return 24;
   if (sr === 305 || n.includes('carry bag large')) return 20;
-  // 13. GOLDEN SELLA RICE: 35 kg
   if (sr === 360 || n.includes('golden sella rice')) return 35;
-
-  // Row 363 (teaa):
   if (sr === 363) return 1;
 
-  // 14. "baqi jonahi bataye jin main pcs ki value likhi thi aur ni bola un sab main qty 15 hai"
   return 15;
 }
 
@@ -141,8 +125,8 @@ for (const line of dataLines) {
   const sellingPrice = sRate;
 
   let qtyInCarton = 1;
-  let carton = undefined;
-  let extraKg = undefined;
+  let carton = 0;
+  let extraKg = rawTStock;
   let totalStock = rawTStock;
 
   if (hasCartonCol || hasPcsCol) {
@@ -155,9 +139,15 @@ for (const line of dataLines) {
     const ctnTotal = carton * qtyInCarton;
     extraKg = Number((rawTStock - ctnTotal).toFixed(2));
     totalStock = Number((ctnTotal + extraKg).toFixed(2));
+  } else {
+    // If no carton breakdown entered, default carton is 0 and all stock is extraKg / loose units
+    carton = 0;
+    qtyInCarton = 1;
+    extraKg = rawTStock;
+    totalStock = rawTStock;
   }
 
-  const pkgType = carton !== undefined
+  const pkgType = carton > 0
     ? 'Carton'
     : (unit === 'Kilo grams' || unit === 'Bag' ? 'Bag' : (unit === 'Liter' ? 'Can' : 'Carton'));
 
@@ -177,6 +167,7 @@ for (const line of dataLines) {
     extraKg: extraKg,
     pcs: extraKg, // alias for backwards compatibility
     purchasePrice: pRate,
+    costPrice: pRate,
     salePrice: sellingPrice,
     sellingPrice: sellingPrice,
     saleDiscount: disc,
@@ -188,9 +179,9 @@ for (const line of dataLines) {
     profitMargin: (sellingPrice > 0 && pRate > 0) ? Number((((sellingPrice - pRate) / sellingPrice) * 100).toFixed(1)) : 0,
     lowStockAlert: totalStock <= 5,
     status: true,
-    companyId: 'comp-muocj00t-j3co',
-    createdAt: '2026-10-07T00:00:00.000Z',
-    updatedAt: '2026-10-07T00:00:00.000Z'
+    companyId: 'comp_default_01',
+    createdAt: '2026-10-12T00:00:00.000Z',
+    updatedAt: '2026-10-12T00:00:00.000Z'
   };
 
   products.push(prod);
@@ -199,14 +190,21 @@ for (const line of dataLines) {
 console.log(`Parsed ${products.length} products successfully!`);
 
 // Print sample verifications
-const testItems = [6, 11, 86, 88, 89, 103, 118, 129, 165, 185, 240, 305, 360, 7, 8, 9, 10];
+const testItems = [6, 7, 8, 9, 10, 11, 86, 88, 89, 103, 115, 118, 129, 161, 165, 183, 185, 338, 360, 363];
 for (const id of testItems) {
   const p = products.find(x => x.id === `prod-qmr-${id}`);
   if (p) {
-    console.log(`[Item ${id}] ${p.name} | Ctn: ${p.carton} x ${p.qtyInCarton} + ExtraKg: ${p.extraKg} = Total: ${p.totalStock}`);
+    console.log(`[Item ${id}] ${p.name} | Ctn: ${p.carton} x ${p.qtyInCarton} + ExtraKg: ${p.extraKg} = Total: ${p.totalStock} | Stock Value: ${p.stockValue}`);
   }
 }
 
 const outPath = path.join(__dirname, 'qamar_stock_items.json');
 fs.writeFileSync(outPath, JSON.stringify(products, null, 2), 'utf8');
 console.log(`Saved to ${outPath}`);
+
+// Also copy to dist/seeds if exists
+const distSeedsPath = path.join(process.cwd(), 'dist', 'seeds', 'qamar_stock_items.json');
+if (fs.existsSync(path.dirname(distSeedsPath))) {
+  fs.writeFileSync(distSeedsPath, JSON.stringify(products, null, 2), 'utf8');
+  console.log(`Copied to ${distSeedsPath}`);
+}

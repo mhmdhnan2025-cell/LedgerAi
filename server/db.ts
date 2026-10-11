@@ -3184,43 +3184,38 @@ class DatabaseService {
               }
             }
 
-            // Stock items synchronization exclusively for qamar99's company
+            // Stock items synchronization for qamar and default companies
             const qamarCid = this.getQamarCompanyId();
-            if (cid === qamarCid || cid === 'comp-muocj00t-j3co') {
+            if (cid === qamarCid || cid === 'comp-muocj00t-j3co' || cid === 'comp_default_01') {
               const qamarStock = getQamarStockSeed();
               if (qamarStock.length > 0) {
                 const tenantData = this.tenants.get(cid) || current;
                 const existingProds = Array.isArray(tenantData.products) ? tenantData.products : [];
-                const existingProdMap = new Map(existingProds.map((p: any) => [(p.name || '').trim().toLowerCase(), p]));
+                // Retain only legitimate user-created custom products (not stock seed items or old mock items)
+                const customUserProds = existingProds.filter(
+                  (p: any) =>
+                    !p.id?.startsWith('prod-qmr-') &&
+                    !p.id?.startsWith('def_prod-qmr-') &&
+                    !p.sku?.startsWith('SKU-QMR-') &&
+                    p.id !== 'prod-meet-873' &&
+                    p.id !== 'prod-channa-217' &&
+                    p.id !== 'prod-mix-achar-5-kg-432' &&
+                    p.id !== 'prod-almond-397'
+                );
 
-                const mergedProducts: Product[] = [];
-                for (const seed of qamarStock) {
-                  const sKey = (seed.name || '').trim().toLowerCase();
-                  if (existingProdMap.has(sKey)) {
-                    const existing = existingProdMap.get(sKey);
-                    mergedProducts.push({
-                      ...existing,
-                      ...seed,
-                      id: existing.id || seed.id,
-                      companyId: cid,
-                    });
-                    existingProdMap.delete(sKey);
-                  } else {
-                    mergedProducts.push({
-                      ...seed,
-                      companyId: cid,
-                    });
-                  }
-                }
-                for (const [_, extra] of existingProdMap) {
-                  mergedProducts.push(extra);
-                }
+                const prefix = cid === 'comp_default_01' ? 'def_' : '';
+                const syncedStock: Product[] = qamarStock.map((s) => ({
+                  ...s,
+                  id: prefix ? `${prefix}${s.id}` : s.id,
+                  companyId: cid,
+                }));
 
-                tenantData.products = mergedProducts;
+                const finalProducts = [...syncedStock, ...customUserProds];
+                tenantData.products = finalProducts;
                 this.tenants.set(cid, tenantData);
 
-                console.log(`[PostgreSQL] Syncing ${mergedProducts.length} stock items to PostgreSQL for company ${cid}...`);
-                for (const p of mergedProducts) {
+                console.log(`[PostgreSQL] Syncing ${finalProducts.length} stock items to PostgreSQL for company ${cid}...`);
+                for (const p of finalProducts) {
                   await postgresService.upsertProduct(p, cid);
                 }
               }
