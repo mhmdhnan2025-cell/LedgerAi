@@ -1040,14 +1040,12 @@ class PostgresService {
 
         const extractCustomer = (row: any): Customer => {
           const d = row.data || {};
-          const openBal = (row.opening_balance !== undefined && row.opening_balance !== null && parseFloat(row.opening_balance) !== 0)
+          const openBal = (row.opening_balance !== undefined && row.opening_balance !== null)
             ? parseFloat(row.opening_balance)
-            : (d.openingBalance !== undefined && d.openingBalance !== null && parseFloat(d.openingBalance) !== 0
+            : (d.openingBalance !== undefined && d.openingBalance !== null
                 ? parseFloat(d.openingBalance)
-                : (row.outstanding_balance !== undefined && parseFloat(row.outstanding_balance) !== 0
-                    ? Math.abs(parseFloat(row.outstanding_balance))
-                    : (d.outstandingBalance !== undefined ? Math.abs(parseFloat(d.outstandingBalance)) : 0)));
-          const openType = ((row.opening_balance_type || d.openingBalanceType || (parseFloat(row.outstanding_balance ?? 0) < 0 ? 'CR' : 'DR')) as string).toUpperCase() as 'DR' | 'CR';
+                : 0);
+          const openType = ((row.opening_balance_type || d.openingBalanceType || 'DR') as string).toUpperCase() as 'DR' | 'CR';
           const outBal = parseFloat(row.outstanding_balance ?? d.outstandingBalance ?? (openType === 'CR' ? -Math.abs(openBal) : Math.abs(openBal)));
 
           return {

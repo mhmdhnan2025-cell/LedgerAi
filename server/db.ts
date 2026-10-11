@@ -3005,17 +3005,15 @@ class DatabaseService {
               const k = (tc.id || tc.code || tc.accountCode || '').trim().toLowerCase();
               const prev = existingCustMap.get(k) || (tc.code ? existingCustMap.get(tc.code.trim().toLowerCase()) : undefined);
               if (!prev) return tc;
-              const openBal = tc.openingBalance !== undefined && tc.openingBalance !== 0
+              const openBal = tc.openingBalance !== undefined && tc.openingBalance !== null
                 ? tc.openingBalance
-                : (prev.openingBalance !== undefined && prev.openingBalance !== 0
+                : (prev.openingBalance !== undefined && prev.openingBalance !== null
                     ? prev.openingBalance
-                    : (tc.outstandingBalance !== undefined && tc.outstandingBalance !== 0
-                        ? Math.abs(tc.outstandingBalance)
-                        : (prev.outstandingBalance !== undefined ? Math.abs(prev.outstandingBalance) : 0)));
-              const openType = tc.openingBalanceType || prev.openingBalanceType || ((tc.outstandingBalance || prev.outstandingBalance || 0) < 0 ? 'CR' : 'DR');
-              const outBal = tc.outstandingBalance !== undefined && tc.outstandingBalance !== 0
+                    : 0);
+              const openType = tc.openingBalanceType || prev.openingBalanceType || 'DR';
+              const outBal = tc.outstandingBalance !== undefined && tc.outstandingBalance !== null
                 ? tc.outstandingBalance
-                : (prev.outstandingBalance !== undefined && prev.outstandingBalance !== 0
+                : (prev.outstandingBalance !== undefined && prev.outstandingBalance !== null
                     ? prev.outstandingBalance
                     : (openType === 'CR' ? -Math.abs(openBal) : Math.abs(openBal)));
               return {
@@ -7175,12 +7173,12 @@ class DatabaseService {
     search?: string;
   }): Customer[] {
     let list = (this.data.customers || []).map((c) => {
-      const openBal = c.openingBalance !== undefined && c.openingBalance !== null && c.openingBalance !== 0
-        ? c.openingBalance
-        : (c.outstandingBalance !== undefined && c.outstandingBalance !== 0 ? Math.abs(c.outstandingBalance) : 0);
-      const openType = c.openingBalanceType || ((c.outstandingBalance || 0) < 0 ? 'CR' : 'DR');
+      const openBal = c.openingBalance !== undefined && c.openingBalance !== null
+        ? Number(c.openingBalance)
+        : 0;
+      const openType = (c.openingBalanceType || 'DR').toUpperCase() as 'DR' | 'CR';
       const outBal = c.outstandingBalance !== undefined && c.outstandingBalance !== null
-        ? c.outstandingBalance
+        ? Number(c.outstandingBalance)
         : (openType === 'CR' ? -Math.abs(openBal) : Math.abs(openBal));
       return {
         ...c,
@@ -7289,12 +7287,12 @@ class DatabaseService {
   public getCustomerById(id: string): Customer | undefined {
     const c = this.data.customers.find((c) => c.id === id || c.code === id);
     if (!c) return undefined;
-    const openBal = c.openingBalance !== undefined && c.openingBalance !== null && c.openingBalance !== 0
-      ? c.openingBalance
-      : (c.outstandingBalance !== undefined && c.outstandingBalance !== 0 ? Math.abs(c.outstandingBalance) : 0);
-    const openType = c.openingBalanceType || ((c.outstandingBalance || 0) < 0 ? 'CR' : 'DR');
+    const openBal = c.openingBalance !== undefined && c.openingBalance !== null
+      ? Number(c.openingBalance)
+      : 0;
+    const openType = (c.openingBalanceType || 'DR').toUpperCase() as 'DR' | 'CR';
     const outBal = c.outstandingBalance !== undefined && c.outstandingBalance !== null
-      ? c.outstandingBalance
+      ? Number(c.outstandingBalance)
       : (openType === 'CR' ? -Math.abs(openBal) : Math.abs(openBal));
     return {
       ...c,

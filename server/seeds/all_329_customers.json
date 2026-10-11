@@ -18,10 +18,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-2",
@@ -42,10 +44,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-3",
@@ -66,10 +70,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-4",
@@ -90,10 +96,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-5",
@@ -114,10 +122,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "HAFIZ ABDUL QADEER",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-6",
@@ -138,10 +148,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Qamar Abbas",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 2099,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 2099,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-7",
@@ -162,10 +174,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 567.53,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 567.53,
+    "openingBalanceType": "DR",
+    "salesman": "Ashiq Ali"
   },
   {
     "id": "cust-8",
@@ -186,10 +201,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-9",
@@ -210,10 +227,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-10",
@@ -234,10 +253,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Qamar Abbas",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 1000,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 1000,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-11",
@@ -258,10 +279,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-12",
@@ -282,10 +305,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-13",
@@ -306,10 +331,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-14",
@@ -330,10 +357,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-15",
@@ -354,10 +383,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "HAFIZ ABDUL QADEER",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 17.59,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 17.59,
+    "openingBalanceType": "DR",
+    "salesman": "Akbar Bhai"
   },
   {
     "id": "cust-16",
@@ -378,10 +410,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-17",
@@ -402,10 +436,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-18",
@@ -426,10 +462,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-19",
@@ -450,10 +488,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Qamar Abbas",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 152,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 152,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-20",
@@ -474,10 +514,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-21",
@@ -498,10 +540,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-22",
@@ -522,10 +566,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-23",
@@ -546,10 +592,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 125.11,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 125.11,
+    "openingBalanceType": "DR",
+    "salesman": "Ashiq Ali"
   },
   {
     "id": "cust-24",
@@ -570,10 +619,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-25",
@@ -594,10 +645,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-26",
@@ -618,10 +671,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-27",
@@ -642,10 +697,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Qamar Abbas",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-28",
@@ -666,10 +723,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-29",
@@ -690,10 +749,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 1289.94,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 1289.94,
+    "openingBalanceType": "DR",
+    "salesman": "Ashiq Ali"
   },
   {
     "id": "cust-30",
@@ -714,10 +776,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-31",
@@ -738,10 +802,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Qamar Abbas",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 227,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 227,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-32",
@@ -762,10 +828,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "SULTAN MIR",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 1447.08,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 1447.08,
+    "openingBalanceType": "DR",
+    "salesman": "Zahrat Al Fajr"
   },
   {
     "id": "cust-33",
@@ -786,10 +855,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Qamar Abbas",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 3600,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 3600,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-34",
@@ -810,10 +881,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "SULTAN MIR",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 1450.5,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 1450.5,
+    "openingBalanceType": "DR",
+    "salesman": "Zahrat Al Fajr"
   },
   {
     "id": "cust-35",
@@ -826,7 +900,7 @@
     "customerGroup": "Restaurants",
     "regDate": "2026-04-18",
     "contactPerson": "",
-    "mobile": "+971",
+    "mobile": "+971 4 582 4671",
     "city": "Sharjah",
     "area": "Sajja Industrial Area",
     "sector": "Sector 1",
@@ -834,10 +908,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "SULTAN MIR",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 39064.91,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 39064.91,
+    "openingBalanceType": "DR",
+    "salesman": "Zahrat Al Fajr"
   },
   {
     "id": "cust-36",
@@ -858,10 +935,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-37",
@@ -882,10 +961,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 8673.71,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 8673.71,
+    "openingBalanceType": "DR",
+    "salesman": "Ashiq Ali"
   },
   {
     "id": "cust-38",
@@ -906,10 +988,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 1288.06,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 1288.06,
+    "openingBalanceType": "DR",
+    "salesman": "Ashiq Ali"
   },
   {
     "id": "cust-39",
@@ -930,10 +1015,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 508.67,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 508.67,
+    "openingBalanceType": "DR",
+    "salesman": "Ashiq Ali"
   },
   {
     "id": "cust-40",
@@ -954,10 +1042,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 700.57,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 700.57,
+    "openingBalanceType": "DR",
+    "salesman": "Ashiq Ali"
   },
   {
     "id": "cust-41",
@@ -978,10 +1069,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 4.3,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 4.3,
+    "openingBalanceType": "DR",
+    "salesman": "Ashiq Ali"
   },
   {
     "id": "cust-42",
@@ -1002,10 +1096,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 1480.53,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 1480.53,
+    "openingBalanceType": "DR",
+    "salesman": "Ashiq Ali"
   },
   {
     "id": "cust-43",
@@ -1026,10 +1123,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-44",
@@ -1050,10 +1149,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 285.76,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 285.76,
+    "openingBalanceType": "DR",
+    "salesman": "Ashiq Ali"
   },
   {
     "id": "cust-45",
@@ -1074,10 +1176,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-46",
@@ -1098,10 +1202,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 4085.31,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 4085.31,
+    "openingBalanceType": "DR",
+    "salesman": "Ashiq Ali"
   },
   {
     "id": "cust-47",
@@ -1122,10 +1229,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 1900.6,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 1900.6,
+    "openingBalanceType": "DR",
+    "salesman": "Zahrat Al Fajr"
   },
   {
     "id": "cust-48",
@@ -1146,10 +1256,12 @@
     "address": "Sharjah Sajjah",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-49",
@@ -1170,10 +1282,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "HAFIZ ABDUL QADEER",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 11501.75,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 11501.75,
+    "openingBalanceType": "DR",
+    "salesman": "Hafiz Abdul Qadeer"
   },
   {
     "id": "cust-50",
@@ -1194,10 +1309,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "SULTAN MIR",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 8.57,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 8.57,
+    "openingBalanceType": "DR",
+    "salesman": "Sultan Mir"
   },
   {
     "id": "cust-51",
@@ -1218,10 +1336,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 269,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 269,
+    "openingBalanceType": "DR",
+    "salesman": "Zahrat Al Fajr"
   },
   {
     "id": "cust-52",
@@ -1242,10 +1363,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-53",
@@ -1266,10 +1389,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "HAFIZ ABDUL QADEER",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 738.4,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 738.4,
+    "openingBalanceType": "DR",
+    "salesman": "Ashiq Ali"
   },
   {
     "id": "cust-54",
@@ -1290,10 +1416,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 4.15,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 4.15,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-55",
@@ -1314,10 +1442,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 1576.61,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 1576.61,
+    "openingBalanceType": "DR",
+    "salesman": "Akbar Bhai"
   },
   {
     "id": "cust-56",
@@ -1338,10 +1469,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": -855.73,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 855.73,
+    "openingBalanceType": "CR"
   },
   {
     "id": "cust-57",
@@ -1362,10 +1495,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "HAFIZ ABDUL QADEER",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-58",
@@ -1386,10 +1521,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "HAFIZ ABDUL QADEER",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 736.36,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 736.36,
+    "openingBalanceType": "DR",
+    "salesman": "Hafiz Abdul Qadeer"
   },
   {
     "id": "cust-59",
@@ -1410,10 +1548,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Qamar Abbas",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 1640,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 1640,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-60",
@@ -1434,10 +1574,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-61",
@@ -1458,10 +1600,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-62",
@@ -1482,10 +1626,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-63",
@@ -1506,10 +1652,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-64",
@@ -1530,10 +1678,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "SULTAN MIR",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 1186.99,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 1186.99,
+    "openingBalanceType": "DR",
+    "salesman": "Zahrat Al Fajr"
   },
   {
     "id": "cust-65",
@@ -1554,10 +1705,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-66",
@@ -1578,10 +1731,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "HAFIZ ABDUL QADEER",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 2371.04,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 2371.04,
+    "openingBalanceType": "DR",
+    "salesman": "Akbar Bhai"
   },
   {
     "id": "cust-67",
@@ -1602,10 +1758,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-68",
@@ -1626,10 +1784,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 5510.86,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 5510.86,
+    "openingBalanceType": "DR",
+    "salesman": "Akbar Bhai"
   },
   {
     "id": "cust-69",
@@ -1650,10 +1811,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-70",
@@ -1674,10 +1837,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-71",
@@ -1698,10 +1863,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-72",
@@ -1722,10 +1889,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 4095.6,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 4095.6,
+    "openingBalanceType": "DR",
+    "salesman": "Ashiq Ali"
   },
   {
     "id": "cust-73",
@@ -1746,10 +1916,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 19.02,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 19.02,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-74",
@@ -1770,10 +1942,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-75",
@@ -1794,10 +1968,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 1047.45,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 1047.45,
+    "openingBalanceType": "DR",
+    "salesman": "Ashiq Ali"
   },
   {
     "id": "cust-76",
@@ -1818,10 +1995,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 94.95,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 94.95,
+    "openingBalanceType": "DR",
+    "salesman": "Ashiq Ali"
   },
   {
     "id": "cust-77",
@@ -1842,10 +2022,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 57.73,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 57.73,
+    "openingBalanceType": "DR",
+    "salesman": "Ashiq Ali"
   },
   {
     "id": "cust-78",
@@ -1866,10 +2049,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 886.11,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 886.11,
+    "openingBalanceType": "DR",
+    "salesman": "Zahrat Al Fajr"
   },
   {
     "id": "cust-79",
@@ -1890,10 +2076,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "HAFIZ ABDUL QADEER",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 2616.04,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 2616.04,
+    "openingBalanceType": "DR",
+    "salesman": "Hafiz Abdul Qadeer"
   },
   {
     "id": "cust-80",
@@ -1914,10 +2103,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "HAFIZ ABDUL QADEER",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 3.2,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 3.2,
+    "openingBalanceType": "DR",
+    "salesman": "Hafiz Abdul Qadeer"
   },
   {
     "id": "cust-81",
@@ -1938,10 +2130,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-82",
@@ -1962,10 +2156,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "HAFIZ ABDUL QADEER",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-83",
@@ -1986,10 +2182,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 2663.44,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 2663.44,
+    "openingBalanceType": "DR",
+    "salesman": "Ashiq Ali"
   },
   {
     "id": "cust-84",
@@ -2010,10 +2209,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-85",
@@ -2034,10 +2235,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "HAFIZ ABDUL QADEER",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 2189.69,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 2189.69,
+    "openingBalanceType": "DR",
+    "salesman": "Zahrat Al Fajr"
   },
   {
     "id": "cust-86",
@@ -2058,10 +2262,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-87",
@@ -2082,10 +2288,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 20.98,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 20.98,
+    "openingBalanceType": "DR",
+    "salesman": "Ashiq Ali"
   },
   {
     "id": "cust-88",
@@ -2106,10 +2315,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-89",
@@ -2130,10 +2341,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-90",
@@ -2154,10 +2367,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "SULTAN MIR",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 100.59,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 100.59,
+    "openingBalanceType": "DR",
+    "salesman": "Zahrat Al Fajr"
   },
   {
     "id": "cust-91",
@@ -2178,10 +2394,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-92",
@@ -2202,10 +2420,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-93",
@@ -2226,10 +2446,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-94",
@@ -2250,10 +2472,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-95",
@@ -2274,10 +2498,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 199,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 199,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-96",
@@ -2298,10 +2524,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 249.28,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 249.28,
+    "openingBalanceType": "DR",
+    "salesman": "Akbar Bhai"
   },
   {
     "id": "cust-97",
@@ -2322,10 +2551,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-98",
@@ -2346,10 +2577,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-99",
@@ -2362,7 +2595,7 @@
     "customerGroup": "Restaurants",
     "regDate": "2026-04-18",
     "contactPerson": "",
-    "mobile": "",
+    "mobile": "0",
     "city": "Sharjah",
     "area": "Sajja Industrial Area",
     "sector": "Sector 1",
@@ -2370,10 +2603,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 204.7,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 204.7,
+    "openingBalanceType": "DR",
+    "salesman": "Akbar Bhai"
   },
   {
     "id": "cust-100",
@@ -2394,10 +2630,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "HAFIZ ABDUL QADEER",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-101",
@@ -2418,10 +2656,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "SULTAN MIR",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": -18.06,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 18.06,
+    "openingBalanceType": "CR",
+    "salesman": "Zahrat Al Fajr"
   },
   {
     "id": "cust-102",
@@ -2442,10 +2683,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-103",
@@ -2466,10 +2709,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-104",
@@ -2490,10 +2735,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-105",
@@ -2514,10 +2761,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-106",
@@ -2538,10 +2787,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": -225,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 225,
+    "openingBalanceType": "CR",
+    "salesman": "Hafiz Abdul Qadeer"
   },
   {
     "id": "cust-107",
@@ -2562,10 +2814,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-108",
@@ -2586,10 +2840,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 232.98,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 232.98,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-109",
@@ -2610,10 +2866,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 1202.05,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 1202.05,
+    "openingBalanceType": "DR",
+    "salesman": "Zahrat Al Fajr"
   },
   {
     "id": "cust-110",
@@ -2634,10 +2893,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-111",
@@ -2658,10 +2919,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-112",
@@ -2682,10 +2945,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-113",
@@ -2706,10 +2971,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 13.9,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 13.9,
+    "openingBalanceType": "DR",
+    "salesman": "Ashiq Ali"
   },
   {
     "id": "cust-114",
@@ -2730,10 +2998,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-115",
@@ -2754,10 +3024,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-116",
@@ -2778,10 +3050,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-117",
@@ -2802,10 +3076,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-118",
@@ -2826,10 +3102,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-119",
@@ -2850,10 +3128,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-120",
@@ -2874,10 +3154,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-121",
@@ -2898,10 +3180,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-122",
@@ -2922,10 +3206,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 328.5,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 328.5,
+    "openingBalanceType": "DR",
+    "salesman": "Hafiz Abdul Qadeer"
   },
   {
     "id": "cust-123",
@@ -2946,10 +3233,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-124",
@@ -2970,10 +3259,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-125",
@@ -2994,10 +3285,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Qamar Abbas",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 7659,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 7659,
+    "openingBalanceType": "DR",
+    "salesman": "Qamar Abbas"
   },
   {
     "id": "cust-126",
@@ -3018,10 +3312,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 812.35,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 812.35,
+    "openingBalanceType": "DR",
+    "salesman": "Ashiq Ali"
   },
   {
     "id": "cust-127",
@@ -3042,10 +3339,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-128",
@@ -3066,10 +3365,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-129",
@@ -3090,10 +3391,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-130",
@@ -3114,10 +3417,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-131",
@@ -3138,10 +3443,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-132",
@@ -3162,10 +3469,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 194,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 194,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-133",
@@ -3178,7 +3487,7 @@
     "customerGroup": "Restaurants",
     "regDate": "2026-04-18",
     "contactPerson": "",
-    "mobile": "",
+    "mobile": "0",
     "city": "Sharjah",
     "area": "Sajja Industrial Area",
     "sector": "Sector 1",
@@ -3186,10 +3495,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 138,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 138,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-134",
@@ -3210,10 +3521,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-135",
@@ -3234,10 +3547,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-136",
@@ -3258,10 +3573,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-137",
@@ -3282,10 +3599,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-138",
@@ -3306,10 +3625,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-139",
@@ -3330,10 +3651,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "SULTAN MIR",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-140",
@@ -3354,10 +3677,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-141",
@@ -3378,10 +3703,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-142",
@@ -3402,10 +3729,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-143",
@@ -3426,10 +3755,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Qamar Abbas",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 2090,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 2090,
+    "openingBalanceType": "DR",
+    "salesman": "Qamar Abbas"
   },
   {
     "id": "cust-144",
@@ -3450,10 +3782,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-145",
@@ -3474,10 +3808,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-146",
@@ -3498,10 +3834,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-147",
@@ -3522,10 +3860,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "HAFIZ ABDUL QADEER",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 1914,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 1914,
+    "openingBalanceType": "DR",
+    "salesman": "Zahrat Al Fajr"
   },
   {
     "id": "cust-148",
@@ -3546,10 +3887,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "SULTAN MIR",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 9241.27,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 9241.27,
+    "openingBalanceType": "DR",
+    "salesman": "Sultan Mir"
   },
   {
     "id": "cust-149",
@@ -3570,10 +3914,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Qamar Abbas",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 5985,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 5985,
+    "openingBalanceType": "DR",
+    "salesman": "Qamar Abbas"
   },
   {
     "id": "cust-150",
@@ -3594,10 +3941,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-151",
@@ -3618,10 +3967,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 204.41,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 204.41,
+    "openingBalanceType": "DR",
+    "salesman": "Ashiq Ali"
   },
   {
     "id": "cust-152",
@@ -3642,10 +3994,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-153",
@@ -3666,10 +4020,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-154",
@@ -3690,10 +4046,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-155",
@@ -3714,10 +4072,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Qamar Abbas",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 1000,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 1000,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-156",
@@ -3738,10 +4098,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 899,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 899,
+    "openingBalanceType": "DR",
+    "salesman": "Zahrat Al Fajr"
   },
   {
     "id": "cust-157",
@@ -3762,10 +4125,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-158",
@@ -3786,10 +4151,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-159",
@@ -3810,10 +4177,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-160",
@@ -3826,7 +4195,7 @@
     "customerGroup": "Restaurants",
     "regDate": "2026-04-18",
     "contactPerson": "",
-    "mobile": "",
+    "mobile": "0",
     "city": "Sharjah",
     "area": "Sajja Industrial Area",
     "sector": "Sector 1",
@@ -3834,10 +4203,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 311.77,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 311.77,
+    "openingBalanceType": "DR",
+    "salesman": "Akbar Bhai"
   },
   {
     "id": "cust-161",
@@ -3858,10 +4230,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-162",
@@ -3882,10 +4256,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-163",
@@ -3906,10 +4282,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-164",
@@ -3930,10 +4308,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-165",
@@ -3954,10 +4334,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-166",
@@ -3970,7 +4352,7 @@
     "customerGroup": "Restaurants",
     "regDate": "2026-04-18",
     "contactPerson": "Aashiq Ali",
-    "mobile": "",
+    "mobile": "0",
     "city": "Sharjah",
     "area": "Sajja Industrial Area",
     "sector": "Sector 1",
@@ -3978,10 +4360,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "HAFIZ ABDUL QADEER",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 600.74,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 600.74,
+    "openingBalanceType": "DR",
+    "salesman": "Hafiz Abdul Qadeer"
   },
   {
     "id": "cust-167",
@@ -4002,10 +4387,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-168",
@@ -4026,10 +4413,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-169",
@@ -4050,10 +4439,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "HAFIZ ABDUL QADEER",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 466.25,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 466.25,
+    "openingBalanceType": "DR",
+    "salesman": "Hafiz Abdul Qadeer"
   },
   {
     "id": "cust-170",
@@ -4074,10 +4466,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "HAFIZ ABDUL QADEER",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0.66,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0.66,
+    "openingBalanceType": "DR",
+    "salesman": "Hafiz Abdul Qadeer"
   },
   {
     "id": "cust-171",
@@ -4098,10 +4493,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-172",
@@ -4122,10 +4519,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 2789.7,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 2789.7,
+    "openingBalanceType": "DR",
+    "salesman": "Akbar Bhai"
   },
   {
     "id": "cust-173",
@@ -4146,10 +4546,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-174",
@@ -4170,10 +4572,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 105,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 105,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-175",
@@ -4194,10 +4598,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "HAFIZ ABDUL QADEER",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-176",
@@ -4218,10 +4624,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 1622.87,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 1622.87,
+    "openingBalanceType": "DR",
+    "salesman": "Zahrat Al Fajr"
   },
   {
     "id": "cust-177",
@@ -4242,10 +4651,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 1503.11,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 1503.11,
+    "openingBalanceType": "DR",
+    "salesman": "Akbar Bhai"
   },
   {
     "id": "cust-178",
@@ -4266,10 +4678,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-179",
@@ -4290,10 +4704,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-180",
@@ -4314,10 +4730,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "HAFIZ ABDUL QADEER",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 31.07,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 31.07,
+    "openingBalanceType": "DR",
+    "salesman": "Hafiz Abdul Qadeer"
   },
   {
     "id": "cust-181",
@@ -4338,10 +4757,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-182",
@@ -4362,10 +4783,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "HAFIZ ABDUL QADEER",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 7349,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 7349,
+    "openingBalanceType": "DR",
+    "salesman": "Zahrat Al Fajr"
   },
   {
     "id": "cust-183",
@@ -4386,10 +4810,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 27.76,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 27.76,
+    "openingBalanceType": "DR",
+    "salesman": "Ashiq Ali"
   },
   {
     "id": "cust-184",
@@ -4410,10 +4837,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 242.55,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 242.55,
+    "openingBalanceType": "DR",
+    "salesman": "Ashiq Ali"
   },
   {
     "id": "cust-185",
@@ -4434,10 +4864,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "HAFIZ ABDUL QADEER",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-186",
@@ -4458,10 +4890,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-187",
@@ -4482,10 +4916,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "SULTAN MIR",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 12834.38,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 12834.38,
+    "openingBalanceType": "DR",
+    "salesman": "Sultan Mir"
   },
   {
     "id": "cust-188",
@@ -4506,10 +4943,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "SULTAN MIR",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 2017.23,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 2017.23,
+    "openingBalanceType": "DR",
+    "salesman": "Sultan Mir"
   },
   {
     "id": "cust-189",
@@ -4530,10 +4970,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "SULTAN MIR",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 64195.64,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 64195.64,
+    "openingBalanceType": "DR",
+    "salesman": "Sultan Mir"
   },
   {
     "id": "cust-190",
@@ -4554,10 +4997,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-191",
@@ -4578,10 +5023,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "HAFIZ ABDUL QADEER",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 30,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 30,
+    "openingBalanceType": "DR",
+    "salesman": "Hafiz Abdul Qadeer"
   },
   {
     "id": "cust-192",
@@ -4602,10 +5050,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "SULTAN MIR",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 5.65,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 5.65,
+    "openingBalanceType": "DR",
+    "salesman": "Zahrat Al Fajr"
   },
   {
     "id": "cust-193",
@@ -4626,10 +5077,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 2083.39,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 2083.39,
+    "openingBalanceType": "DR",
+    "salesman": "Akbar Bhai"
   },
   {
     "id": "cust-194",
@@ -4650,10 +5104,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "HAFIZ ABDUL QADEER",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 1534.33,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 1534.33,
+    "openingBalanceType": "DR",
+    "salesman": "Hafiz Abdul Qadeer"
   },
   {
     "id": "cust-195",
@@ -4674,10 +5131,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "SULTAN MIR",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 3.42,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 3.42,
+    "openingBalanceType": "DR",
+    "salesman": "Sultan Mir"
   },
   {
     "id": "cust-196",
@@ -4698,10 +5158,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-197",
@@ -4722,10 +5184,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-198",
@@ -4746,10 +5210,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-199",
@@ -4770,10 +5236,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-200",
@@ -4794,10 +5262,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-201",
@@ -4818,10 +5288,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-202",
@@ -4842,10 +5314,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-203",
@@ -4866,10 +5340,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-204",
@@ -4890,10 +5366,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 441.91,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 441.91,
+    "openingBalanceType": "DR",
+    "salesman": "Ashiq Ali"
   },
   {
     "id": "cust-205",
@@ -4914,10 +5393,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-206",
@@ -4938,10 +5419,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 80.66,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 80.66,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-207",
@@ -4962,10 +5445,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "HAFIZ ABDUL QADEER",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 95,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 95,
+    "openingBalanceType": "DR",
+    "salesman": "Zahrat Al Fajr"
   },
   {
     "id": "cust-208",
@@ -4986,10 +5472,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-209",
@@ -5010,10 +5498,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-210",
@@ -5034,10 +5524,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "HAFIZ ABDUL QADEER",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-211",
@@ -5058,10 +5550,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-212",
@@ -5082,10 +5576,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-213",
@@ -5106,10 +5602,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-214",
@@ -5130,10 +5628,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 712,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 712,
+    "openingBalanceType": "DR",
+    "salesman": "Akbar Bhai"
   },
   {
     "id": "cust-215",
@@ -5154,10 +5655,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0.4,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0.4,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-216",
@@ -5178,10 +5681,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-217",
@@ -5202,10 +5707,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "SULTAN MIR",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 7.48,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 7.48,
+    "openingBalanceType": "DR",
+    "salesman": "Sultan Mir"
   },
   {
     "id": "cust-218",
@@ -5226,10 +5734,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-219",
@@ -5250,10 +5760,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 340.41,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 340.41,
+    "openingBalanceType": "DR",
+    "salesman": "Akbar Bhai"
   },
   {
     "id": "cust-220",
@@ -5274,10 +5787,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 245.48,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 245.48,
+    "openingBalanceType": "DR",
+    "salesman": "Akbar Bhai"
   },
   {
     "id": "cust-221",
@@ -5298,10 +5814,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-222",
@@ -5322,10 +5840,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-223",
@@ -5346,10 +5866,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-224",
@@ -5370,10 +5892,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-225",
@@ -5394,10 +5918,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-226",
@@ -5418,10 +5944,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "SULTAN MIR",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": -0.5,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0.5,
+    "openingBalanceType": "CR"
   },
   {
     "id": "cust-227",
@@ -5442,10 +5970,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 2429.13,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 2429.13,
+    "openingBalanceType": "DR",
+    "salesman": "Akbar Bhai"
   },
   {
     "id": "cust-228",
@@ -5466,10 +5997,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-229",
@@ -5490,10 +6023,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-230",
@@ -5514,10 +6049,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 401.6,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 401.6,
+    "openingBalanceType": "DR",
+    "salesman": "Akbar Bhai"
   },
   {
     "id": "cust-231",
@@ -5538,10 +6076,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "HAFIZ ABDUL QADEER",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 906.09,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 906.09,
+    "openingBalanceType": "DR",
+    "salesman": "Hafiz Abdul Qadeer"
   },
   {
     "id": "cust-232",
@@ -5562,10 +6103,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-233",
@@ -5586,10 +6129,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-234",
@@ -5610,10 +6155,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 2787.66,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 2787.66,
+    "openingBalanceType": "DR",
+    "salesman": "Akbar Bhai"
   },
   {
     "id": "cust-235",
@@ -5634,10 +6182,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-236",
@@ -5658,10 +6208,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-237",
@@ -5682,10 +6234,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-238",
@@ -5706,10 +6260,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "SULTAN MIR",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 3155.17,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 3155.17,
+    "openingBalanceType": "DR",
+    "salesman": "Sultan Mir"
   },
   {
     "id": "cust-239",
@@ -5730,10 +6287,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 105,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 105,
+    "openingBalanceType": "DR",
+    "salesman": "Akbar Bhai"
   },
   {
     "id": "cust-240",
@@ -5754,10 +6314,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-241",
@@ -5778,10 +6340,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 340.92,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 340.92,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-242",
@@ -5802,10 +6366,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 687.74,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 687.74,
+    "openingBalanceType": "DR",
+    "salesman": "Akbar Bhai"
   },
   {
     "id": "cust-243",
@@ -5826,10 +6393,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-244",
@@ -5850,10 +6419,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "HAFIZ ABDUL QADEER",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-245",
@@ -5874,10 +6445,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 462.12,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 462.12,
+    "openingBalanceType": "DR",
+    "salesman": "Akbar Bhai"
   },
   {
     "id": "cust-246",
@@ -5898,10 +6472,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-247",
@@ -5922,10 +6498,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-248",
@@ -5946,10 +6524,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "HAFIZ ABDUL QADEER",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 382.69,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 382.69,
+    "openingBalanceType": "DR",
+    "salesman": "Akbar Bhai"
   },
   {
     "id": "cust-249",
@@ -5970,10 +6551,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-250",
@@ -5994,10 +6577,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-251",
@@ -6018,10 +6603,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 2.22,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 2.22,
+    "openingBalanceType": "DR",
+    "salesman": "Zahrat Al Fajr"
   },
   {
     "id": "cust-252",
@@ -6042,10 +6630,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-253",
@@ -6066,10 +6656,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-254",
@@ -6090,10 +6682,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 3757.49,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 3757.49,
+    "openingBalanceType": "DR",
+    "salesman": "Akbar Bhai"
   },
   {
     "id": "cust-255",
@@ -6114,10 +6709,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-256",
@@ -6138,10 +6735,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 196.54,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 196.54,
+    "openingBalanceType": "DR",
+    "salesman": "Akbar Bhai"
   },
   {
     "id": "cust-257",
@@ -6162,10 +6762,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-258",
@@ -6186,10 +6788,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 3888.29,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 3888.29,
+    "openingBalanceType": "DR",
+    "salesman": "Akbar Bhai"
   },
   {
     "id": "cust-259",
@@ -6210,10 +6815,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 403.44,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 403.44,
+    "openingBalanceType": "DR",
+    "salesman": "Ashiq Ali"
   },
   {
     "id": "cust-260",
@@ -6234,10 +6842,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-261",
@@ -6258,10 +6868,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 1247.76,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 1247.76,
+    "openingBalanceType": "DR",
+    "salesman": "Akbar Bhai"
   },
   {
     "id": "cust-262",
@@ -6282,10 +6895,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "SULTAN MIR",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 3469.36,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 3469.36,
+    "openingBalanceType": "DR",
+    "salesman": "Sultan Mir"
   },
   {
     "id": "cust-263",
@@ -6306,10 +6922,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Ashiq Ali",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-264",
@@ -6330,10 +6948,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "SULTAN MIR",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 1055.45,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 1055.45,
+    "openingBalanceType": "DR",
+    "salesman": "Zahrat Al Fajr"
   },
   {
     "id": "cust-265",
@@ -6354,10 +6975,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "SULTAN MIR",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 216,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 216,
+    "openingBalanceType": "DR",
+    "salesman": "Zahrat Al Fajr"
   },
   {
     "id": "cust-266",
@@ -6378,10 +7002,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 50,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 50,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-267",
@@ -6402,10 +7028,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-268",
@@ -6426,10 +7054,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-269",
@@ -6450,10 +7080,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-270",
@@ -6474,10 +7106,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 362.95,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 362.95,
+    "openingBalanceType": "DR",
+    "salesman": "Akbar Bhai"
   },
   {
     "id": "cust-271",
@@ -6498,10 +7133,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "HAFIZ ABDUL QADEER",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-272",
@@ -6522,10 +7159,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-273",
@@ -6546,10 +7185,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-274",
@@ -6570,10 +7211,12 @@
     "address": "Sharjah Sajjah",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-26"
+    "totalSales": 0,
+    "createdAt": "2026-04-26",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-275",
@@ -6594,10 +7237,13 @@
     "address": "Sharjah Sajjah",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 1041.87,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-26"
+    "totalSales": 0,
+    "createdAt": "2026-04-26",
+    "openingBalance": 1041.87,
+    "openingBalanceType": "DR",
+    "salesman": "Akbar Bhai"
   },
   {
     "id": "cust-276",
@@ -6618,10 +7264,12 @@
     "address": "Sharjah Bataya",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 326.55,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-26"
+    "totalSales": 0,
+    "createdAt": "2026-04-26",
+    "openingBalance": 326.55,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-277",
@@ -6642,10 +7290,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 475.27,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 475.27,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-278",
@@ -6666,10 +7316,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0.1,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0.1,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-279",
@@ -6690,10 +7342,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-280",
@@ -6714,10 +7368,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "SULTAN MIR",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 13324.81,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 13324.81,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-281",
@@ -6738,10 +7394,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 1261.97,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-01"
+    "totalSales": 0,
+    "createdAt": "2026-04-01",
+    "openingBalance": 1261.97,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-282",
@@ -6762,10 +7420,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-283",
@@ -6786,10 +7446,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "HAFIZ ABDUL QADEER",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 749.17,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 749.17,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-284",
@@ -6810,10 +7472,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 138.07,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 138.07,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-285",
@@ -6834,10 +7498,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-286",
@@ -6858,10 +7524,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-287",
@@ -6882,10 +7550,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0.8,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0.8,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-288",
@@ -6906,10 +7576,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 756.64,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 756.64,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-289",
@@ -6930,10 +7602,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-290",
@@ -6954,10 +7628,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-291",
@@ -6978,10 +7654,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 229.42,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 229.42,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-292",
@@ -7002,10 +7680,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-293",
@@ -7026,10 +7706,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 15.88,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 15.88,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-294",
@@ -7050,10 +7732,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 981.34,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 981.34,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-295",
@@ -7074,10 +7758,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "SULTAN MIR",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 1.45,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-05-29"
+    "totalSales": 0,
+    "createdAt": "2026-05-29",
+    "openingBalance": 1.45,
+    "openingBalanceType": "DR",
+    "salesman": "Sultan Mir"
   },
   {
     "id": "cust-296",
@@ -7098,10 +7785,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-297",
@@ -7122,10 +7811,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 2712.7,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 2712.7,
+    "openingBalanceType": "DR",
+    "salesman": "Akbar Bhai"
   },
   {
     "id": "cust-298",
@@ -7146,10 +7838,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 6732.06,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 6732.06,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-299",
@@ -7170,10 +7864,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "Akbar Bhai",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-06-17"
+    "totalSales": 0,
+    "createdAt": "2026-06-17",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-300",
@@ -7194,10 +7890,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-301",
@@ -7218,10 +7916,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-302",
@@ -7242,10 +7942,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 1795.86,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 1795.86,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-303",
@@ -7266,10 +7968,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 78.75,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 78.75,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-304",
@@ -7290,10 +7994,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-305",
@@ -7314,10 +8020,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 684.79,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 684.79,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-306",
@@ -7338,10 +8046,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 118.8,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 118.8,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-307",
@@ -7362,10 +8072,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 65,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 65,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-308",
@@ -7386,10 +8098,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-309",
@@ -7410,10 +8124,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-310",
@@ -7434,10 +8150,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": -615.22,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 615.22,
+    "openingBalanceType": "CR"
   },
   {
     "id": "cust-311",
@@ -7458,10 +8176,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 100,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 100,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-312",
@@ -7482,10 +8202,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-313",
@@ -7506,10 +8228,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-314",
@@ -7530,10 +8254,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-315",
@@ -7554,10 +8280,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-316",
@@ -7578,10 +8306,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-317",
@@ -7602,10 +8332,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-318",
@@ -7626,10 +8358,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-08-22"
+    "totalSales": 0,
+    "createdAt": "2026-08-22",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-319",
@@ -7650,10 +8384,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-320",
@@ -7674,10 +8410,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0.19,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0.19,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-321",
@@ -7698,10 +8436,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-322",
@@ -7722,10 +8462,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-323",
@@ -7746,10 +8488,13 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 5261.63,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-09-07"
+    "totalSales": 0,
+    "createdAt": "2026-09-07",
+    "openingBalance": 5261.63,
+    "openingBalanceType": "DR",
+    "salesman": "Sultan Mir"
   },
   {
     "id": "cust-324",
@@ -7770,10 +8515,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 276.17,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 276.17,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-325",
@@ -7794,10 +8541,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 252.45,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 252.45,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-326",
@@ -7818,10 +8567,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 1337.9,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 1337.9,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-327",
@@ -7842,10 +8593,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-09-19"
+    "totalSales": 0,
+    "createdAt": "2026-09-19",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-328",
@@ -7866,10 +8619,12 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 2665.56,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 2665.56,
+    "openingBalanceType": "DR"
   },
   {
     "id": "cust-329",
@@ -7890,9 +8645,68 @@
     "address": "Sharjah Sajja Industrial Area",
     "assignedSalesman": "",
     "status": "ACTIVE",
-    "outstandingBalance": 0.0,
+    "outstandingBalance": 0,
     "creditLimit": 25000,
-    "totalSales": 0.0,
-    "createdAt": "2026-04-18"
+    "totalSales": 0,
+    "createdAt": "2026-04-18",
+    "openingBalance": 0,
+    "openingBalanceType": "DR"
+  },
+  {
+    "id": "cust-0101040330",
+    "code": "0101040330",
+    "accountCode": "0101040330",
+    "accountTitle": "Marhaba cafeteria",
+    "name": "Marhaba cafeteria",
+    "title": "Marhaba cafeteria",
+    "customerGroup": "Restaurants",
+    "mobile": "",
+    "salesman": "",
+    "city": "Sharjah",
+    "status": "ACTIVE",
+    "openingBalance": 59.39,
+    "openingBalanceType": "DR",
+    "outstandingBalance": 59.39,
+    "creditLimit": 30000,
+    "totalSales": 0,
+    "regDate": "2026-10-12"
+  },
+  {
+    "id": "cust-0101040331",
+    "code": "0101040331",
+    "accountCode": "0101040331",
+    "accountTitle": "Noor mohammad restaurant",
+    "name": "Noor mohammad restaurant",
+    "title": "Noor mohammad restaurant",
+    "customerGroup": "Restaurants",
+    "mobile": "",
+    "salesman": "",
+    "city": "Sharjah",
+    "status": "ACTIVE",
+    "openingBalance": 225.01,
+    "openingBalanceType": "DR",
+    "outstandingBalance": 225.01,
+    "creditLimit": 30000,
+    "totalSales": 0,
+    "regDate": "2026-10-12"
+  },
+  {
+    "id": "cust-0101040332",
+    "code": "0101040332",
+    "accountCode": "0101040332",
+    "accountTitle": "Qasar al shameel",
+    "name": "Qasar al shameel",
+    "title": "Qasar al shameel",
+    "customerGroup": "Restaurants",
+    "mobile": "0527113421",
+    "salesman": "Ashiq Ali",
+    "city": "Sharjah",
+    "status": "ACTIVE",
+    "openingBalance": 465.15,
+    "openingBalanceType": "DR",
+    "outstandingBalance": 465.15,
+    "creditLimit": 30000,
+    "totalSales": 0,
+    "regDate": "2026-10-12"
   }
 ]

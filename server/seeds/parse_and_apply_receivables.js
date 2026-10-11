@@ -1,0 +1,182 @@
+import fs from 'fs';
+
+export const reportEntries = [
+  // Page 1
+  { sNo: 1, title: 'Spicy point bfc', phone: '971509000000', salesman: '', balance: 2099.00, type: 'DR' },
+  { sNo: 2, title: 'Al qadri restaurant', phone: '971503000000', salesman: 'Ashiq Ali', balance: 567.53, type: 'DR' },
+  { sNo: 3, title: 'Peshawar zalmi restaurant n07', phone: '971501000000', salesman: '', balance: 1000.00, type: 'DR' },
+  { sNo: 4, title: 'Najma jazan rest & kitchen', phone: '971525000000', salesman: 'Akbar Bhai', balance: 17.59, type: 'DR' },
+  { sNo: 5, title: 'Dawat restaurant llc', phone: '971562000000', salesman: '', balance: 152.00, type: 'DR' },
+  { sNo: 6, title: 'Seeh al sajjah restaurant', phone: '971523000000', salesman: 'Ashiq Ali', balance: 125.11, type: 'DR' },
+  { sNo: 7, title: 'Karachi star resturant', phone: '1161154984', salesman: 'Ashiq Ali', balance: 1289.94, type: 'DR' },
+  { sNo: 8, title: 'Apna gujranwala', phone: '51114845215', salesman: '', balance: 227.00, type: 'DR' },
+  { sNo: 9, title: 'Karachi express restaurant', phone: '5251919184', salesman: 'Zahrat Al Fajr', balance: 1447.08, type: 'DR' },
+  { sNo: 10, title: 'Hazara darbar', phone: '449849849', salesman: '', balance: 3600.00, type: 'DR' },
+  { sNo: 11, title: 'Durani bannu pulao', phone: '971564000000', salesman: 'Zahrat Al Fajr', balance: 1450.50, type: 'DR' },
+  { sNo: 12, title: 'Shahi sultan darbar resturant', phone: '+971 4 582 4671', salesman: 'Zahrat Al Fajr', balance: 39064.91, type: 'DR' },
+  { sNo: 13, title: 'Dar al noor', phone: '484914911', salesman: 'Ashiq Ali', balance: 8673.71, type: 'DR' },
+  { sNo: 14, title: 'Noor al seef', phone: '4984981491', salesman: 'Ashiq Ali', balance: 1288.06, type: 'DR' },
+  { sNo: 15, title: 'Khayal al shay', phone: '4498498419', salesman: 'Ashiq Ali', balance: 508.67, type: 'DR' },
+
+  // Page 2
+  { sNo: 16, title: 'Bait al jawahir', phone: '586692033', salesman: 'Ashiq Ali', balance: 700.57, type: 'DR' },
+  { sNo: 17, title: 'Muhammad zalani restutran', phone: '44848448', salesman: 'Ashiq Ali', balance: 4.30, type: 'DR' },
+  { sNo: 18, title: 'Dar al aman', phone: '595222566', salesman: 'Ashiq Ali', balance: 1480.53, type: 'DR' },
+  { sNo: 19, title: 'Tareeq wadi al khair', phone: '191981111', salesman: 'Ashiq Ali', balance: 285.76, type: 'DR' },
+  { sNo: 20, title: 'Saif al madina', phone: '94949849', salesman: 'Ashiq Ali', balance: 4085.31, type: 'DR' },
+  { sNo: 21, title: 'Ard al waha restaurant', phone: '563820179', salesman: 'Zahrat Al Fajr', balance: 1900.60, type: 'DR' },
+  { sNo: 22, title: 'Dar al mahba restaurant', phone: '48494191', salesman: 'Hafiz Abdul Qadeer', balance: 11501.75, type: 'DR' },
+  { sNo: 23, title: 'Qasar al reyan restaurant', phone: '51951515', salesman: 'Sultan Mir', balance: 8.57, type: 'DR' },
+  { sNo: 24, title: 'Peshwar dhaikka', phone: '211116154', salesman: 'Zahrat Al Fajr', balance: 269.00, type: 'DR' },
+  { sNo: 25, title: 'Al hujra restaurant', phone: '5484184879', salesman: 'Ashiq Ali', balance: 738.40, type: 'DR' },
+  { sNo: 26, title: 'Al taief al madina', phone: '54849848', salesman: '', balance: 4.15, type: 'DR' },
+  { sNo: 27, title: 'Shah jahan cafetetria', phone: '8484911114', salesman: 'Akbar Bhai', balance: 1576.61, type: 'DR' },
+  { sNo: 28, title: 'Local customer', phone: '498491651', salesman: '', balance: 855.73, type: 'CR' },
+  { sNo: 29, title: 'Fan al nadir', phone: '5165156165', salesman: 'Hafiz Abdul Qadeer', balance: 736.36, type: 'DR' },
+  { sNo: 30, title: 'Punjabi junction', phone: '9874*9491', salesman: '', balance: 1640.00, type: 'DR' },
+  { sNo: 31, title: 'Baba ge sialkot', phone: '542767781', salesman: 'Zahrat Al Fajr', balance: 1186.99, type: 'DR' },
+  { sNo: 32, title: 'Bait al sajjaa', phone: '54898', salesman: 'Akbar Bhai', balance: 2371.04, type: 'DR' },
+
+  // Page 3
+  { sNo: 33, title: 'Reem al falaja', phone: '59111', salesman: 'Akbar Bhai', balance: 5510.86, type: 'DR' },
+  { sNo: 34, title: 'Nahr al sajja', phone: '595', salesman: 'Ashiq Ali', balance: 4095.60, type: 'DR' },
+  { sNo: 35, title: 'New ali resturant', phone: '22', salesman: '', balance: 19.02, type: 'DR' },
+  { sNo: 36, title: 'Akalat bilady', phone: '95459', salesman: 'Ashiq Ali', balance: 1047.45, type: 'DR' },
+  { sNo: 37, title: 'Jabal al madina', phone: '42', salesman: 'Ashiq Ali', balance: 94.95, type: 'DR' },
+  { sNo: 38, title: 'Wadi al khair', phone: '199', salesman: 'Ashiq Ali', balance: 57.73, type: 'DR' },
+  { sNo: 39, title: 'Al musafir resturant', phone: '99515', salesman: 'Zahrat Al Fajr', balance: 886.11, type: 'DR' },
+  { sNo: 40, title: 'Qasar al sajja', phone: '9595', salesman: 'Hafiz Abdul Qadeer', balance: 2616.04, type: 'DR' },
+  { sNo: 41, title: 'Royal tiger', phone: '45515', salesman: 'Hafiz Abdul Qadeer', balance: 3.20, type: 'DR' },
+  { sNo: 42, title: 'Qasar al karam', phone: '52525', salesman: 'Ashiq Ali', balance: 2663.44, type: 'DR' },
+  { sNo: 43, title: 'Al khidmah restaunt', phone: '564478', salesman: 'Zahrat Al Fajr', balance: 2189.69, type: 'DR' },
+  { sNo: 44, title: 'Reyah al madina restuant', phone: '528885557', salesman: 'Ashiq Ali', balance: 20.98, type: 'DR' },
+  { sNo: 45, title: 'Mawal restuant', phone: '501596599', salesman: 'Zahrat Al Fajr', balance: 100.59, type: 'DR' },
+  { sNo: 46, title: 'Tasty baan hao', phone: '543004394', salesman: '', balance: 199.00, type: 'DR' },
+  { sNo: 47, title: 'Noor al waseel', phone: '508208951', salesman: 'Akbar Bhai', balance: 249.28, type: 'DR' },
+  { sNo: 48, title: 'Najoom al sama', phone: '0', salesman: 'Akbar Bhai', balance: 204.70, type: 'DR' },
+  { sNo: 49, title: 'Pakistani darbar', phone: '44848', salesman: 'Zahrat Al Fajr', balance: 18.06, type: 'CR' },
+
+  // Page 4
+  { sNo: 50, title: 'Noor muhmmad', phone: '496', salesman: 'Hafiz Abdul Qadeer', balance: 225.00, type: 'CR' },
+  { sNo: 51, title: 'Kpk', phone: '4955', salesman: '', balance: 232.98, type: 'DR' },
+  { sNo: 52, title: 'Rukn al shamil', phone: '1196516', salesman: 'Zahrat Al Fajr', balance: 1202.05, type: 'DR' },
+  { sNo: 53, title: 'Dar al maha', phone: '+971561815544', salesman: 'Ashiq Ali', balance: 13.90, type: 'DR' },
+  { sNo: 54, title: 'Al read carpentry', phone: '2555', salesman: 'Hafiz Abdul Qadeer', balance: 328.50, type: 'DR' },
+  { sNo: 55, title: 'Abdullah afghan resturant', phone: '285', salesman: 'Qamar Abbas', balance: 7659.00, type: 'DR' },
+  { sNo: 56, title: 'Best point super market', phone: '48948', salesman: 'Ashiq Ali', balance: 812.35, type: 'DR' },
+  { sNo: 57, title: 'A.b.c resturant', phone: '9885', salesman: '', balance: 194.00, type: 'DR' },
+  { sNo: 58, title: 'Pti resturant', phone: '0', salesman: '', balance: 138.00, type: 'DR' },
+  { sNo: 59, title: 'Nasreen akhtar', phone: '22', salesman: 'Qamar Abbas', balance: 2090.00, type: 'DR' },
+  { sNo: 60, title: 'Bustan al khair', phone: '1149', salesman: 'Zahrat Al Fajr', balance: 1914.00, type: 'DR' },
+  { sNo: 61, title: 'Bhai abid', phone: '566722122', salesman: 'Sultan Mir', balance: 9241.27, type: 'DR' },
+  { sNo: 62, title: 'Sheraz & rahman foodstuff tradimg l.l.c', phone: '55', salesman: 'Qamar Abbas', balance: 5985.00, type: 'DR' },
+  { sNo: 63, title: 'Sahil al madina', phone: '547984001', salesman: 'Ashiq Ali', balance: 204.41, type: 'DR' },
+  { sNo: 64, title: 'Pak rose', phone: '55', salesman: '', balance: 1000.00, type: 'DR' },
+  { sNo: 65, title: 'Shahid hussain kitchen', phone: '4554', salesman: 'Zahrat Al Fajr', balance: 899.00, type: 'DR' },
+  { sNo: 66, title: 'White hill resturant', phone: '0', salesman: 'Akbar Bhai', balance: 311.77, type: 'DR' },
+
+  // Page 5
+  { sNo: 67, title: 'Babul noor', phone: '0', salesman: 'Hafiz Abdul Qadeer', balance: 600.74, type: 'DR' },
+  { sNo: 68, title: 'Noor alam', phone: '546545', salesman: 'Hafiz Abdul Qadeer', balance: 466.25, type: 'DR' },
+  { sNo: 69, title: 'Al amin carpentry', phone: '56566', salesman: 'Hafiz Abdul Qadeer', balance: 0.66, type: 'DR' },
+  { sNo: 70, title: 'Al farqad', phone: '553549388', salesman: 'Akbar Bhai', balance: 2789.70, type: 'DR' },
+  { sNo: 71, title: 'Sunduq al nazoom', phone: '506106894', salesman: '', balance: 105.00, type: 'DR' },
+  { sNo: 72, title: 'Red line', phone: '', salesman: 'Zahrat Al Fajr', balance: 1622.87, type: 'DR' },
+  { sNo: 73, title: 'Bab al barashi restaurent', phone: '567926636', salesman: 'Akbar Bhai', balance: 1503.11, type: 'DR' },
+  { sNo: 74, title: 'Orina restaurant', phone: '', salesman: 'Hafiz Abdul Qadeer', balance: 31.07, type: 'DR' },
+  { sNo: 75, title: 'Ajwah al sajjah', phone: '569723065', salesman: 'Zahrat Al Fajr', balance: 7349.00, type: 'DR' },
+  { sNo: 76, title: 'Al tabaq al sakhin restaurant', phone: '544581544', salesman: 'Ashiq Ali', balance: 27.76, type: 'DR' },
+  { sNo: 77, title: 'Muzamil bhai', phone: '', salesman: 'Ashiq Ali', balance: 242.55, type: 'DR' },
+  { sNo: 78, title: 'Muneer bhi', phone: '', salesman: 'Sultan Mir', balance: 12834.38, type: 'DR' },
+  { sNo: 79, title: 'Sabar bhai', phone: '', salesman: 'Sultan Mir', balance: 2017.23, type: 'DR' },
+  { sNo: 80, title: 'Shahid bhai', phone: '', salesman: 'Sultan Mir', balance: 64195.64, type: 'DR' },
+  { sNo: 81, title: 'M.umar carpentry', phone: '529943570', salesman: 'Hafiz Abdul Qadeer', balance: 30.00, type: 'DR' },
+  { sNo: 82, title: 'Truck adda', phone: '551281466', salesman: 'Zahrat Al Fajr', balance: 5.65, type: 'DR' },
+  { sNo: 83, title: 'Amir shahzad restaurent', phone: '', salesman: 'Akbar Bhai', balance: 2083.39, type: 'DR' },
+
+  // Page 6
+  { sNo: 84, title: 'Abdul raheem carpantry', phone: '', salesman: 'Hafiz Abdul Qadeer', balance: 1534.33, type: 'DR' },
+  { sNo: 85, title: 'Bilal dib', phone: '', salesman: 'Sultan Mir', balance: 3.42, type: 'DR' },
+  { sNo: 86, title: 'Banu beff pulao sajjja', phone: '', salesman: 'Ashiq Ali', balance: 441.91, type: 'DR' },
+  { sNo: 87, title: 'Bab al bedayah cafeteriya', phone: '', salesman: '', balance: 80.66, type: 'DR' },
+  { sNo: 88, title: 'Habibullah carpentary', phone: '', salesman: 'Zahrat Al Fajr', balance: 95.00, type: 'DR' },
+  { sNo: 89, title: 'Awad al sukar cafeteria', phone: '', salesman: 'Akbar Bhai', balance: 712.00, type: 'DR' },
+  { sNo: 90, title: 'Janob al seyon cafeteria', phone: '', salesman: '', balance: 0.40, type: 'DR' },
+  { sNo: 91, title: 'Muhammad farukh', phone: '', salesman: 'Sultan Mir', balance: 7.48, type: 'DR' },
+  { sNo: 92, title: 'Abaq al madina cafeteria', phone: '529968167', salesman: 'Akbar Bhai', balance: 340.41, type: 'DR' },
+  { sNo: 93, title: 'Rukn al wafa', phone: '', salesman: 'Akbar Bhai', balance: 245.48, type: 'DR' },
+  { sNo: 94, title: 'Atif bhai', phone: '', salesman: '', balance: 0.50, type: 'CR' },
+  { sNo: 95, title: 'Nahar al chay', phone: '', salesman: 'Akbar Bhai', balance: 2429.13, type: 'DR' },
+  { sNo: 96, title: 'Adwah al sajja', phone: '', salesman: 'Akbar Bhai', balance: 401.60, type: 'DR' },
+  { sNo: 97, title: 'Akbar ali kitchen', phone: '', salesman: 'Hafiz Abdul Qadeer', balance: 906.09, type: 'DR' },
+  { sNo: 98, title: 'Rukn al tathawk', phone: '', salesman: 'Akbar Bhai', balance: 2787.66, type: 'DR' },
+  { sNo: 99, title: 'Mridul bhai', phone: '551597057', salesman: 'Sultan Mir', balance: 3155.17, type: 'DR' },
+
+  // Page 7
+  { sNo: 100, title: 'Warda al rehan', phone: '505027498', salesman: 'Akbar Bhai', balance: 105.00, type: 'DR' },
+  { sNo: 101, title: 'Shay al fakhir', phone: '', salesman: 'Akbar Bhai', balance: 687.74, type: 'DR' },
+  { sNo: 102, title: 'Tareeq al sada', phone: '', salesman: 'Akbar Bhai', balance: 462.12, type: 'DR' },
+  { sNo: 103, title: 'Waraqa al khareef', phone: '582479975', salesman: 'Akbar Bhai', balance: 382.69, type: 'DR' },
+  { sNo: 104, title: 'Perfect oasis catering services l.l.c', phone: '', salesman: 'Zahrat Al Fajr', balance: 2.22, type: 'DR' },
+  { sNo: 105, title: 'Yousaf cafateria', phone: '', salesman: 'Akbar Bhai', balance: 3757.49, type: 'DR' },
+  { sNo: 106, title: 'Mazaq al jadeed cafeteria', phone: '', salesman: 'Akbar Bhai', balance: 196.54, type: 'DR' },
+  { sNo: 107, title: 'Jamal dhaka', phone: '', salesman: 'Akbar Bhai', balance: 3888.29, type: 'DR' },
+  { sNo: 108, title: 'Janob al sayoh', phone: '', salesman: 'Ashiq Ali', balance: 403.44, type: 'DR' },
+  { sNo: 109, title: 'Al khat al awal cafeteria', phone: '565639414', salesman: 'Akbar Bhai', balance: 1247.76, type: 'DR' },
+  { sNo: 110, title: 'Sadaam bhai', phone: '566484700', salesman: 'Sultan Mir', balance: 3469.36, type: 'DR' },
+  { sNo: 111, title: 'Revibex ventures general trading l.l.c', phone: '', salesman: 'Zahrat Al Fajr', balance: 1055.45, type: 'DR' },
+  { sNo: 112, title: 'Mansoor dip', phone: '', salesman: 'Zahrat Al Fajr', balance: 216.00, type: 'DR' },
+  { sNo: 113, title: 'Anjum abbas', phone: '555661423', salesman: '', balance: 50.00, type: 'DR' },
+  { sNo: 114, title: 'Al asim cafeteria', phone: '', salesman: 'Akbar Bhai', balance: 362.95, type: 'DR' },
+  { sNo: 115, title: 'Rukan al reyan', phone: '0000000', salesman: 'Akbar Bhai', balance: 1041.87, type: 'DR' },
+  { sNo: 116, title: 'Najoom al bataya', phone: '000000', salesman: '', balance: 326.55, type: 'DR' },
+  { sNo: 117, title: 'Zahra al bahar', phone: '', salesman: '', balance: 475.27, type: 'DR' },
+
+  // Page 8
+  { sNo: 118, title: 'Al farina cafeteria', phone: '', salesman: '', balance: 0.10, type: 'DR' },
+  { sNo: 119, title: 'Tasty eats catering services llc', phone: '', salesman: '', balance: 13324.81, type: 'DR' },
+  { sNo: 120, title: 'Rukan al zawaya', phone: '', salesman: '', balance: 1261.97, type: 'DR' },
+  { sNo: 121, title: 'M. rafiq carpentry', phone: '', salesman: '', balance: 749.17, type: 'DR' },
+  { sNo: 122, title: 'Abdurahman cafeteria', phone: '', salesman: '', balance: 138.07, type: 'DR' },
+  { sNo: 123, title: 'Waha to sayam cafeteria', phone: '', salesman: '', balance: 0.80, type: 'DR' },
+  { sNo: 124, title: 'Dar al qaram', phone: '', salesman: '', balance: 756.64, type: 'DR' },
+  { sNo: 125, title: '1 to 10 restaurant', phone: '', salesman: '', balance: 229.42, type: 'DR' },
+  { sNo: 126, title: 'Al fareena cafeteria', phone: '', salesman: '', balance: 15.88, type: 'DR' },
+  { sNo: 127, title: 'Right way restaurant', phone: '', salesman: '', balance: 981.34, type: 'DR' },
+  { sNo: 128, title: 'Fajr al yaqouq ice cream shop', phone: '0565768711', salesman: 'Sultan Mir', balance: 1.45, type: 'DR' },
+  { sNo: 129, title: 'B s foodstuff trading llc', phone: '0544680106', salesman: 'Akbar Bhai', balance: 2712.70, type: 'DR' },
+  { sNo: 130, title: 'Faris al aseel', phone: '', salesman: '', balance: 6732.06, type: 'DR' },
+  { sNo: 131, title: 'Manzil al rayan', phone: '', salesman: '', balance: 1795.86, type: 'DR' },
+  { sNo: 132, title: 'Aroos al sahel', phone: '', salesman: '', balance: 78.75, type: 'DR' },
+  { sNo: 133, title: 'Mo-toheed cafteria', phone: '', salesman: '', balance: 684.79, type: 'DR' },
+  { sNo: 134, title: 'Sardar ahmed', phone: '', salesman: '', balance: 118.80, type: 'DR' },
+  { sNo: 135, title: 'Dar alqasar mandi & madhbi rest l.l.c', phone: '', salesman: '', balance: 65.00, type: 'DR' },
+  { sNo: 136, title: 'Jenan super market', phone: '', salesman: '', balance: 615.22, type: 'CR' },
+  { sNo: 137, title: 'Mussa kalim', phone: '', salesman: '', balance: 100.00, type: 'DR' },
+  { sNo: 138, title: 'Shujaat anwar', phone: '', salesman: '', balance: 0.19, type: 'DR' },
+  { sNo: 139, title: 'Shahi qilla restaurant l.l.c', phone: '0566321423', salesman: 'Sultan Mir', balance: 5261.63, type: 'DR' },
+  { sNo: 140, title: 'Jameel bakery', phone: '', salesman: '', balance: 276.17, type: 'DR' },
+  { sNo: 141, title: 'Saleem food service', phone: '', salesman: '', balance: 252.45, type: 'DR' },
+  { sNo: 142, title: 'Gorkha kitchen', phone: '', salesman: '', balance: 1337.90, type: 'DR' },
+
+  // Page 9
+  { sNo: 143, title: 'Sharooq al fajar', phone: '', salesman: '', balance: 2665.56, type: 'DR' },
+  { sNo: 144, title: 'Qasar al shameel', phone: '0527113421', salesman: 'Ashiq Ali', balance: 465.15, type: 'DR' },
+  { sNo: 145, title: 'Reyah al rahmania', phone: '', salesman: '', balance: 340.92, type: 'DR' },
+  { sNo: 146, title: 'Marhaba cafeteria', phone: '', salesman: '', balance: 59.39, type: 'DR' },
+  { sNo: 147, title: 'Noor mohammad restaurant', phone: '', salesman: '', balance: 225.01, type: 'DR' },
+];
+
+console.log('Total entries:', reportEntries.length);
+let sumDR = 0;
+let sumCR = 0;
+for (const e of reportEntries) {
+  if (e.type === 'DR') sumDR += e.balance;
+  else sumCR += e.balance;
+}
+const net = sumDR - sumCR;
+console.log('Sum DR:', sumDR.toFixed(2));
+console.log('Sum CR:', sumCR.toFixed(2));
+console.log('Net Balance:', net.toFixed(2), 'DR');
+console.log('Report Total from PDF page 9: 308279.86 DR');
+console.log('Difference:', (net - 308279.86).toFixed(2));
