@@ -5226,7 +5226,12 @@ class DatabaseService {
       const vatAmount = Number((lineSubtotal * (vatPercent / 100)).toFixed(2));
       const amount = Number((lineSubtotal + vatAmount).toFixed(2));
 
+      // Effective purchase prices inclusive of VAT (Stock + VAT = Total / Purchase Price)
+      const effectiveRateWithVat = qty > 0 ? Number((amount / qty).toFixed(2)) : (rate > 0 ? Number((rate * (1 + vatPercent / 100)).toFixed(2)) : 0);
+      const effectiveCtnRateWithVat = ctn > 0 ? Number(((amount - (extraPiece * effectiveRateWithVat)) / ctn).toFixed(2)) : (ratePerCtn > 0 ? Number((ratePerCtn * (1 + vatPercent / 100)).toFixed(2)) : 0);
+
       const salePrice = Number((it as any).salePrice || (it as any).sellingPrice) || 0;
+      const resolvedPkgType = (it as any).packageType || 'Bag';
 
       // Stock before
       let product = it.productId ? this.getProductById(it.productId) : this.findProductByName(itemTitle);
@@ -5249,9 +5254,13 @@ class DatabaseService {
               extraKg: newExtraKg,
               pcs: newExtraKg,
               qtyInCarton: qCtn,
-              purchasePrice: rate > 0 ? rate : product.purchasePrice,
-              lastPurchasePrice: rate > 0 ? rate : product.purchasePrice,
-              ctnPurchaseRate: ratePerCtn > 0 ? ratePerCtn : product.ctnPurchaseRate,
+              packageType: (it as any).packageType || product.packageType || resolvedPkgType,
+              category: it.category || product.category || 'General',
+              measure: (it as any).packageType || (it as any).unit || product.measure || resolvedPkgType,
+              unit: (it as any).unit || product.unit || 'KG',
+              purchasePrice: effectiveRateWithVat > 0 ? effectiveRateWithVat : (rate > 0 ? rate : product.purchasePrice),
+              lastPurchasePrice: effectiveRateWithVat > 0 ? effectiveRateWithVat : (rate > 0 ? rate : product.purchasePrice),
+              ctnPurchaseRate: effectiveCtnRateWithVat > 0 ? effectiveCtnRateWithVat : (ratePerCtn > 0 ? ratePerCtn : product.ctnPurchaseRate),
               sellingPrice: salePrice > 0 ? salePrice : product.sellingPrice,
               supplierId,
               supplierName: supplierAccountTitle,
@@ -5261,27 +5270,31 @@ class DatabaseService {
           );
         }
       } else {
-        // Auto-create product in catalog
+        // Auto-create product in catalog with exact packaging and VAT-inclusive cost
         product = this.createProduct(
           {
             sku: it.mcode || ('SKU-' + Date.now().toString().slice(-4)),
             name: itemTitle,
             itemTitle,
             category: it.category || 'General',
-            unit: ((it as any).unit as any) || 'CTN',
-            measure: ((it as any).unit as any) || 'CTN',
+            unit: ((it as any).unit as any) || 'KG',
+            measure: (it as any).packageType || ((it as any).unit as any) || resolvedPkgType,
             currentQuantity: shouldAddToStock ? qty : 0,
             totalStock: shouldAddToStock ? qty : 0,
+            carton: ctn,
+            ctn: ctn,
+            extraKg: extraPiece,
+            pcs: extraPiece,
             minStockLevel: 10,
-            purchasePrice: rate,
-            sellingPrice: salePrice > 0 ? salePrice : (rate > 0 ? Math.round(rate * 1.15) : 0),
-            ctnPurchaseRate: ratePerCtn,
+            purchasePrice: effectiveRateWithVat > 0 ? effectiveRateWithVat : rate,
+            sellingPrice: salePrice > 0 ? salePrice : (effectiveRateWithVat > 0 ? Math.round(effectiveRateWithVat * 1.15) : (rate > 0 ? Math.round(rate * 1.15) : 0)),
+            ctnPurchaseRate: effectiveCtnRateWithVat > 0 ? effectiveCtnRateWithVat : ratePerCtn,
             qtyInCarton: qtyPerCtn,
-            packageType: (it as any).packageType || 'Carton',
+            packageType: resolvedPkgType,
             supplierId,
             supplierName: supplierAccountTitle,
-            lastPurchasePrice: rate,
-            averagePurchaseCost: rate,
+            lastPurchasePrice: effectiveRateWithVat > 0 ? effectiveRateWithVat : rate,
+            averagePurchaseCost: effectiveRateWithVat > 0 ? effectiveRateWithVat : rate,
           },
           source as any,
           user
@@ -5294,12 +5307,12 @@ class DatabaseService {
           productName: product.name,
           type: 'PURCHASE',
           quantity: qty,
-          unit: (product.unit || 'CTN') as any,
-          unitCost: rate,
+          unit: (product.unit || (it as any).unit || 'KG') as any,
+          unitCost: effectiveRateWithVat || rate,
           totalAmount: amount,
           referenceType: 'SUPPLIER_PURCHASE',
           referenceId: `bill-${billNumber}`,
-          notes: `Purchase Bill #${billNumber} from ${supplierAccountTitle}`,
+          notes: `Purchase Bill #${billNumber} from ${supplierAccountTitle} (${ctn} ${(it as any).packageType || product.packageType || resolvedPkgType}s)`,
           date: billData.date || new Date().toISOString().split('T')[0],
           performedBy: user.name,
         });
@@ -5311,6 +5324,7 @@ class DatabaseService {
         itemTitle,
         category: it.category || (typeof product.category === 'string' ? product.category : 'General'),
         mcode: it.mcode || product.mcode || product.sku || '',
+        packageType: (it as any).packageType || product.packageType || resolvedPkgType,
         ctn,
         ratePerCtn,
         qtyPerCtn,
@@ -7088,6 +7102,9 @@ class DatabaseService {
         const currentPStock = p ? (p.currentQuantity || 0) : 0;
         inMap.set(pId, (inMap.get(pId) || 0) + it.qty);
 
+        const pkgLabel = it.packageType || p?.packageType || 'Bag';
+        const unitLabel = p?.unit || it.unit || 'KG';
+
         ledgerTransactions.push({
           id: `mv-purch-${pbill.billNumber}-${it.id}`,
           timestamp: pbill.createdAt || `${pbill.date}T10:00:00Z`,
@@ -7106,7 +7123,7 @@ class DatabaseService {
           unitRate: it.rate,
           totalAmount: it.amount,
           runningStockAfter: currentPStock,
-          notes: `Purchased ${it.ctn} CTN (${it.qty} Units) from ${pbill.supplierAccountTitle}`,
+          notes: `Purchased ${it.ctn} ${pkgLabel} (${it.qty} ${unitLabel}) from ${pbill.supplierAccountTitle}`,
         });
       }
     }
@@ -8159,6 +8176,35 @@ class DatabaseService {
           category,
         });
       }
+    }
+
+    // Also include paid purchase bills (direct counter cash or recorded paidAmount)
+    for (const b of this.data.purchaseBills || []) {
+      const bDateNorm = this.normalizeDateToYMD(b.date);
+      if (normFrom && bDateNorm < normFrom) continue;
+      if (normTo && bDateNorm > normTo) continue;
+      const paid = Number(b.paidAmount) || 0;
+      if (paid <= 0) continue;
+      // Skip if already tracked by a voucher
+      const hasVoucher = vouchers.some(
+        (v) => ((v as any).referenceNumber && (v as any).referenceNumber === b.billNumber) || v.entries.some((e) => e.narration?.includes(b.billNumber))
+      );
+      if (hasVoucher) continue;
+
+      items.push({
+        srNo: items.length + 1,
+        voucherId: `pb-paid-${b.id}`,
+        voucherType: 'CP',
+        voucherNumberFormatted: `BILL-${b.billNumber}`,
+        jvNumber: parseInt(b.billNumber) || (items.length + 1),
+        date: b.date,
+        accountCode: b.supplierId || 'SUP',
+        accountTitle: b.supplierAccountTitle || 'Supplier',
+        paymentMode: b.isCash ? 'Cash: Counter Payment' : 'Cash: Direct Supplier Payment',
+        narration: `Purchase Bill #${b.billNumber} Payment`,
+        amount: paid,
+        category: 'Supplier',
+      });
     }
 
     const totalAmount = items.reduce((sum, item) => sum + item.amount, 0);

@@ -2638,7 +2638,18 @@ CRITICAL INSTRUCTIONS FOR PURCHASE BILL:
       - quantity: 2
       - unit: "KG"
       - price: 21.00
-      - purchaseCost: 42.00`
+      - purchaseCost: 42.00
+
+6. CRITICAL TAX INVOICE VAT & TOTAL PURCHASE PRICE RULES (اسٹاک + ویٹ = ٹوٹل پرچیز پرائس):
+   - On UAE wholesale tax invoices: Subtotal (Stock Price) + VAT (standard 5%) = Total (Purchase Price).
+   - Each item has:
+     * price / ratePerCtn: unit/carton price before VAT
+     * subtotal: line amount before VAT (e.g. 244.00, 270.00, 580.00, 716.16)
+     * vatPercent: usually 5 (or 0 if exempt)
+     * vatAmount: VAT amount for this line (e.g. 12.20, 13.50, 29.00, 35.81)
+     * totalAmount / purchaseCost: line net total INCLUSIVE OF VAT = subtotal + vatAmount (e.g. 256.20, 283.50, 609.00, 751.97). Stock + VAT is the actual purchase price!
+   - Grand Total on the invoice = Total Before VAT + Total VAT = Total Dhs / Net Amount (e.g. 609.00, 283.50, 315.00, 299.25, 1217.00).
+   - Package type: If packing column says "bag", "BAG", "بوریا", set packageType="Bag"! If "tin", set packageType="Tin"! If "ctn"/"carton", set packageType="Carton"!`
     : isSale
     ? `SPECIALIZED MODE: CUSTOMER SALE BILL & DELIVERY MEMO (سیل بل / کسٹمر بل)
 CRITICAL INSTRUCTIONS FOR SALE BILL:
@@ -2764,11 +2775,13 @@ Output JSON strictly adhering to schema.
                     qtyPerCtn: { type: Type.NUMBER },
                     quantity: { type: Type.NUMBER },
                     unit: { type: Type.STRING },
-                    price: { type: Type.NUMBER },
+                    price: { type: Type.NUMBER, description: 'Unit price before VAT' },
+                    subtotal: { type: Type.NUMBER, description: 'Line net amount before VAT (Stock Price)' },
+                    vatPercent: { type: Type.NUMBER, description: 'VAT percentage, usually 5%' },
+                    vatAmount: { type: Type.NUMBER, description: 'Line VAT amount' },
                     salePrice: { type: Type.NUMBER },
-                    purchaseCost: { type: Type.NUMBER },
+                    purchaseCost: { type: Type.NUMBER, description: 'Line total inclusive of VAT (Stock + VAT = Total / Purchase Cost)' },
                     discount: { type: Type.NUMBER },
-                    vatPercent: { type: Type.NUMBER },
                     confidence: { type: Type.NUMBER },
                     needsConfirmation: { type: Type.BOOLEAN },
                   },
@@ -2783,27 +2796,47 @@ Output JSON strictly adhering to schema.
     }, CANDIDATE_MODELS, 28000);
 
     const parsed = JSON.parse(response.text?.trim() || '{}');
-    const items = (parsed.items || []).map((it: any, idx: number) => ({
-      id: `ext-item-${idx + 1}`,
-      name: it.name || 'Unnamed item',
-      category: it.category || 'Custom',
-      mcode: it.mcode || '',
-      packageType: it.packageType || undefined,
-      ctn: it.ctn ? Number(it.ctn) : 0,
-      ratePerCtn: it.ratePerCtn ? Number(it.ratePerCtn) : 0,
-      qtyPerCtn: it.qtyPerCtn ? Number(it.qtyPerCtn) : 1,
-      quantity: Number(it.quantity) || 1,
-      unit: it.unit || 'kg',
-      price: it.price !== undefined && it.price !== null ? Number(it.price) : undefined,
-      salePrice: it.salePrice ? Number(it.salePrice) : undefined,
-      purchaseCost: it.purchaseCost ? Number(it.purchaseCost) : undefined,
-      discount: it.discount ? Number(it.discount) : 0,
-      vatPercent: it.vatPercent ? Number(it.vatPercent) : 0,
-      totalAmount: it.purchaseCost || (it.price && it.quantity ? it.price * it.quantity : undefined),
-      confidence: Math.min(1, Math.max(0.1, Number(it.confidence) || 0.85)),
-      needsConfirmation: Boolean(it.needsConfirmation || (!it.price && !it.ratePerCtn && !it.purchaseCost) || it.confidence < 0.8),
-      status: (it.needsConfirmation || (!it.price && !it.ratePerCtn && !it.purchaseCost)) ? 'warning' : 'valid',
-    }));
+    const items = (parsed.items || []).map((it: any, idx: number) => {
+      const ctn = it.ctn ? Number(it.ctn) : 0;
+      const ratePerCtn = it.ratePerCtn ? Number(it.ratePerCtn) : 0;
+      const qtyPerCtn = it.qtyPerCtn ? Number(it.qtyPerCtn) : 1;
+      const quantity = Number(it.quantity) || 1;
+      const price = it.price !== undefined && it.price !== null ? Number(it.price) : undefined;
+      const subtotal = it.subtotal !== undefined && it.subtotal !== null
+        ? Number(it.subtotal)
+        : (price && quantity ? Number((price * quantity).toFixed(2)) : (ratePerCtn && ctn ? Number((ratePerCtn * ctn).toFixed(2)) : undefined));
+      const vatPercent = it.vatPercent !== undefined && it.vatPercent !== null ? Number(it.vatPercent) : 5;
+      const vatAmount = it.vatAmount !== undefined && it.vatAmount !== null
+        ? Number(it.vatAmount)
+        : (subtotal !== undefined ? Number((subtotal * (vatPercent / 100)).toFixed(2)) : 0);
+      const totalAmount = it.purchaseCost
+        ? Number(it.purchaseCost)
+        : (subtotal !== undefined ? Number((subtotal + vatAmount).toFixed(2)) : undefined);
+
+      return {
+        id: `ext-item-${idx + 1}`,
+        name: it.name || 'Unnamed item',
+        category: it.category || 'Custom',
+        mcode: it.mcode || '',
+        packageType: it.packageType || undefined,
+        ctn,
+        ratePerCtn,
+        qtyPerCtn,
+        quantity,
+        unit: it.unit || 'kg',
+        price,
+        subtotal,
+        vatPercent,
+        vatAmount,
+        salePrice: it.salePrice ? Number(it.salePrice) : undefined,
+        purchaseCost: totalAmount,
+        discount: it.discount ? Number(it.discount) : 0,
+        totalAmount,
+        confidence: Math.min(1, Math.max(0.1, Number(it.confidence) || 0.85)),
+        needsConfirmation: Boolean(it.needsConfirmation || (!price && !ratePerCtn && !totalAmount) || it.confidence < 0.8),
+        status: (it.needsConfirmation || (!price && !ratePerCtn && !totalAmount)) ? 'warning' : 'valid',
+      };
+    });
 
     const highConfidence = items.filter((i: any) => !i.needsConfirmation && i.confidence >= 0.85).length;
     const needsReview = items.length - highConfidence;

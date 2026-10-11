@@ -88,10 +88,14 @@ export interface OCRItemRow {
   quantity: number; // Total quantity to add/deduct
   unit: string;
   isLumpSum?: boolean;
-  ratePerCtn: number;
-  price: number; // rate per unit
-  salePrice: number; // selling price for catalog & sale bills
-  total: number; // line total
+  ratePerCtn: number; // Rate per bag/carton (before VAT)
+  price: number; // Unit rate per kg/piece (before VAT)
+  subtotal: number; // Stock price before VAT (= (ctn * ratePerCtn) + (looseExtra * price))
+  vatPercent: number; // VAT percentage, default 5%
+  vatAmount: number; // VAT amount for this line
+  effectiveCostPerUnit?: number; // Purchase price per unit incl VAT (= total / quantity)
+  salePrice: number; // Selling price for catalog & sale bills
+  total: number; // Line total = subtotal + vatAmount (Stock + VAT = Total Purchase Price)
   confidence: number;
   matchedProductId?: string;
   existingStock?: number;
@@ -499,25 +503,55 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
     rawQtyPerCtn?: number,
     rawPackageType?: string,
     rawUnit?: string,
-    matchedProduct?: Product
+    matchedProduct?: Product,
+    rawVatPercent?: number,
+    rawVatAmount?: number,
+    rawSubtotal?: number
   ) => {
     const title = (rawTitle || '').trim();
     const lower = title.toLowerCase();
 
-    // 1. Detect Package Type
-    let packageType = rawPackageType || 'Carton';
-    if (lower.includes('bag') || lower.includes('bori')) {
+    // 1. Detect Package Type with full commodity normalization
+    let packageType = 'Carton';
+    const pkgLower = (rawPackageType || '').toLowerCase().trim();
+    if (pkgLower.includes('bag') || pkgLower.includes('bori') || pkgLower.includes('thela')) {
       packageType = 'Bag';
-    } else if (lower.includes('tin') || lower.includes('can') || lower.includes('dabba')) {
+    } else if (pkgLower.includes('tin') || pkgLower.includes('can') || pkgLower.includes('dabba')) {
+      packageType = 'Tin';
+    } else if (pkgLower.includes('drum')) {
+      packageType = 'Drum';
+    } else if (pkgLower.includes('box')) {
+      packageType = 'Box';
+    } else if (pkgLower.includes('pack') || pkgLower.includes('pkt') || pkgLower.includes('packet')) {
+      packageType = 'Pack';
+    } else if (pkgLower.includes('kg') || pkgLower.includes('kilo')) {
+      packageType = 'Kg';
+    } else if (pkgLower.includes('carton') || pkgLower.includes('ctn')) {
+      packageType = 'Carton';
+    } else if (lower.includes('bag') || lower.includes('bori') || lower.includes('thela')) {
+      packageType = 'Bag';
+    } else if (lower.includes('tin') || lower.includes('can')) {
       packageType = 'Tin';
     } else if (lower.includes('drum')) {
       packageType = 'Drum';
-    } else if (lower.includes('box') || lower.includes('carton') || lower.includes('ctn')) {
-      packageType = lower.includes('box') ? 'Box' : 'Carton';
-    } else if (lower.includes('pack') || lower.includes('pkt')) {
+    } else if (lower.includes('box')) {
+      packageType = 'Box';
+    } else if (lower.includes('pack') || lower.includes('pkt') || lower.includes('packet')) {
       packageType = 'Pack';
     } else if (matchedProduct?.packageType) {
       packageType = matchedProduct.packageType;
+    } else if (
+      lower.includes('sugar') ||
+      lower.includes('rice') ||
+      lower.includes('chawal') ||
+      lower.includes('atta') ||
+      lower.includes('flour') ||
+      lower.includes('daal') ||
+      lower.includes('dal') ||
+      lower.includes('chilly') ||
+      lower.includes('powder')
+    ) {
+      packageType = 'Bag';
     }
 
     // 2. Detect Weight / Multiplier in Title
@@ -541,7 +575,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
       if (weightMatch && weightMatch[1]) {
         detectedWeightPerPackage = parseFloat(weightMatch[1]);
         detectedUnit = 'KG';
-        if (!rawPackageType && packageType === 'Carton') {
+        if (!rawPackageType || rawPackageType === 'Carton') {
           packageType = 'Bag';
         }
       }
@@ -553,7 +587,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
       if (literMatch && literMatch[1]) {
         detectedWeightPerPackage = parseFloat(literMatch[1]);
         detectedUnit = 'LTR';
-        if (!rawPackageType && packageType === 'Carton' && lower.includes('tin')) {
+        if (packageType === 'Carton' && lower.includes('tin')) {
           packageType = 'Tin';
         }
       }
@@ -598,27 +632,47 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
       quantity = 1;
     }
 
-    // 4. Resolve Rates: Carton Rate vs Unit Price vs Total
+    // 4. Resolve Rates, Subtotal, VAT, and Total (Stock + VAT = Total Purchase Price)
     let ratePerCtn = Number(rawPrice) || 0;
     let price = 0;
-    let total = Number(rawLineTotal) || 0;
 
     if (qtyPerCtn > 1) {
-      // Slip rate (e.g. 122 for 50kg bag) is ratePerCtn
       if (ratePerCtn > 0) {
         price = Number((ratePerCtn / qtyPerCtn).toFixed(2));
       }
-      if (total <= 0) {
-        total = Number((ctn * ratePerCtn).toFixed(2));
-      }
     } else {
-      price = ratePerCtn;
-      if (total <= 0) {
-        total = Number((quantity * price).toFixed(2));
-      }
+      price = ratePerCtn > 0 ? ratePerCtn : (quantity > 0 && rawLineTotal > 0 ? Number((rawLineTotal / quantity).toFixed(2)) : 0);
     }
 
-    const finalUnit = rawUnit ? rawUnit.toUpperCase() : detectedUnit;
+    let subtotal = 0;
+    if (rawSubtotal && rawSubtotal > 0) {
+      subtotal = Number(rawSubtotal);
+    } else if (qtyPerCtn > 1) {
+      subtotal = Number(((ctn * ratePerCtn) + (looseExtra * price)).toFixed(2));
+    } else {
+      subtotal = Number((quantity * price).toFixed(2));
+    }
+
+    // Default VAT is 5% on wholesale UAE tax invoices
+    const vatPercent = rawVatPercent !== undefined && !isNaN(rawVatPercent) ? Number(rawVatPercent) : 5;
+    let vatAmount = 0;
+    if (rawVatAmount !== undefined && rawVatAmount > 0) {
+      vatAmount = Number(rawVatAmount);
+    } else {
+      vatAmount = Number((subtotal * (vatPercent / 100)).toFixed(2));
+    }
+
+    let total = 0;
+    if (rawLineTotal && rawLineTotal > subtotal) {
+      total = Number(rawLineTotal);
+      if (vatAmount <= 0) vatAmount = Number((total - subtotal).toFixed(2));
+    } else {
+      total = Number((subtotal + vatAmount).toFixed(2));
+    }
+
+    const effectiveCostPerUnit = quantity > 0 ? Number((total / quantity).toFixed(2)) : (price > 0 ? Number((price * (1 + vatPercent / 100)).toFixed(2)) : 0);
+
+    const finalUnit = rawUnit ? rawUnit.toUpperCase() : (packageType === 'Bag' ? 'KG' : detectedUnit);
 
     return {
       cleanTitle: title,
@@ -630,7 +684,11 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
       unit: finalUnit,
       ratePerCtn,
       price,
+      subtotal,
+      vatPercent,
+      vatAmount,
       total,
+      effectiveCostPerUnit,
     };
   };
 
@@ -781,7 +839,10 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
           Number(it.qtyPerCtn) || 0,
           it.packageType,
           it.unit,
-          matched
+          matched,
+          it.vatPercent,
+          it.vatAmount,
+          it.subtotal
         );
 
         let mcode = '';
@@ -806,11 +867,15 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
         // Sale bill specific: if slip had no price, apply matched catalog selling price!
         let finalRate = packaging.price;
         let finalRatePerCtn = packaging.ratePerCtn;
+        let finalSubtotal = packaging.subtotal;
+        let finalVatAmount = packaging.vatAmount;
         let finalTotal = packaging.total;
         if (ocrMode === 'sale' && finalRate <= 0 && matched) {
           finalRate = matched.sellingPrice || 0;
           if (packaging.qtyPerCtn > 1) finalRatePerCtn = Number((finalRate * packaging.qtyPerCtn).toFixed(2));
-          finalTotal = Number((packaging.quantity * finalRate).toFixed(2));
+          finalSubtotal = Number((packaging.quantity * finalRate).toFixed(2));
+          finalVatAmount = Number((finalSubtotal * (packaging.vatPercent / 100)).toFixed(2));
+          finalTotal = Number((finalSubtotal + finalVatAmount).toFixed(2));
         }
 
         return {
@@ -829,6 +894,10 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
           isLumpSum: false,
           ratePerCtn: finalRatePerCtn,
           price: finalRate,
+          subtotal: finalSubtotal,
+          vatPercent: packaging.vatPercent,
+          vatAmount: finalVatAmount,
+          effectiveCostPerUnit: packaging.effectiveCostPerUnit,
           salePrice,
           total: finalTotal,
           confidence: it.confidence || 0.95,
@@ -900,7 +969,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
           }
         }
 
-        // Auto-recalculate quantities, rates, and line total
+        // Auto-recalculate quantities, rates, subtotal, VAT, and line total
         if (field === 'ctn' || field === 'qtyPerCtn' || field === 'looseExtra') {
           const c = Number(field === 'ctn' ? value : updated.ctn) || 0;
           const qpc = Number(field === 'qtyPerCtn' ? value : updated.qtyPerCtn) || 1;
@@ -910,11 +979,15 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
           if (updated.ratePerCtn > 0) {
             const pieceRate = qpc > 0 ? updated.ratePerCtn / qpc : 0;
             updated.price = Number(pieceRate.toFixed(2));
-            updated.total = Number(((c * updated.ratePerCtn) + (extra * pieceRate)).toFixed(2));
+            updated.subtotal = Number(((c * updated.ratePerCtn) + (extra * pieceRate)).toFixed(2));
           } else if (updated.price > 0) {
             updated.ratePerCtn = Number((updated.price * qpc).toFixed(2));
-            updated.total = Number((updated.quantity * updated.price).toFixed(2));
+            updated.subtotal = Number((updated.quantity * updated.price).toFixed(2));
           }
+          const vatPct = updated.vatPercent !== undefined ? updated.vatPercent : 5;
+          updated.vatAmount = Number((updated.subtotal * (vatPct / 100)).toFixed(2));
+          updated.total = Number((updated.subtotal + updated.vatAmount).toFixed(2));
+          updated.effectiveCostPerUnit = updated.quantity > 0 ? Number((updated.total / updated.quantity).toFixed(2)) : updated.price;
         } else if (field === 'ratePerCtn') {
           const rpc = Number(value) || 0;
           const c = Number(updated.ctn) || 0;
@@ -922,25 +995,75 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
           const extra = Number(updated.looseExtra) || 0;
           const pieceRate = qpc > 0 ? rpc / qpc : 0;
           updated.price = Number(pieceRate.toFixed(2));
-          updated.total = Number(((c * rpc) + (extra * pieceRate)).toFixed(2));
+          updated.subtotal = Number(((c * rpc) + (extra * pieceRate)).toFixed(2));
+          const vatPct = updated.vatPercent !== undefined ? updated.vatPercent : 5;
+          updated.vatAmount = Number((updated.subtotal * (vatPct / 100)).toFixed(2));
+          updated.total = Number((updated.subtotal + updated.vatAmount).toFixed(2));
+          updated.effectiveCostPerUnit = updated.quantity > 0 ? Number((updated.total / updated.quantity).toFixed(2)) : updated.price;
         } else if (field === 'price') {
           const p = Number(value) || 0;
           const qpc = Number(updated.qtyPerCtn) || 1;
           updated.ratePerCtn = Number((p * qpc).toFixed(2));
-          updated.total = Number((updated.quantity * p).toFixed(2));
+          updated.subtotal = Number((updated.quantity * p).toFixed(2));
+          const vatPct = updated.vatPercent !== undefined ? updated.vatPercent : 5;
+          updated.vatAmount = Number((updated.subtotal * (vatPct / 100)).toFixed(2));
+          updated.total = Number((updated.subtotal + updated.vatAmount).toFixed(2));
+          updated.effectiveCostPerUnit = updated.quantity > 0 ? Number((updated.total / updated.quantity).toFixed(2)) : updated.price;
+        } else if (field === 'subtotal') {
+          const st = Number(value) || 0;
+          updated.subtotal = st;
+          const vatPct = updated.vatPercent !== undefined ? updated.vatPercent : 5;
+          updated.vatAmount = Number((st * (vatPct / 100)).toFixed(2));
+          updated.total = Number((st + updated.vatAmount).toFixed(2));
+          if (updated.quantity > 0) {
+            updated.price = Number((st / updated.quantity).toFixed(2));
+            if (updated.qtyPerCtn > 0) updated.ratePerCtn = Number((updated.price * updated.qtyPerCtn).toFixed(2));
+          }
+          updated.effectiveCostPerUnit = updated.quantity > 0 ? Number((updated.total / updated.quantity).toFixed(2)) : updated.price;
+        } else if (field === 'vatPercent') {
+          const vp = Number(value) || 0;
+          updated.vatPercent = vp;
+          updated.vatAmount = Number((updated.subtotal * (vp / 100)).toFixed(2));
+          updated.total = Number((updated.subtotal + updated.vatAmount).toFixed(2));
+          updated.effectiveCostPerUnit = updated.quantity > 0 ? Number((updated.total / updated.quantity).toFixed(2)) : updated.price;
+        } else if (field === 'vatAmount') {
+          const va = Number(value) || 0;
+          updated.vatAmount = va;
+          updated.total = Number((updated.subtotal + va).toFixed(2));
+          if (updated.subtotal > 0) updated.vatPercent = Number(((va / updated.subtotal) * 100).toFixed(2));
+          updated.effectiveCostPerUnit = updated.quantity > 0 ? Number((updated.total / updated.quantity).toFixed(2)) : updated.price;
         } else if (field === 'quantity') {
           const q = Number(value) || 0;
           const p = Number(updated.price) || 0;
-          updated.total = Number((q * p).toFixed(2));
+          updated.subtotal = Number((q * p).toFixed(2));
+          const vatPct = updated.vatPercent !== undefined ? updated.vatPercent : 5;
+          updated.vatAmount = Number((updated.subtotal * (vatPct / 100)).toFixed(2));
+          updated.total = Number((updated.subtotal + updated.vatAmount).toFixed(2));
+          updated.effectiveCostPerUnit = q > 0 ? Number((updated.total / q).toFixed(2)) : p;
         } else if (field === 'total') {
           const t = Number(value) || 0;
+          updated.total = t;
+          const vatPct = updated.vatPercent !== undefined ? updated.vatPercent : 5;
+          if (vatPct > 0) {
+            updated.subtotal = Number((t / (1 + (vatPct / 100))).toFixed(2));
+            updated.vatAmount = Number((t - updated.subtotal).toFixed(2));
+          } else {
+            updated.subtotal = t;
+            updated.vatAmount = 0;
+          }
           const q = Number(updated.quantity) || 1;
           const qpc = Number(updated.qtyPerCtn) || 1;
           if (q > 0) {
-            updated.price = Number((t / q).toFixed(2));
+            updated.price = Number((updated.subtotal / q).toFixed(2));
             if (qpc > 0) {
               updated.ratePerCtn = Number((updated.price * qpc).toFixed(2));
             }
+          }
+          updated.effectiveCostPerUnit = q > 0 ? Number((t / q).toFixed(2)) : updated.price;
+        } else if (field === 'packageType') {
+          updated.packageType = value;
+          if (value === 'Bag' && (updated.unit === 'CTN' || !updated.unit)) {
+            updated.unit = 'KG';
           }
         }
 
@@ -958,12 +1081,16 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
       mcode: newSku,
       isNewItem: true,
       category: 'Kitchen Supplies',
+      packageType: 'Bag',
       ctn: 0,
       qtyPerCtn: 1,
       quantity: 1,
       unit: 'KG',
       ratePerCtn: 0,
       price: 0,
+      subtotal: 0,
+      vatPercent: 5,
+      vatAmount: 0,
       salePrice: 0,
       total: 0,
       confidence: 1.0,
@@ -985,8 +1112,11 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
   const selectedCount = selectedItems.length;
   const allSelected = itemsList.length > 0 && selectedCount === itemsList.length;
 
+  const totalSelectedSubtotal = selectedItems.reduce((sum, it) => sum + (it.subtotal || 0), 0);
+  const totalSelectedVat = selectedItems.reduce((sum, it) => sum + (it.vatAmount || 0), 0);
+
   const totalSelectedAmount = selectedItems.reduce((sum, it) => {
-    const val = it.total > 0 ? it.total : (it.price || 0) * (it.quantity || 1);
+    const val = it.total > 0 ? it.total : Number(((it.subtotal || 0) + (it.vatAmount || 0)).toFixed(2));
     return sum + val;
   }, 0);
 
@@ -1177,20 +1307,21 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
             itemTitle: it.name.trim(),
             category: it.category,
             mcode: it.mcode,
-            packageType: it.packageType,
+            packageType: it.packageType || 'Bag',
             qty: it.quantity,
             rate: it.price,
             salePrice: it.salePrice, // preserved for inventory sellingPrice
-            amount: it.total,
+            subtotal: it.subtotal,
+            vatPercent: it.vatPercent !== undefined ? it.vatPercent : 5,
+            vatAmount: it.vatAmount || 0,
+            amount: it.total, // Stock + VAT = Total Purchase Price
             ctn: it.ctn,
             ratePerCtn: it.ratePerCtn,
             qtyPerCtn: it.qtyPerCtn,
             extraPiece: it.looseExtra,
             discount: 0,
-            vatPercent: 0,
-            vatAmount: 0,
             stock: it.existingStock || 0,
-            unit: it.unit,
+            unit: it.unit || (it.packageType === 'Bag' ? 'KG' : 'Units'),
           })),
         };
 
@@ -2484,7 +2615,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-wrap">
                       <button
                         type="button"
                         onClick={handleAddItemRow}
@@ -2493,8 +2624,20 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                         <Plus className="w-3.5 h-3.5" />
                         <span>+ Naya Item Shamil Karein</span>
                       </button>
-                      <div className="text-emerald-400 font-mono font-bold text-xs bg-slate-900 px-3 py-1 rounded-lg border border-slate-800">
-                        Items Total: {currencySymbol()} {totalSelectedAmount.toLocaleString()}
+
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="text-slate-300 font-mono text-xs bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800 flex items-center gap-1.5">
+                          <span className="text-[10px] text-slate-400 uppercase font-semibold">Stock Subtotal:</span>
+                          <span className="font-bold text-white">{currencySymbol()} {totalSelectedSubtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="text-sky-300 font-mono text-xs bg-slate-950 px-2.5 py-1 rounded-lg border border-sky-900/60 flex items-center gap-1.5">
+                          <span className="text-[10px] text-sky-400 uppercase font-semibold">+ VAT Total (5%):</span>
+                          <span className="font-bold text-sky-300">+{currencySymbol()} {totalSelectedVat.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="text-emerald-400 font-mono font-bold text-xs bg-emerald-950/60 px-3 py-1 rounded-lg border border-emerald-700/60 shadow-xs flex items-center gap-1.5">
+                          <span className="text-[10px] text-emerald-300 uppercase font-bold">= Kul Kharid Total (Stock + VAT):</span>
+                          <span className="text-sm font-black">{currencySymbol()} {totalSelectedAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -2737,9 +2880,69 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                               </div>
                             )}
 
-                            {/* Line Total */}
-                            <div className="flex items-center gap-1 ml-auto">
-                              <span className="text-[10px] text-slate-400 font-medium">Total:</span>
+                            {/* Stock Subtotal */}
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-slate-400 font-medium">Stock (خالص):</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="any"
+                                value={item.subtotal || ''}
+                                onChange={(e) =>
+                                  handleUpdateItemField(index, 'subtotal', parseFloat(e.target.value) || 0)
+                                }
+                                placeholder="Subtotal"
+                                className="w-20 px-2 py-1 text-xs bg-slate-950 rounded-lg font-mono border border-slate-700 text-slate-200 text-right font-medium"
+                                title="Stock subtotal before VAT"
+                              />
+                            </div>
+
+                            {/* VAT Percent */}
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-sky-400 font-medium">VAT %:</span>
+                              <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="any"
+                                value={item.vatPercent !== undefined ? item.vatPercent : 5}
+                                onChange={(e) =>
+                                  handleUpdateItemField(index, 'vatPercent', parseFloat(e.target.value) || 0)
+                                }
+                                className="w-12 px-1 py-1 text-xs bg-slate-950 rounded-lg font-mono border border-sky-800 text-sky-300 text-center font-bold"
+                                title="VAT percentage (standard 5%)"
+                              />
+                            </div>
+
+                            {/* VAT Amount */}
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-sky-400 font-medium">VAT (ویٹ):</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="any"
+                                value={item.vatAmount || ''}
+                                onChange={(e) =>
+                                  handleUpdateItemField(index, 'vatAmount', parseFloat(e.target.value) || 0)
+                                }
+                                placeholder="0.00"
+                                className="w-16 px-1.5 py-1 text-xs bg-slate-950 rounded-lg font-mono border border-sky-800 text-sky-300 text-right font-bold"
+                                title="VAT amount for line"
+                              />
+                            </div>
+
+                            {/* Line Total: Stock + VAT = Purchase Price */}
+                            <div className="flex items-center gap-1.5 ml-auto bg-emerald-950/40 px-2.5 py-1 rounded-xl border border-emerald-600/60 shadow-xs">
+                              <div className="text-right">
+                                <span className="text-[10px] text-emerald-300 font-black block leading-none">
+                                  Total (= Stock + VAT):
+                                </span>
+                                {item.effectiveCostPerUnit !== undefined && item.effectiveCostPerUnit > 0 && (
+                                  <span className="text-[9px] text-slate-400 block font-mono mt-0.5">
+                                    ({currencySymbol()} {item.effectiveCostPerUnit} / {item.unit})
+                                  </span>
+                                )}
+                              </div>
                               <input
                                 type="number"
                                 min="0"
@@ -2748,7 +2951,8 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                                 onChange={(e) =>
                                   handleUpdateItemField(index, 'total', parseFloat(e.target.value) || 0)
                                 }
-                                className="w-24 px-2 py-1 text-xs bg-slate-950 rounded-lg font-mono text-emerald-400 font-bold border border-slate-700 text-right"
+                                className="w-24 px-2 py-1 text-xs bg-slate-950 rounded-lg font-mono text-emerald-400 font-black border border-emerald-500 text-right text-sm"
+                                title="Stock + VAT = Total Purchase Price"
                               />
                             </div>
                           </div>

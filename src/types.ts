@@ -570,9 +570,12 @@ export interface ExtractedDocumentItem {
   qtyPerCtn?: number;
   mcode?: string;
   discount?: number;
+  subtotal?: number;
   vatPercent?: number;
+  vatAmount?: number;
   totalAmount?: number;
   salePrice?: number;
+  packageType?: string;
 }
 
 export interface ExtractedDocumentData {
