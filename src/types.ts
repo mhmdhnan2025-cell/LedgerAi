@@ -1101,6 +1101,8 @@ export interface GlAccountOption {
   balance: number;
   balanceType: 'DR' | 'CR';
   balanceFormatted: string; // e.g. "148.61 DR"
+  city?: string;
+  phone?: string;
 }
 
 export interface VoucherEntry {

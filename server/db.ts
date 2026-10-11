@@ -7477,14 +7477,17 @@ class DatabaseService {
     (this.data.customers || []).forEach((c) => {
       const bal = Number(c.outstandingBalance || 0);
       const isDr = bal >= 0;
+      const cleanTitle = (c.accountTitle || c.name || 'Customer').trim();
       accounts.push({
         id: c.id,
         code: c.code || c.accountCode || '0101040000',
-        title: c.accountTitle || c.name || 'Customer',
+        title: cleanTitle,
         type: 'Customer',
         balance: Math.abs(bal),
         balanceType: isDr ? 'DR' : 'CR',
-        balanceFormatted: `${Math.abs(bal).toFixed(2)} ${isDr ? 'DR (Udhaar / Receivable)' : 'CR (Advance)'}`,
+        balanceFormatted: `${Math.abs(bal).toFixed(2)} ${isDr ? 'DR' : 'CR'}`,
+        city: c.city || c.area || '',
+        phone: c.mobile || c.telephones || '',
       });
     });
 
@@ -7492,14 +7495,17 @@ class DatabaseService {
     (this.data.suppliers || []).forEach((s) => {
       const payable = Number(s.payableToSupplier || s.balanceOwed || 0);
       const isCr = payable >= 0;
+      const cleanTitle = (s.accountTitle || s.title || s.name || 'Supplier').trim();
       accounts.push({
         id: s.id,
-        code: s.code || '0201010000',
-        title: s.title || s.name || s.accountTitle || 'Supplier',
+        code: s.code || s.accountNumber || '0201010000',
+        title: cleanTitle,
         type: 'Supplier',
         balance: Math.abs(payable),
         balanceType: isCr ? 'CR' : 'DR',
-        balanceFormatted: `${Math.abs(payable).toFixed(2)} ${isCr ? 'CR (Dena Hai / Payable)' : 'DR (Advance)'}`,
+        balanceFormatted: `${Math.abs(payable).toFixed(2)} ${isCr ? 'CR' : 'DR'}`,
+        city: s.city || '',
+        phone: s.mobile || s.telephones || '',
       });
     });
 
@@ -7563,11 +7569,11 @@ class DatabaseService {
       accounts.push({
         id: exp.id,
         code: exp.code || '0501010001',
-        title: `${exp.name} (${exp.expenseType || 'Expense'})`,
+        title: exp.name,
         type: 'Expense',
         balance: totalSpent,
         balanceType: 'DR',
-        balanceFormatted: `${totalSpent.toFixed(2)} DR (Expense / خرچہ)`,
+        balanceFormatted: `${totalSpent.toFixed(2)} DR`,
       });
     });
 

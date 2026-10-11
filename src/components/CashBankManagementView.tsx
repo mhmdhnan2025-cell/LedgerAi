@@ -875,7 +875,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                   <select
                     value={selectedBankId}
                     onChange={(e) => setSelectedBankId(e.target.value)}
-                    className="bg-slate-800/80 border border-slate-700 rounded px-2.5 py-1 text-white text-xs outline-none focus:border-sky-500 max-w-[200px]"
+                    className="bg-slate-800/80 border border-slate-700 rounded px-2.5 py-1 text-white text-xs font-semibold outline-none focus:border-sky-500 min-w-[200px]"
                   >
                     <option value="">Nothing selected</option>
                     {safeBanks.map((b) => (
@@ -907,7 +907,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                     <select
                       value={selectedCashAccountId}
                       onChange={(e) => setSelectedCashAccountId(e.target.value)}
-                      className="bg-slate-800/80 border border-slate-700 rounded px-2.5 py-1 text-white text-xs outline-none focus:border-sky-500"
+                      className="bg-slate-800/80 border border-slate-700 rounded px-2.5 py-1 text-white text-xs font-semibold outline-none focus:border-sky-500 min-w-[160px]"
                     >
                       {safeCashAccounts.map((c) => (
                         <option key={c.id} value={c.id}>
@@ -925,7 +925,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                 <select
                   value={selectedSalesman}
                   onChange={(e) => setSelectedSalesman(e.target.value)}
-                  className="bg-slate-800/80 border border-slate-700 rounded px-2 py-1 text-white text-xs outline-none focus:border-sky-500 max-w-[150px]"
+                  className="bg-slate-800/80 border border-slate-700 rounded px-2 py-1 text-white text-xs font-semibold outline-none focus:border-sky-500 min-w-[160px]"
                 >
                   <option value="">Nothing selected</option>
                   {(Array.isArray(salesmen) ? salesmen : []).map((s) => (
