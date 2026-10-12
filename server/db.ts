@@ -7796,6 +7796,86 @@ class DatabaseService {
     return this.data.saleBills.find((b) => b.id === id || b.billNumber === id);
   }
 
+  public findCustomerByRef(id?: string, code?: string, title?: string): Customer | undefined {
+    const isGeneric = (cStr: string) => !cStr || cStr === '0101040000' || cStr === '0101' || cStr === '0201010000' || cStr === '0201' || cStr === '0301';
+    const cId = (id || '').trim().toLowerCase();
+    const strippedId = cId ? cId.replace(/_comp[_-].*$/, '') : '';
+    const cCode = (code || '').trim().toLowerCase();
+    const cTitle = (title || '').trim().toLowerCase();
+
+    const customers = this.data.customers || [];
+    // Priority 1: Match by ID
+    if (cId && cId !== 'cash' && cId !== 'card' && cId !== 'walk-in') {
+      const match = customers.find((c) => {
+        if (!c || !c.id) return false;
+        const myId = c.id.toLowerCase();
+        const myStripped = myId.replace(/_comp[_-].*$/, '');
+        return myId === cId || myStripped === cId || (strippedId && myStripped === strippedId);
+      });
+      if (match) return match;
+    }
+    // Priority 2: Match by unique code (NEVER generic control code)
+    if (cCode && !isGeneric(cCode)) {
+      const match = customers.find((c) => {
+        if (!c) return false;
+        const myCode = (c.code || '').trim().toLowerCase();
+        const myMan = (c.manualCode || '').trim().toLowerCase();
+        return (myCode && myCode === cCode) || (myMan && myMan === cCode);
+      });
+      if (match) return match;
+    }
+    // Priority 3: Match by title
+    if (cTitle) {
+      const match = customers.find((c) => {
+        if (!c) return false;
+        const myTitle = (c.accountTitle || c.name || '').trim().toLowerCase();
+        return myTitle && myTitle === cTitle;
+      });
+      if (match) return match;
+    }
+    return undefined;
+  }
+
+  public findSupplierByRef(id?: string, code?: string, title?: string): Supplier | undefined {
+    const isGeneric = (sStr: string) => !sStr || sStr === '0201010000' || sStr === '0201' || sStr === '0101040000' || sStr === '0101';
+    const sId = (id || '').trim().toLowerCase();
+    const strippedId = sId ? sId.replace(/_comp[_-].*$/, '') : '';
+    const sCode = (code || '').trim().toLowerCase();
+    const sTitle = (title || '').trim().toLowerCase();
+
+    const suppliers = this.data.suppliers || [];
+    // Priority 1: Match by ID
+    if (sId) {
+      const match = suppliers.find((s) => {
+        if (!s || !s.id) return false;
+        const myId = s.id.toLowerCase();
+        const myStripped = myId.replace(/_comp[_-].*$/, '');
+        return myId === sId || myStripped === sId || (strippedId && myStripped === strippedId);
+      });
+      if (match) return match;
+    }
+    // Priority 2: Match by unique code (NEVER generic control code)
+    if (sCode && !isGeneric(sCode)) {
+      const match = suppliers.find((s) => {
+        if (!s) return false;
+        const myCode = (s.code || '').trim().toLowerCase();
+        const myAcc = (s.accountNumber || '').trim().toLowerCase();
+        return (myCode && myCode === sCode) || (myAcc && myAcc === sCode);
+      });
+      if (match) return match;
+    }
+    // Priority 3: Match by title
+    if (sTitle) {
+      const match = suppliers.find((s) => {
+        if (!s) return false;
+        const myTitle = (s.title || s.name || '').trim().toLowerCase();
+        return myTitle && myTitle === sTitle;
+      });
+      if (match) return match;
+    }
+    return undefined;
+  }
+
   public createSaleBill(
     billData: Partial<SaleBill>,
     user: { id: string; name: string; role: UserRole } = { id: 'admin', name: 'Admin', role: 'Admin' }
@@ -7957,19 +8037,7 @@ class DatabaseService {
     let partyBalanceBefore = Number(billData.partyBalanceBefore) || 0;
     let matchedCustomer: Customer | undefined;
     if (billData.customerId && billData.customerId !== 'cash' && billData.customerId !== 'card') {
-      const custSearch = (billData.customerId || '').trim().toLowerCase();
-      matchedCustomer = (this.data.customers || []).find(
-        (c) =>
-          c &&
-          (c.id?.toLowerCase() === custSearch ||
-            c.code?.toLowerCase() === custSearch ||
-            c.accountCode?.toLowerCase() === custSearch ||
-            c.manualCode?.toLowerCase() === custSearch ||
-            c.id?.replace(/_comp[_-].*$/, '').toLowerCase() === custSearch ||
-            (billData.customerAccountTitle &&
-              (c.accountTitle?.toLowerCase() === billData.customerAccountTitle.trim().toLowerCase() ||
-                c.name?.toLowerCase() === billData.customerAccountTitle.trim().toLowerCase())))
-      );
+      matchedCustomer = this.findCustomerByRef(billData.customerId, (billData as any).customerCode, billData.customerAccountTitle);
       if (matchedCustomer) {
         if (!partyBalanceBefore) {
           if (matchedCustomer.outstandingBalance !== undefined && matchedCustomer.outstandingBalance !== null && !isNaN(Number(matchedCustomer.outstandingBalance))) {
@@ -8161,19 +8229,7 @@ class DatabaseService {
 
     // 2. Revert previous customer outstanding balance
     if (oldBill.customerId && (oldBill.paymentType === 'Account' || (oldBill.balanceReceivable || 0) > 0)) {
-      const custSearch = (oldBill.customerId || '').trim().toLowerCase();
-      const customer = (this.data.customers || []).find(
-        (c) =>
-          c &&
-          (c.id?.toLowerCase() === custSearch ||
-            c.code?.toLowerCase() === custSearch ||
-            c.accountCode?.toLowerCase() === custSearch ||
-            c.manualCode?.toLowerCase() === custSearch ||
-            c.id?.replace(/_comp[_-].*$/, '').toLowerCase() === custSearch ||
-            (oldBill.customerAccountTitle &&
-              (c.accountTitle?.toLowerCase() === oldBill.customerAccountTitle.trim().toLowerCase() ||
-                c.name?.toLowerCase() === oldBill.customerAccountTitle.trim().toLowerCase())))
-      );
+      const customer = this.findCustomerByRef(oldBill.customerId, (oldBill as any).customerCode, oldBill.customerAccountTitle);
       if (customer) {
         customer.outstandingBalance = Number(((customer.outstandingBalance || 0) - oldBill.balanceReceivable).toFixed(2));
         customer.totalSales = Math.max(0, Number(((customer.totalSales || 0) - oldBill.netTotal).toFixed(2)));
@@ -8219,19 +8275,7 @@ class DatabaseService {
 
     // 5. Apply new customer outstanding balance
     if (newBill.customerId && (newBill.paymentType === 'Account' || (newBill.balanceReceivable || 0) > 0)) {
-      const custSearch = (newBill.customerId || '').trim().toLowerCase();
-      const customer = (this.data.customers || []).find(
-        (c) =>
-          c &&
-          (c.id?.toLowerCase() === custSearch ||
-            c.code?.toLowerCase() === custSearch ||
-            c.accountCode?.toLowerCase() === custSearch ||
-            c.manualCode?.toLowerCase() === custSearch ||
-            c.id?.replace(/_comp[_-].*$/, '').toLowerCase() === custSearch ||
-            (newBill.customerAccountTitle &&
-              (c.accountTitle?.toLowerCase() === newBill.customerAccountTitle.trim().toLowerCase() ||
-                c.name?.toLowerCase() === newBill.customerAccountTitle.trim().toLowerCase())))
-      );
+      const customer = this.findCustomerByRef(newBill.customerId, (newBill as any).customerCode, newBill.customerAccountTitle);
       if (customer) {
         customer.outstandingBalance = Number(((customer.outstandingBalance || 0) + newBill.balanceReceivable).toFixed(2));
         customer.totalSales = Number(((customer.totalSales || 0) + newBill.netTotal).toFixed(2));
@@ -9464,34 +9508,29 @@ class DatabaseService {
     const safeEntries = Array.isArray(voucher.entries) ? voucher.entries : [];
     for (const e of safeEntries) {
       const acId = (e.accountId || '').trim().toLowerCase();
+      const strippedAcId = acId ? acId.replace(/_comp[_-].*$/, '') : '';
       const acCode = (e.accountCode || '').trim().toLowerCase();
       const acTitle = (e.accountTitle || '').trim().toLowerCase();
-      const cust = (this.data.customers || []).find(
-        (c) =>
-          c &&
-          (c.id?.toLowerCase() === acId ||
-            c.id?.toLowerCase() === acCode ||
-            c.code?.toLowerCase() === acCode ||
-            c.code?.toLowerCase() === acId ||
-            c.accountCode?.toLowerCase() === acCode ||
-            c.accountCode?.toLowerCase() === acId ||
-            c.manualCode?.toLowerCase() === acCode ||
-            c.manualCode?.toLowerCase() === acId ||
-            c.id?.replace(/_comp[_-].*$/, '').toLowerCase() === acId ||
-            c.id?.replace(/_comp[_-].*$/, '').toLowerCase() === acCode ||
-            (acTitle && (c.accountTitle?.toLowerCase() === acTitle || c.name?.toLowerCase() === acTitle)))
-      );
-      const supp = (this.data.suppliers || []).find(
-        (s) =>
-          s &&
-          (s.id?.toLowerCase() === acId ||
-            s.id?.toLowerCase() === acCode ||
-            s.code?.toLowerCase() === acCode ||
-            s.code?.toLowerCase() === acId ||
-            s.id?.replace(/_comp[_-].*$/, '').toLowerCase() === acId ||
-            s.id?.replace(/_comp[_-].*$/, '').toLowerCase() === acCode ||
-            (acTitle && (s.title?.toLowerCase() === acTitle || s.name?.toLowerCase() === acTitle)))
-      );
+
+      // Check if code is a shared generic control account code (NEVER use to match individual parties)
+      const isGeneric = (code: string) => !code || code === '0101040000' || code === '0101' || code === '0201010000' || code === '0201' || code === '0301' || code === '0102' || code === '0103';
+
+      const isExpense = e.accountType === 'Expense' || acCode.startsWith('0301') || acId.startsWith('exp-');
+      const isBank = e.accountType === 'Bank' || acCode.startsWith('0103') || acId.startsWith('bank-');
+      const isCash = e.accountType === 'Cash' || acCode.startsWith('0102') || acId.startsWith('cash-');
+      const isSupplier = e.accountType === 'Supplier' || acCode.startsWith('0201') || acId.startsWith('sup-') || acId.startsWith('supp-');
+      const isCustomer = (e.accountType === 'Customer' || (!isExpense && !isBank && !isCash && !isSupplier)) && !isSupplier && !isExpense && !isBank && !isCash;
+
+      let cust: Customer | undefined;
+      let supp: Supplier | undefined;
+
+      if (isCustomer) {
+        cust = this.findCustomerByRef(acId, acCode, acTitle);
+      }
+
+      if (isSupplier) {
+        supp = this.findSupplierByRef(acId, acCode, acTitle);
+      }
 
       const cid = getActiveCompanyId();
 

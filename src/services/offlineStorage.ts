@@ -63,6 +63,14 @@ export class OfflineStorageService {
     }
   }
 
+  public static clearSnapshot(): void {
+    try {
+      localStorage.removeItem(STORAGE_KEYS.SNAPSHOT);
+    } catch (err) {
+      console.warn('Failed to clear offline snapshot:', err);
+    }
+  }
+
   public static saveActiveUser(user: User | null): void {
     try {
       const DUMMY_IDS = ['usr-accountant', 'usr-manager', 'usr-sales', 'usr-1', 'usr-2', 'usr-3', 'usr-4', 'usr-5'];

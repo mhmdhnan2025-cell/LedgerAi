@@ -233,44 +233,65 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
     return Array.from(set).sort();
   }, [customers, salesBills, salesmenList]);
 
+  // Canonical customer resolution: matches ID, stripped company ID, unique code, manualCode, or exact title
+  // NOTE: Shared generic control codes (like '0101040000', '0101', '0201010000') must NOT map to a single customer!
+  const isGenericControlCode = (code?: string | null): boolean => {
+    if (!code) return true;
+    const c = code.trim().toLowerCase();
+    return c === '' || c === '0101040000' || c === '0101' || c === '0201010000' || c === '0201' || c === '0301' || c === '0102' || c === '0103';
+  };
+
+  const resolveCustId = useCallback(
+    (id?: string | null, code?: string | null, title?: string | null): string | null => {
+      if (!customers || customers.length === 0) return null;
+
+      // 1. Match by ID (exact or stripped company prefix/suffix)
+      if (id && id.trim()) {
+        const idLower = id.trim().toLowerCase();
+        const strippedId = idLower.replace(/_comp[_-].*$/, '');
+        for (const c of customers) {
+          const cId = (c.id || '').trim().toLowerCase();
+          const cStripped = cId.replace(/_comp[_-].*$/, '');
+          if (cId === idLower || cStripped === idLower || (strippedId && cStripped === strippedId)) {
+            return c.id;
+          }
+        }
+      }
+
+      // 2. Match by unique code or manualCode (ONLY if NOT a shared generic control account code)
+      if (code && code.trim() && !isGenericControlCode(code)) {
+        const codeLower = code.trim().toLowerCase();
+        for (const c of customers) {
+          const cCode = (c.code || '').trim().toLowerCase();
+          const cManual = (c.manualCode || '').trim().toLowerCase();
+          if ((cCode && cCode === codeLower) || (cManual && cManual === codeLower)) {
+            return c.id;
+          }
+        }
+      }
+
+      // 3. Match by exact account title or customer name
+      if (title && title.trim()) {
+        const titleLower = title.trim().toLowerCase();
+        for (const c of customers) {
+          const cTitle = (c.accountTitle || c.name || '').trim().toLowerCase();
+          if (cTitle && cTitle === titleLower) {
+            return c.id;
+          }
+        }
+      }
+
+      return null;
+    },
+    [customers]
+  );
+
   // Build rows per customer with last bill, last receipt, and ledger balance
   const allRows: PartyReceivableRow[] = useMemo(() => {
     if (!customers || customers.length === 0) return [];
 
     const normFrom = fromDate ? normalizeToYMD(fromDate) : '';
     const normTo = toDate ? normalizeToYMD(toDate) : '';
-
-    // Canonical customer lookup map: matches ID, stripped comp ID, code, accountCode, manualCode, or title
-    const custKeyToId = new Map<string, string>();
-    customers.forEach((c) => {
-      const cid = c.id;
-      custKeyToId.set(cid.toLowerCase(), cid);
-      const stripped = cid.replace(/_comp[_-].*$/, '').toLowerCase();
-      if (stripped) custKeyToId.set(stripped, cid);
-      if (c.code) custKeyToId.set(c.code.trim().toLowerCase(), cid);
-      if (c.accountCode) custKeyToId.set(c.accountCode.trim().toLowerCase(), cid);
-      if (c.manualCode) custKeyToId.set(c.manualCode.trim().toLowerCase(), cid);
-      const title = (c.accountTitle || c.name || '').trim().toLowerCase();
-      if (title) custKeyToId.set(title, cid);
-    });
-
-    const resolveCustId = (id?: string | null, code?: string | null, title?: string | null): string | null => {
-      if (id) {
-        const idLower = id.trim().toLowerCase();
-        if (custKeyToId.has(idLower)) return custKeyToId.get(idLower)!;
-        const stripped = idLower.replace(/_comp[_-].*$/, '');
-        if (custKeyToId.has(stripped)) return custKeyToId.get(stripped)!;
-      }
-      if (code) {
-        const codeLower = code.trim().toLowerCase();
-        if (custKeyToId.has(codeLower)) return custKeyToId.get(codeLower)!;
-      }
-      if (title) {
-        const titleLower = title.trim().toLowerCase();
-        if (custKeyToId.has(titleLower)) return custKeyToId.get(titleLower)!;
-      }
-      return null;
-    };
 
     // 1. Group sales bills by customer ID (each bill counted EXACTLY once)
     const billsByCust = new Map<string, SaleBill[]>();
@@ -464,7 +485,10 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
 
       let cumulativeBillsReceivable = 0;
       for (const b of allCustBills) {
-        cumulativeBillsReceivable += Number(b.balanceReceivable !== undefined ? b.balanceReceivable : (Number(b.netTotal || 0) - Number(b.cashReceived || 0)));
+        const net = Number(b.netTotal || b.totalAmount || 0);
+        const cashRec = Number(b.cashReceived || 0);
+        const recAmt = b.balanceRecovered ? Number(b.balanceRecoveredAmount || 0) : 0;
+        cumulativeBillsReceivable += (net - cashRec - recAmt);
       }
       let cumulativeReceipts = 0;
       for (const r of allCustReceipts) {
@@ -503,7 +527,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
         city: c.city,
       };
     });
-  }, [customers, salesBills, vouchers, cashRecoveredItems, saleReturns, fromDate, toDate]);
+  }, [customers, salesBills, vouchers, cashRecoveredItems, saleReturns, fromDate, toDate, resolveCustId]);
 
   // Comprehensive Customer Ledger Statement for Quick Modal View
   const activeCustomerLedgerData = useMemo(() => {
@@ -610,6 +634,27 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
       });
     });
 
+    // Cash Recovered items (from direct payments or market udhaar recoveries)
+    const existingVoucherIds = new Set(vouchers.map((v) => v.id));
+    cashRecoveredItems.forEach((ci, idx) => {
+      if (ci.voucherId && existingVoucherIds.has(ci.voucherId)) return;
+      const amt = Number(ci.amount) || 0;
+      if (amt <= 0) return;
+      const match = resolveCustId(undefined, ci.accountCode, ci.accountTitle) === c.id;
+      if (!match) return;
+
+      lines.push({
+        id: `ci-${ci.voucherId || idx}-${ci.accountCode}-${amt}`,
+        date: ci.date,
+        refType: `${ci.voucherType || 'CR'}#`,
+        refNumber: ci.voucherNumberFormatted || '',
+        billNumber: '',
+        narration: ci.narration || 'Payment Recovery',
+        debit: 0,
+        credit: amt,
+      });
+    });
+
     // Matched returns
     const cReturns = saleReturns.filter((sr) => {
       if (sr.status === 'CANCELLED') return false;
@@ -664,7 +709,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
       closingBalance: Math.abs(running),
       closingBalanceType: running >= 0 ? 'DR' : 'CR',
     };
-  }, [activeLedgerCustomerId, customers, salesBills, vouchers, saleReturns]);
+  }, [activeLedgerCustomerId, customers, salesBills, vouchers, cashRecoveredItems, saleReturns, resolveCustId]);
 
   // Filtered Rows based on the user's active filter criteria
   const filteredRows = useMemo(() => {

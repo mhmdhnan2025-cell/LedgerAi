@@ -180,6 +180,13 @@ export function tenantContextMiddleware(req: Request, res: Response, next: NextF
     }
   }
 
+  const headerCompanyId = req.headers['x-company-id'] || req.headers['company-id'];
+  if (typeof headerCompanyId === 'string' && headerCompanyId.trim()) {
+    const cid = headerCompanyId.trim();
+    req.companyId = cid;
+    return tenantStorage.run({ companyId: cid }, () => next());
+  }
+
   tenantStorage.run({ companyId: 'comp_default_01' }, () => next());
 }
 

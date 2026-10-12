@@ -64,6 +64,7 @@ export interface FullDatabaseSnapshot {
 }
 
 const AUTH_TOKEN_KEY = 'erp_auth_token';
+const AUTH_COMPANY_ID_KEY = 'erp_company_id';
 
 export const authStorage = {
   getToken(): string | null {
@@ -87,12 +88,33 @@ export const authStorage = {
       console.error('Failed to clear auth token:', e);
     }
   },
+  getCompanyId(): string | null {
+    try {
+      return localStorage.getItem(AUTH_COMPANY_ID_KEY);
+    } catch {
+      return null;
+    }
+  },
+  setCompanyId(id: string): void {
+    try {
+      localStorage.setItem(AUTH_COMPANY_ID_KEY, id);
+    } catch (e) {
+      console.error('Failed to save company ID:', e);
+    }
+  },
+  clearCompanyId(): void {
+    try {
+      localStorage.removeItem(AUTH_COMPANY_ID_KEY);
+    } catch (e) {
+      console.error('Failed to clear company ID:', e);
+    }
+  },
   isAuthenticated(): boolean {
     return Boolean(this.getToken());
   },
 };
 
-// Global Fetch Interceptor to inject Authorization Bearer Token on all /api requests
+// Global Fetch Interceptor to inject Authorization Bearer Token and x-company-id on all /api requests
 if (typeof window !== 'undefined' && window.fetch) {
   const originalFetch = window.fetch.bind(window);
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -107,14 +129,16 @@ if (typeof window !== 'undefined' && window.fetch) {
 
     if (url.startsWith('/api/') || url.includes('/api/')) {
       const token = authStorage.getToken();
-      if (token) {
-        init = init || {};
-        const headers = new Headers(init.headers || {});
-        if (!headers.has('Authorization')) {
-          headers.set('Authorization', `Bearer ${token}`);
-        }
-        init.headers = headers;
+      const companyId = authStorage.getCompanyId();
+      init = init || {};
+      const headers = new Headers(init.headers || {});
+      if (token && !headers.has('Authorization')) {
+        headers.set('Authorization', `Bearer ${token}`);
       }
+      if (companyId && !headers.has('x-company-id')) {
+        headers.set('x-company-id', companyId);
+      }
+      init.headers = headers;
     }
     return originalFetch(input, init);
   };
@@ -202,6 +226,10 @@ export const api = {
     if (data.token) {
       authStorage.setToken(data.token);
     }
+    const cId = data.company?.id || data.user?.companyId;
+    if (cId) {
+      authStorage.setCompanyId(cId);
+    }
     if (data.user) {
       OfflineStorageService.saveActiveUser(data.user);
     }
@@ -223,6 +251,10 @@ export const api = {
     }
     if (data.token) {
       authStorage.setToken(data.token);
+    }
+    const cId = data.company?.id || data.user?.companyId;
+    if (cId) {
+      authStorage.setCompanyId(cId);
     }
     if (data.user) {
       OfflineStorageService.saveActiveUser(data.user);
@@ -253,6 +285,10 @@ export const api = {
     if (data.token) {
       authStorage.setToken(data.token);
     }
+    const cId = data.company?.id || data.user?.companyId;
+    if (cId) {
+      authStorage.setCompanyId(cId);
+    }
     if (data.user) {
       OfflineStorageService.saveActiveUser(data.user);
     }
@@ -278,6 +314,10 @@ export const api = {
     if (data.token) {
       authStorage.setToken(data.token);
     }
+    const cId = data.company?.id || data.user?.companyId;
+    if (cId) {
+      authStorage.setCompanyId(cId);
+    }
     if (data.user) {
       OfflineStorageService.saveActiveUser(data.user);
     }
@@ -290,11 +330,18 @@ export const api = {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to fetch current user session');
     }
-    return res.json();
+    const data = await res.json();
+    const cId = data.company?.id || data.user?.companyId;
+    if (cId) {
+      authStorage.setCompanyId(cId);
+    }
+    return data;
   },
 
   logout(): void {
     authStorage.clearToken();
+    authStorage.clearCompanyId();
+    OfflineStorageService.clearSnapshot();
     OfflineStorageService.saveActiveUser(null);
   },
 
