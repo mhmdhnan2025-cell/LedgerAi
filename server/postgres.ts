@@ -1045,6 +1045,7 @@ class PostgresService {
             : (d.openingBalance !== undefined && d.openingBalance !== null
                 ? parseFloat(d.openingBalance)
                 : 0);
+          const openType = ((row.opening_balance_type || d.openingBalanceType || 'DR') as string).toUpperCase() as 'DR' | 'CR';
           const rawOutBal = (row.outstanding_balance !== undefined && row.outstanding_balance !== null && !isNaN(Number(row.outstanding_balance)))
             ? parseFloat(row.outstanding_balance)
             : (d.outstandingBalance !== undefined && d.outstandingBalance !== null && !isNaN(Number(d.outstandingBalance))
