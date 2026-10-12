@@ -737,6 +737,12 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
               <span className="font-semibold text-slate-700">Address:</span>{' '}
               {report?.address || selectedCustomer?.address || 'Sharjah, UAE'}
             </div>
+            {(report?.salesman || selectedCustomer?.assignedSalesman || (selectedCustomer as any)?.salesman) && (
+              <div className="text-slate-600">
+                <span className="font-semibold text-slate-700">Salesman:</span>{' '}
+                <span className="font-bold text-slate-900">{report?.salesman || selectedCustomer?.assignedSalesman || (selectedCustomer as any)?.salesman}</span>
+              </div>
+            )}
           </div>
 
           <div className="sm:text-right space-y-1 self-center">

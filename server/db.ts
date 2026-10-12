@@ -7442,6 +7442,8 @@ class DatabaseService {
         : ((data.openingBalanceType === 'CR' ? -1 : 1) * Math.abs(Number(data.openingBalance) || 0)),
       creditLimit: Number(data.creditLimit) || 30000,
       totalSales: Number(data.totalSales) || 0,
+      assignedSalesman: (data.assignedSalesman || (data as any).salesman || '').trim(),
+      salesman: ((data as any).salesman || data.assignedSalesman || '').trim(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -7521,6 +7523,16 @@ class DatabaseService {
       openingBalance: openingBal,
       openingBalanceType: openingType,
       outstandingBalance: newOutstanding,
+      assignedSalesman: updates.assignedSalesman !== undefined 
+        ? updates.assignedSalesman.trim() 
+        : (updates as any).salesman !== undefined 
+          ? (updates as any).salesman.trim() 
+          : (current.assignedSalesman || ''),
+      salesman: (updates as any).salesman !== undefined 
+        ? (updates as any).salesman.trim() 
+        : updates.assignedSalesman !== undefined 
+          ? updates.assignedSalesman.trim() 
+          : ((current as any).salesman || ''),
       contactPerson:
         updates.contactPerson ||
         [updates.prefixTitle || current.prefixTitle, updates.firstName || current.firstName, updates.lastName || current.lastName]
@@ -7687,7 +7699,27 @@ class DatabaseService {
     orderBy?: string;
     search?: string;
   }): SaleBill[] {
-    let list = [...(this.data.saleBills || [])];
+    const custMap = new Map<string, string>();
+    (this.data.customers || []).forEach((c) => {
+      const sm = (c.assignedSalesman || (c as any).salesman || '').trim();
+      if (sm) {
+        if (c.id) custMap.set(c.id.toLowerCase(), sm);
+        if (c.code) custMap.set(c.code.toLowerCase(), sm);
+        if (c.accountTitle) custMap.set(c.accountTitle.toLowerCase().trim(), sm);
+      }
+    });
+
+    let list = (this.data.saleBills || []).map((b) => {
+      if (!b.salesmanName || b.salesmanName.trim() === '' || b.salesmanName === 'Sales Staff') {
+        const cId = (b.customerId || '').toLowerCase();
+        const cTitle = (b.customerAccountTitle || '').toLowerCase().trim();
+        const fallbackSm = custMap.get(cId) || custMap.get(cTitle) || b.salesmanId;
+        if (fallbackSm) {
+          return { ...b, salesmanName: fallbackSm, salesmanId: b.salesmanId || fallbackSm };
+        }
+      }
+      return b;
+    });
 
     if (filters) {
       if (filters.search) {
@@ -7935,9 +7967,10 @@ class DatabaseService {
 
     // Update customer outstanding balance if on Account
     let partyBalanceBefore = Number(billData.partyBalanceBefore) || 0;
+    let matchedCustomer: Customer | undefined;
     if (billData.customerId && billData.customerId !== 'cash' && billData.customerId !== 'card') {
       const custSearch = (billData.customerId || '').trim().toLowerCase();
-      const customer = (this.data.customers || []).find(
+      matchedCustomer = (this.data.customers || []).find(
         (c) =>
           c &&
           (c.id?.toLowerCase() === custSearch ||
@@ -7946,25 +7979,28 @@ class DatabaseService {
             c.id?.replace(/_comp[_-].*$/, '').toLowerCase() === custSearch ||
             (billData.customerAccountTitle && c.accountTitle?.toLowerCase() === billData.customerAccountTitle.trim().toLowerCase()))
       );
-      if (customer) {
+      if (matchedCustomer) {
         if (!partyBalanceBefore) {
-          partyBalanceBefore = customer.outstandingBalance !== undefined ? customer.outstandingBalance : (customer.openingBalance || 0);
+          partyBalanceBefore = matchedCustomer.outstandingBalance !== undefined ? matchedCustomer.outstandingBalance : (matchedCustomer.openingBalance || 0);
         }
         if (billData.paymentType === 'Account') {
-          customer.outstandingBalance = Number(((customer.outstandingBalance || 0) + balanceReceivable).toFixed(2));
+          matchedCustomer.outstandingBalance = Number(((matchedCustomer.outstandingBalance || 0) + balanceReceivable).toFixed(2));
         }
-        customer.totalSales = Number(((customer.totalSales || 0) + netTotal).toFixed(2));
-        customer.lastBillNumber = billNumber;
-        customer.lastBillDate = billDate;
-        customer.lastBillAmount = netTotal;
-        customer.updatedAt = new Date().toISOString();
+        matchedCustomer.totalSales = Number(((matchedCustomer.totalSales || 0) + netTotal).toFixed(2));
+        matchedCustomer.lastBillNumber = billNumber;
+        matchedCustomer.lastBillDate = billDate;
+        matchedCustomer.lastBillAmount = netTotal;
+        matchedCustomer.updatedAt = new Date().toISOString();
 
         const cid = getActiveCompanyId();
-        postgresService.upsertCustomer(customer, cid).catch((err) => {
+        postgresService.upsertCustomer(matchedCustomer, cid).catch((err) => {
           console.warn('[PostgreSQL upsertCustomer on SaleBill Error]:', err.message);
         });
       }
     }
+
+    const custAssignedSm = matchedCustomer ? (matchedCustomer.assignedSalesman || (matchedCustomer as any).salesman || '').trim() : '';
+    const resolvedSalesman = (billData.salesmanName || billData.salesmanId || custAssignedSm || user.name || 'Sales Staff').trim();
 
     const newSaleBill: SaleBill = {
       id: `sb-${billNumber}`,
@@ -7975,8 +8011,8 @@ class DatabaseService {
       customerAccountTitle: (billData.customerAccountTitle || 'Walk-in Customer').trim(),
       customerMobile: billData.customerMobile || '',
       customerTrn: billData.customerTrn || '',
-      salesmanId: billData.salesmanId || '',
-      salesmanName: billData.salesmanName || user.name || 'Sales Staff',
+      salesmanId: billData.salesmanId || resolvedSalesman,
+      salesmanName: resolvedSalesman,
       user: billData.user || user.name || 'Admin',
       partyBalanceBefore: Number(partyBalanceBefore.toFixed(2)),
       paymentType: billData.paymentType || 'Account',
@@ -8842,11 +8878,24 @@ class DatabaseService {
     const list: string[] = [];
     const seen = new Set<string>();
 
+    const addName = (rawName?: string) => {
+      if (!rawName) return;
+      const name = rawName.trim();
+      if (!name) return;
+      const lower = name.toLowerCase();
+      if (lower === 'hanan' || lower === 'hannan' || lower === 'admin' || lower === 'user' || lower.includes('accountant') || lower.includes('ceo')) {
+        return;
+      }
+      if (!seen.has(lower)) {
+        seen.add(lower);
+        list.push(name);
+      }
+    };
+
     (this.data.employees || []).forEach((e) => {
       if (e.status === 'NO') return; // exclude inactive
       const name = (e.accountTitle || e.fullName || `${e.firstName || ''} ${e.lastName || ''}`).trim();
       const lower = name.toLowerCase();
-      // Hannan is till/account owner, Admin is system role - NOT salesmen
       if (lower === 'hanan' || lower === 'hannan' || lower === 'admin' || lower.includes('accountant') || lower.includes('ceo')) {
         return;
       }
@@ -8854,11 +8903,23 @@ class DatabaseService {
         (e.designation && e.designation.toLowerCase().includes('sales')) ||
         (e.salesmanAcc && e.salesmanAcc.trim() !== '') ||
         (lower.includes('bhai') || lower.includes('ashiq') || lower.includes('sales'));
-      if (isSalesman && !seen.has(lower)) {
-        seen.add(lower);
-        list.push(name);
+      if (isSalesman) {
+        addName(name);
       }
     });
+
+    (this.data.customers || []).forEach((c) => {
+      if (c.assignedSalesman) addName(c.assignedSalesman);
+      if ((c as any).salesman) addName((c as any).salesman);
+    });
+
+    (this.data.saleBills || []).forEach((s) => {
+      if (s.salesmanName) addName(s.salesmanName);
+      if (s.salesmanId) addName(s.salesmanId);
+    });
+
+    // Default salesmen from company master list
+    ['HAFIZ ABDUL QADEER', 'SULTAN MIR', 'Ashiq Ali', 'Akbar Bhai', 'Aman Deep', 'Zahrat Al Fajr'].forEach((d) => addName(d));
 
     return list.sort((a, b) => a.localeCompare(b));
   }
@@ -9113,6 +9174,8 @@ class DatabaseService {
         balanceFormatted: `${Math.abs(bal).toFixed(2)} ${isDr ? 'DR' : 'CR'}`,
         city: c.city || c.area || '',
         phone: c.mobile || c.telephones || '',
+        assignedSalesman: c.assignedSalesman || (c as any).salesman || '',
+        salesman: c.assignedSalesman || (c as any).salesman || '',
       });
     });
 
@@ -10273,6 +10336,7 @@ class DatabaseService {
       accountTitle: custTitle,
       phone: isAll ? 'All Customers Consolidated' : (customer?.mobile || customer?.telephones || ''),
       address: isAll ? 'All Locations' : (customer?.address || `${customer?.area || ''} ${customer?.city || ''}`.trim()),
+      salesman: isAll ? '' : (customer?.assignedSalesman || (customer as any)?.salesman || ''),
       fromDate: normFrom,
       toDate: normTo,
       generatedDate: new Date().toISOString(),

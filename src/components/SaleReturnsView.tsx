@@ -321,7 +321,7 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
         customerName: selectedAccount.title,
         customerAccountTitle: selectedAccount.title,
         customerCode: selectedAccount.code,
-        salesmanName: currentUser?.name || 'Sales Staff',
+        salesmanName: (selectedAccount as any).assignedSalesman || (selectedAccount as any).salesman || currentUser?.name || 'Sales Staff',
         isCash: isCashTransaction,
         items,
         totalAmount: totalGross,

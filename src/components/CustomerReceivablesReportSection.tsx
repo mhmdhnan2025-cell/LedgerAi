@@ -209,6 +209,9 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
       if (c.assignedSalesman && c.assignedSalesman.trim()) {
         set.add(c.assignedSalesman.trim());
       }
+      if ((c as any).salesman && (c as any).salesman.trim()) {
+        set.add((c as any).salesman.trim());
+      }
     });
     salesBills.forEach((b) => {
       if (b.salesmanName && b.salesmanName.trim()) {

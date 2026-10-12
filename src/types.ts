@@ -1120,6 +1120,8 @@ export interface GlAccountOption {
   balanceFormatted: string; // e.g. "148.61 DR"
   city?: string;
   phone?: string;
+  assignedSalesman?: string;
+  salesman?: string;
 }
 
 export interface VoucherEntry {
@@ -1239,6 +1241,7 @@ export interface CustomerLedgerReport {
   accountTitle: string;
   phone?: string;
   address?: string;
+  salesman?: string;
   fromDate: string;
   toDate: string;
   generatedDate: string;

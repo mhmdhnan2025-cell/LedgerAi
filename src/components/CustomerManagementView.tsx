@@ -95,6 +95,7 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
   const [listSearchQuery, setListSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
   const [groupFilter, setGroupFilter] = useState('ALL');
+  const [salesmanFilter, setSalesmanFilter] = useState('ALL');
 
   // Advanced Search tab state
   const [filterCode, setFilterCode] = useState('');
@@ -120,6 +121,18 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
 
   const [availableAreas, setAvailableAreas] = useState<string[]>(DEFAULT_AREAS);
 
+  // Salesmen list & inline addition
+  const [availableSalesmen, setAvailableSalesmen] = useState<string[]>([
+    'HAFIZ ABDUL QADEER',
+    'SULTAN MIR',
+    'Ashiq Ali',
+    'Akbar Bhai',
+    'Aman Deep',
+    'Zahrat Al Fajr',
+  ]);
+  const [newSalesmanInput, setNewSalesmanInput] = useState('');
+  const [showAddSalesmanInput, setShowAddSalesmanInput] = useState(false);
+
   // Form state for creating / editing customer
   const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -127,6 +140,7 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
     manualCode: '',
     accountTitle: '',
     customerGroup: 'Restaurants',
+    assignedSalesman: '',
     regDate: new Date().toISOString().split('T')[0],
     ntn: '',
     trn: '',
@@ -161,8 +175,14 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
   const loadCustomers = async () => {
     setIsLoading(true);
     try {
-      const list = await api.getCustomers();
+      const [list, salesmen] = await Promise.all([
+        api.getCustomers(),
+        api.getSalesmen().catch(() => []),
+      ]);
       setCustomersList(list);
+      if (salesmen && salesmen.length > 0) {
+        setAvailableSalesmen((prev) => Array.from(new Set([...salesmen, ...prev])));
+      }
     } catch (err: any) {
       console.error('Failed to load customers:', err);
     } finally {
@@ -178,6 +198,31 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
     }
   }, [propCustomers]);
 
+  useEffect(() => {
+    if (customersList && customersList.length > 0) {
+      const sms = new Set<string>();
+      customersList.forEach((c) => {
+        const sm = (c.assignedSalesman || (c as any).salesman || '').trim();
+        if (sm) sms.add(sm);
+      });
+      if (sms.size > 0) {
+        setAvailableSalesmen((prev) => Array.from(new Set([...prev, ...sms])));
+      }
+    }
+  }, [customersList]);
+
+  const handleAddSalesman = () => {
+    const trimmed = newSalesmanInput.trim();
+    if (trimmed) {
+      if (!availableSalesmen.includes(trimmed)) {
+        setAvailableSalesmen((prev) => [...prev, trimmed]);
+      }
+      setFormData((prev) => ({ ...prev, assignedSalesman: trimmed }));
+      setNewSalesmanInput('');
+      setShowAddSalesmanInput(false);
+    }
+  };
+
   const resetForm = () => {
     setEditingCustomerId(null);
     setFormData({
@@ -185,6 +230,7 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
       manualCode: '',
       accountTitle: '',
       customerGroup: availableGroups[0] || 'Restaurants',
+      assignedSalesman: '',
       regDate: new Date().toISOString().split('T')[0],
       ntn: '',
       trn: '',
@@ -222,11 +268,16 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
 
   const handleStartEdit = (cust: Customer) => {
     setEditingCustomerId(cust.id);
+    const custSm = (cust.assignedSalesman || (cust as any).salesman || '').trim();
+    if (custSm) {
+      setAvailableSalesmen((prev) => (prev.includes(custSm) ? prev : [...prev, custSm]));
+    }
     setFormData({
       code: cust.code || cust.accountCode || '',
       manualCode: cust.manualCode || '',
       accountTitle: cust.accountTitle || cust.name || cust.title || '',
       customerGroup: cust.customerGroup || 'Restaurants',
+      assignedSalesman: custSm,
       regDate: cust.regDate || new Date().toISOString().split('T')[0],
       ntn: cust.ntn || '',
       trn: cust.trn || '',
@@ -271,8 +322,11 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
       const openBal = parseFloat(String(formData.openingBalance)) || 0;
       const openType = formData.openingBalanceType || 'DR';
       const outBal = (openType === 'CR' ? -1 : 1) * Math.abs(openBal);
+      const sm = (formData.assignedSalesman || '').trim();
       const payload = {
         ...formData,
+        assignedSalesman: sm,
+        salesman: sm,
         openingBalance: openBal,
         openingBalanceType: openType,
         outstandingBalance: outBal,
@@ -366,6 +420,12 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
       if (statusFilter !== 'ALL' && c.status !== statusFilter) return false;
       // Group filter
       if (groupFilter !== 'ALL' && c.customerGroup !== groupFilter) return false;
+      // Salesman filter
+      if (salesmanFilter !== 'ALL') {
+        const smLower = salesmanFilter.toLowerCase().trim();
+        const custSm = (c.assignedSalesman || (c as any).salesman || '').toLowerCase().trim();
+        if (custSm !== smLower) return false;
+      }
 
       // Text search
       if (listSearchQuery.trim()) {
@@ -375,6 +435,8 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
           (c.name && c.name.toLowerCase().includes(q)) ||
           (c.code && c.code.toLowerCase().includes(q)) ||
           (c.manualCode && c.manualCode.toLowerCase().includes(q)) ||
+          (c.assignedSalesman && c.assignedSalesman.toLowerCase().includes(q)) ||
+          ((c as any).salesman && (c as any).salesman.toLowerCase().includes(q)) ||
           (c.mobile && c.mobile.includes(q)) ||
           (c.city && c.city.toLowerCase().includes(q)) ||
           (c.area && c.area.toLowerCase().includes(q)) ||
@@ -403,6 +465,7 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
     listSearchQuery,
     statusFilter,
     groupFilter,
+    salesmanFilter,
     isAdvancedSearchExecuted,
     filterCode,
     filterMCode,
@@ -557,6 +620,20 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
                 ))}
               </select>
 
+              {/* Salesman Filter */}
+              <select
+                value={salesmanFilter}
+                onChange={(e) => setSalesmanFilter(e.target.value)}
+                className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-hidden focus:border-orange-500"
+              >
+                <option value="ALL">All Salesmen</option>
+                {availableSalesmen.map((sm) => (
+                  <option key={sm} value={sm}>
+                    {sm}
+                  </option>
+                ))}
+              </select>
+
               {/* Status Filter */}
               <select
                 value={statusFilter}
@@ -590,6 +667,7 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
                 <tr>
                   <th className="py-2.5 px-3">Code / M.Code</th>
                   <th className="py-2.5 px-3">Customer Account Title</th>
+                  <th className="py-2.5 px-3">Salesman</th>
                   <th className="py-2.5 px-3">Group</th>
                   <th className="py-2.5 px-3">Contact Person &amp; Phone</th>
                   <th className="py-2.5 px-3">City / Area</th>
@@ -601,7 +679,7 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
               <tbody className="divide-y divide-slate-800/80 text-slate-300">
                 {filteredCustomers.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-slate-500">
+                    <td colSpan={9} className="py-8 text-center text-slate-500">
                       No customers found matching the criteria. Click &quot;Add Customer&quot; to create one.
                     </td>
                   </tr>
@@ -627,6 +705,15 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
                           </div>
                           {cust.trn && (
                             <div className="text-[10px] text-slate-500">TRN: {cust.trn}</div>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3">
+                          {cust.assignedSalesman || (cust as any).salesman ? (
+                            <span className="px-2 py-0.5 rounded-full bg-blue-950/80 text-blue-300 text-[10px] border border-blue-800/60 font-semibold">
+                              {cust.assignedSalesman || (cust as any).salesman}
+                            </span>
+                          ) : (
+                            <span className="text-slate-500 text-[10px] italic">Not Assigned</span>
                           )}
                         </td>
                         <td className="py-2.5 px-3">
@@ -937,7 +1024,61 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 text-xs">
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1 flex items-center justify-between">
+                  <span>Assigned Salesman</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddSalesmanInput(!showAddSalesmanInput)}
+                    className="text-orange-400 hover:text-orange-300 text-[10px] font-medium hover:underline cursor-pointer"
+                    title="Add new salesman"
+                  >
+                    + Add
+                  </button>
+                </label>
+                <div className="flex gap-1.5">
+                  <select
+                    value={formData.assignedSalesman}
+                    onChange={(e) => setFormData({ ...formData, assignedSalesman: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-white focus:outline-hidden focus:border-orange-500 font-medium"
+                  >
+                    <option value="">-- No Salesman (None) --</option>
+                    {availableSalesmen.map((sm) => (
+                      <option key={sm} value={sm}>
+                        {sm}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddSalesmanInput(!showAddSalesmanInput)}
+                    className="px-2 bg-slate-800 hover:bg-slate-700 text-orange-400 rounded-lg text-xs cursor-pointer"
+                    title="Add new salesman"
+                  >
+                    +
+                  </button>
+                </div>
+                {showAddSalesmanInput && (
+                  <div className="mt-1.5 flex gap-1">
+                    <input
+                      type="text"
+                      placeholder="Salesman Name"
+                      value={newSalesmanInput}
+                      onChange={(e) => setNewSalesmanInput(e.target.value)}
+                      className="w-full bg-slate-950 border border-orange-500 rounded px-2 py-1 text-xs text-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddSalesman}
+                      className="px-2 py-1 bg-orange-600 hover:bg-orange-500 text-white rounded text-xs font-bold cursor-pointer"
+                    >
+                      Save
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className="block text-slate-300 font-semibold mb-1">Registration Date</label>
                 <input

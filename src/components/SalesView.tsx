@@ -187,15 +187,26 @@ export const SalesView: React.FC<SalesViewProps> = ({
       if (list.length > 0) {
         if (!selectedCustomerId) {
           // Select first customer by default
-          setSelectedCustomerId(list[0].id);
-          setCustomerAccountTitle(list[0].accountTitle || list[0].name);
-          setCustomerMobile(list[0].mobile || '');
-          setCustomerTrn(list[0].trn || '');
-          setPartyBalanceBefore(list[0].outstandingBalance !== undefined ? list[0].outstandingBalance : (list[0].openingBalance || 0));
+          const first = list[0];
+          setSelectedCustomerId(first.id);
+          setCustomerAccountTitle(first.accountTitle || first.name);
+          setCustomerMobile(first.mobile || '');
+          setCustomerTrn(first.trn || '');
+          setPartyBalanceBefore(first.outstandingBalance !== undefined ? first.outstandingBalance : (first.openingBalance || 0));
+          const assigned = (first.assignedSalesman || first.salesman || '').trim();
+          if (assigned) {
+            setSalesmen((prev) => (prev.includes(assigned) ? prev : [...prev, assigned]));
+            setSelectedSalesman(assigned);
+          }
         } else {
           const current = list.find((c) => c.id === selectedCustomerId || c.code === selectedCustomerId);
           if (current) {
             setPartyBalanceBefore(current.outstandingBalance !== undefined ? current.outstandingBalance : (current.openingBalance || 0));
+            const assigned = (current.assignedSalesman || current.salesman || '').trim();
+            if (assigned && !selectedSalesman) {
+              setSalesmen((prev) => (prev.includes(assigned) ? prev : [...prev, assigned]));
+              setSelectedSalesman(assigned);
+            }
           }
         }
       }
@@ -209,10 +220,16 @@ export const SalesView: React.FC<SalesViewProps> = ({
     try {
       const list = await api.getSalesmen();
       if (list && list.length > 0) {
-        setSalesmen(list);
-        if (!selectedSalesman || !list.includes(selectedSalesman)) {
-          setSelectedSalesman(list[0]);
-        }
+        setSalesmen((prev) => {
+          const merged = Array.from(new Set([...list, ...prev]));
+          return merged;
+        });
+        setSelectedSalesman((prev) => {
+          if (prev && prev.trim() !== '') {
+            return prev;
+          }
+          return list[0];
+        });
       }
     } catch (e) {
       console.error(e);
@@ -299,8 +316,10 @@ export const SalesView: React.FC<SalesViewProps> = ({
     setCustomerTrn(cust.trn || '');
     const curBal = cust.outstandingBalance !== undefined ? cust.outstandingBalance : (cust.openingBalance || 0);
     setPartyBalanceBefore(curBal);
-    if (cust.assignedSalesman || cust.salesman) {
-      setSelectedSalesman(cust.assignedSalesman || cust.salesman || '');
+    const assigned = (cust.assignedSalesman || cust.salesman || '').trim();
+    if (assigned) {
+      setSalesmen((prev) => (prev.includes(assigned) ? prev : [...prev, assigned]));
+      setSelectedSalesman(assigned);
     }
     setIsCashCustomer(false);
     setIsCustomerDropdownOpen(false);

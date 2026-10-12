@@ -973,6 +973,14 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                     onSelectAccount={(id) => {
                       setSelectedAccountId(id);
                       if (id) {
+                        const acc = safeGlAccounts.find((a) => a && (a.id === id || a.code === id));
+                        const sm = (acc?.assignedSalesman || acc?.salesman || '').trim();
+                        if (sm) {
+                          if (!salesmen.includes(sm)) {
+                            setSalesmen((prev) => [...prev, sm]);
+                          }
+                          setSelectedSalesman(sm);
+                        }
                         setTimeout(() => {
                           if (activeTab === 'journalVoucher') {
                             debitInputRef.current?.focus();
