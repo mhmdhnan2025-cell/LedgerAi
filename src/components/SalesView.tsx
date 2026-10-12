@@ -45,6 +45,12 @@ import { SalesBillReceiptModal } from './SalesBillReceiptModal';
 import { AddItemHeadModal } from './AddItemHeadModal';
 import { SaleReturnModal } from './SaleReturnModal';
 
+// Helper to format currency amount to exact 2 decimal places with thousands separator
+const formatAmount = (num: number | undefined | null): string => {
+  const n = Number(num) || 0;
+  return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
 interface SalesViewProps {
   products: Product[];
   currentRole: UserRole;
@@ -689,10 +695,10 @@ export const SalesView: React.FC<SalesViewProps> = ({
 
       // Immediately update local customer balance in dropdown
       if (selectedCustomerId) {
+        const delta = (Number(savedBill.balanceReceivable) || 0) - (balanceRecovered ? (Number(balanceRecoveredAmount) || 0) : 0);
         setCustomers((prev) =>
           prev.map((c) => {
             if (c.id === selectedCustomerId || c.code === selectedCustomerId) {
-              const delta = (Number(savedBill.balanceReceivable) || 0) - (balanceRecovered ? (Number(balanceRecoveredAmount) || 0) : 0);
               const newBal = Number(((c.outstandingBalance || 0) + delta).toFixed(2));
               return {
                 ...c,
@@ -705,6 +711,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
             return c;
           })
         );
+        setPartyBalanceBefore((prev) => Number((prev + delta).toFixed(2)));
       }
 
       // Trigger app-wide data reload
@@ -1115,7 +1122,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
                       </div>
                       <div className="text-right">
                         <div className="font-mono font-bold text-amber-400 text-xs">
-                          {currencySymbol()} {(c.outstandingBalance || 0).toLocaleString()}
+                          {currencySymbol()} {formatAmount(c.outstandingBalance)}
                         </div>
                         <div className="text-[10px] text-slate-500">Balance Due</div>
                       </div>
@@ -1163,7 +1170,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
             </div>
             <div className="text-right">
               <span className="text-sm font-bold font-mono text-amber-400">
-                {currencySymbol()} {partyBalanceBefore.toLocaleString()}
+                {currencySymbol()} {formatAmount(partyBalanceBefore)}
               </span>
             </div>
           </div>
@@ -1788,7 +1795,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
             {/* Gross Amount */}
             <div className="flex justify-between items-center">
               <span className="text-slate-400">Gross Amount:</span>
-              <span className="font-mono font-semibold text-white">{currencySymbol()} {computedGrossAmount.toLocaleString()}</span>
+              <span className="font-mono font-semibold text-white">{currencySymbol()} {formatAmount(computedGrossAmount)}</span>
             </div>
 
             {/* Bill Discount */}
@@ -1816,20 +1823,20 @@ export const SalesView: React.FC<SalesViewProps> = ({
                   />
                 )}
               </div>
-              <span className="font-mono text-rose-400">- {currencySymbol()} {computedBillDiscountAmt.toLocaleString()}</span>
+              <span className="font-mono text-rose-400">- {currencySymbol()} {formatAmount(computedBillDiscountAmt)}</span>
             </div>
 
             {/* Total VAT */}
             <div className="flex justify-between items-center">
               <span className="text-slate-400">Total VAT Amount:</span>
-              <span className="font-mono font-semibold text-white">{currencySymbol()} {computedTotalVat.toLocaleString()}</span>
+              <span className="font-mono font-semibold text-white">{currencySymbol()} {formatAmount(computedTotalVat)}</span>
             </div>
 
             {/* Net Total */}
             <div className="flex justify-between items-center pt-2 border-t border-slate-800 text-sm">
               <span className="font-black text-white uppercase tracking-wider">Net Total:</span>
               <span className="font-black font-mono text-emerald-400 text-base">
-                {currencySymbol()} {computedNetTotal.toLocaleString()}
+                {currencySymbol()} {formatAmount(computedNetTotal)}
               </span>
             </div>
 
@@ -1850,14 +1857,14 @@ export const SalesView: React.FC<SalesViewProps> = ({
             <div className="flex justify-between items-center">
               <span className="text-slate-400">Balance Receivable:</span>
               <span className={`font-mono font-bold ${computedBalanceReceivable > 0 ? 'text-amber-400' : 'text-slate-400'}`}>
-                {currencySymbol()} {computedBalanceReceivable.toLocaleString()}
+                {currencySymbol()} {formatAmount(computedBalanceReceivable)}
               </span>
             </div>
 
             {computedChangeGiven > 0 && (
               <div className="flex justify-between items-center">
                 <span className="text-emerald-400 font-semibold">Change to Return:</span>
-                <span className="font-mono font-bold text-emerald-300">{currencySymbol()} {computedChangeGiven.toLocaleString()}</span>
+                <span className="font-mono font-bold text-emerald-300">{currencySymbol()} {formatAmount(computedChangeGiven)}</span>
               </div>
             )}
 

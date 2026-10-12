@@ -3024,9 +3024,9 @@ class DatabaseService {
                         : 0));
               const openType = tc.openingBalanceType || prev?.openingBalanceType || sc?.openingBalanceType || 'DR';
 
-              let outBal = (tc.outstandingBalance !== undefined && tc.outstandingBalance !== null)
+              let outBal = (tc.outstandingBalance !== undefined && tc.outstandingBalance !== null && !isNaN(Number(tc.outstandingBalance)))
                 ? Number(tc.outstandingBalance)
-                : (prev?.outstandingBalance !== undefined && prev?.outstandingBalance !== null
+                : (prev?.outstandingBalance !== undefined && prev?.outstandingBalance !== null && !isNaN(Number(prev.outstandingBalance))
                     ? Number(prev.outstandingBalance)
                     : (openType === 'CR' ? -Math.abs(openBal) : Math.abs(openBal)));
 
@@ -8039,13 +8039,11 @@ class DatabaseService {
     if (billData.customerId && billData.customerId !== 'cash' && billData.customerId !== 'card') {
       matchedCustomer = this.findCustomerByRef(billData.customerId, (billData as any).customerCode, billData.customerAccountTitle);
       if (matchedCustomer) {
-        if (!partyBalanceBefore) {
-          if (matchedCustomer.outstandingBalance !== undefined && matchedCustomer.outstandingBalance !== null && !isNaN(Number(matchedCustomer.outstandingBalance))) {
-            partyBalanceBefore = Number(matchedCustomer.outstandingBalance);
-          } else {
-            const rawOB = Number(matchedCustomer.openingBalance) || 0;
-            partyBalanceBefore = matchedCustomer.openingBalanceType === 'CR' ? -Math.abs(rawOB) : Math.abs(rawOB);
-          }
+        if (matchedCustomer.outstandingBalance !== undefined && matchedCustomer.outstandingBalance !== null && !isNaN(Number(matchedCustomer.outstandingBalance))) {
+          partyBalanceBefore = Number(matchedCustomer.outstandingBalance);
+        } else if (!partyBalanceBefore) {
+          const rawOB = Number(matchedCustomer.openingBalance) || 0;
+          partyBalanceBefore = matchedCustomer.openingBalanceType === 'CR' ? -Math.abs(rawOB) : Math.abs(rawOB);
         }
         const netReceivableDelta = (Number(balanceReceivable) || 0) - (billData.balanceRecovered ? (Number(balanceRecoveredAmount) || 0) : 0);
         matchedCustomer.outstandingBalance = Number(((partyBalanceBefore || 0) + netReceivableDelta).toFixed(2));
@@ -9247,7 +9245,9 @@ class DatabaseService {
 
     // Customers
     (this.data.customers || []).forEach((c) => {
-      const bal = Number(c.outstandingBalance || 0);
+      const bal = (c.outstandingBalance !== undefined && c.outstandingBalance !== null && !isNaN(Number(c.outstandingBalance)))
+        ? Number(c.outstandingBalance)
+        : (c.openingBalanceType === 'CR' ? -Math.abs(Number(c.openingBalance) || 0) : Math.abs(Number(c.openingBalance) || 0));
       const isDr = bal >= 0;
       const cleanTitle = (c.accountTitle || c.name || 'Customer').trim();
       accounts.push({

@@ -1045,8 +1045,12 @@ class PostgresService {
             : (d.openingBalance !== undefined && d.openingBalance !== null
                 ? parseFloat(d.openingBalance)
                 : 0);
-          const openType = ((row.opening_balance_type || d.openingBalanceType || 'DR') as string).toUpperCase() as 'DR' | 'CR';
-          const outBal = parseFloat(row.outstanding_balance ?? d.outstandingBalance ?? (openType === 'CR' ? -Math.abs(openBal) : Math.abs(openBal)));
+          const rawOutBal = (row.outstanding_balance !== undefined && row.outstanding_balance !== null && !isNaN(Number(row.outstanding_balance)))
+            ? parseFloat(row.outstanding_balance)
+            : (d.outstandingBalance !== undefined && d.outstandingBalance !== null && !isNaN(Number(d.outstandingBalance))
+                ? parseFloat(d.outstandingBalance)
+                : (openType === 'CR' ? -Math.abs(openBal) : Math.abs(openBal)));
+          const outBal = Number(rawOutBal.toFixed(2));
 
           return {
             ...d,
@@ -1725,8 +1729,8 @@ class PostgresService {
           cust.status || 'ACTIVE',
           openBal,
           openType,
-          cust.outstandingBalance !== undefined && cust.outstandingBalance !== null && cust.outstandingBalance !== 0
-            ? cust.outstandingBalance
+          (cust.outstandingBalance !== undefined && cust.outstandingBalance !== null && !isNaN(Number(cust.outstandingBalance)))
+            ? Number(Number(cust.outstandingBalance).toFixed(2))
             : (openType === 'CR' ? -Math.abs(openBal) : Math.abs(openBal)),
           cust.creditLimit || 0,
           cust.totalSales || 0,
@@ -1734,8 +1738,8 @@ class PostgresService {
             ...cust,
             openingBalance: openBal,
             openingBalanceType: openType,
-            outstandingBalance: cust.outstandingBalance !== undefined && cust.outstandingBalance !== null && cust.outstandingBalance !== 0
-              ? cust.outstandingBalance
+            outstandingBalance: (cust.outstandingBalance !== undefined && cust.outstandingBalance !== null && !isNaN(Number(cust.outstandingBalance)))
+              ? Number(Number(cust.outstandingBalance).toFixed(2))
               : (openType === 'CR' ? -Math.abs(openBal) : Math.abs(openBal)),
           }),
         ]
