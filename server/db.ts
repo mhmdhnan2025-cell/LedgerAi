@@ -9135,9 +9135,10 @@ class DatabaseService {
     // Cash refunded on Sale Returns
     const cashOutSaleReturns = (this.data.saleReturns || []).reduce((sum, sr) => {
       if (!sr || sr.status === 'CANCELLED') return sum;
-      const pt = (sr.paymentType || (sr as any).refundType || '').toLowerCase();
-      if (pt === 'cash' || Number(sr.cashPaid) > 0) {
-        return sum + (Number(sr.cashPaid) || Number(sr.netTotal) || 0);
+      const srAny = sr as any;
+      const pt = (srAny.paymentType || srAny.refundType || '').toLowerCase();
+      if (pt === 'cash' || Number(srAny.cashPaid) > 0) {
+        return sum + (Number(srAny.cashPaid) || Number(sr.netTotal) || 0);
       }
       return sum;
     }, 0);
@@ -9145,9 +9146,10 @@ class DatabaseService {
     // Cash refunded in on Purchase Returns
     const cashInPurchaseReturns = (this.data.purchaseReturns || []).reduce((sum, pr) => {
       if (!pr || pr.status === 'CANCELLED') return sum;
-      const pt = (pr.paymentType || (pr as any).refundType || '').toLowerCase();
-      if (pt === 'cash' || Number(pr.cashReceived) > 0) {
-        return sum + (Number(pr.cashReceived) || Number(pr.netTotal) || 0);
+      const prAny = pr as any;
+      const pt = (prAny.paymentType || prAny.refundType || '').toLowerCase();
+      if (pt === 'cash' || Number(prAny.cashReceived) > 0) {
+        return sum + (Number(prAny.cashReceived) || Number(pr.netTotal) || 0);
       }
       return sum;
     }, 0);
