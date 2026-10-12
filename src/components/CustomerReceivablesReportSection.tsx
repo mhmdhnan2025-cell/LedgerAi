@@ -1126,35 +1126,35 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
         {/* REPORT TABLE: Strictly matching reference Image 2              */}
         {/* ------------------------------------------------------------- */}
         <div className="overflow-x-auto border border-slate-300 dark:border-slate-800 rounded-lg shadow-xs bg-white dark:bg-slate-900">
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full text-left text-xs border-collapse party-rec-table">
             {/* Dark Navy Table Header matching Image 2 */}
             <thead>
-              <tr className="bg-[#1a2332] text-white font-bold uppercase tracking-wider text-[11px] select-none">
-                <th className="py-2.5 px-3 text-center w-14 border-r border-[#2d3a4e]">
+              <tr className="bg-[#1a2332] text-white font-bold uppercase tracking-wider text-[11px] select-none" style={{ backgroundColor: '#1a2332', color: '#ffffff' }}>
+                <th className="py-2.5 px-3 text-center w-14 border-r border-[#2d3a4e]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
                   S.NO
                 </th>
-                <th className="py-2.5 px-3 text-center w-28 border-r border-[#2d3a4e]">
+                <th className="py-2.5 px-3 text-center w-28 border-r border-[#2d3a4e]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
                   M.CODE
                 </th>
-                <th className="py-2.5 px-3 text-left min-w-[240px] border-r border-[#2d3a4e]">
+                <th className="py-2.5 px-3 text-left min-w-[240px] border-r border-[#2d3a4e]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
                   TITLE
                 </th>
-                <th className="py-2.5 px-3 text-center w-24 border-r border-[#2d3a4e]">
+                <th className="py-2.5 px-3 text-center w-24 border-r border-[#2d3a4e]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
                   LASTBILL #
                 </th>
-                <th className="py-2.5 px-3 text-center w-28 border-r border-[#2d3a4e]">
+                <th className="py-2.5 px-3 text-center w-28 border-r border-[#2d3a4e]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
                   BILL DATED
                 </th>
-                <th className="py-2.5 px-3 text-right w-28 border-r border-[#2d3a4e]">
+                <th className="py-2.5 px-3 text-right w-28 border-r border-[#2d3a4e]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
                   BILL AMOUNT
                 </th>
-                <th className="py-2.5 px-3 text-center w-36 border-r border-[#2d3a4e]">
+                <th className="py-2.5 px-3 text-center w-36 border-r border-[#2d3a4e]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
                   LAST RECEIPT DATE
                 </th>
-                <th className="py-2.5 px-3 text-right w-32 border-r border-[#2d3a4e]">
+                <th className="py-2.5 px-3 text-right w-32 border-r border-[#2d3a4e]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
                   RECEIPT AMOUNT
                 </th>
-                <th className="py-2.5 px-3 text-right w-36">
+                <th className="py-2.5 px-3 text-right w-36" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
                   LEDGER BALANCE
                 </th>
               </tr>
@@ -1179,36 +1179,36 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
                     <tr
                       key={row.id}
                       onClick={() => setSelectedRowId(row.id)}
-                      className={`transition-colors cursor-pointer text-xs ${
+                      className={`transition-colors cursor-pointer text-xs party-rec-row ${
                         isSelected
-                          ? 'bg-[#fffde7] dark:bg-amber-950/40 highlight-row'
+                          ? 'party-rec-row-selected bg-[#fffde7] dark:bg-amber-950/40 highlight-row'
                           : 'hover:bg-[#fffde7]/70 dark:hover:bg-slate-800/50 bg-white dark:bg-slate-900'
                       }`}
                     >
                       {/* S.NO */}
-                      <td className="py-2.5 px-3 text-center font-mono font-medium text-slate-700 dark:text-slate-300 border-r border-slate-100 dark:border-slate-800">
+                      <td className="party-rec-sno py-2.5 px-3 text-center font-mono font-medium border-r border-slate-200 dark:border-slate-800">
                         {row.sNo}
                       </td>
 
                       {/* M.CODE */}
-                      <td className="py-2.5 px-3 text-center font-mono font-semibold text-slate-900 dark:text-slate-200 border-r border-slate-100 dark:border-slate-800">
+                      <td className="party-rec-code py-2.5 px-3 text-center font-mono font-bold border-r border-slate-200 dark:border-slate-800">
                         {row.mCode || '—'}
                       </td>
 
                       {/* TITLE (3-Line Format: (Salesman) / Customer Title / Mobile) + Quick Ledger button */}
-                      <td className="py-2.5 px-3 border-r border-slate-100 dark:border-slate-800">
+                      <td className="party-rec-title-cell py-2.5 px-3 border-r border-slate-200 dark:border-slate-800">
                         <div className="flex items-start justify-between gap-1">
                           <div className="leading-tight">
                             {/* Line 1: (Salesman Name) or 0 */}
-                            <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                            <div className="party-rec-salesman text-[11px] font-bold">
                               {row.salesman ? `(${row.salesman})` : '0'}
                             </div>
                             {/* Line 2: Customer Account Title */}
-                            <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white capitalize">
+                            <div className="party-rec-title text-xs sm:text-sm font-bold capitalize">
                               {row.accountTitle}
                             </div>
                             {/* Line 3: Mobile Phone Number */}
-                            <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                            <div className="party-rec-mobile text-[11px] font-mono">
                               {row.mobile || '—'}
                             </div>
                           </div>
@@ -1229,32 +1229,32 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
                       </td>
 
                       {/* LASTBILL # */}
-                      <td className="py-2.5 px-3 text-center font-mono font-medium text-slate-800 dark:text-slate-200 border-r border-slate-100 dark:border-slate-800">
+                      <td className="party-rec-bill-no py-2.5 px-3 text-center font-mono font-bold border-r border-slate-200 dark:border-slate-800">
                         {row.lastBillNumber}
                       </td>
 
                       {/* BILL DATED */}
-                      <td className="py-2.5 px-3 text-center font-mono text-slate-700 dark:text-slate-300 border-r border-slate-100 dark:border-slate-800">
+                      <td className="party-rec-bill-date py-2.5 px-3 text-center font-mono font-medium border-r border-slate-200 dark:border-slate-800">
                         {row.lastBillDate}
                       </td>
 
                       {/* BILL AMOUNT */}
-                      <td className="py-2.5 px-3 text-right font-mono font-semibold text-slate-900 dark:text-slate-100 border-r border-slate-100 dark:border-slate-800">
+                      <td className="party-rec-bill-amt py-2.5 px-3 text-right font-mono font-black border-r border-slate-200 dark:border-slate-800">
                         {row.lastBillAmount > 0 ? formatAmount(row.lastBillAmount) : '0.00'}
                       </td>
 
                       {/* LAST RECEIPT DATE */}
-                      <td className="py-2.5 px-3 text-center font-mono text-slate-700 dark:text-slate-300 border-r border-slate-100 dark:border-slate-800">
+                      <td className="party-rec-receipt-date py-2.5 px-3 text-center font-mono font-medium border-r border-slate-200 dark:border-slate-800">
                         {row.lastReceiptDate}
                       </td>
 
                       {/* RECEIPT AMOUNT */}
-                      <td className="py-2.5 px-3 text-right font-mono font-semibold text-slate-900 dark:text-slate-100 border-r border-slate-100 dark:border-slate-800">
+                      <td className="party-rec-receipt-amt py-2.5 px-3 text-right font-mono font-black border-r border-slate-200 dark:border-slate-800">
                         {row.lastReceiptAmount > 0 ? formatAmount(row.lastReceiptAmount) : '0.00'}
                       </td>
 
                       {/* LEDGER BALANCE (e.g. 1576.61 DR) */}
-                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">
+                      <td className="party-rec-balance py-2.5 px-3 text-right font-mono font-black">
                         {formatLedgerBalance(row.ledgerBalance)}
                       </td>
                     </tr>
@@ -1265,23 +1265,23 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
 
             {/* Table Footer: Totals Row matching Image 2 */}
             <tfoot>
-              <tr className="bg-slate-100 dark:bg-slate-950 font-bold border-t-2 border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white">
+              <tr className="party-rec-totals font-bold border-t-2 border-slate-300 dark:border-slate-700 text-xs">
                 <td
                   colSpan={5}
-                  className="py-3 px-3 text-right font-extrabold uppercase tracking-wider border-r border-slate-200 dark:border-slate-800"
+                  className="party-rec-total-label py-3 px-3 text-right font-extrabold uppercase tracking-wider border-r border-slate-300 dark:border-slate-800"
                 >
                   TOTAL:
                 </td>
-                <td className="py-3 px-3 text-right font-mono font-black text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-800">
+                <td className="party-rec-total-bill py-3 px-3 text-right font-mono font-black border-r border-slate-300 dark:border-slate-800">
                   {formatAmount(totals.billAmount)}
                 </td>
-                <td className="py-3 px-3 text-center text-slate-400 border-r border-slate-200 dark:border-slate-800">
+                <td className="party-rec-total-dash py-3 px-3 text-center border-r border-slate-300 dark:border-slate-800">
                   —
                 </td>
-                <td className="py-3 px-3 text-right font-mono font-black text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-800">
+                <td className="party-rec-total-receipt py-3 px-3 text-right font-mono font-black border-r border-slate-300 dark:border-slate-800">
                   {formatAmount(totals.receiptAmount)}
                 </td>
-                <td className="py-3 px-3 text-right font-mono font-black text-slate-900 dark:text-white">
+                <td className="party-rec-total-balance py-3 px-3 text-right font-mono font-black">
                   {formatLedgerBalance(totals.ledgerBalance)}
                 </td>
               </tr>
@@ -1297,14 +1297,14 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-xs overflow-y-auto print-hide">
           <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-300 dark:border-slate-700 w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden">
             {/* Modal Header */}
-            <div className="px-5 py-3.5 bg-[#1a2332] text-white flex items-center justify-between border-b border-[#2d3a4e]">
+            <div className="px-5 py-3.5 bg-[#1a2332] text-white flex items-center justify-between border-b border-[#2d3a4e]" style={{ backgroundColor: '#1a2332', color: '#ffffff' }}>
               <div className="flex items-center gap-2.5">
                 <BookOpen className="w-5 h-5 text-blue-400 shrink-0" />
                 <div>
-                  <h3 className="text-sm font-bold tracking-wide">
+                  <h3 className="text-sm font-bold tracking-wide" style={{ color: '#ffffff' }}>
                     Customer Statement of Account &amp; Complete Ledger
                   </h3>
-                  <p className="text-[11px] text-slate-300">
+                  <p className="text-[11px] text-slate-300" style={{ color: '#cbd5e1' }}>
                     Continuous ledger showing past opening balance and all real-time billing and recovery transactions
                   </p>
                 </div>
@@ -1373,18 +1373,18 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
 
             {/* Statement Table */}
             <div className="overflow-y-auto flex-1 p-4">
-              <table className="w-full text-left text-xs border-collapse">
+              <table className="w-full text-left text-xs border-collapse party-rec-modal-table">
                 <thead>
-                  <tr className="bg-slate-100 dark:bg-slate-800 font-bold uppercase tracking-wider text-[11px] text-slate-900 dark:text-white border-y border-slate-300 dark:border-slate-700">
-                    <th className="py-2 px-2 text-center w-10">#</th>
-                    <th className="py-2 px-2 text-center w-16">REF</th>
-                    <th className="py-2 px-2 text-center w-20">REF#</th>
-                    <th className="py-2 px-2.5 text-center w-24">DATE</th>
-                    <th className="py-2 px-2 text-center w-20">BILL#</th>
-                    <th className="py-2 px-3">NARRATION / PARTICULARS</th>
-                    <th className="py-2 px-3 text-right w-24">DEBIT (AED)</th>
-                    <th className="py-2 px-3 text-right w-24">CREDIT (AED)</th>
-                    <th className="py-2 px-3 text-right w-28">BALANCE</th>
+                  <tr className="bg-[#1a2332] text-white font-bold uppercase tracking-wider text-[11px] border-y border-[#2d3a4e]" style={{ backgroundColor: '#1a2332', color: '#ffffff' }}>
+                    <th className="py-2 px-2 text-center w-10" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>#</th>
+                    <th className="py-2 px-2 text-center w-16" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>REF</th>
+                    <th className="py-2 px-2 text-center w-20" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>REF#</th>
+                    <th className="py-2 px-2.5 text-center w-24" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>DATE</th>
+                    <th className="py-2 px-2 text-center w-20" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>BILL#</th>
+                    <th className="py-2 px-3" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>NARRATION / PARTICULARS</th>
+                    <th className="py-2 px-3 text-right w-24" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>DEBIT (AED)</th>
+                    <th className="py-2 px-3 text-right w-24" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>CREDIT (AED)</th>
+                    <th className="py-2 px-3 text-right w-28" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>BALANCE</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800 font-mono text-xs">
