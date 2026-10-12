@@ -11,6 +11,14 @@ const STORAGE_KEYS = {
  * Guarantees zero data loss even if the server is offline, restarted, or not deployed.
  */
 export class OfflineStorageService {
+  private static getActiveCompanyKey(): string {
+    try {
+      return sessionStorage.getItem('erp_company_id') || localStorage.getItem('erp_company_id') || 'default';
+    } catch {
+      return 'default';
+    }
+  }
+
   public static saveSnapshot(data: Partial<DatabaseSnapshot>): void {
     try {
       const existing: Partial<DatabaseSnapshot> = this.loadSnapshot() || {};
@@ -38,15 +46,20 @@ export class OfflineStorageService {
           healthyMarginPercentage: 15,
         },
       };
-      localStorage.setItem(STORAGE_KEYS.SNAPSHOT, JSON.stringify(merged));
+      const key = `${STORAGE_KEYS.SNAPSHOT}_${this.getActiveCompanyKey()}`;
+      const json = JSON.stringify(merged);
+      sessionStorage.setItem(key, json);
+      localStorage.setItem(key, json);
+      localStorage.setItem(STORAGE_KEYS.SNAPSHOT, json);
     } catch (err) {
-      console.warn('Failed to save offline snapshot to localStorage:', err);
+      console.warn('Failed to save offline snapshot to storage:', err);
     }
   }
 
   public static loadSnapshot(): DatabaseSnapshot | null {
     try {
-      const raw = localStorage.getItem(STORAGE_KEYS.SNAPSHOT);
+      const key = `${STORAGE_KEYS.SNAPSHOT}_${this.getActiveCompanyKey()}`;
+      const raw = sessionStorage.getItem(key) || localStorage.getItem(key) || localStorage.getItem(STORAGE_KEYS.SNAPSHOT);
       if (!raw) return null;
       const DUMMY_IDS = ['usr-accountant', 'usr-manager', 'usr-sales', 'usr-1', 'usr-2', 'usr-3', 'usr-4', 'usr-5'];
       const DUMMY_USERNAMES = ['accountant', 'manager', 'sales'];
@@ -58,13 +71,16 @@ export class OfflineStorageService {
       }
       return parsed;
     } catch (err) {
-      console.warn('Failed to parse offline snapshot from localStorage:', err);
+      console.warn('Failed to parse offline snapshot from storage:', err);
       return null;
     }
   }
 
   public static clearSnapshot(): void {
     try {
+      const key = `${STORAGE_KEYS.SNAPSHOT}_${this.getActiveCompanyKey()}`;
+      sessionStorage.removeItem(key);
+      localStorage.removeItem(key);
       localStorage.removeItem(STORAGE_KEYS.SNAPSHOT);
     } catch (err) {
       console.warn('Failed to clear offline snapshot:', err);
@@ -78,12 +94,15 @@ export class OfflineStorageService {
       const isDummy = (u: any) => !u || DUMMY_IDS.includes(u.id) || DUMMY_USERNAMES.includes((u.username || '').toLowerCase());
 
       if (isDummy(user)) {
+        sessionStorage.removeItem(STORAGE_KEYS.AUTH_USER);
         localStorage.removeItem(STORAGE_KEYS.AUTH_USER);
       } else {
-        localStorage.setItem(STORAGE_KEYS.AUTH_USER, JSON.stringify(user));
+        const json = JSON.stringify(user);
+        sessionStorage.setItem(STORAGE_KEYS.AUTH_USER, json);
+        localStorage.setItem(STORAGE_KEYS.AUTH_USER, json);
       }
     } catch (err) {
-      console.warn('Failed to save user in localStorage:', err);
+      console.warn('Failed to save user in storage:', err);
     }
   }
 
@@ -93,10 +112,11 @@ export class OfflineStorageService {
       const DUMMY_USERNAMES = ['accountant', 'manager', 'sales'];
       const isDummy = (u: any) => !u || DUMMY_IDS.includes(u.id) || DUMMY_USERNAMES.includes((u.username || '').toLowerCase());
 
-      const raw = localStorage.getItem(STORAGE_KEYS.AUTH_USER);
+      const raw = sessionStorage.getItem(STORAGE_KEYS.AUTH_USER) || localStorage.getItem(STORAGE_KEYS.AUTH_USER);
       if (!raw) return null;
       const parsed = JSON.parse(raw);
       if (isDummy(parsed)) {
+        sessionStorage.removeItem(STORAGE_KEYS.AUTH_USER);
         localStorage.removeItem(STORAGE_KEYS.AUTH_USER);
         return null;
       }

@@ -69,6 +69,9 @@ const AUTH_COMPANY_ID_KEY = 'erp_company_id';
 export const authStorage = {
   getToken(): string | null {
     try {
+      // 1. Prioritize tab-isolated sessionStorage so multiple tabs can open different accounts
+      const sessionTok = sessionStorage.getItem(AUTH_TOKEN_KEY);
+      if (sessionTok) return sessionTok;
       return localStorage.getItem(AUTH_TOKEN_KEY);
     } catch {
       return null;
@@ -76,6 +79,7 @@ export const authStorage = {
   },
   setToken(token: string): void {
     try {
+      sessionStorage.setItem(AUTH_TOKEN_KEY, token);
       localStorage.setItem(AUTH_TOKEN_KEY, token);
     } catch (e) {
       console.error('Failed to save auth token:', e);
@@ -83,6 +87,7 @@ export const authStorage = {
   },
   clearToken(): void {
     try {
+      sessionStorage.removeItem(AUTH_TOKEN_KEY);
       localStorage.removeItem(AUTH_TOKEN_KEY);
     } catch (e) {
       console.error('Failed to clear auth token:', e);
@@ -90,6 +95,9 @@ export const authStorage = {
   },
   getCompanyId(): string | null {
     try {
+      // 1. Prioritize tab-isolated sessionStorage so multiple tabs stay on their own company
+      const sessionCid = sessionStorage.getItem(AUTH_COMPANY_ID_KEY);
+      if (sessionCid) return sessionCid;
       return localStorage.getItem(AUTH_COMPANY_ID_KEY);
     } catch {
       return null;
@@ -97,6 +105,7 @@ export const authStorage = {
   },
   setCompanyId(id: string): void {
     try {
+      sessionStorage.setItem(AUTH_COMPANY_ID_KEY, id);
       localStorage.setItem(AUTH_COMPANY_ID_KEY, id);
     } catch (e) {
       console.error('Failed to save company ID:', e);
@@ -104,6 +113,7 @@ export const authStorage = {
   },
   clearCompanyId(): void {
     try {
+      sessionStorage.removeItem(AUTH_COMPANY_ID_KEY);
       localStorage.removeItem(AUTH_COMPANY_ID_KEY);
     } catch (e) {
       console.error('Failed to clear company ID:', e);

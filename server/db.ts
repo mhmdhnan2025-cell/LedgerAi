@@ -9072,10 +9072,18 @@ class DatabaseService {
     // Calculate real dynamic Cash In Hand from actual ledger
     const openingCash = Number(this.data.cashRegister?.openingCashBalance) || 0;
 
-    // Cash received from sale bills
+    // Cash received from sale bills (Cash payments + Cash received on credit bills + Old Recoveries collected)
     const cashFromSales = (this.data.saleBills || []).reduce((sum, s) => {
-      if (s.paymentType === 'Cash') return sum + (Number(s.netTotal) || 0);
-      return sum + (Number(s.cashReceived) || 0);
+      let billCash = 0;
+      if (s.paymentType === 'Cash') {
+        billCash = Number(s.netTotal) || 0;
+      } else {
+        billCash = Number(s.cashReceived) || 0;
+      }
+      if (s.balanceRecovered && Number(s.balanceRecoveredAmount) > 0) {
+        billCash += Number(s.balanceRecoveredAmount);
+      }
+      return sum + billCash;
     }, 0);
 
     // Cash received from orders
@@ -9126,7 +9134,27 @@ class DatabaseService {
       return sum;
     }, 0);
 
-    const netCashInHand = openingCash + cashFromSales + cashFromOrders + cashFromPayments + cashFromVouchers - cashOutPurchases - cashOutExpenses - cashOutVouchers;
+    // Cash refunded on Sale Returns
+    const cashOutSaleReturns = (this.data.saleReturns || []).reduce((sum, sr) => {
+      if (!sr || sr.status === 'CANCELLED') return sum;
+      const pt = (sr.paymentType || (sr as any).refundType || '').toLowerCase();
+      if (pt === 'cash' || Number(sr.cashPaid) > 0) {
+        return sum + (Number(sr.cashPaid) || Number(sr.netTotal) || 0);
+      }
+      return sum;
+    }, 0);
+
+    // Cash refunded in on Purchase Returns
+    const cashInPurchaseReturns = (this.data.purchaseReturns || []).reduce((sum, pr) => {
+      if (!pr || pr.status === 'CANCELLED') return sum;
+      const pt = (pr.paymentType || (pr as any).refundType || '').toLowerCase();
+      if (pt === 'cash' || Number(pr.cashReceived) > 0) {
+        return sum + (Number(pr.cashReceived) || Number(pr.netTotal) || 0);
+      }
+      return sum;
+    }, 0);
+
+    const netCashInHand = openingCash + cashFromSales + cashFromOrders + cashFromPayments + cashFromVouchers + cashInPurchaseReturns - cashOutPurchases - cashOutExpenses - cashOutVouchers - cashOutSaleReturns;
     const absBalance = Number(Math.abs(netCashInHand).toFixed(2));
     const balanceType: 'DR' | 'CR' = netCashInHand >= 0 ? 'DR' : 'CR';
 
