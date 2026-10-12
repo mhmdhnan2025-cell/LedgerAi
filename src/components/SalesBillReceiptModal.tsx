@@ -258,13 +258,86 @@ export const SalesBillReceiptModal: React.FC<SalesBillReceiptModalProps> = ({
   };
 
   const handlePrint = () => {
-    document.body.classList.add('printing-modal');
+    const srcEl = document.getElementById('printable-sales-receipt');
+    if (!srcEl) {
+      window.print();
+      return;
+    }
+
+    const oldContainer = document.getElementById('active-print-container');
+    if (oldContainer) oldContainer.remove();
+
+    const printContainer = document.createElement('div');
+    printContainer.id = 'active-print-container';
+    printContainer.innerHTML = srcEl.outerHTML;
+
+    // Remove buttons and print:hidden elements
+    printContainer.querySelectorAll('.print\\:hidden, .print-hidden, button').forEach((el) => el.remove());
+
+    const oldStyle = document.getElementById('dynamic-print-page-style');
+    if (oldStyle) oldStyle.remove();
+
+    const pageStyle = document.createElement('style');
+    pageStyle.id = 'dynamic-print-page-style';
+    if (isThermal) {
+      pageStyle.textContent = `
+        @page {
+          size: 80mm auto;
+          margin: 0;
+        }
+        @media print {
+          html, body {
+            width: 80mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+          }
+          #active-print-container {
+            width: 78mm !important;
+            max-width: 78mm !important;
+            margin: 0 auto !important;
+            padding: 1.5mm 2mm !important;
+          }
+        }
+      `;
+    } else {
+      pageStyle.textContent = `
+        @page {
+          size: A4 portrait;
+          margin: 6mm 8mm;
+        }
+        @media print {
+          #active-print-container {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+        }
+      `;
+    }
+
+    document.head.appendChild(pageStyle);
+    document.body.appendChild(printContainer);
+    document.body.classList.add('is-printing-slip');
+
+    const cleanup = () => {
+      document.body.classList.remove('is-printing-slip');
+      if (printContainer && printContainer.parentNode) {
+        printContainer.remove();
+      }
+      if (pageStyle && pageStyle.parentNode) {
+        pageStyle.remove();
+      }
+      window.removeEventListener('afterprint', cleanup);
+    };
+
+    window.addEventListener('afterprint', cleanup);
+
     window.focus();
     setTimeout(() => {
       window.print();
-      setTimeout(() => {
-        document.body.classList.remove('printing-modal');
-      }, 1000);
+      setTimeout(cleanup, 2500);
     }, 150);
   };
 
@@ -302,7 +375,7 @@ Thank you for your business!`;
     setTimeout(() => setCopied(false), 2500);
   };
 
-  const fillerRows = Math.max(0, 8 - items.length);
+  const fillerRows = isThermal ? 0 : Math.max(0, 4 - items.length);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto print:p-0 print:bg-white print:static">
@@ -575,155 +648,211 @@ Thank you for your business!`;
 
           {/* ---------------- LINE ITEMS ---------------- */}
           <div className="border border-slate-400 mb-3 overflow-x-auto">
-            <table className="w-full border-collapse text-[11.5px] min-w-[680px]">
-              <thead>
-                <tr className="bg-[#f4efe1] text-slate-900 align-bottom">
-                  {/* 1. SL# */}
-                  <th className="border border-slate-400 px-1.5 py-2 w-[36px] text-center font-black">
-                    SL#
-                  </th>
-
-                  {/* 2. Title */}
-                  <th className="border border-slate-400 px-2 py-2 text-left min-w-[150px] font-black">
-                    Title
-                  </th>
-
-                  {/* 3. Carton / Packaging */}
-                  <th className="border border-slate-400 px-1.5 py-2 w-[85px] text-center font-black">
-                    Carton / PKG
-                  </th>
-
-                  {/* 4. Loose Measure / Qty */}
-                  <th className="border border-slate-400 px-1.5 py-2 w-[80px] text-center font-black">
-                    Loose Qty
-                  </th>
-
-                  {/* 5. Total Qty / Total Stock */}
-                  <th className="border border-slate-400 px-1.5 py-2 w-[85px] text-center bg-[#f0eadd] font-black">
-                    Total Qty
-                  </th>
-
-                  {/* 6. Unit Price */}
-                  <th className="border border-slate-400 px-1.5 py-2 w-[80px] text-right font-black">
-                    Unit Price
-                  </th>
-
-                  {/* 7. Before VAT */}
-                  <th className="border border-slate-400 px-1.5 py-2 w-[85px] text-right font-black">
-                    Before VAT
-                  </th>
-
-                  {/* 8. VAT % */}
-                  <th className="border border-slate-400 px-1.5 py-2 w-[50px] text-center font-black">
-                    VAT %
-                  </th>
-
-                  {/* 9. VAT Amount */}
-                  <th className="border border-slate-400 px-1.5 py-2 w-[80px] text-right font-black">
-                    VAT Amount
-                  </th>
-
-                  {/* 10. Net Amount */}
-                  <th className="border border-slate-400 px-1.5 py-2 w-[90px] text-right bg-[#f4efe1] font-black">
-                    Net Amount
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="text-slate-900">
-                {items.map((it, idx) => {
-                  const beforeVat = it.amount !== undefined
-                    ? Math.max(0, Number((Number(it.amount) - (Number(it.vatAmount) || 0)).toFixed(2)))
-                    : Math.max(
-                        0,
-                        Number(((Number(it.qty) || 0) * (Number(it.rate) || 0) - (Number(it.discount) || 0)).toFixed(2))
-                      );
-                  const lineVat = Number(it.vatAmount) || 0;
-                  const lineNet = Number((beforeVat + lineVat).toFixed(2));
-                  const unit = (it.unit || 'KG').toUpperCase();
-                  const ctnCount = Number(it.ctn) || 0;
-                  const looseQty = Number(it.qty) || 0;
-                  const pkgType = it.packageType || 'Carton';
-                  const qtyInPkg = Number(it.qtyPerCtn) || (ctnCount > 0 && it.totalDeductedQty && it.totalDeductedQty > looseQty ? Math.round((it.totalDeductedQty - looseQty) / ctnCount) : 1);
-                  const totalStock = it.totalDeductedQty !== undefined && Number(it.totalDeductedQty) > 0
-                    ? Number(it.totalDeductedQty)
-                    : ((ctnCount * qtyInPkg) + looseQty);
-
-                  return (
-                    <tr key={it.id || idx} className="align-top">
-                      {/* 1. SL# */}
-                      <td className="border border-slate-400 px-1.5 py-1.5 text-center font-mono">{idx + 1}</td>
-
-                      {/* 2. Title (Only clean title, no messy formula in title!) */}
-                      <td className="border border-slate-400 px-2 py-1.5 font-black text-slate-950">
-                        {it.itemTitle}
-                      </td>
-
-                      {/* 3. Carton / Packaging (e.g. 1 Carton or 2 Bags) */}
-                      <td className="border border-slate-400 px-1.5 py-1.5 text-center font-bold">
-                        {ctnCount > 0 ? (
-                          <span>{ctnCount} <span className="text-[10px] font-semibold text-slate-700">{pkgType}</span></span>
-                        ) : (
-                          <span className="text-slate-400">—</span>
-                        )}
-                      </td>
-
-                      {/* 4. Loose Qty (e.g. 20 KG) */}
-                      <td className="border border-slate-400 px-1.5 py-1.5 text-center font-bold">
-                        {looseQty > 0 ? (
-                          <span>{money(looseQty)} <span className="text-[10px] font-semibold text-slate-700">{unit}</span></span>
-                        ) : (
-                          <span className="text-slate-400">—</span>
-                        )}
-                      </td>
-
-                      {/* 5. Total Qty / Total Stock (e.g. 70 KG) */}
-                      <td className="border border-slate-400 px-1.5 py-1.5 text-center font-black bg-[#faf8f1]">
-                        {money(totalStock)} <span className="text-[10px] font-bold text-slate-700">{unit}</span>
-                      </td>
-
-                      {/* 6. Unit Price */}
-                      <td className="border border-slate-400 px-1.5 py-1.5 text-right font-mono font-medium">
-                        {money(it.rate)}
-                      </td>
-
-                      {/* 7. Before VAT */}
-                      <td className="border border-slate-400 px-1.5 py-1.5 text-right font-black font-mono">
-                        {money(beforeVat)}
-                      </td>
-
-                      {/* 8. VAT % */}
-                      <td className="border border-slate-400 px-1.5 py-1.5 text-center font-mono">
-                        {Number(it.vatPercent ?? 5)}%
-                      </td>
-
-                      {/* 9. VAT Amount */}
-                      <td className="border border-slate-400 px-1.5 py-1.5 text-right font-mono">
-                        {money(lineVat)}
-                      </td>
-
-                      {/* 10. Net Amount */}
-                      <td className="border border-slate-400 px-1.5 py-1.5 text-right font-black font-mono bg-[#faf8f1]">
-                        {money(lineNet)}
-                      </td>
-                    </tr>
-                  );
-                })}
-                {Array.from({ length: fillerRows }).map((_, i) => (
-                  <tr key={`filler-${i}`}>
-                    <td className="border border-slate-400 h-[26px]" />
-                    <td className="border border-slate-400" />
-                    <td className="border border-slate-400" />
-                    <td className="border border-slate-400" />
-                    <td className="border border-slate-400" />
-                    <td className="border border-slate-400" />
-                    <td className="border border-slate-400" />
-                    <td className="border border-slate-400" />
-                    <td className="border border-slate-400" />
-                    <td className="border border-slate-400 bg-[#faf8f1]" />
+            {isThermal ? (
+              <table className="w-full border-collapse text-[11px]">
+                <thead>
+                  <tr className="bg-[#f4efe1] text-slate-900 border-b border-slate-400">
+                    <th className="border-r border-slate-400 px-1.5 py-1.5 text-left font-black">Item</th>
+                    <th className="border-r border-slate-400 px-1 py-1.5 text-center w-[52px] font-black">Qty</th>
+                    <th className="border-r border-slate-400 px-1 py-1.5 text-right w-[60px] font-black">Rate</th>
+                    <th className="px-1.5 py-1.5 text-right w-[72px] font-black">Total</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-300 text-slate-900">
+                  {items.map((it, idx) => {
+                    const beforeVat = it.amount !== undefined
+                      ? Math.max(0, Number((Number(it.amount) - (Number(it.vatAmount) || 0)).toFixed(2)))
+                      : Math.max(
+                          0,
+                          Number(((Number(it.qty) || 0) * (Number(it.rate) || 0) - (Number(it.discount) || 0)).toFixed(2))
+                        );
+                    const lineVat = Number(it.vatAmount) || 0;
+                    const lineNet = Number((beforeVat + lineVat).toFixed(2));
+                    const unit = (it.unit || 'KG').toUpperCase();
+                    const ctnCount = Number(it.ctn) || 0;
+                    const looseQty = Number(it.qty) || 0;
+                    const pkgType = it.packageType || 'CTN';
+                    const dispQty = it.totalDeductedQty && Number(it.totalDeductedQty) > 0
+                      ? Number(it.totalDeductedQty)
+                      : (ctnCount > 0 ? ctnCount : looseQty);
+
+                    return (
+                      <tr key={it.id || idx} className="align-top">
+                        <td className="border-r border-slate-300 px-1.5 py-1 text-left">
+                          <div className="font-bold text-slate-950 leading-tight text-[11.5px]">{it.itemTitle}</div>
+                          {(ctnCount > 0 || looseQty > 0) && (
+                            <div className="text-[9.5px] text-slate-600 mt-0.5">
+                              {ctnCount > 0 ? `${ctnCount} ${pkgType}` : ''}
+                              {ctnCount > 0 && looseQty > 0 ? ' + ' : ''}
+                              {looseQty > 0 ? `${money(looseQty)} ${unit}` : ''}
+                            </div>
+                          )}
+                        </td>
+                        <td className="border-r border-slate-300 px-1 py-1 text-center font-mono font-bold text-[11px]">
+                          {money(dispQty)}
+                        </td>
+                        <td className="border-r border-slate-300 px-1 py-1 text-right font-mono text-[10.5px]">
+                          {money(it.rate)}
+                        </td>
+                        <td className="px-1.5 py-1 text-right font-mono font-black text-[11px]">
+                          {money(lineNet)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            ) : (
+              <table className="w-full border-collapse text-[11.5px] min-w-[680px]">
+                <thead>
+                  <tr className="bg-[#f4efe1] text-slate-900 align-bottom">
+                    {/* 1. SL# */}
+                    <th className="border border-slate-400 px-1.5 py-2 w-[36px] text-center font-black">
+                      SL#
+                    </th>
+
+                    {/* 2. Title */}
+                    <th className="border border-slate-400 px-2 py-2 text-left min-w-[150px] font-black">
+                      Title
+                    </th>
+
+                    {/* 3. Carton / Packaging */}
+                    <th className="border border-slate-400 px-1.5 py-2 w-[85px] text-center font-black">
+                      Carton / PKG
+                    </th>
+
+                    {/* 4. Loose Measure / Qty */}
+                    <th className="border border-slate-400 px-1.5 py-2 w-[80px] text-center font-black">
+                      Loose Qty
+                    </th>
+
+                    {/* 5. Total Qty / Total Stock */}
+                    <th className="border border-slate-400 px-1.5 py-2 w-[85px] text-center bg-[#f0eadd] font-black">
+                      Total Qty
+                    </th>
+
+                    {/* 6. Unit Price */}
+                    <th className="border border-slate-400 px-1.5 py-2 w-[80px] text-right font-black">
+                      Unit Price
+                    </th>
+
+                    {/* 7. Before VAT */}
+                    <th className="border border-slate-400 px-1.5 py-2 w-[85px] text-right font-black">
+                      Before VAT
+                    </th>
+
+                    {/* 8. VAT % */}
+                    <th className="border border-slate-400 px-1.5 py-2 w-[50px] text-center font-black">
+                      VAT %
+                    </th>
+
+                    {/* 9. VAT Amount */}
+                    <th className="border border-slate-400 px-1.5 py-2 w-[80px] text-right font-black">
+                      VAT Amount
+                    </th>
+
+                    {/* 10. Net Amount */}
+                    <th className="border border-slate-400 px-1.5 py-2 w-[90px] text-right bg-[#f4efe1] font-black">
+                      Net Amount
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="text-slate-900">
+                  {items.map((it, idx) => {
+                    const beforeVat = it.amount !== undefined
+                      ? Math.max(0, Number((Number(it.amount) - (Number(it.vatAmount) || 0)).toFixed(2)))
+                      : Math.max(
+                          0,
+                          Number(((Number(it.qty) || 0) * (Number(it.rate) || 0) - (Number(it.discount) || 0)).toFixed(2))
+                        );
+                    const lineVat = Number(it.vatAmount) || 0;
+                    const lineNet = Number((beforeVat + lineVat).toFixed(2));
+                    const unit = (it.unit || 'KG').toUpperCase();
+                    const ctnCount = Number(it.ctn) || 0;
+                    const looseQty = Number(it.qty) || 0;
+                    const pkgType = it.packageType || 'Carton';
+                    const qtyInPkg = Number(it.qtyPerCtn) || (ctnCount > 0 && it.totalDeductedQty && it.totalDeductedQty > looseQty ? Math.round((it.totalDeductedQty - looseQty) / ctnCount) : 1);
+                    const totalStock = it.totalDeductedQty !== undefined && Number(it.totalDeductedQty) > 0
+                      ? Number(it.totalDeductedQty)
+                      : ((ctnCount * qtyInPkg) + looseQty);
+
+                    return (
+                      <tr key={it.id || idx} className="align-top">
+                        {/* 1. SL# */}
+                        <td className="border border-slate-400 px-1.5 py-1.5 text-center font-mono">{idx + 1}</td>
+
+                        {/* 2. Title */}
+                        <td className="border border-slate-400 px-2 py-1.5 font-black text-slate-950">
+                          {it.itemTitle}
+                        </td>
+
+                        {/* 3. Carton / Packaging */}
+                        <td className="border border-slate-400 px-1.5 py-1.5 text-center font-bold">
+                          {ctnCount > 0 ? (
+                            <span>{ctnCount} <span className="text-[10px] font-semibold text-slate-700">{pkgType}</span></span>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
+                        </td>
+
+                        {/* 4. Loose Qty */}
+                        <td className="border border-slate-400 px-1.5 py-1.5 text-center font-bold">
+                          {looseQty > 0 ? (
+                            <span>{money(looseQty)} <span className="text-[10px] font-semibold text-slate-700">{unit}</span></span>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
+                        </td>
+
+                        {/* 5. Total Qty */}
+                        <td className="border border-slate-400 px-1.5 py-1.5 text-center font-black bg-[#faf8f1]">
+                          {money(totalStock)} <span className="text-[10px] font-bold text-slate-700">{unit}</span>
+                        </td>
+
+                        {/* 6. Unit Price */}
+                        <td className="border border-slate-400 px-1.5 py-1.5 text-right font-mono font-medium">
+                          {money(it.rate)}
+                        </td>
+
+                        {/* 7. Before VAT */}
+                        <td className="border border-slate-400 px-1.5 py-1.5 text-right font-black font-mono">
+                          {money(beforeVat)}
+                        </td>
+
+                        {/* 8. VAT % */}
+                        <td className="border border-slate-400 px-1.5 py-1.5 text-center font-mono">
+                          {Number(it.vatPercent ?? 5)}%
+                        </td>
+
+                        {/* 9. VAT Amount */}
+                        <td className="border border-slate-400 px-1.5 py-1.5 text-right font-mono">
+                          {money(lineVat)}
+                        </td>
+
+                        {/* 10. Net Amount */}
+                        <td className="border border-slate-400 px-1.5 py-1.5 text-right font-black font-mono bg-[#faf8f1]">
+                          {money(lineNet)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {Array.from({ length: fillerRows }).map((_, i) => (
+                    <tr key={`filler-${i}`}>
+                      <td className="border border-slate-400 h-[26px]" />
+                      <td className="border border-slate-400" />
+                      <td className="border border-slate-400" />
+                      <td className="border border-slate-400" />
+                      <td className="border border-slate-400" />
+                      <td className="border border-slate-400" />
+                      <td className="border border-slate-400" />
+                      <td className="border border-slate-400" />
+                      <td className="border border-slate-400" />
+                      <td className="border border-slate-400 bg-[#faf8f1]" />
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
 
           {/* ---------------- WORDS + BALANCES + TOTALS ---------------- */}

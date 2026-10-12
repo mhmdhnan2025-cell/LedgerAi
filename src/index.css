@@ -37,12 +37,36 @@
   background: #334155;
 }
 
+#active-print-container {
+  display: none;
+}
+
 @media print {
   html, body {
     background-color: white !important;
     color: black !important;
     height: auto !important;
     overflow: visible !important;
+  }
+
+  /* When printing an isolated bill or receipt slip, completely suppress the #root application */
+  body.is-printing-slip #root {
+    display: none !important;
+  }
+
+  body.is-printing-slip #active-print-container {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    color: black !important;
+  }
+
+  body.is-printing-slip #active-print-container * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   /* Hide app navigation, chrome, floating buttons and dark overlays */

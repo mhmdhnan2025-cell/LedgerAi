@@ -19,7 +19,64 @@ export const PurchaseBillVoucherModal: React.FC<PurchaseBillVoucherModalProps> =
   if (!bill) return null;
 
   const handlePrint = () => {
-    window.print();
+    const srcEl = document.getElementById('printable-purchase-voucher');
+    if (!srcEl) {
+      window.print();
+      return;
+    }
+
+    const oldContainer = document.getElementById('active-print-container');
+    if (oldContainer) oldContainer.remove();
+
+    const printContainer = document.createElement('div');
+    printContainer.id = 'active-print-container';
+    printContainer.innerHTML = srcEl.outerHTML;
+    printContainer.querySelectorAll('.print\\:hidden, .print-hidden, button').forEach((el) => el.remove());
+
+    const oldStyle = document.getElementById('dynamic-print-page-style');
+    if (oldStyle) oldStyle.remove();
+
+    const pageStyle = document.createElement('style');
+    pageStyle.id = 'dynamic-print-page-style';
+    pageStyle.textContent = `
+      @page {
+        size: A4 portrait;
+        margin: 6mm 8mm;
+      }
+      @media print {
+        #active-print-container {
+          width: 100% !important;
+          max-width: 100% !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          background: white !important;
+          color: black !important;
+        }
+      }
+    `;
+
+    document.head.appendChild(pageStyle);
+    document.body.appendChild(printContainer);
+    document.body.classList.add('is-printing-slip');
+
+    const cleanup = () => {
+      document.body.classList.remove('is-printing-slip');
+      if (printContainer && printContainer.parentNode) {
+        printContainer.remove();
+      }
+      if (pageStyle && pageStyle.parentNode) {
+        pageStyle.remove();
+      }
+      window.removeEventListener('afterprint', cleanup);
+    };
+
+    window.addEventListener('afterprint', cleanup);
+
+    window.focus();
+    setTimeout(() => {
+      window.print();
+      setTimeout(cleanup, 2500);
+    }, 150);
   };
 
   const currency = currencySymbol();
@@ -97,7 +154,7 @@ export const PurchaseBillVoucherModal: React.FC<PurchaseBillVoucherModalProps> =
         </div>
 
         {/* Printable Voucher & Invoice Document Body */}
-        <div className="p-4 sm:p-6 md:p-8 space-y-6 text-xs text-slate-300 bg-slate-900 print:bg-white print:text-black print:p-6 flex-1 overflow-y-auto">
+        <div id="printable-purchase-voucher" className="p-4 sm:p-6 md:p-8 space-y-6 text-xs text-slate-300 bg-slate-900 print:bg-white print:text-black print:p-6 flex-1 overflow-y-auto">
           
           {/* Header 1: Company Profile & Document Metadata */}
           <div className="flex flex-col sm:flex-row justify-between items-start gap-4 border-b border-slate-800 print:border-black pb-5">

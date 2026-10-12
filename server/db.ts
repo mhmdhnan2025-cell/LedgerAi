@@ -10090,49 +10090,92 @@ class DatabaseService {
     const custSearch = (customerId || '').trim().toLowerCase();
     const customer = isAll
       ? undefined
-      : (this.data.customers || []).find(
+      : (this.findCustomerByRef(customerId, customerId, customerId) || (this.data.customers || []).find(
           (c) =>
             c.id?.toLowerCase() === custSearch ||
             c.code?.toLowerCase() === custSearch ||
             c.accountCode?.toLowerCase() === custSearch ||
             (c.accountTitle && c.accountTitle.toLowerCase() === custSearch) ||
             (c.name && c.name.toLowerCase() === custSearch)
-        );
+        ));
 
     const custId = isAll ? 'ALL' : (customer?.id || customerId);
     const custCode = isAll ? 'ALL' : (customer?.code || customer?.accountCode || '');
     const custTitle = isAll ? 'All Customer Accounts' : (customer?.accountTitle || customer?.name || 'Customer');
 
+    const targetIds = new Set<string>();
     const targetCodes = new Set<string>();
+    const targetTitles = new Set<string>();
+
     if (!isAll && customer) {
-      if (customer.id) {
-        targetCodes.add(customer.id.toLowerCase());
-        targetCodes.add(customer.id.replace(/_comp[_-].*$/, '').toLowerCase());
+      if (customer.id && customer.id.trim()) {
+        const idLower = customer.id.trim().toLowerCase();
+        targetIds.add(idLower);
+        const stripped = idLower.replace(/_comp[_-].*$/, '');
+        if (stripped) targetIds.add(stripped);
       }
-      if (customer.code) targetCodes.add(customer.code.toLowerCase());
-      if (customer.accountCode) targetCodes.add(customer.accountCode.toLowerCase());
-      if (customer.manualCode) targetCodes.add(customer.manualCode.toLowerCase());
-      if (customerId) {
-        targetCodes.add(customerId.toLowerCase());
-        targetCodes.add(customerId.replace(/_comp[_-].*$/, '').toLowerCase());
+      if (customerId && customerId.trim() && customerId.toLowerCase() !== 'all') {
+        const cidLower = customerId.trim().toLowerCase();
+        targetIds.add(cidLower);
+        const stripped = cidLower.replace(/_comp[_-].*$/, '');
+        if (stripped) targetIds.add(stripped);
+      }
+
+      const isGeneric = (cStr: string) => !cStr || cStr === '0101040000' || cStr === '0101' || cStr === '0201010000' || cStr === '0201' || cStr === '0301';
+      if (customer.code && !isGeneric(customer.code.trim())) {
+        targetCodes.add(customer.code.trim().toLowerCase());
+      }
+      if (customer.accountCode && !isGeneric(customer.accountCode.trim())) {
+        targetCodes.add(customer.accountCode.trim().toLowerCase());
+      }
+      if (customer.manualCode && !isGeneric(customer.manualCode.trim())) {
+        targetCodes.add(customer.manualCode.trim().toLowerCase());
+      }
+
+      if (customer.accountTitle && customer.accountTitle.trim().length > 1) {
+        targetTitles.add(customer.accountTitle.trim().toLowerCase());
+      }
+      if (customer.name && customer.name.trim().length > 1) {
+        targetTitles.add(customer.name.trim().toLowerCase());
       }
     }
 
     const matchesCustomer = (id?: string, code?: string, title?: string) => {
       if (isAll) return true;
       if (!customer) return false;
-      if (id) {
-        const idLower = id.toLowerCase();
-        const baseId = idLower.replace(/_comp[_-].*$/, '');
-        if (targetCodes.has(idLower) || targetCodes.has(baseId)) return true;
+
+      const normId = (id || '').trim().toLowerCase();
+      const normBaseId = normId ? normId.replace(/_comp[_-].*$/, '') : '';
+      const normCode = (code || '').trim().toLowerCase();
+      const normTitle = (title || '').trim().toLowerCase();
+
+      // If transaction has an explicit customer ID:
+      if (normId && normId !== 'cash' && normId !== 'card' && normId !== 'walk-in') {
+        if (targetIds.has(normId) || (normBaseId && targetIds.has(normBaseId))) {
+          return true;
+        }
+        if (normCode && targetCodes.has(normCode)) {
+          return true;
+        }
+        // Transaction points to a different customer ID, reject immediately
+        return false;
       }
-      if (code && targetCodes.has(code.toLowerCase())) return true;
-      if (title && custTitle) {
-        const tLower = title.trim().toLowerCase();
-        const ctLower = custTitle.trim().toLowerCase();
-        if (tLower === ctLower) return true;
-        if (tLower.length >= 4 && (tLower.includes(ctLower) || ctLower.includes(tLower))) return true;
+
+      // If transaction has a code:
+      if (normCode) {
+        if (targetCodes.has(normCode)) {
+          return true;
+        }
+        return false;
       }
+
+      // If neither ID nor code is present, match by exact Title
+      if (normTitle) {
+        if (targetTitles.has(normTitle)) {
+          return true;
+        }
+      }
+
       return false;
     };
 
@@ -10177,7 +10220,7 @@ class DatabaseService {
     // Add sale bills prior to fromDate
     for (const b of (this.data.saleBills || [])) {
       if (b.status === 'Cancelled') continue;
-      if (!matchesCustomer(b.customerId, undefined, b.customerAccountTitle)) continue;
+      if (!matchesCustomer(b.customerId, (b as any).customerCode, b.customerAccountTitle)) continue;
       const bDate = this.normalizeDateToYMD(b.date);
       if (bDate < normFrom) {
         calcOpening += Number(b.balanceReceivable !== undefined ? b.balanceReceivable : (Number(b.netTotal || b.totalAmount || 0) - Number(b.cashReceived || 0)));
@@ -10206,7 +10249,7 @@ class DatabaseService {
     for (const p of (this.data.payments || [])) {
       const pDate = this.normalizeDateToYMD(p.paymentDate || p.createdAt || '');
       if (pDate >= normFrom) continue;
-      if (matchesCustomer(p.restaurantId || (p as any).customerId)) {
+      if (matchesCustomer(p.restaurantId || (p as any).customerId, (p as any).customerCode, p.restaurantName || (p as any).customerName)) {
         calcOpening -= Number(p.amount || 0);
       }
     }
@@ -10230,7 +10273,7 @@ class DatabaseService {
     // Sale Bills
     for (const b of (this.data.saleBills || [])) {
       if (b.status === 'Cancelled') continue;
-      if (!matchesCustomer(b.customerId, undefined, b.customerAccountTitle)) continue;
+      if (!matchesCustomer(b.customerId, (b as any).customerCode, b.customerAccountTitle)) continue;
       const bDate = this.normalizeDateToYMD(b.date);
       if (bDate < normFrom || bDate > normTo) continue;
       if (poNumber && b.lpoNo && !b.lpoNo.toLowerCase().includes(poNumber.toLowerCase())) continue;
@@ -10467,7 +10510,7 @@ class DatabaseService {
     const suppSearch = (supplierId || '').trim().toLowerCase();
     const supplier = isAll
       ? undefined
-      : (this.data.suppliers || []).find(
+      : (this.findSupplierByRef(supplierId, supplierId, supplierId) || (this.data.suppliers || []).find(
           (s) =>
             s.id?.toLowerCase() === suppSearch ||
             s.code?.toLowerCase() === suppSearch ||
@@ -10475,19 +10518,81 @@ class DatabaseService {
             (s.accountTitle && s.accountTitle.toLowerCase() === suppSearch) ||
             (s.title && s.title.toLowerCase() === suppSearch) ||
             (s.name && s.name.toLowerCase() === suppSearch)
-        );
+        ));
 
     const suppId = isAll ? 'ALL' : (supplier?.id || supplierId);
     const suppCode = isAll ? 'ALL' : (supplier?.code || supplier?.accountNumber || '');
     const suppTitle = isAll ? 'All Supplier Accounts' : (supplier?.accountTitle || supplier?.title || supplier?.name || 'Supplier');
 
+    const targetSuppIds = new Set<string>();
+    const targetSuppCodes = new Set<string>();
+    const targetSuppTitles = new Set<string>();
+
+    if (!isAll && supplier) {
+      if (supplier.id && supplier.id.trim()) {
+        const idLower = supplier.id.trim().toLowerCase();
+        targetSuppIds.add(idLower);
+        const stripped = idLower.replace(/_comp[_-].*$/, '');
+        if (stripped) targetSuppIds.add(stripped);
+      }
+      if (supplierId && supplierId.trim() && supplierId.toLowerCase() !== 'all') {
+        const sIdLower = supplierId.trim().toLowerCase();
+        targetSuppIds.add(sIdLower);
+        const stripped = sIdLower.replace(/_comp[_-].*$/, '');
+        if (stripped) targetSuppIds.add(stripped);
+      }
+
+      const isGeneric = (sStr: string) => !sStr || sStr === '0201010000' || sStr === '0201' || sStr === '0101040000' || sStr === '0101';
+      if (supplier.code && !isGeneric(supplier.code.trim())) {
+        targetSuppCodes.add(supplier.code.trim().toLowerCase());
+      }
+      if (supplier.accountNumber && !isGeneric(supplier.accountNumber.trim())) {
+        targetSuppCodes.add(supplier.accountNumber.trim().toLowerCase());
+      }
+
+      if (supplier.accountTitle && supplier.accountTitle.trim().length > 1) {
+        targetSuppTitles.add(supplier.accountTitle.trim().toLowerCase());
+      }
+      if (supplier.title && supplier.title.trim().length > 1) {
+        targetSuppTitles.add(supplier.title.trim().toLowerCase());
+      }
+      if (supplier.name && supplier.name.trim().length > 1) {
+        targetSuppTitles.add(supplier.name.trim().toLowerCase());
+      }
+    }
+
     const matchesSupplier = (id?: string, code?: string, title?: string) => {
       if (isAll) return true;
-      if (id && (id.toLowerCase() === suppId.toLowerCase() || (suppCode && id.toLowerCase() === suppCode.toLowerCase()))) return true;
-      if (code && (code.toLowerCase() === suppCode.toLowerCase() || code.toLowerCase() === suppId.toLowerCase())) return true;
-      if (title && suppTitle && title.trim().toLowerCase() === suppTitle.trim().toLowerCase()) return true;
-      if (supplier && title && (supplier.title && title.trim().toLowerCase() === supplier.title.trim().toLowerCase())) return true;
-      if (supplier && title && (supplier.name && title.trim().toLowerCase() === supplier.name.trim().toLowerCase())) return true;
+      if (!supplier) return false;
+
+      const normId = (id || '').trim().toLowerCase();
+      const normBaseId = normId ? normId.replace(/_comp[_-].*$/, '') : '';
+      const normCode = (code || '').trim().toLowerCase();
+      const normTitle = (title || '').trim().toLowerCase();
+
+      if (normId) {
+        if (targetSuppIds.has(normId) || (normBaseId && targetSuppIds.has(normBaseId))) {
+          return true;
+        }
+        if (normCode && targetSuppCodes.has(normCode)) {
+          return true;
+        }
+        return false;
+      }
+
+      if (normCode) {
+        if (targetSuppCodes.has(normCode)) {
+          return true;
+        }
+        return false;
+      }
+
+      if (normTitle) {
+        if (targetSuppTitles.has(normTitle)) {
+          return true;
+        }
+      }
+
       return false;
     };
 
