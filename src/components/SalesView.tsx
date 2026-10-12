@@ -195,13 +195,12 @@ export const SalesView: React.FC<SalesViewProps> = ({
     setBalanceRecovered(false);
     setBalanceRecoveredAmount(0);
     setLpoNo('');
-    const allCusts = (propCustomers && propCustomers.length > 0) ? propCustomers : customers;
-    if (selectedCustomerId) {
-      const found = allCusts.find((c) => c.id === selectedCustomerId || c.code === selectedCustomerId);
-      if (found) {
-        setPartyBalanceBefore(found.outstandingBalance !== undefined ? found.outstandingBalance : (found.openingBalance || 0));
-      }
-    }
+    setSelectedCustomerId('');
+    setCustomerAccountTitle('');
+    setCustomerMobile('');
+    setCustomerTrn('');
+    setPartyBalanceBefore(0);
+    setIsCashCustomer(false);
     const nextNum = (parseInt(billNumber, 10) || 6762) + 1;
     setBillNumber(String(nextNum));
     if (onCancelEdit) {
@@ -322,31 +321,16 @@ export const SalesView: React.FC<SalesViewProps> = ({
     try {
       const list = await api.getCustomers();
       setCustomers(list);
-      if (list.length > 0) {
-        if (!selectedCustomerId) {
-          // Select first customer by default
-          const first = list[0];
-          setSelectedCustomerId(first.id);
-          setCustomerAccountTitle(first.accountTitle || first.name);
-          setCustomerMobile(first.mobile || '');
-          setCustomerTrn(first.trn || '');
-          setPartyBalanceBefore(first.outstandingBalance !== undefined ? first.outstandingBalance : (first.openingBalance || 0));
-          const assigned = (first.assignedSalesman || first.salesman || '').trim();
-          if (assigned) {
+      if (list.length > 0 && selectedCustomerId) {
+        const current = list.find((c) => c.id === selectedCustomerId || c.code === selectedCustomerId);
+        if (current) {
+          if (!editingBillId) {
+            setPartyBalanceBefore(current.outstandingBalance !== undefined ? current.outstandingBalance : (current.openingBalance || 0));
+          }
+          const assigned = (current.assignedSalesman || current.salesman || '').trim();
+          if (assigned && !selectedSalesman) {
             setSalesmen((prev) => (prev.includes(assigned) ? prev : [...prev, assigned]));
             setSelectedSalesman(assigned);
-          }
-        } else {
-          const current = list.find((c) => c.id === selectedCustomerId || c.code === selectedCustomerId);
-          if (current) {
-            if (!editingBillId) {
-              setPartyBalanceBefore(current.outstandingBalance !== undefined ? current.outstandingBalance : (current.openingBalance || 0));
-            }
-            const assigned = (current.assignedSalesman || current.salesman || '').trim();
-            if (assigned && !selectedSalesman) {
-              setSalesmen((prev) => (prev.includes(assigned) ? prev : [...prev, assigned]));
-              setSelectedSalesman(assigned);
-            }
           }
         }
       }
@@ -428,15 +412,10 @@ export const SalesView: React.FC<SalesViewProps> = ({
         if (found) {
           setPartyBalanceBefore(found.outstandingBalance !== undefined ? found.outstandingBalance : (found.openingBalance || 0));
         }
-      } else {
-        setSelectedCustomerId(propCustomers[0].id);
-        setCustomerAccountTitle(propCustomers[0].accountTitle || propCustomers[0].name);
-        setCustomerMobile(propCustomers[0].mobile || '');
-        setCustomerTrn(propCustomers[0].trn || '');
-        setPartyBalanceBefore(propCustomers[0].outstandingBalance !== undefined ? propCustomers[0].outstandingBalance : (propCustomers[0].openingBalance || 0));
       }
+      // Nothing selected by default - do not auto-select first customer
     }
-  }, [propCustomers, editingBillId]);
+  }, [propCustomers, editingBillId, selectedCustomerId]);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -493,9 +472,11 @@ export const SalesView: React.FC<SalesViewProps> = ({
       setPartyBalanceBefore(0);
       setPaymentType('Cash');
     } else {
-      if (customers.length > 0) {
-        handleSelectCustomer(customers[0]);
-      }
+      setSelectedCustomerId('');
+      setCustomerAccountTitle('');
+      setCustomerMobile('');
+      setCustomerTrn('');
+      setPartyBalanceBefore(0);
       setPaymentType('Account');
     }
   };
@@ -915,6 +896,12 @@ export const SalesView: React.FC<SalesViewProps> = ({
       setCashReceived(0);
       setBillDiscountPercent(0);
       setBillDiscountAmount(0);
+      setSelectedCustomerId('');
+      setCustomerAccountTitle('');
+      setCustomerMobile('');
+      setCustomerTrn('');
+      setPartyBalanceBefore(0);
+      setIsCashCustomer(false);
       const nextNum = (parseInt(billNumber, 10) || 6762) + 1;
       setBillNumber(String(nextNum));
       setLpoNo('');
@@ -932,6 +919,10 @@ export const SalesView: React.FC<SalesViewProps> = ({
   const handlePreviewPrintBill = () => {
     if (billItems.length === 0) {
       setErrorMsg('Please add at least one line item to view / print receipt.');
+      return;
+    }
+    if (!customerAccountTitle.trim() && !isCashCustomer) {
+      setErrorMsg('Please select a customer account or choose Walk-in / Cash before printing bill.');
       return;
     }
     const draftBill: SaleBill = {
@@ -1313,8 +1304,8 @@ export const SalesView: React.FC<SalesViewProps> = ({
                 isCashCustomer ? 'opacity-80' : 'hover:border-emerald-500'
               }`}
             >
-              <span className="font-bold text-white truncate">
-                {customerAccountTitle || 'Select Customer Account...'}
+              <span className={`font-bold truncate ${customerAccountTitle ? 'text-white' : 'text-slate-400'}`}>
+                {customerAccountTitle || '-- Nothing Selected --'}
               </span>
               <ChevronDown className="w-4 h-4 text-slate-400" />
             </div>
@@ -1335,6 +1326,22 @@ export const SalesView: React.FC<SalesViewProps> = ({
                 </div>
 
                 <div className="space-y-1">
+                  {/* Option to clear selection back to Nothing Selected */}
+                  <div
+                    onClick={() => {
+                      setSelectedCustomerId('');
+                      setCustomerAccountTitle('');
+                      setCustomerMobile('');
+                      setCustomerTrn('');
+                      setPartyBalanceBefore(0);
+                      setIsCustomerDropdownOpen(false);
+                    }}
+                    className={`px-2.5 py-1.5 rounded-lg hover:bg-slate-800 cursor-pointer flex items-center justify-between text-xs transition border-b border-slate-800 ${
+                      !selectedCustomerId ? 'text-amber-400 font-bold bg-slate-800/60' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <span className="italic">-- Nothing Selected (Clear Selection) --</span>
+                  </div>
                   {filteredCustomers.map((c) => (
                     <div
                       key={c.id}
@@ -2138,6 +2145,12 @@ export const SalesView: React.FC<SalesViewProps> = ({
                   if (window.confirm('Reset all line items and form fields?')) {
                     setBillItems([]);
                     setCashReceived(0);
+                    setSelectedCustomerId('');
+                    setCustomerAccountTitle('');
+                    setCustomerMobile('');
+                    setCustomerTrn('');
+                    setPartyBalanceBefore(0);
+                    setIsCashCustomer(false);
                   }
                 }}
                 className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition"
