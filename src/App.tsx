@@ -29,6 +29,8 @@ import {
   SmartAlert,
   Supplier,
   Customer,
+  PurchaseBill,
+  SaleBill,
   User,
   UserRole,
 } from './types';
@@ -163,6 +165,8 @@ export default function App() {
   const [preselectedRestaurantId, setPreselectedRestaurantId] = useState<string | undefined>();
   const [preselectedExpenseId, setPreselectedExpenseId] = useState<string | undefined>();
   const [initialAiQuery, setInitialAiQuery] = useState<string | undefined>();
+  const [editingPurchaseBill, setEditingPurchaseBill] = useState<PurchaseBill | null>(null);
+  const [editingSaleBill, setEditingSaleBill] = useState<SaleBill | null>(null);
 
   // Self-Healing Gemini Key Auto-Hydration on Boot
   useEffect(() => {
@@ -631,6 +635,8 @@ export default function App() {
             companyProfile={companyProfile}
             currentUser={currentUser}
             customers={customers}
+            editingBill={editingSaleBill}
+            onCancelEdit={() => setEditingSaleBill(null)}
             onRefreshData={() => loadBusinessData(true)}
             onNavigateTab={(tab) => setCurrentTab(tab as any)}
           />
@@ -654,6 +660,8 @@ export default function App() {
             companyProfile={companyProfile}
             currentRole={currentRole}
             currentUser={currentUser}
+            editingBill={editingPurchaseBill}
+            onCancelEdit={() => setEditingPurchaseBill(null)}
             onRefreshData={() => loadBusinessData(true)}
             onNavigateTab={(tab) => setCurrentTab(tab as any)}
             onOpenOcr={() => setIsOcrModalOpen(true)}
@@ -679,6 +687,14 @@ export default function App() {
             products={products}
             companyProfile={companyProfile}
             currentRole={currentRole}
+            onEditPurchaseBill={(bill) => {
+              setEditingPurchaseBill(bill);
+              setCurrentTab('purchasing');
+            }}
+            onEditSaleBill={(bill) => {
+              setEditingSaleBill(bill);
+              setCurrentTab('sales');
+            }}
             onRefreshData={() => loadBusinessData(true)}
             onNavigateTab={(tab) => setCurrentTab(tab as any)}
           />

@@ -31,6 +31,7 @@ interface SalesReportSectionProps {
   currentRole: UserRole;
   onRefreshData?: () => void;
   onNavigateTab?: (tab: string) => void;
+  onEditSaleBill?: (bill: SaleBill) => void;
 }
 
 export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
@@ -38,6 +39,7 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
   currentRole,
   onRefreshData,
   onNavigateTab,
+  onEditSaleBill,
 }) => {
   // Search & Filter State - default to empty to show all records or user selects preset
   const [fromDate, setFromDate] = useState<string>('');
@@ -808,9 +810,15 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
                           <Eye className="w-3.5 h-3.5" />
                         </button>
                         <button
-                          onClick={() => setEditingSaleBill(b)}
+                          onClick={() => {
+                            if (onEditSaleBill) {
+                              onEditSaleBill(b);
+                            } else {
+                              setEditingSaleBill(b);
+                            }
+                          }}
                           className="p-1 hover:bg-amber-900/40 text-slate-400 hover:text-amber-400 rounded cursor-pointer transition"
-                          title="Edit Sale Bill"
+                          title="Edit Sale Bill (Opens Sales Page with all items)"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
@@ -958,6 +966,20 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
                   <Printer className="w-3.5 h-3.5" />
                   <span>Print Receipt</span>
                 </button>
+                {onEditSaleBill && (
+                  <button
+                    onClick={() => {
+                      const b = activeBillDetail;
+                      setActiveBillDetail(null);
+                      onEditSaleBill(b);
+                    }}
+                    className="px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm"
+                    title="Edit Sale Bill with all items"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                    <span>Edit Bill</span>
+                  </button>
+                )}
               </div>
               <button
                 onClick={() => setActiveBillDetail(null)}
@@ -976,6 +998,7 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
           bill={receiptModalBill}
           companyProfile={companyProfile}
           onClose={() => setReceiptModalBill(null)}
+          onEditBill={onEditSaleBill}
         />
       )}
 

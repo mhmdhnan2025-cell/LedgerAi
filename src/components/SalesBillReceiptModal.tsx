@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Printer, X, Share2, CheckCircle2, Receipt, Save } from 'lucide-react';
+import { Printer, X, Share2, CheckCircle2, Receipt, Save, Edit2 } from 'lucide-react';
 import { CompanyProfile, Customer, SaleBill } from '../types';
 import { api } from '../services/api';
 
@@ -7,6 +7,7 @@ interface SalesBillReceiptModalProps {
   bill: SaleBill | null;
   companyProfile?: CompanyProfile | null;
   onClose: () => void;
+  onEditBill?: (bill: SaleBill) => void;
 }
 
 const money = (n: number) =>
@@ -131,6 +132,7 @@ export const SalesBillReceiptModal: React.FC<SalesBillReceiptModalProps> = ({
   bill,
   companyProfile,
   onClose,
+  onEditBill,
 }) => {
   const [printFormat, setPrintFormat] = useState<'a4' | 'thermal'>('a4');
   const [copied, setCopied] = useState(false);
@@ -344,6 +346,21 @@ Thank you for your business!`;
               {copied ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5 text-emerald-400" />}
               <span>{copied ? 'Copied!' : 'WhatsApp'}</span>
             </button>
+
+            {/* Edit Bill */}
+            {onEditBill && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onEditBill(bill);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold transition shadow-sm cursor-pointer"
+                title="Edit this sale bill with full items catalog"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+                <span>Edit Bill</span>
+              </button>
+            )}
 
             {/* Print Button */}
             <button

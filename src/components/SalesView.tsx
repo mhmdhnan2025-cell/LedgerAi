@@ -30,6 +30,7 @@ import {
   Settings,
   ShoppingBag,
   RotateCcw,
+  Edit2,
 } from 'lucide-react';
 import {
   Customer,
@@ -57,6 +58,8 @@ interface SalesViewProps {
   companyProfile?: CompanyProfile | null;
   currentUser?: User | null;
   customers?: Customer[];
+  editingBill?: SaleBill | null;
+  onCancelEdit?: () => void;
   onRefreshData?: () => Promise<void> | void;
   onNavigateTab?: (tab: string) => void;
 }
@@ -67,6 +70,8 @@ export const SalesView: React.FC<SalesViewProps> = ({
   companyProfile,
   currentUser,
   customers: propCustomers,
+  editingBill,
+  onCancelEdit,
   onRefreshData,
   onNavigateTab,
 }) => {
@@ -112,6 +117,109 @@ export const SalesView: React.FC<SalesViewProps> = ({
       setUserName(currentUser.name);
     }
   }, [currentUser?.name]);
+
+  // -------------------------------------------------------------
+  // EDIT SALE BILL STATE & HELPERS
+  // -------------------------------------------------------------
+  const [editingBillId, setEditingBillId] = useState<string | null>(editingBill?.id || null);
+  const [isLoadBillModalOpen, setIsLoadBillModalOpen] = useState(false);
+  const [recentSaleBills, setRecentSaleBills] = useState<SaleBill[]>([]);
+  const [isLoadingRecentSaleBills, setIsLoadingRecentSaleBills] = useState(false);
+  const [saleBillSearchQuery, setSaleBillSearchQuery] = useState('');
+
+  const loadBillIntoForm = (bill: SaleBill) => {
+    setEditingBillId(bill.id);
+    setBillNumber(bill.billNumber || '');
+    setBillDate(bill.date || new Date().toISOString().split('T')[0]);
+    setLpoNo(bill.lpoNo || '');
+    setSelectedCustomerId(bill.customerId || '');
+    setCustomerAccountTitle(bill.customerAccountTitle || '');
+    setCustomerMobile(bill.customerMobile || '');
+    setCustomerTrn(bill.customerTrn || '');
+    setPartyBalanceBefore(bill.partyBalanceBefore || 0);
+    if (bill.salesmanName || bill.salesmanId) {
+      setSelectedSalesman(bill.salesmanName || bill.salesmanId || '');
+    }
+    setPaymentType(bill.paymentType || 'Account');
+    setDiscountType(bill.discountType || 'Percentage');
+    setVatType(bill.vatType || 'Percentage');
+    setBillDiscountPercent(bill.billDiscountPercent || 0);
+    setBillDiscountAmount(bill.billDiscountAmount || 0);
+    setCashReceived(bill.cashReceived || 0);
+    setBalanceRecovered(Boolean(bill.balanceRecovered));
+    setBalanceRecoveredAmount(bill.balanceRecoveredAmount || 0);
+    setNotes(bill.notes || 'Terms and Condition..');
+    if (Array.isArray(bill.items)) {
+      setBillItems(JSON.parse(JSON.stringify(bill.items)));
+    }
+    setSelectedProductId('');
+    setItemTitle('');
+    setCtn(1);
+    setRatePerCtn('');
+    setQty(1);
+    setRate('');
+    setDiscount(0);
+    setVatPercent(5);
+  };
+
+  useEffect(() => {
+    if (editingBill) {
+      loadBillIntoForm(editingBill);
+    }
+  }, [editingBill]);
+
+  const handleCancelEdit = () => {
+    setEditingBillId(null);
+    setBillItems([]);
+    setNotes('Terms and Condition..');
+    setCashReceived(0);
+    setBillDiscountPercent(0);
+    setBillDiscountAmount(0);
+    setBalanceRecovered(false);
+    setBalanceRecoveredAmount(0);
+    setLpoNo('');
+    const nextNum = (parseInt(billNumber, 10) || 6762) + 1;
+    setBillNumber(String(nextNum));
+    if (onCancelEdit) {
+      onCancelEdit();
+    }
+  };
+
+  const handleEditRowItem = (index: number) => {
+    const target = billItems[index];
+    if (!target) return;
+    setSelectedProductId(target.productId || '');
+    setItemTitle(target.itemTitle);
+    setItemCategory(target.category || 'General');
+    setItemMCode(target.mcode || '');
+    setItemPackageType(target.packageType || 'Carton');
+    setCtn(target.ctn || 1);
+    setRatePerCtn(target.ratePerCtn || '');
+    setQtyPerCtn(target.qtyPerCtn || 1);
+    setQty(target.qty || 1);
+    setRate(target.rate || '');
+    setDiscount(target.discount || 0);
+    setVatPercent(target.vatPercent || 5);
+    setVatType(target.vatType || 'Percentage');
+    setItemStock(target.stock || 0);
+    setBillItems((prev) => prev.filter((_, i) => i !== index));
+    setTimeout(() => {
+      if (itemInputRef.current) itemInputRef.current.focus();
+    }, 40);
+  };
+
+  const handleOpenLoadSaleBillModal = async () => {
+    setIsLoadBillModalOpen(true);
+    setIsLoadingRecentSaleBills(true);
+    try {
+      const list = await api.getSales();
+      setRecentSaleBills(list || []);
+    } catch (err) {
+      console.error('Failed to load sales bills', err);
+    } finally {
+      setIsLoadingRecentSaleBills(false);
+    }
+  };
 
   // Line Item Entry State
   const [selectedProductId, setSelectedProductId] = useState<string>('');
@@ -681,17 +789,30 @@ export const SalesView: React.FC<SalesViewProps> = ({
         notes,
       };
 
-      const savedBill = await api.createSale(payload, {
-        id: currentUser?.id || 'admin',
-        name: userName.trim() || currentUser?.name || 'Admin',
-        role: currentUser?.role || currentRole,
-      });
+      let savedBill: SaleBill;
+      if (editingBillId) {
+        savedBill = await api.updateSale(editingBillId, payload, {
+          id: currentUser?.id || 'admin',
+          name: userName.trim() || currentUser?.name || 'Admin',
+          role: currentUser?.role || currentRole,
+        });
+        setSuccessMsg(
+          `Sale Bill #${savedBill.billNumber} updated successfully! Stock differences and customer ledger balance adjusted in real-time.`
+        );
+        setEditingBillId(null);
+        if (onCancelEdit) onCancelEdit();
+      } else {
+        savedBill = await api.createSale(payload, {
+          id: currentUser?.id || 'admin',
+          name: userName.trim() || currentUser?.name || 'Admin',
+          role: currentUser?.role || currentRole,
+        });
+        setSuccessMsg(
+          `Sale Bill #${savedBill.billNumber} saved successfully! Real-time stock deducted from inventory automatically without reload.`
+        );
+      }
       setPrintedBill(savedBill);
       setIsReceiptModalOpen(true);
-
-      setSuccessMsg(
-        `Sale Bill #${savedBill.billNumber} saved successfully! Real-time stock deducted from inventory automatically without reload.`
-      );
 
       // Immediately update local customer balance in dropdown
       if (selectedCustomerId) {
@@ -853,17 +974,21 @@ export const SalesView: React.FC<SalesViewProps> = ({
             <button
               onClick={handleSaveSaleReport}
               disabled={isSaving || billItems.length === 0}
-              className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold rounded-lg shadow-md transition flex items-center gap-1.5 cursor-pointer"
+              className={`px-4 py-1.5 disabled:opacity-50 text-white text-xs font-bold rounded-lg shadow-md transition flex items-center gap-1.5 cursor-pointer ${
+                editingBillId
+                  ? 'bg-gradient-to-r from-amber-600 to-emerald-600 hover:from-amber-500 hover:to-emerald-500'
+                  : 'bg-emerald-600 hover:bg-emerald-500'
+              }`}
             >
               {isSaving ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                  <span>Processing &amp; Updating Stock...</span>
+                  <span>{editingBillId ? `Updating #${billNumber}...` : 'Processing...'}</span>
                 </>
               ) : (
                 <>
                   <Save className="w-4 h-4" />
-                  <span>Save Report (F10)</span>
+                  <span>{editingBillId ? `Update Bill #${billNumber}` : 'Save Report (F10)'}</span>
                 </>
               )}
             </button>
@@ -898,6 +1023,40 @@ export const SalesView: React.FC<SalesViewProps> = ({
             <button onClick={() => setErrorMsg(null)} className="text-slate-400 hover:text-white">
               &times;
             </button>
+          </div>
+        )}
+
+        {/* Edit Mode Active Banner */}
+        {editingBillId && (
+          <div className="mt-3 bg-gradient-to-r from-amber-950/80 via-slate-900 to-emerald-950/80 border-2 border-amber-500/80 rounded-2xl p-4 shadow-xl flex flex-wrap items-center justify-between gap-3 text-xs animate-in fade-in duration-200">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center font-bold text-lg shrink-0">
+                ✏️
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-extrabold text-white text-sm">
+                    EDITING SALE BILL #{billNumber}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold text-[10px] uppercase border border-amber-500/30">
+                    Edit Mode Active
+                  </span>
+                </div>
+                <p className="text-slate-300 text-xs mt-0.5">
+                  Customer: <strong className="text-white">{customerAccountTitle || 'Walk-in Customer'}</strong> &bull; All items from this bill are loaded below. You can modify any item, change rates/cartons/loose qty, delete items, or select and add new items from inventory. Click <strong>&quot;Update Sale Bill&quot;</strong> to apply changes.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-bold border border-slate-700 transition cursor-pointer flex items-center gap-1.5"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Cancel Edit</span>
+              </button>
+            </div>
           </div>
         )}
 
@@ -1733,13 +1892,24 @@ export const SalesView: React.FC<SalesViewProps> = ({
                       {it.remainingStock !== undefined ? `${it.remainingStock} ${it.unit || 'Units'}` : '-'}
                     </td>
                     <td className="py-2.5 px-3 text-center">
-                      <button
-                        onClick={() => handleRemoveItem(idx)}
-                        className="p-1 hover:bg-rose-900/40 text-slate-400 hover:text-rose-400 rounded transition cursor-pointer"
-                        title="Remove item"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleEditRowItem(idx)}
+                          className="p-1 hover:bg-amber-900/40 text-slate-400 hover:text-amber-400 rounded transition cursor-pointer"
+                          title="Edit line item (reloads into entry row)"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveItem(idx)}
+                          className="p-1 hover:bg-rose-900/40 text-slate-400 hover:text-rose-400 rounded transition cursor-pointer"
+                          title="Remove item"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -1916,21 +2086,35 @@ export const SalesView: React.FC<SalesViewProps> = ({
                 <span>Print Bill</span>
               </button>
 
+              {editingBillId && (
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg font-bold text-xs border border-slate-700 transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Cancel Edit</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleSaveSaleReport}
                 disabled={isSaving || billItems.length === 0}
-                className="flex-1 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold rounded-lg text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
+                className={`flex-1 px-4 py-2.5 disabled:opacity-50 text-white font-bold rounded-lg text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer ${
+                  editingBillId
+                    ? 'bg-gradient-to-r from-amber-600 to-emerald-600 hover:from-amber-500 hover:to-emerald-500 shadow-amber-600/30'
+                    : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/30'
+                }`}
               >
                 {isSaving ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                    <span>Processing &amp; Updating Stock...</span>
+                    <span>{editingBillId ? `Updating Bill #${billNumber}...` : 'Processing & Updating Stock...'}</span>
                   </>
                 ) : (
                   <>
                     <Save className="w-4 h-4" />
-                    <span>Save Report (F10)</span>
+                    <span>{editingBillId ? `Update Sale Bill #${billNumber}` : 'Save Report (F10)'}</span>
                   </>
                 )}
               </button>
@@ -1974,6 +2158,96 @@ export const SalesView: React.FC<SalesViewProps> = ({
         customers={customers}
         products={products}
       />
+
+      {/* LOAD SALE BILL MODAL */}
+      {isLoadBillModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-5 space-y-4 shadow-2xl animate-in fade-in duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Search className="w-5 h-5 text-emerald-400" />
+                <h3 className="text-base font-bold text-white">Load Sale Bill to Edit</h3>
+              </div>
+              <button
+                onClick={() => setIsLoadBillModalOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <input
+                type="text"
+                placeholder="Search by Bill #, Customer name, LPO #..."
+                value={saleBillSearchQuery}
+                onChange={(e) => setSaleBillSearchQuery(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 font-medium"
+                autoFocus
+              />
+
+              <div className="max-h-72 overflow-y-auto divide-y divide-slate-800/60 border border-slate-800 rounded-xl">
+                {isLoadingRecentSaleBills ? (
+                  <div className="p-6 text-center text-slate-400 flex items-center justify-center gap-2 text-xs">
+                    <RefreshCw className="w-4 h-4 animate-spin text-emerald-400" />
+                    <span>Loading recent sales bills...</span>
+                  </div>
+                ) : (
+                  recentSaleBills
+                    .filter((b) => {
+                      if (!saleBillSearchQuery.trim()) return true;
+                      const q = saleBillSearchQuery.toLowerCase();
+                      return (
+                        (b.billNumber && b.billNumber.toLowerCase().includes(q)) ||
+                        (b.customerAccountTitle && b.customerAccountTitle.toLowerCase().includes(q)) ||
+                        (b.lpoNo && b.lpoNo.toLowerCase().includes(q))
+                      );
+                    })
+                    .map((b) => (
+                      <div
+                        key={b.id}
+                        onClick={() => {
+                          loadBillIntoForm(b);
+                          setIsLoadBillModalOpen(false);
+                        }}
+                        className="p-3 hover:bg-emerald-950/40 cursor-pointer transition flex items-center justify-between gap-3 text-xs"
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-emerald-400 font-mono">Bill #{b.billNumber}</span>
+                            <span className="text-slate-400 text-[11px]">{b.date}</span>
+                            {b.lpoNo && <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-mono">LPO: {b.lpoNo}</span>}
+                          </div>
+                          <div className="text-white font-semibold mt-0.5">{b.customerAccountTitle || 'Customer'}</div>
+                          <div className="text-slate-400 text-[10px]">{b.items?.length || 0} items &bull; Total: {currencySymbol()} {b.netTotal?.toLocaleString()}</div>
+                        </div>
+                        <button
+                          type="button"
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition shadow-sm cursor-pointer"
+                        >
+                          Load &amp; Edit
+                        </button>
+                      </div>
+                    ))
+                )}
+                {!isLoadingRecentSaleBills && recentSaleBills.length === 0 && (
+                  <div className="p-6 text-center text-slate-500 text-xs">No sale bills found.</div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsLoadBillModalOpen(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

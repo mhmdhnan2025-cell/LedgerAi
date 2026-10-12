@@ -23,6 +23,7 @@ import {
   ArrowRight,
   RotateCcw,
   Camera,
+  Edit2,
 } from 'lucide-react';
 import {
   Product,
@@ -42,6 +43,8 @@ interface PurchasingViewProps {
   currentRole: UserRole;
   companyProfile?: any;
   currentUser?: any;
+  editingBill?: PurchaseBill | null;
+  onCancelEdit?: () => void;
   onRefreshData?: () => Promise<void> | void;
   onNavigateTab?: (tab: string) => void;
   onOpenOcr?: () => void;
@@ -53,6 +56,8 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
   currentRole,
   companyProfile,
   currentUser,
+  editingBill,
+  onCancelEdit,
   onRefreshData,
   onNavigateTab,
   onOpenOcr,
@@ -107,6 +112,100 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
   const [billNumber, setBillNumber] = useState<string>('1714');
   const [vendorBillNumber, setVendorBillNumber] = useState<string>('');
   const [gatePassNumber, setGatePassNumber] = useState<string>('');
+
+  // -------------------------------------------------------------
+  // EDIT BILL STATE & HELPERS
+  // -------------------------------------------------------------
+  const [editingBillId, setEditingBillId] = useState<string | null>(editingBill?.id || null);
+  const [isLoadBillModalOpen, setIsLoadBillModalOpen] = useState(false);
+  const [recentBills, setRecentBills] = useState<PurchaseBill[]>([]);
+  const [isLoadingRecentBills, setIsLoadingRecentBills] = useState(false);
+  const [billSearchQuery, setBillSearchQuery] = useState('');
+
+  const loadBillIntoForm = (bill: PurchaseBill) => {
+    setEditingBillId(bill.id);
+    setBillNumber(bill.billNumber || '');
+    setVendorBillNumber(bill.vendorBillNumber || '');
+    setGatePassNumber(bill.gatePassNumber || '');
+    setBillDate(bill.date || new Date().toISOString().split('T')[0]);
+    setSelectedSupplierId(bill.supplierId || '');
+    setIsCash(Boolean(bill.isCash));
+    setCashSupplierName(bill.isCash ? (bill.supplierAccountTitle || '') : '');
+    setDiscountType(bill.discountType || 'Amount');
+    setVatType(bill.vatType || 'Percentage');
+    setNotes(bill.notes || '');
+    setLoadExp(bill.loadExp || 0);
+    setIsLoadExpDeduction(Boolean(bill.isLoadExpDeduction));
+    setPaidAmount(bill.paidAmount || 0);
+    if (Array.isArray(bill.items)) {
+      setBillItems(JSON.parse(JSON.stringify(bill.items)));
+    }
+    setSelectedProductId('');
+    setItemTitle('');
+    setCtn('');
+    setRatePerCtn('');
+    setQty('');
+    setRate('');
+    setDiscount(0);
+    setVatPercent(5);
+  };
+
+  useEffect(() => {
+    if (editingBill) {
+      loadBillIntoForm(editingBill);
+    }
+  }, [editingBill]);
+
+  const handleCancelEdit = () => {
+    setEditingBillId(null);
+    setBillItems([]);
+    setNotes('');
+    setLoadExp(0);
+    setPaidAmount(0);
+    setVendorBillNumber('');
+    setGatePassNumber('');
+    const nextNum = (parseInt(billNumber.replace(/\D/g, ''), 10) || 1714) + 1;
+    setBillNumber(String(nextNum));
+    if (onCancelEdit) {
+      onCancelEdit();
+    }
+  };
+
+  const handleEditRowItem = (itemId: string) => {
+    const target = billItems.find((it) => it.id === itemId);
+    if (!target) return;
+    setSelectedProductId(target.productId || '');
+    setItemTitle(target.itemTitle);
+    setItemCategory(target.category || 'General');
+    setItemMCode(target.mcode || '');
+    setItemPackageType(target.packageType || 'Carton');
+    setCtn(target.ctn || '');
+    setRatePerCtn(target.ratePerCtn || '');
+    setQtyPerCtn(target.qtyPerCtn || 1);
+    setQty(target.qty || '');
+    setRate(target.rate || '');
+    setDiscount(target.discount || 0);
+    setVatPercent(target.vatPercent || 5);
+    setVatType(target.vatType || 'Percentage');
+    setItemStock(target.stock || 0);
+    setBillItems((prev) => prev.filter((it) => it.id !== itemId));
+    setTimeout(() => {
+      if (itemInputRef.current) itemInputRef.current.focus();
+    }, 40);
+  };
+
+  const handleOpenLoadBillModal = async () => {
+    setIsLoadBillModalOpen(true);
+    setIsLoadingRecentBills(true);
+    try {
+      const list = await api.getPurchases();
+      setRecentBills(list || []);
+    } catch (err) {
+      console.error('Failed to load purchases', err);
+    } finally {
+      setIsLoadingRecentBills(false);
+    }
+  };
 
   // Account / Supplier selection
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
@@ -694,18 +793,31 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
         createdBy: currentUser?.name || 'Admin',
       };
 
-      const created = await api.createPurchase(billData, 'manual', {
-        id: currentUser?.id || 'usr-admin',
-        name: currentUser?.name || 'Admin',
-        role: currentUser?.role || currentRole,
-      });
+      let savedBillResult: PurchaseBill;
+      if (editingBillId) {
+        savedBillResult = await api.updatePurchase(editingBillId, billData, {
+          id: currentUser?.id || 'usr-admin',
+          name: currentUser?.name || 'Admin',
+          role: currentUser?.role || currentRole,
+        });
+        setSuccessMsg(
+          `Purchase Bill #${savedBillResult.billNumber} updated successfully! Stock differences and supplier balances adjusted in real-time.`
+        );
+        setEditingBillId(null);
+        if (onCancelEdit) onCancelEdit();
+      } else {
+        savedBillResult = await api.createPurchase(billData, 'manual', {
+          id: currentUser?.id || 'usr-admin',
+          name: currentUser?.name || 'Admin',
+          role: currentUser?.role || currentRole,
+        });
+        setSuccessMsg(
+          `Purchase Bill #${savedBillResult.billNumber} created successfully! Real-time stock updated in inventory automatically without reload.`
+        );
+      }
 
-      setLastSavedBill(created);
+      setLastSavedBill(savedBillResult);
       setIsInvoiceModalOpen(true);
-
-      setSuccessMsg(
-        `Purchase Bill #${created.billNumber} created successfully! Real-time stock updated in inventory automatically without reload.`
-      );
 
       // Reset form
       setBillItems([]);
@@ -974,6 +1086,40 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
           <button onClick={() => setErrorMsg(null)} className="text-rose-400 hover:text-white">
             <X className="w-4 h-4" />
           </button>
+        </div>
+      )}
+
+      {/* Edit Mode Active Banner */}
+      {editingBillId && (
+        <div className="bg-gradient-to-r from-amber-950/80 via-slate-900 to-sky-950/80 border-2 border-amber-500/80 rounded-2xl p-4 shadow-xl flex flex-wrap items-center justify-between gap-3 text-xs animate-in fade-in duration-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center font-bold text-lg shrink-0">
+              ✏️
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-white text-sm">
+                  EDITING PURCHASE BILL #{billNumber}
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold text-[10px] uppercase border border-amber-500/30">
+                  Edit Mode Active
+                </span>
+              </div>
+              <p className="text-slate-300 text-xs mt-0.5">
+                All previously entered items are loaded below. You can edit any item, change rates/cartons/loose qty, delete items, or select and add new items from inventory. Click <strong>&quot;Update Purchase Bill&quot;</strong> below to apply changes.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleCancelEdit}
+              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-bold border border-slate-700 transition cursor-pointer flex items-center gap-1.5"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Cancel Edit</span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -1693,14 +1839,24 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                     ) : '—'}
                   </td>
                   <td className="py-2 px-2 text-center">
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveItem(item.id)}
-                      className="p-1 text-slate-500 hover:text-rose-400 transition cursor-pointer"
-                      title="Remove line item"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center justify-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleEditRowItem(item.id)}
+                        className="p-1 text-slate-400 hover:text-amber-400 transition cursor-pointer"
+                        title="Edit line item (reloads into entry row)"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItem(item.id)}
+                        className="p-1 text-slate-500 hover:text-rose-400 transition cursor-pointer"
+                        title="Remove line item"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -1814,23 +1970,37 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
 
             {/* ACTION BUTTON (User requested: remove Add to Stock button, save report directly to Settings > Reports > Purchase Details) */}
             <div className="flex flex-wrap items-center justify-end gap-2 pt-3 border-t border-slate-800/90">
+              {editingBillId && (
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg font-bold text-xs border border-slate-700 transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Cancel Edit</span>
+                </button>
+              )}
               <button
                 type="button"
                 id="btn-save-purchase-report"
                 disabled={isSaving}
                 onClick={handleSaveBill}
-                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold text-xs shadow-md shadow-blue-600/30 transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
-                title="Save purchasing details into database report"
+                className={`px-5 py-2.5 rounded-lg font-bold text-xs shadow-md transition flex items-center gap-2 cursor-pointer disabled:opacity-50 ${
+                  editingBillId
+                    ? 'bg-gradient-to-r from-amber-600 to-emerald-600 hover:from-amber-500 hover:to-emerald-500 text-white shadow-amber-600/30'
+                    : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30'
+                }`}
+                title={editingBillId ? 'Update Purchase Bill with all modified items' : 'Save purchasing details into database report'}
               >
                 {isSaving ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                    <span>Processing &amp; Updating Stock...</span>
+                    <span>{editingBillId ? `Updating Bill #${billNumber}...` : 'Processing & Updating Stock...'}</span>
                   </>
                 ) : (
                   <>
                     <Save className="w-4 h-4" />
-                    <span>Save Report</span>
+                    <span>{editingBillId ? `Update Purchase Bill #${billNumber}` : 'Save Report'}</span>
                   </>
                 )}
               </button>
@@ -1947,6 +2117,95 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
         suppliers={suppliers}
         products={products}
       />
+
+      {/* LOAD PURCHASE BILL MODAL */}
+      {isLoadBillModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-5 space-y-4 shadow-2xl animate-in fade-in duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Search className="w-5 h-5 text-sky-400" />
+                <h3 className="text-base font-bold text-white">Load Purchase Bill to Edit</h3>
+              </div>
+              <button
+                onClick={() => setIsLoadBillModalOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <input
+                type="text"
+                placeholder="Search by Bill #, Supplier name..."
+                value={billSearchQuery}
+                onChange={(e) => setBillSearchQuery(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-sky-500 font-medium"
+                autoFocus
+              />
+
+              <div className="max-h-72 overflow-y-auto divide-y divide-slate-800/60 border border-slate-800 rounded-xl">
+                {isLoadingRecentBills ? (
+                  <div className="p-6 text-center text-slate-400 flex items-center justify-center gap-2 text-xs">
+                    <RefreshCw className="w-4 h-4 animate-spin text-sky-400" />
+                    <span>Loading recent bills...</span>
+                  </div>
+                ) : (
+                  recentBills
+                    .filter((b) => {
+                      if (!billSearchQuery.trim()) return true;
+                      const q = billSearchQuery.toLowerCase();
+                      return (
+                        (b.billNumber && b.billNumber.toLowerCase().includes(q)) ||
+                        (b.supplierAccountTitle && b.supplierAccountTitle.toLowerCase().includes(q)) ||
+                        (b.vendorBillNumber && b.vendorBillNumber.toLowerCase().includes(q))
+                      );
+                    })
+                    .map((b) => (
+                      <div
+                        key={b.id}
+                        onClick={() => {
+                          loadBillIntoForm(b);
+                          setIsLoadBillModalOpen(false);
+                        }}
+                        className="p-3 hover:bg-sky-950/40 cursor-pointer transition flex items-center justify-between gap-3 text-xs"
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-sky-400 font-mono">Bill #{b.billNumber}</span>
+                            <span className="text-slate-400 text-[11px]">{b.date}</span>
+                          </div>
+                          <div className="text-white font-semibold mt-0.5">{b.supplierAccountTitle || 'Supplier'}</div>
+                          <div className="text-slate-400 text-[10px]">{b.items?.length || 0} items &bull; Total: {currencySymbol()} {b.netTotal?.toLocaleString()}</div>
+                        </div>
+                        <button
+                          type="button"
+                          className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold transition shadow-sm cursor-pointer"
+                        >
+                          Load &amp; Edit
+                        </button>
+                      </div>
+                    ))
+                )}
+                {!isLoadingRecentBills && recentBills.length === 0 && (
+                  <div className="p-6 text-center text-slate-500 text-xs">No purchase bills found.</div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsLoadBillModalOpen(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

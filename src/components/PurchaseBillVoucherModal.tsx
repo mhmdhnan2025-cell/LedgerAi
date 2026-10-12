@@ -1,5 +1,5 @@
 import React from 'react';
-import { Printer, X, Receipt, Building2, Package, CheckCircle2, FileText, UserCheck, Phone, MapPin } from 'lucide-react';
+import { Printer, X, Receipt, Building2, Package, CheckCircle2, FileText, UserCheck, Phone, MapPin, Edit2 } from 'lucide-react';
 import { currencySymbol } from '../utils/currency';
 import { CompanyProfile, PurchaseBill } from '../types';
 
@@ -7,12 +7,14 @@ interface PurchaseBillVoucherModalProps {
   bill: PurchaseBill | null;
   companyProfile?: CompanyProfile | null;
   onClose: () => void;
+  onEditBill?: (bill: PurchaseBill) => void;
 }
 
 export const PurchaseBillVoucherModal: React.FC<PurchaseBillVoucherModalProps> = ({
   bill,
   companyProfile,
   onClose,
+  onEditBill,
 }) => {
   if (!bill) return null;
 
@@ -65,6 +67,19 @@ export const PurchaseBillVoucherModal: React.FC<PurchaseBillVoucherModalProps> =
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {onEditBill && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onEditBill(bill);
+                }}
+                className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow cursor-pointer"
+                title="Edit this Purchase Bill with all items"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+                <span>Edit Bill</span>
+              </button>
+            )}
             <button
               onClick={handlePrint}
               className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow cursor-pointer"

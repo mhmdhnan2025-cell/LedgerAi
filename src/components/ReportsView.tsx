@@ -29,7 +29,7 @@ import {
   Type,
   Users,
 } from 'lucide-react';
-import { CompanyProfile, Customer, Product, PurchaseBill, Supplier, UserRole } from '../types';
+import { CompanyProfile, Customer, Product, PurchaseBill, SaleBill, Supplier, UserRole } from '../types';
 import { api } from '../services/api';
 import { SalesReportSection } from './SalesReportSection';
 import { ComprehensiveProfitReportSection } from './ComprehensiveProfitReportSection';
@@ -53,6 +53,8 @@ interface ReportsViewProps {
   currentRole: UserRole;
   onRefreshData?: () => void;
   onNavigateTab?: (tab: string) => void;
+  onEditPurchaseBill?: (bill: PurchaseBill) => void;
+  onEditSaleBill?: (bill: SaleBill) => void;
 }
 
 export const ReportsView: React.FC<ReportsViewProps> = ({
@@ -63,6 +65,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   currentRole,
   onRefreshData,
   onNavigateTab,
+  onEditPurchaseBill,
+  onEditSaleBill,
 }) => {
   // Breadcrumb / Report sub-tabs
   const [activeReportTab, setActiveReportTab] = useState<
@@ -648,6 +652,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             currentRole={currentRole}
             onRefreshData={onRefreshData}
             onNavigateTab={onNavigateTab}
+            onEditSaleBill={onEditSaleBill}
           />
         </ErrorBoundary>
       ) : activeReportTab === 'profit' ? (
@@ -1175,9 +1180,15 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                             <Eye className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => setEditingBill(bill)}
+                            onClick={() => {
+                              if (onEditPurchaseBill) {
+                                onEditPurchaseBill(bill);
+                              } else {
+                                setEditingBill(bill);
+                              }
+                            }}
                             className="p-1.5 bg-amber-600/20 hover:bg-amber-600 text-amber-400 hover:text-white rounded-lg border border-amber-500/30 text-[11px] font-bold shadow transition cursor-pointer"
-                            title="Edit Purchase Bill"
+                            title="Edit Purchase Bill (Opens Purchasing Page with all items)"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
@@ -1230,6 +1241,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         bill={activeBillDetail}
         companyProfile={companyProfile}
         onClose={() => setActiveBillDetail(null)}
+        onEditBill={onEditPurchaseBill}
       />
 
       {/* EDIT PURCHASE BILL MODAL */}
