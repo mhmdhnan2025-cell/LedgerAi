@@ -8246,9 +8246,41 @@ class DatabaseService {
     const cashReceived = updatedData.cashReceived !== undefined ? Number(updatedData.cashReceived) : oldBill.cashReceived;
     const balanceReceivable = updatedData.balanceReceivable !== undefined ? Number(updatedData.balanceReceivable) : Math.max(0, Number((netTotal - cashReceived).toFixed(2)));
 
+    // Preserve the authentic opening balance (partyBalanceBefore) prior to this invoice:
+    const oldCustomerId = oldBill.customerId;
+    const newCustomerId = updatedData.customerId || oldCustomerId;
+    const isSameCustomer = !updatedData.customerId || updatedData.customerId === oldCustomerId;
+
+    let preservedPartyBalanceBefore: number;
+    if (isSameCustomer) {
+      const customer = this.findCustomerByRef(oldCustomerId, (oldBill as any).customerCode, oldBill.customerAccountTitle);
+      const customerBalAfterRevert = customer ? (Number(customer.outstandingBalance) || 0) : 0;
+      if (oldBill.partyBalanceBefore !== undefined && oldBill.partyBalanceBefore !== null) {
+        // Sanity check: if oldBill.partyBalanceBefore was corrupted to match customer balance including this bill:
+        if (customer && Math.abs(Number(oldBill.partyBalanceBefore) - (customerBalAfterRevert + (oldBill.balanceReceivable || 0))) < 0.01 && (oldBill.balanceReceivable || 0) > 0) {
+          preservedPartyBalanceBefore = customerBalAfterRevert;
+        } else {
+          preservedPartyBalanceBefore = Number(oldBill.partyBalanceBefore);
+        }
+      } else if (updatedData.partyBalanceBefore !== undefined && updatedData.partyBalanceBefore !== null) {
+        if (customer && Math.abs(Number(updatedData.partyBalanceBefore) - (customerBalAfterRevert + (oldBill.balanceReceivable || 0))) < 0.01 && (oldBill.balanceReceivable || 0) > 0) {
+          preservedPartyBalanceBefore = customerBalAfterRevert;
+        } else {
+          preservedPartyBalanceBefore = Number(updatedData.partyBalanceBefore);
+        }
+      } else {
+        preservedPartyBalanceBefore = customerBalAfterRevert;
+      }
+    } else {
+      // Changed to a different customer: their opening balance is their current balance before applying this bill
+      const newCustomer = this.findCustomerByRef(newCustomerId, (updatedData as any).customerCode, updatedData.customerAccountTitle);
+      preservedPartyBalanceBefore = newCustomer ? (Number(newCustomer.outstandingBalance) || 0) : (Number(updatedData.partyBalanceBefore) || 0);
+    }
+
     const newBill: SaleBill = {
       ...oldBill,
       ...updatedData,
+      partyBalanceBefore: Number(preservedPartyBalanceBefore.toFixed(2)),
       totalCtn,
       totalQty,
       grossAmount,

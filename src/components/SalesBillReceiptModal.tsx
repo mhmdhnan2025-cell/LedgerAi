@@ -175,7 +175,15 @@ export const SalesBillReceiptModal: React.FC<SalesBillReceiptModalProps> = ({
       sum + Math.max(0, it.amount ? (Number(it.amount) - (Number(it.vatAmount) || 0)) : ((Number(it.qty) || 0) * (Number(it.rate) || 0) - (Number(it.discount) || 0))),
     0
   );
-  const openingBalance = Number(bill.partyBalanceBefore) || 0;
+  let openingBalance = Number(bill.partyBalanceBefore) || 0;
+  if (customer && customer.outstandingBalance !== undefined) {
+    const custBal = Number(customer.outstandingBalance) || 0;
+    const billRec = Number(bill.balanceReceivable !== undefined ? bill.balanceReceivable : (bill.netTotal || 0) - (bill.cashReceived || 0));
+    // If partyBalanceBefore was omitted/null or equal to live customer balance (meaning it had mistakenly stored the closing/including balance)
+    if (bill.partyBalanceBefore === undefined || bill.partyBalanceBefore === null || (billRec > 0 && Math.abs(openingBalance - custBal) < 0.01)) {
+      openingBalance = Number((custBal - billRec).toFixed(2));
+    }
+  }
   const grossAmount = Number(bill.grossAmount) || Number(itemsGross.toFixed(2));
   const billDiscount = Number(bill.billDiscountAmount) || 0;
   const totalBeforeVat = Number(Math.max(0, grossAmount - billDiscount).toFixed(2));

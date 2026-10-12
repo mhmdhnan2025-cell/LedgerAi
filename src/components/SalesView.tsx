@@ -122,6 +122,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
   // EDIT SALE BILL STATE & HELPERS
   // -------------------------------------------------------------
   const [editingBillId, setEditingBillId] = useState<string | null>(editingBill?.id || null);
+  const editingOriginalBillRef = useRef<SaleBill | null>(editingBill || null);
   const [isLoadBillModalOpen, setIsLoadBillModalOpen] = useState(false);
   const [recentSaleBills, setRecentSaleBills] = useState<SaleBill[]>([]);
   const [isLoadingRecentSaleBills, setIsLoadingRecentSaleBills] = useState(false);
@@ -129,6 +130,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
 
   const loadBillIntoForm = (bill: SaleBill) => {
     setEditingBillId(bill.id);
+    editingOriginalBillRef.current = bill;
     setBillNumber(bill.billNumber || '');
     setBillDate(bill.date || new Date().toISOString().split('T')[0]);
     setLpoNo(bill.lpoNo || '');
@@ -136,7 +138,21 @@ export const SalesView: React.FC<SalesViewProps> = ({
     setCustomerAccountTitle(bill.customerAccountTitle || '');
     setCustomerMobile(bill.customerMobile || '');
     setCustomerTrn(bill.customerTrn || '');
-    setPartyBalanceBefore(bill.partyBalanceBefore || 0);
+
+    // Derive correct opening balance prior to this bill taking place:
+    let opening = Number(bill.partyBalanceBefore) || 0;
+    const allCusts = (propCustomers && propCustomers.length > 0) ? propCustomers : customers;
+    const foundCust = allCusts.find((c) => c.id === bill.customerId || c.code === bill.customerId);
+    if (foundCust && foundCust.outstandingBalance !== undefined) {
+      const liveBal = Number(foundCust.outstandingBalance) || 0;
+      const billRec = Number(bill.balanceReceivable !== undefined ? bill.balanceReceivable : (Number(bill.netTotal || 0) - Number(bill.cashReceived || 0)));
+      // If partyBalanceBefore was omitted/null or equal to live customer balance (meaning it had mistakenly stored the closing/including balance)
+      if (bill.partyBalanceBefore === undefined || bill.partyBalanceBefore === null || (billRec > 0 && Math.abs(opening - liveBal) < 0.01)) {
+        opening = Number((liveBal - billRec).toFixed(2));
+      }
+    }
+    setPartyBalanceBefore(opening);
+
     if (bill.salesmanName || bill.salesmanId) {
       setSelectedSalesman(bill.salesmanName || bill.salesmanId || '');
     }
@@ -170,6 +186,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
 
   const handleCancelEdit = () => {
     setEditingBillId(null);
+    editingOriginalBillRef.current = null;
     setBillItems([]);
     setNotes('Terms and Condition..');
     setCashReceived(0);
@@ -178,6 +195,13 @@ export const SalesView: React.FC<SalesViewProps> = ({
     setBalanceRecovered(false);
     setBalanceRecoveredAmount(0);
     setLpoNo('');
+    const allCusts = (propCustomers && propCustomers.length > 0) ? propCustomers : customers;
+    if (selectedCustomerId) {
+      const found = allCusts.find((c) => c.id === selectedCustomerId || c.code === selectedCustomerId);
+      if (found) {
+        setPartyBalanceBefore(found.outstandingBalance !== undefined ? found.outstandingBalance : (found.openingBalance || 0));
+      }
+    }
     const nextNum = (parseInt(billNumber, 10) || 6762) + 1;
     setBillNumber(String(nextNum));
     if (onCancelEdit) {
@@ -315,7 +339,9 @@ export const SalesView: React.FC<SalesViewProps> = ({
         } else {
           const current = list.find((c) => c.id === selectedCustomerId || c.code === selectedCustomerId);
           if (current) {
-            setPartyBalanceBefore(current.outstandingBalance !== undefined ? current.outstandingBalance : (current.openingBalance || 0));
+            if (!editingBillId) {
+              setPartyBalanceBefore(current.outstandingBalance !== undefined ? current.outstandingBalance : (current.openingBalance || 0));
+            }
             const assigned = (current.assignedSalesman || current.salesman || '').trim();
             if (assigned && !selectedSalesman) {
               setSalesmen((prev) => (prev.includes(assigned) ? prev : [...prev, assigned]));
@@ -393,8 +419,12 @@ export const SalesView: React.FC<SalesViewProps> = ({
   useEffect(() => {
     if (propCustomers && propCustomers.length > 0) {
       setCustomers(propCustomers);
+      // In edit mode, do not let customer list reload overwrite the pre-invoice opening balance!
+      if (editingBillId) {
+        return;
+      }
       if (selectedCustomerId) {
-        const found = propCustomers.find((c) => c.id === selectedCustomerId);
+        const found = propCustomers.find((c) => c.id === selectedCustomerId || c.code === selectedCustomerId);
         if (found) {
           setPartyBalanceBefore(found.outstandingBalance !== undefined ? found.outstandingBalance : (found.openingBalance || 0));
         }
@@ -406,7 +436,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
         setPartyBalanceBefore(propCustomers[0].outstandingBalance !== undefined ? propCustomers[0].outstandingBalance : (propCustomers[0].openingBalance || 0));
       }
     }
-  }, [propCustomers]);
+  }, [propCustomers, editingBillId]);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -429,7 +459,20 @@ export const SalesView: React.FC<SalesViewProps> = ({
     setCustomerMobile(cust.mobile || '');
     setCustomerTrn(cust.trn || '');
     const curBal = cust.outstandingBalance !== undefined ? cust.outstandingBalance : (cust.openingBalance || 0);
-    setPartyBalanceBefore(curBal);
+
+    if (editingBillId && editingOriginalBillRef.current && (cust.id === editingOriginalBillRef.current.customerId || cust.code === editingOriginalBillRef.current.customerId)) {
+      // Re-selected customer of the bill being edited: keep original pre-invoice balance!
+      const origBefore = editingOriginalBillRef.current.partyBalanceBefore;
+      const billRec = Number(editingOriginalBillRef.current.balanceReceivable !== undefined ? editingOriginalBillRef.current.balanceReceivable : (Number(editingOriginalBillRef.current.netTotal || 0) - Number(editingOriginalBillRef.current.cashReceived || 0)));
+      if (origBefore !== undefined && origBefore !== null && Math.abs(origBefore - curBal) > 0.01) {
+        setPartyBalanceBefore(Number(origBefore) || 0);
+      } else {
+        setPartyBalanceBefore(Number((curBal - billRec).toFixed(2)));
+      }
+    } else {
+      setPartyBalanceBefore(curBal);
+    }
+
     const assigned = (cust.assignedSalesman || cust.salesman || '').trim();
     if (assigned) {
       setSalesmen((prev) => (prev.includes(assigned) ? prev : [...prev, assigned]));
@@ -791,6 +834,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
 
       let savedBill: SaleBill;
       if (editingBillId) {
+        const origBill = editingOriginalBillRef.current;
         savedBill = await api.updateSale(editingBillId, payload, {
           id: currentUser?.id || 'admin',
           name: userName.trim() || currentUser?.name || 'Admin',
@@ -800,7 +844,33 @@ export const SalesView: React.FC<SalesViewProps> = ({
           `Sale Bill #${savedBill.billNumber} updated successfully! Stock differences and customer ledger balance adjusted in real-time.`
         );
         setEditingBillId(null);
+        editingOriginalBillRef.current = null;
         if (onCancelEdit) onCancelEdit();
+
+        // Immediately update local customer balance in dropdown
+        if (selectedCustomerId) {
+          const oldReceivable = origBill ? Number(origBill.balanceReceivable !== undefined ? origBill.balanceReceivable : (Number(origBill.netTotal || 0) - Number(origBill.cashReceived || 0))) : 0;
+          const newReceivable = Number(savedBill.balanceReceivable !== undefined ? savedBill.balanceReceivable : (Number(savedBill.netTotal || 0) - Number(savedBill.cashReceived || 0)));
+          const netDelta = Number((newReceivable - oldReceivable).toFixed(2));
+          setCustomers((prev) =>
+            prev.map((c) => {
+              if (c.id === selectedCustomerId || c.code === selectedCustomerId) {
+                const newBal = Number(((c.outstandingBalance || 0) + netDelta).toFixed(2));
+                return {
+                  ...c,
+                  outstandingBalance: newBal,
+                  lastBillNumber: savedBill.billNumber,
+                  lastBillDate: savedBill.date,
+                  lastBillAmount: savedBill.netTotal,
+                };
+              }
+              return c;
+            })
+          );
+          // For the NEXT bill being created, partyBalanceBefore is the customer's current total balance:
+          const nextBal = Number(((partyBalanceBefore || 0) + newReceivable).toFixed(2));
+          setPartyBalanceBefore(nextBal);
+        }
       } else {
         savedBill = await api.createSale(payload, {
           id: currentUser?.id || 'admin',
@@ -810,30 +880,30 @@ export const SalesView: React.FC<SalesViewProps> = ({
         setSuccessMsg(
           `Sale Bill #${savedBill.billNumber} saved successfully! Real-time stock deducted from inventory automatically without reload.`
         );
+
+        // Immediately update local customer balance in dropdown
+        if (selectedCustomerId) {
+          const delta = (Number(savedBill.balanceReceivable) || 0) - (balanceRecovered ? (Number(balanceRecoveredAmount) || 0) : 0);
+          setCustomers((prev) =>
+            prev.map((c) => {
+              if (c.id === selectedCustomerId || c.code === selectedCustomerId) {
+                const newBal = Number(((c.outstandingBalance || 0) + delta).toFixed(2));
+                return {
+                  ...c,
+                  outstandingBalance: newBal,
+                  lastBillNumber: savedBill.billNumber,
+                  lastBillDate: savedBill.date,
+                  lastBillAmount: savedBill.netTotal,
+                };
+              }
+              return c;
+            })
+          );
+          setPartyBalanceBefore((prev) => Number((prev + delta).toFixed(2)));
+        }
       }
       setPrintedBill(savedBill);
       setIsReceiptModalOpen(true);
-
-      // Immediately update local customer balance in dropdown
-      if (selectedCustomerId) {
-        const delta = (Number(savedBill.balanceReceivable) || 0) - (balanceRecovered ? (Number(balanceRecoveredAmount) || 0) : 0);
-        setCustomers((prev) =>
-          prev.map((c) => {
-            if (c.id === selectedCustomerId || c.code === selectedCustomerId) {
-              const newBal = Number(((c.outstandingBalance || 0) + delta).toFixed(2));
-              return {
-                ...c,
-                outstandingBalance: newBal,
-                lastBillNumber: savedBill.billNumber,
-                lastBillDate: savedBill.date,
-                lastBillAmount: savedBill.netTotal,
-              };
-            }
-            return c;
-          })
-        );
-        setPartyBalanceBefore((prev) => Number((prev + delta).toFixed(2)));
-      }
 
       // Trigger app-wide data reload
       if (onRefreshData) {
