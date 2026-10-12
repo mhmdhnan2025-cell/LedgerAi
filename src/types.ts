@@ -902,7 +902,7 @@ export interface StockMovementLedgerEntry {
   productName: string;
   mcode: string;
   category: string;
-  movementType: 'SALE' | 'PURCHASE' | 'ADJUSTMENT' | 'RETURN';
+  movementType: 'SALE' | 'PURCHASE' | 'ADJUSTMENT' | 'RETURN' | 'OPENING';
   referenceId: string;
   referenceLabel: string; // e.g. "Sale Bill #6762" or "Purchase Bill #1713"
   partyName: string;      // Customer Name or Supplier Name

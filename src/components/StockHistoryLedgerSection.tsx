@@ -28,6 +28,7 @@ import {
 } from '../types';
 import { api } from '../services/api';
 import { exportToCsv } from '../utils/exportCsv';
+import { SearchableProductSelect } from './SearchableProductSelect';
 
 interface StockHistoryLedgerSectionProps {
   products: Product[];
@@ -76,8 +77,8 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
     try {
       const data = await api.getStockMovementLedger({
         timeframe,
-        fromDate: timeframe === 'custom' ? fromDate : undefined,
-        toDate: timeframe === 'custom' ? toDate : undefined,
+        fromDate: fromDate || undefined,
+        toDate: toDate || undefined,
         productId: selectedProductId || undefined,
         category: selectedCategory || undefined,
         movementType: movementTypeFilter || undefined,
@@ -92,7 +93,7 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
 
   useEffect(() => {
     loadStockHistory();
-  }, [timeframe, selectedProductId, selectedCategory, movementTypeFilter]);
+  }, [timeframe, fromDate, toDate, selectedProductId, selectedCategory, movementTypeFilter]);
 
   // Handle timeframe change presets
   const handleTimeframeSelect = (tf: 'day' | 'week' | 'month' | 'custom') => {
@@ -222,6 +223,12 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
   };
 
   const selectedProductObj = products.find((p) => p.id === selectedProductId);
+  const selectedProductSummary = useMemo(() => {
+    if (!selectedProductId || !reportData?.itemsSummary) return null;
+    return reportData.itemsSummary.find(
+      (it) => it.productId === selectedProductId || (selectedProductObj && it.mcode === selectedProductObj.mcode)
+    );
+  }, [selectedProductId, reportData, selectedProductObj]);
 
   return (
     <div className="space-y-5">
@@ -251,6 +258,18 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
 
           {/* Action buttons */}
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => {
+                loadStockHistory();
+                if (onRefreshData) onRefreshData();
+              }}
+              disabled={isLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 rounded-lg text-xs font-bold transition cursor-pointer"
+              title="Refresh live stock movements"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+              <span>Live Sync</span>
+            </button>
             <button
               onClick={handleExportCSV}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-lg text-xs font-bold transition cursor-pointer"
@@ -294,116 +313,132 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
         )}
 
         {/* Timeframe selector & filter inputs */}
-        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 mt-4 pt-4 border-t border-slate-800 items-center">
-          {/* Day / Week / Month Toggle */}
-          <div className="sm:col-span-4 flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
-            <button
-              type="button"
-              onClick={() => handleTimeframeSelect('day')}
-              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
-                timeframe === 'day' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Day-Wise
-            </button>
-            <button
-              type="button"
-              onClick={() => handleTimeframeSelect('week')}
-              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
-                timeframe === 'week' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Week-Wise
-            </button>
-            <button
-              type="button"
-              onClick={() => handleTimeframeSelect('month')}
-              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
-                timeframe === 'month' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Monthly
-            </button>
-            <button
-              type="button"
-              onClick={() => setTimeframe('custom')}
-              className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
-                timeframe === 'custom' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Dates
-            </button>
-          </div>
-
-          {/* Custom Date Pickers if custom */}
-          {timeframe === 'custom' ? (
-            <>
-              <div className="sm:col-span-2">
-                <input
-                  type="date"
-                  value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white"
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <input
-                  type="date"
-                  value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white"
-                />
-              </div>
-            </>
-          ) : (
-            <div className="sm:col-span-4 text-xs text-slate-400 font-mono bg-slate-950/60 px-3 py-1.5 rounded-lg border border-slate-800">
-              Audit Period: <span className="text-white font-bold">{fromDate}</span> to <span className="text-white font-bold">{toDate}</span>
+        <div className="mt-4 pt-4 border-t border-slate-800 space-y-3">
+          {/* Row 1: Period Selection */}
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+            {/* Day / Week / Month / Dates Toggle */}
+            <div className="sm:col-span-5 flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+              <button
+                type="button"
+                onClick={() => handleTimeframeSelect('day')}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
+                  timeframe === 'day' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Day-Wise
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTimeframeSelect('week')}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
+                  timeframe === 'week' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Week-Wise
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTimeframeSelect('month')}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
+                  timeframe === 'month' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Monthly
+              </button>
+              <button
+                type="button"
+                onClick={() => setTimeframe('custom')}
+                className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
+                  timeframe === 'custom' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Custom Dates
+              </button>
             </div>
-          )}
 
-          {/* Category Filter */}
-          <div className="sm:col-span-2">
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-hidden"
-            >
-              <option value="">All Categories</option>
-              {categories.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+            {/* Custom Date Pickers or Audit Period Badge */}
+            {timeframe === 'custom' ? (
+              <div className="sm:col-span-7 flex items-center gap-2">
+                <div className="flex-1">
+                  <input
+                    type="date"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                  />
+                </div>
+                <span className="text-slate-500 text-xs">to</span>
+                <div className="flex-1">
+                  <input
+                    type="date"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="sm:col-span-7 text-xs text-slate-400 font-mono bg-slate-950/60 px-3 py-1.5 rounded-lg border border-slate-800 flex items-center justify-between">
+                <span>
+                  Audit Period: <span className="text-white font-bold">{fromDate}</span> to <span className="text-white font-bold">{toDate}</span>
+                </span>
+                <span className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider">
+                  {timeframe === 'day' ? 'Today' : timeframe === 'week' ? 'Past 7 Days' : 'This Month'}
+                </span>
+              </div>
+            )}
           </div>
 
-          {/* Specific Stock Filter */}
-          <div className="sm:col-span-3">
-            <select
-              value={selectedProductId}
-              onChange={(e) => setSelectedProductId(e.target.value)}
-              className="w-full bg-slate-950 border border-indigo-500/60 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-hidden focus:border-indigo-400 font-semibold"
-            >
-              <option value="">All Stock / Items</option>
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.mcode ? `[${p.mcode}] ` : ''}{p.name} (Stock: {p.currentQuantity})
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Row 2: Searchable Item Filter, Category, and Live Search */}
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+            {/* Category Filter */}
+            <div className="sm:col-span-3">
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-hidden"
+              >
+                <option value="">All Categories</option>
+                {categories.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          {/* Live Search */}
-          <div className="sm:col-span-3">
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-500" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search item / bill / staff..."
-                className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-8 pr-2.5 py-1.5 text-xs text-white focus:outline-hidden"
+            {/* Searchable Item Selector (User Request: "ye item k andr b searc bar laga do") */}
+            <div className="sm:col-span-5">
+              <SearchableProductSelect
+                products={products}
+                selectedProductId={selectedProductId}
+                onSelectProduct={setSelectedProductId}
+                selectedCategory={selectedCategory}
+                placeholder="Search code (e.g. M-0069) or item name..."
               />
+            </div>
+
+            {/* Live Filter Search within table */}
+            <div className="sm:col-span-4">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-500" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Filter table rows (item, bill #, customer)..."
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-8 pr-2.5 py-1.5 text-xs text-white focus:outline-hidden"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-2 text-slate-500 hover:text-white text-xs"
+                  >
+                    &times;
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -693,6 +728,45 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 font-mono">
+                  {/* Opening Balance Row when viewing a single product */}
+                  {selectedProductObj && selectedProductSummary && (
+                    <tr className="bg-indigo-950/40 text-indigo-200 font-semibold border-b border-indigo-800/60 font-mono">
+                      <td className="py-2.5 px-3 text-center text-indigo-400 font-bold">OB</td>
+                      <td className="py-2.5 px-3 text-indigo-300">{fromDate}</td>
+                      <td className="py-2.5 px-3 font-sans font-bold text-white">
+                        <div>{selectedProductObj.name}</div>
+                        <span className="text-[10px] text-indigo-400 font-mono font-normal">
+                          [Opening Stock Balance B/F as of {fromDate}]
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 font-sans">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-900/90 text-indigo-200 border border-indigo-700">
+                          Opening Balance
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-indigo-300 font-semibold">Prior Stock B/F</td>
+                      <td className="py-2.5 px-3 font-sans text-slate-300">Initial Warehouse</td>
+                      <td className="py-2.5 px-3 font-sans text-slate-400">System Ledger</td>
+                      <td className="py-2.5 px-3 text-center text-slate-300 font-mono">
+                        {selectedProductObj.qtyInCarton && selectedProductObj.qtyInCarton > 1
+                          ? `${Math.floor(selectedProductSummary.openingStock / selectedProductObj.qtyInCarton)} CTN`
+                          : '-'}
+                      </td>
+                      <td className="py-2.5 px-3 text-center font-bold text-indigo-300 font-mono">
+                        {selectedProductSummary.openingStock} {selectedProductObj.unit || 'units'}
+                      </td>
+                      <td className="py-2.5 px-3 text-right text-slate-400 font-mono">
+                        {currencySymbol()} {(selectedProductObj.purchasePrice || 0).toLocaleString()}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-bold text-indigo-300 font-mono">
+                        {currencySymbol()} {Number((selectedProductSummary.openingStock * (selectedProductObj.purchasePrice || 0)).toFixed(2)).toLocaleString()}
+                      </td>
+                      <td className="py-2.5 px-3 text-center font-bold text-white bg-slate-950/60 font-mono">
+                        {selectedProductSummary.openingStock}
+                      </td>
+                    </tr>
+                  )}
+
                   {filteredTransactions.length === 0 ? (
                     <tr>
                       <td colSpan={12} className="text-center py-8 text-slate-500 font-sans">
@@ -713,9 +787,17 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-950/80 text-rose-300 border border-rose-800/60">
                               Sale (Deducted)
                             </span>
-                          ) : (
+                          ) : tx.movementType === 'PURCHASE' ? (
                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-800/60">
                               Purchase (Added)
+                            </span>
+                          ) : tx.movementType === 'RETURN' ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950/80 text-amber-300 border border-amber-800/60">
+                              Return ({tx.quantityChange > 0 ? 'Restocked' : 'Returned'})
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-950/80 text-indigo-300 border border-indigo-800/60">
+                              {tx.movementType}
                             </span>
                           )}
                         </td>
@@ -730,7 +812,13 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
                           <span>{tx.salesmanOrUser}</span>
                         </td>
                         <td className="py-2.5 px-3 text-center text-slate-300">
-                          {tx.cartonsChange > 0 ? `+${tx.cartonsChange}` : tx.cartonsChange}
+                          {tx.cartonsChange !== 0 ? (
+                            <span>
+                              {tx.cartonsChange > 0 ? `+${tx.cartonsChange}` : tx.cartonsChange} <span className="text-[10px] text-slate-500">CTN</span>
+                            </span>
+                          ) : (
+                            <span className="text-slate-600">-</span>
+                          )}
                         </td>
                         <td className={`py-2.5 px-3 text-center font-bold ${
                           tx.quantityChange > 0 ? 'text-emerald-400' : 'text-rose-400'
@@ -744,7 +832,7 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
                           {currencySymbol()} {tx.totalAmount.toLocaleString()}
                         </td>
                         <td className="py-2.5 px-3 text-center font-bold text-white bg-slate-950/40">
-                          {tx.runningStockAfter}
+                          <span className="text-sm font-mono">{tx.runningStockAfter}</span>
                         </td>
                       </tr>
                     ))

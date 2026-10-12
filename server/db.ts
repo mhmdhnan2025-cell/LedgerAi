@@ -8740,117 +8740,340 @@ class DatabaseService {
   }): StockMovementReport {
     const timeframe = filters?.timeframe || 'day';
     const today = new Date();
-    let fromDate = filters?.fromDate;
-    let toDate = filters?.toDate || today.toISOString().split('T')[0];
+    const todayStr = this.normalizeDateToYMD(today.toISOString().split('T')[0]);
+    let fromDate = filters?.fromDate ? this.normalizeDateToYMD(filters.fromDate) : '';
+    let toDate = filters?.toDate ? this.normalizeDateToYMD(filters.toDate) : todayStr;
 
     if (!fromDate) {
       if (timeframe === 'day') {
-        fromDate = today.toISOString().split('T')[0];
+        fromDate = todayStr;
       } else if (timeframe === 'week') {
         const weekAgo = new Date();
         weekAgo.setDate(today.getDate() - 7);
-        fromDate = weekAgo.toISOString().split('T')[0];
+        fromDate = this.normalizeDateToYMD(weekAgo.toISOString().split('T')[0]);
       } else if (timeframe === 'month') {
         const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-        fromDate = monthStart.toISOString().split('T')[0];
+        fromDate = this.normalizeDateToYMD(monthStart.toISOString().split('T')[0]);
       } else {
         fromDate = '2026-01-01';
       }
     }
 
-    const saleBills = this.getSaleBills({ fromDate, toDate });
-    const purchaseBills = this.getPurchaseBills({ fromDate, toDate });
-    const products = this.data.products;
+    const products = this.data.products || [];
+
+    // Helper: Match product
+    const resolveProduct = (it: any): Product | undefined => {
+      if (it.productId) {
+        const found = products.find((x) => x.id === it.productId);
+        if (found) return found;
+      }
+      if (it.mcode) {
+        const m = String(it.mcode).trim().toLowerCase();
+        const found = products.find((x) => (x.mcode && x.mcode.toLowerCase() === m) || (x.sku && x.sku.toLowerCase() === m));
+        if (found) return found;
+      }
+      if (it.itemTitle) {
+        const clean = String(it.itemTitle).trim().toLowerCase();
+        const found = products.find((x) => x.name.toLowerCase() === clean || (x.itemTitle && x.itemTitle.toLowerCase() === clean) || areBilingualSynonyms(x.name, it.itemTitle));
+        if (found) return found;
+      }
+      return undefined;
+    };
+
+    // Helper: Calculate physical movement quantities
+    const calculateLineMovement = (it: any, p?: Product) => {
+      const ctn = Number(it.ctn) || 0;
+      const looseQty = Number(it.qty) || 0;
+      let qtyPerCtn = Number(it.qtyPerCtn) || 0;
+      if (qtyPerCtn <= 0 && p?.qtyInCarton && p.qtyInCarton > 0) {
+        qtyPerCtn = p.qtyInCarton;
+      }
+      if (qtyPerCtn <= 0) {
+        qtyPerCtn = 1;
+      }
+
+      let totalUnits = 0;
+      if (it.totalIntakeQty !== undefined && Number(it.totalIntakeQty) > 0) {
+        totalUnits = Number(it.totalIntakeQty);
+      } else if (it.totalDeductedQty !== undefined && Number(it.totalDeductedQty) > 0) {
+        totalUnits = Number(it.totalDeductedQty);
+      } else if (ctn > 0 || looseQty > 0) {
+        totalUnits = Number(((ctn * qtyPerCtn) + looseQty).toFixed(2));
+      } else if (Number((it as any).quantity) > 0) {
+        totalUnits = Number((it as any).quantity);
+      } else {
+        totalUnits = 0;
+      }
+
+      if (totalUnits === 0 && ctn > 0) {
+        totalUnits = Number((ctn * qtyPerCtn).toFixed(2));
+      }
+
+      const rate = Number(it.rate) || (Number(it.ratePerCtn) > 0 && qtyPerCtn > 0 ? Number((Number(it.ratePerCtn) / qtyPerCtn).toFixed(2)) : (p?.purchasePrice || 0));
+      const amount = Number(it.amount) || Number((totalUnits * rate).toFixed(2));
+
+      return { ctn, looseQty, qtyPerCtn, totalUnits, rate, amount };
+    };
+
+    const allPurchaseBills = this.getPurchaseBills();
+    const allSaleBills = this.getSaleBills();
+    const allSaleReturns = this.data.saleReturns || [];
+    const allPurchaseReturns = this.data.purchaseReturns || [];
+
+    const netMovementSinceFrom = new Map<string, number>();
+    const inwardInWindowMap = new Map<string, number>();
+    const outwardInWindowMap = new Map<string, number>();
+    const inwardCartonsInWindowMap = new Map<string, number>();
+    const outwardCartonsInWindowMap = new Map<string, number>();
 
     const ledgerTransactions: StockMovementLedgerEntry[] = [];
-    const inMap = new Map<string, number>();
-    const outMap = new Map<string, number>();
 
-    // 1. Process Sale Bills (Stock Deductions)
-    for (const bill of saleBills) {
-      for (const it of bill.items) {
-        let p = it.productId ? products.find((x) => x.id === it.productId) : undefined;
-        if (!p && it.itemTitle) {
-          p = products.find((x) => x.name.toLowerCase() === it.itemTitle.toLowerCase() || (x.itemTitle && x.itemTitle.toLowerCase() === it.itemTitle.toLowerCase()));
+    // 1. Process All Purchases
+    for (const pbill of allPurchaseBills) {
+      const pDate = this.normalizeDateToYMD(pbill.date);
+      for (const it of pbill.items || []) {
+        const p = resolveProduct(it);
+        const pId = p ? p.id : (it.productId || `prod-${String(it.itemTitle || 'item').replace(/\s+/g, '-').toLowerCase()}`);
+        const { ctn, totalUnits, rate, amount } = calculateLineMovement(it, p);
+        if (totalUnits <= 0 && ctn <= 0) continue;
+
+        if (pDate >= fromDate) {
+          netMovementSinceFrom.set(pId, (netMovementSinceFrom.get(pId) || 0) + totalUnits);
         }
 
-        const pId = p?.id || it.productId || `prod-${it.itemTitle}`;
-        const pName = p?.name || it.itemTitle;
-        const mcode = p?.mcode || it.mcode || p?.sku || 'ITEM';
-        const category = p?.category || it.category || 'General';
+        if (pDate >= fromDate && pDate <= toDate) {
+          inwardInWindowMap.set(pId, (inwardInWindowMap.get(pId) || 0) + totalUnits);
+          inwardCartonsInWindowMap.set(pId, (inwardCartonsInWindowMap.get(pId) || 0) + ctn);
 
-        const currentPStock = p ? (p.currentQuantity || 0) : 0;
-        outMap.set(pId, (outMap.get(pId) || 0) + it.qty);
+          const pkgLabel = it.packageType || p?.packageType || 'CTN';
+          const unitLabel = p?.unit || it.unit || 'Units';
 
-        ledgerTransactions.push({
-          id: `mv-sale-${bill.billNumber}-${it.id}`,
-          timestamp: bill.createdAt || `${bill.date}T12:00:00Z`,
-          date: bill.date,
-          productId: pId,
-          productName: pName,
-          mcode,
-          category,
-          movementType: 'SALE',
-          referenceId: bill.id,
-          referenceLabel: `Sale Bill #${bill.billNumber}`,
-          partyName: bill.customerAccountTitle || 'Customer',
-          salesmanOrUser: bill.user ? `${bill.user}${bill.salesmanName ? ` (${bill.salesmanName})` : ''}` : (bill.salesmanName || 'Sales Staff'),
-          cartonsChange: -Math.abs(it.ctn),
-          quantityChange: -Math.abs(it.qty),
-          unitRate: it.rate,
-          totalAmount: it.amount,
-          runningStockAfter: currentPStock,
-          notes: `Sold ${it.ctn} CTN (${it.qty} Units) to ${bill.customerAccountTitle}`,
-        });
+          ledgerTransactions.push({
+            id: `mv-purch-${pbill.billNumber}-${it.id || Math.random().toString(36).substring(2, 7)}`,
+            timestamp: pbill.createdAt || `${pbill.date}T10:00:00Z`,
+            date: pbill.date,
+            productId: pId,
+            productName: p ? p.name : (it.itemTitle || 'Purchased Item'),
+            mcode: p?.mcode || it.mcode || p?.sku || 'ITEM',
+            category: p?.category || it.category || 'General',
+            movementType: 'PURCHASE',
+            referenceId: pbill.id,
+            referenceLabel: `Purchase Bill #${pbill.billNumber}`,
+            partyName: pbill.supplierAccountTitle || 'Supplier',
+            salesmanOrUser: pbill.createdBy || 'Store Manager',
+            cartonsChange: Math.abs(ctn),
+            quantityChange: Math.abs(totalUnits),
+            unitRate: rate,
+            totalAmount: amount,
+            runningStockAfter: 0,
+            notes: `Purchased ${ctn} ${pkgLabel} (${totalUnits} ${unitLabel}) from ${pbill.supplierAccountTitle || 'Supplier'}`,
+          });
+        }
       }
     }
 
-    // 2. Process Purchase Bills (Stock Additions)
-    for (const pbill of purchaseBills) {
-      for (const it of pbill.items) {
-        let p = it.productId ? products.find((x) => x.id === it.productId) : undefined;
-        if (!p && it.itemTitle) {
-          p = products.find((x) => x.name.toLowerCase() === it.itemTitle.toLowerCase() || (x.itemTitle && x.itemTitle.toLowerCase() === it.itemTitle.toLowerCase()));
+    // 2. Process All Sales
+    for (const sbill of allSaleBills) {
+      const sDate = this.normalizeDateToYMD(sbill.date);
+      for (const it of sbill.items || []) {
+        const p = resolveProduct(it);
+        const pId = p ? p.id : (it.productId || `prod-${String(it.itemTitle || 'item').replace(/\s+/g, '-').toLowerCase()}`);
+        const { ctn, totalUnits, rate, amount } = calculateLineMovement(it, p);
+        if (totalUnits <= 0 && ctn <= 0) continue;
+
+        if (sDate >= fromDate) {
+          netMovementSinceFrom.set(pId, (netMovementSinceFrom.get(pId) || 0) - totalUnits);
         }
 
-        const pId = p?.id || it.productId || `prod-${it.itemTitle}`;
-        const pName = p?.name || it.itemTitle;
-        const mcode = p?.mcode || it.mcode || p?.sku || 'ITEM';
-        const category = p?.category || it.category || 'General';
+        if (sDate >= fromDate && sDate <= toDate) {
+          outwardInWindowMap.set(pId, (outwardInWindowMap.get(pId) || 0) + totalUnits);
+          outwardCartonsInWindowMap.set(pId, (outwardCartonsInWindowMap.get(pId) || 0) + ctn);
 
-        const currentPStock = p ? (p.currentQuantity || 0) : 0;
-        inMap.set(pId, (inMap.get(pId) || 0) + it.qty);
+          const pkgLabel = it.packageType || p?.packageType || 'CTN';
+          const unitLabel = p?.unit || it.unit || 'Units';
 
-        const pkgLabel = it.packageType || p?.packageType || 'Bag';
-        const unitLabel = p?.unit || it.unit || 'KG';
-
-        ledgerTransactions.push({
-          id: `mv-purch-${pbill.billNumber}-${it.id}`,
-          timestamp: pbill.createdAt || `${pbill.date}T10:00:00Z`,
-          date: pbill.date,
-          productId: pId,
-          productName: pName,
-          mcode,
-          category,
-          movementType: 'PURCHASE',
-          referenceId: pbill.id,
-          referenceLabel: `Purchase Bill #${pbill.billNumber}`,
-          partyName: pbill.supplierAccountTitle || 'Supplier',
-          salesmanOrUser: pbill.createdBy || 'Store Manager',
-          cartonsChange: Math.abs(it.ctn),
-          quantityChange: Math.abs(it.qty),
-          unitRate: it.rate,
-          totalAmount: it.amount,
-          runningStockAfter: currentPStock,
-          notes: `Purchased ${it.ctn} ${pkgLabel} (${it.qty} ${unitLabel}) from ${pbill.supplierAccountTitle}`,
-        });
+          ledgerTransactions.push({
+            id: `mv-sale-${sbill.billNumber}-${it.id || Math.random().toString(36).substring(2, 7)}`,
+            timestamp: sbill.createdAt || `${sbill.date}T12:00:00Z`,
+            date: sbill.date,
+            productId: pId,
+            productName: p ? p.name : (it.itemTitle || 'Sold Item'),
+            mcode: p?.mcode || it.mcode || p?.sku || 'ITEM',
+            category: p?.category || it.category || 'General',
+            movementType: 'SALE',
+            referenceId: sbill.id,
+            referenceLabel: `Sale Bill #${sbill.billNumber}`,
+            partyName: sbill.customerAccountTitle || sbill.customerName || 'Customer',
+            salesmanOrUser: sbill.user ? `${sbill.user}${sbill.salesmanName ? ` (${sbill.salesmanName})` : ''}` : (sbill.salesmanName || 'Sales Staff'),
+            cartonsChange: -Math.abs(ctn),
+            quantityChange: -Math.abs(totalUnits),
+            unitRate: rate,
+            totalAmount: amount,
+            runningStockAfter: 0,
+            notes: `Sold ${ctn} ${pkgLabel} (${totalUnits} ${unitLabel}) to ${sbill.customerAccountTitle || sbill.customerName || 'Customer'}`,
+          });
+        }
       }
     }
 
-    // Sort transactions latest first
-    ledgerTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    // 3. Process Sale Returns (Customer Returns - Inward)
+    for (const sret of allSaleReturns) {
+      const rDate = this.normalizeDateToYMD(sret.date);
+      for (const it of sret.items || []) {
+        const p = resolveProduct(it);
+        const pId = p ? p.id : (it.productId || `prod-${String(it.itemTitle || 'item').replace(/\s+/g, '-').toLowerCase()}`);
+        const { ctn, totalUnits, rate, amount } = calculateLineMovement(it, p);
+        if (totalUnits <= 0 && ctn <= 0) continue;
 
-    // Filter transactions by product or category if requested
+        if (rDate >= fromDate) {
+          netMovementSinceFrom.set(pId, (netMovementSinceFrom.get(pId) || 0) + totalUnits);
+        }
+
+        if (rDate >= fromDate && rDate <= toDate) {
+          inwardInWindowMap.set(pId, (inwardInWindowMap.get(pId) || 0) + totalUnits);
+          inwardCartonsInWindowMap.set(pId, (inwardCartonsInWindowMap.get(pId) || 0) + ctn);
+
+          ledgerTransactions.push({
+            id: `mv-sret-${sret.returnNumber}-${it.id || Math.random().toString(36).substring(2, 7)}`,
+            timestamp: sret.createdAt || `${sret.date}T14:00:00Z`,
+            date: sret.date,
+            productId: pId,
+            productName: p ? p.name : (it.itemTitle || 'Returned Item'),
+            mcode: p?.mcode || (it as any).mcode || p?.sku || 'ITEM',
+            category: p?.category || it.category || 'General',
+            movementType: 'RETURN',
+            referenceId: sret.id,
+            referenceLabel: `Sale Return #${sret.returnNumberFormatted || sret.returnNumber}`,
+            partyName: sret.customerAccountTitle || sret.customerName || 'Customer',
+            salesmanOrUser: sret.salesmanName || sret.createdBy || 'Staff',
+            cartonsChange: Math.abs(ctn),
+            quantityChange: Math.abs(totalUnits),
+            unitRate: rate,
+            totalAmount: amount,
+            runningStockAfter: 0,
+            notes: `Customer Return: ${ctn} CTN (${totalUnits} Units) from ${sret.customerName || sret.customerAccountTitle}`,
+          });
+        }
+      }
+    }
+
+    // 4. Process Purchase Returns (Supplier Returns - Outward)
+    for (const pret of allPurchaseReturns) {
+      const prDate = this.normalizeDateToYMD(pret.date);
+      for (const it of pret.items || []) {
+        const p = resolveProduct(it);
+        const pId = p ? p.id : (it.productId || `prod-${String(it.itemTitle || 'item').replace(/\s+/g, '-').toLowerCase()}`);
+        const { ctn, totalUnits, rate, amount } = calculateLineMovement(it, p);
+        if (totalUnits <= 0 && ctn <= 0) continue;
+
+        if (prDate >= fromDate) {
+          netMovementSinceFrom.set(pId, (netMovementSinceFrom.get(pId) || 0) - totalUnits);
+        }
+
+        if (prDate >= fromDate && prDate <= toDate) {
+          outwardInWindowMap.set(pId, (outwardInWindowMap.get(pId) || 0) + totalUnits);
+          outwardCartonsInWindowMap.set(pId, (outwardCartonsInWindowMap.get(pId) || 0) + ctn);
+
+          ledgerTransactions.push({
+            id: `mv-pret-${pret.returnNumber}-${it.id || Math.random().toString(36).substring(2, 7)}`,
+            timestamp: pret.createdAt || `${pret.date}T15:00:00Z`,
+            date: pret.date,
+            productId: pId,
+            productName: p ? p.name : (it.itemTitle || 'Returned Item'),
+            mcode: p?.mcode || (it as any).mcode || p?.sku || 'ITEM',
+            category: p?.category || it.category || 'General',
+            movementType: 'RETURN',
+            referenceId: pret.id,
+            referenceLabel: `Purchase Return #${pret.returnNumberFormatted || pret.returnNumber}`,
+            partyName: pret.supplierAccountTitle || pret.supplierName || 'Supplier',
+            salesmanOrUser: pret.createdBy || 'Store Manager',
+            cartonsChange: -Math.abs(ctn),
+            quantityChange: -Math.abs(totalUnits),
+            unitRate: rate,
+            totalAmount: amount,
+            runningStockAfter: 0,
+            notes: `Supplier Return: ${ctn} CTN (${totalUnits} Units) to ${pret.supplierName || pret.supplierAccountTitle}`,
+          });
+        }
+      }
+    }
+
+    // 5. Ensure all products (catalog + any item with movements in bills) are available
+    const allProductsMap = new Map<string, Product>();
+    for (const p of products) {
+      allProductsMap.set(p.id, p);
+    }
+    for (const tx of ledgerTransactions) {
+      if (!allProductsMap.has(tx.productId)) {
+        allProductsMap.set(tx.productId, {
+          id: tx.productId,
+          name: tx.productName,
+          mcode: tx.mcode,
+          sku: tx.mcode,
+          category: tx.category || 'General',
+          unit: 'Units',
+          qtyInCarton: 1,
+          currentQuantity: 0,
+          totalStock: 0,
+          carton: 0,
+          ctn: 0,
+          extraKg: 0,
+          pcs: 0,
+          minStockLevel: 10,
+          purchasePrice: tx.unitRate || 0,
+          sellingPrice: tx.unitRate || 0,
+          lastPurchasePrice: tx.unitRate || 0,
+          averagePurchaseCost: tx.unitRate || 0,
+          stockValue: 0,
+          profitMargin: 0,
+          lowStockAlert: false,
+          createdAt: tx.timestamp,
+          updatedAt: tx.timestamp,
+        } as Product);
+      }
+    }
+    const allAvailableProducts = Array.from(allProductsMap.values());
+
+    // 6. Accurate Opening Stock per product as of fromDate
+    const openingStockMap = new Map<string, number>();
+    for (const p of allAvailableProducts) {
+      const netSince = netMovementSinceFrom.get(p.id) || 0;
+      const liveQty = p.currentQuantity || 0;
+      const calcOpening = Number((liveQty - netSince).toFixed(2));
+      openingStockMap.set(p.id, Math.max(0, calcOpening));
+    }
+
+    // 7. Chronological Running Balance calculation per product
+    const txsByProduct = new Map<string, StockMovementLedgerEntry[]>();
+    for (const tx of ledgerTransactions) {
+      if (!txsByProduct.has(tx.productId)) {
+        txsByProduct.set(tx.productId, []);
+      }
+      txsByProduct.get(tx.productId)!.push(tx);
+    }
+
+    for (const [pId, pTxs] of txsByProduct.entries()) {
+      pTxs.sort((a, b) => {
+        const dateCmp = a.date.localeCompare(b.date);
+        if (dateCmp !== 0) return dateCmp;
+        return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+      });
+
+      let running = openingStockMap.get(pId) || 0;
+      for (const tx of pTxs) {
+        running = Number((running + tx.quantityChange).toFixed(2));
+        tx.runningStockAfter = running;
+      }
+    }
+
+    // Sort transactions latest first for display
+    ledgerTransactions.sort((a, b) => {
+      const dateCmp = b.date.localeCompare(a.date);
+      if (dateCmp !== 0) return dateCmp;
+      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    });
+
+    // Filter transactions if requested
     let filteredTransactions = ledgerTransactions;
     if (filters?.productId) {
       filteredTransactions = filteredTransactions.filter((tx) => tx.productId === filters.productId);
@@ -8859,17 +9082,18 @@ class DatabaseService {
       filteredTransactions = filteredTransactions.filter((tx) => tx.category.toLowerCase() === filters.category!.toLowerCase());
     }
     if (filters?.movementType) {
-      filteredTransactions = filteredTransactions.filter((tx) => tx.movementType.toLowerCase() === filters.movementType!.toLowerCase());
+      const mType = filters.movementType.toUpperCase();
+      filteredTransactions = filteredTransactions.filter((tx) => tx.movementType.toUpperCase() === mType);
     }
 
-    // 3. Build Items Summary
+    // 8. Build Items Summary
     let totalOpeningUnits = 0;
     let totalInwardUnits = 0;
     let totalOutwardUnits = 0;
     let totalClosingUnits = 0;
     let totalStockValue = 0;
 
-    let targetProducts = products;
+    let targetProducts = allAvailableProducts;
     if (filters?.productId) {
       targetProducts = targetProducts.filter((p) => p.id === filters.productId);
     }
@@ -8878,11 +9102,11 @@ class DatabaseService {
     }
 
     const itemsSummary: StockMovementSummaryItem[] = targetProducts.map((prod) => {
-      const inward = inMap.get(prod.id) || 0;
-      const outward = outMap.get(prod.id) || 0;
-      const closing = prod.currentQuantity || 0;
-      const opening = Math.max(0, closing + outward - inward);
-      const qtyInCarton = prod.qtyInCarton || 1;
+      const opening = openingStockMap.get(prod.id) || 0;
+      const inward = inwardInWindowMap.get(prod.id) || 0;
+      const outward = outwardInWindowMap.get(prod.id) || 0;
+      const closing = Number((opening + inward - outward).toFixed(2));
+      const qtyInCarton = prod.qtyInCarton && prod.qtyInCarton > 0 ? prod.qtyInCarton : 1;
       const closingStockCartons = Number((closing / qtyInCarton).toFixed(1));
       const value = Number((closing * (prod.purchasePrice || 0)).toFixed(2));
 
@@ -8914,16 +9138,16 @@ class DatabaseService {
         totalStockValue: value,
         status,
       };
-    }).sort((a, b) => b.stockOutSales - a.stockOutSales);
+    }).sort((a, b) => (b.stockInPurchases + b.stockOutSales) - (a.stockInPurchases + a.stockOutSales));
 
     return {
       timeframe,
       fromDate,
       toDate,
-      totalOpeningUnits,
-      totalInwardUnits,
-      totalOutwardUnits,
-      totalClosingUnits,
+      totalOpeningUnits: Number(totalOpeningUnits.toFixed(2)),
+      totalInwardUnits: Number(totalInwardUnits.toFixed(2)),
+      totalOutwardUnits: Number(totalOutwardUnits.toFixed(2)),
+      totalClosingUnits: Number(totalClosingUnits.toFixed(2)),
       totalStockValue: Number(totalStockValue.toFixed(2)),
       itemsSummary,
       ledgerTransactions: filteredTransactions,
