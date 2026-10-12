@@ -1236,6 +1236,11 @@ class PostgresService {
             };
           });
 
+          const totalAmount = parseFloat(row.total_amount ?? d.totalAmount ?? d.netTotal ?? 0);
+          const netTotal = parseFloat(row.total_amount ?? d.netTotal ?? d.totalAmount ?? 0);
+          const cashReceived = parseFloat(row.paid_amount ?? d.cashReceived ?? d.paidAmount ?? 0);
+          const balanceReceivable = parseFloat(row.balance_amount ?? d.balanceReceivable ?? Math.max(0, netTotal - cashReceived));
+
           return {
             ...d,
             ...row,
@@ -1245,10 +1250,11 @@ class PostgresService {
             customerName: row.customer_name || d.customerName || d.customerAccountTitle || '',
             customerAccountTitle: row.customer_name || d.customerAccountTitle || d.customerName || '',
             date: row.bill_date || d.date || '',
-            totalAmount: parseFloat(row.total_amount ?? d.totalAmount ?? d.netTotal ?? 0),
-            netTotal: parseFloat(row.total_amount ?? d.netTotal ?? d.totalAmount ?? 0),
-            paidAmount: parseFloat(row.paid_amount ?? d.cashReceived ?? d.paidAmount ?? 0),
-            balanceReceivable: parseFloat(row.balance_amount ?? d.balanceReceivable ?? 0),
+            totalAmount,
+            netTotal,
+            paidAmount: cashReceived,
+            cashReceived,
+            balanceReceivable,
             items,
             companyId,
             data: undefined,
@@ -2187,9 +2193,9 @@ class PostgresService {
           sb.customerId,
           sb.customerAccountTitle || sb.customerName || '',
           sb.date || sb.billDate || '',
-          sb.netTotal ?? sb.totalAmount ?? 0,
-          sb.paidAmount ?? (sb.isCash ? sb.netTotal : 0),
-          sb.remainingBalance ?? sb.balanceAmount ?? 0,
+          Number(sb.netTotal ?? sb.totalAmount ?? 0),
+          Number(sb.cashReceived ?? sb.paidAmount ?? (sb.isCash ? (sb.netTotal ?? sb.totalAmount ?? 0) : 0)),
+          Number(sb.balanceReceivable ?? sb.remainingBalance ?? sb.balanceAmount ?? Math.max(0, Number(sb.netTotal ?? sb.totalAmount ?? 0) - Number(sb.cashReceived ?? sb.paidAmount ?? 0))),
           sb.status || 'COMPLETED',
           JSON.stringify(sb.items || []),
           JSON.stringify(bill),

@@ -687,6 +687,26 @@ export const SalesView: React.FC<SalesViewProps> = ({
         `Sale Bill #${savedBill.billNumber} saved successfully! Real-time stock deducted from inventory automatically without reload.`
       );
 
+      // Immediately update local customer balance in dropdown
+      if (selectedCustomerId) {
+        setCustomers((prev) =>
+          prev.map((c) => {
+            if (c.id === selectedCustomerId || c.code === selectedCustomerId) {
+              const delta = (Number(savedBill.balanceReceivable) || 0) - (balanceRecovered ? (Number(balanceRecoveredAmount) || 0) : 0);
+              const newBal = Number(((c.outstandingBalance || 0) + delta).toFixed(2));
+              return {
+                ...c,
+                outstandingBalance: newBal,
+                lastBillNumber: savedBill.billNumber,
+                lastBillDate: savedBill.date,
+                lastBillAmount: savedBill.netTotal,
+              };
+            }
+            return c;
+          })
+        );
+      }
+
       // Trigger app-wide data reload
       if (onRefreshData) {
         await onRefreshData();

@@ -274,17 +274,25 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
 
     // 1. Group sales bills by customer ID (each bill counted EXACTLY once)
     const billsByCust = new Map<string, SaleBill[]>();
+    const allBillsByCust = new Map<string, SaleBill[]>();
     salesBills.forEach((b) => {
       if (b.status === 'Cancelled') return;
+      const custId = resolveCustId(b.customerId, (b as any).customerCode, b.customerAccountTitle || b.customerName);
+      if (!custId) return;
+
       const bDateNorm = normalizeToYMD(b.date);
+      // All bills up to toDate for running ledger balance
+      if (!normTo || !bDateNorm || bDateNorm <= normTo) {
+        if (!allBillsByCust.has(custId)) allBillsByCust.set(custId, []);
+        allBillsByCust.get(custId)!.push(b);
+      }
+
+      // Bills within selected date period
       if (normFrom && bDateNorm && bDateNorm < normFrom) return;
       if (normTo && bDateNorm && bDateNorm > normTo) return;
 
-      const custId = resolveCustId(b.customerId, undefined, b.customerAccountTitle || b.customerName);
-      if (custId) {
-        if (!billsByCust.has(custId)) billsByCust.set(custId, []);
-        billsByCust.get(custId)!.push(b);
-      }
+      if (!billsByCust.has(custId)) billsByCust.set(custId, []);
+      billsByCust.get(custId)!.push(b);
     });
 
     // 2. Group receipts by customer ID (de-duplicated so each voucher/payment is counted EXACTLY once)
@@ -297,6 +305,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
       narration: string;
     }
     const receiptsByCust = new Map<string, ReceiptRecord[]>();
+    const allReceiptsByCust = new Map<string, ReceiptRecord[]>();
     const seenReceiptKeys = new Set<string>();
 
     // Vouchers (CR, BR, CB, JV credit)
@@ -304,8 +313,6 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
       if (v.status !== 'POSTED') return;
       if (v.voucherType !== 'CR' && v.voucherType !== 'BR' && v.voucherType !== 'CB' && v.voucherType !== 'JV') return;
       const vDateNorm = normalizeToYMD(v.date);
-      if (normFrom && vDateNorm && vDateNorm < normFrom) return;
-      if (normTo && vDateNorm && vDateNorm > normTo) return;
 
       (v.entries || []).forEach((e, idx) => {
         let amt = 0;
@@ -325,15 +332,25 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
         if (seenReceiptKeys.has(uniqueKey)) return;
         seenReceiptKeys.add(uniqueKey);
 
-        if (!receiptsByCust.has(custId)) receiptsByCust.set(custId, []);
-        receiptsByCust.get(custId)!.push({
+        const recItem: ReceiptRecord = {
           id: uniqueKey,
           date: v.date,
           amount: amt,
           refType: `${v.voucherType}#`,
           refNumber: v.voucherNumberFormatted || String(v.voucherNumber || ''),
           narration: e.narration || `${v.voucherType} Voucher`,
-        });
+        };
+
+        if (!normTo || !vDateNorm || vDateNorm <= normTo) {
+          if (!allReceiptsByCust.has(custId)) allReceiptsByCust.set(custId, []);
+          allReceiptsByCust.get(custId)!.push(recItem);
+        }
+
+        if (normFrom && vDateNorm && vDateNorm < normFrom) return;
+        if (normTo && vDateNorm && vDateNorm > normTo) return;
+
+        if (!receiptsByCust.has(custId)) receiptsByCust.set(custId, []);
+        receiptsByCust.get(custId)!.push(recItem);
       });
     });
 
@@ -342,8 +359,6 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
     cashRecoveredItems.forEach((ci, idx) => {
       if (ci.voucherId && existingVoucherIds.has(ci.voucherId)) return;
       const ciDateNorm = normalizeToYMD(ci.date);
-      if (normFrom && ciDateNorm && ciDateNorm < normFrom) return;
-      if (normTo && ciDateNorm && ciDateNorm > normTo) return;
       const amt = Number(ci.amount) || 0;
       if (amt <= 0) return;
 
@@ -354,30 +369,46 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
       if (seenReceiptKeys.has(uniqueKey)) return;
       seenReceiptKeys.add(uniqueKey);
 
-      if (!receiptsByCust.has(custId)) receiptsByCust.set(custId, []);
-      receiptsByCust.get(custId)!.push({
+      const recItem: ReceiptRecord = {
         id: uniqueKey,
         date: ci.date,
         amount: amt,
         refType: `${ci.voucherType || 'CR'}#`,
         refNumber: ci.voucherNumberFormatted || '',
         narration: ci.narration || 'Payment Recovery',
-      });
+      };
+
+      if (!normTo || !ciDateNorm || ciDateNorm <= normTo) {
+        if (!allReceiptsByCust.has(custId)) allReceiptsByCust.set(custId, []);
+        allReceiptsByCust.get(custId)!.push(recItem);
+      }
+
+      if (normFrom && ciDateNorm && ciDateNorm < normFrom) return;
+      if (normTo && ciDateNorm && ciDateNorm > normTo) return;
+
+      if (!receiptsByCust.has(custId)) receiptsByCust.set(custId, []);
+      receiptsByCust.get(custId)!.push(recItem);
     });
 
     // 3. Group Sales Returns by customer ID
     const returnsByCust = new Map<string, SaleReturn[]>();
+    const allReturnsByCust = new Map<string, SaleReturn[]>();
     saleReturns.forEach((sr) => {
       if (sr.status === 'CANCELLED') return;
+      const custId = resolveCustId(sr.customerId, sr.customerCode, sr.customerAccountTitle);
+      if (!custId) return;
+
       const srDateNorm = normalizeToYMD(sr.date);
+      if (!normTo || !srDateNorm || srDateNorm <= normTo) {
+        if (!allReturnsByCust.has(custId)) allReturnsByCust.set(custId, []);
+        allReturnsByCust.get(custId)!.push(sr);
+      }
+
       if (normFrom && srDateNorm && srDateNorm < normFrom) return;
       if (normTo && srDateNorm && srDateNorm > normTo) return;
 
-      const custId = resolveCustId(sr.customerId, sr.customerCode, sr.customerAccountTitle);
-      if (custId) {
-        if (!returnsByCust.has(custId)) returnsByCust.set(custId, []);
-        returnsByCust.get(custId)!.push(sr);
-      }
+      if (!returnsByCust.has(custId)) returnsByCust.set(custId, []);
+      returnsByCust.get(custId)!.push(sr);
     });
 
     // Map each customer to a report row
@@ -387,32 +418,36 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
 
       // Find matched bills
       const matchedBills = billsByCust.get(c.id) || [];
-      matchedBills.sort((a, b) => {
+      const allCustBills = allBillsByCust.get(c.id) || [];
+      const billsForLast = matchedBills.length > 0 ? matchedBills : allCustBills;
+      billsForLast.sort((a, b) => {
         const da = normalizeToYMD(a.date);
         const db = normalizeToYMD(b.date);
         if (da !== db) return db.localeCompare(da);
         return (parseInt(b.billNumber, 10) || 0) - (parseInt(a.billNumber, 10) || 0);
       });
 
-      const latestBill = matchedBills.length > 0 ? matchedBills[0] : null;
+      const latestBill = billsForLast.length > 0 ? billsForLast[0] : null;
       const lastBillNumber = latestBill ? (latestBill.billNumber || latestBill.id) : (c.lastBillNumber || '-');
       const lastBillDate = latestBill ? formatDateDDMMYYYY(latestBill.date) : (c.lastBillDate ? formatDateDDMMYYYY(c.lastBillDate) : '-');
       const lastBillAmount = latestBill ? Number(latestBill.netTotal || latestBill.totalAmount || 0) : Number(c.lastBillAmount || 0);
 
       // Find matched receipts
       const matchedReceipts = receiptsByCust.get(c.id) || [];
-      matchedReceipts.sort((a, b) => {
+      const allCustReceipts = allReceiptsByCust.get(c.id) || [];
+      const receiptsForLast = matchedReceipts.length > 0 ? matchedReceipts : allCustReceipts;
+      receiptsForLast.sort((a, b) => {
         const da = normalizeToYMD(a.date);
         const db = normalizeToYMD(b.date);
         return db.localeCompare(da);
       });
 
-      const latestReceipt = matchedReceipts.length > 0 ? matchedReceipts[0] : null;
+      const latestReceipt = receiptsForLast.length > 0 ? receiptsForLast[0] : null;
       const lastReceiptDate = latestReceipt ? formatDateDDMMYYYY(latestReceipt.date) : (c.lastReceiptDate ? formatDateDDMMYYYY(c.lastReceiptDate) : '-');
       const lastReceiptAmount = latestReceipt ? Number(latestReceipt.amount || 0) : Number(c.lastReceiptAmount || 0);
 
       // Find matched returns
-      const matchedReturns = returnsByCust.get(c.id) || [];
+      const allCustReturns = allReturnsByCust.get(c.id) || [];
 
       // Handling Salesman
       let salesman = c.assignedSalesman?.trim() || (c as any).salesman?.trim() || '';
@@ -420,31 +455,31 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
         salesman = latestBill.salesmanName.trim();
       }
 
-      // Continuous running ledger balance:
-      // Base: Customer opening balance from report
+      // Continuous running ledger balance up to toDate:
+      // Base: Customer opening balance
       const rawOpen = Number(c.openingBalance) || 0;
       const rawOut = Number(c.outstandingBalance);
       const balType = (c as any).openingBalanceType || (c as any).opening_balance_type || 'DR';
       const initBal = balType === 'CR' ? -Math.abs(rawOpen) : Math.abs(rawOpen);
 
-      let totalBillsReceivable = 0;
-      for (const b of matchedBills) {
-        totalBillsReceivable += Number(b.balanceReceivable !== undefined ? b.balanceReceivable : (Number(b.netTotal || 0) - Number(b.cashReceived || 0)));
+      let cumulativeBillsReceivable = 0;
+      for (const b of allCustBills) {
+        cumulativeBillsReceivable += Number(b.balanceReceivable !== undefined ? b.balanceReceivable : (Number(b.netTotal || 0) - Number(b.cashReceived || 0)));
       }
-      let totalReceipts = 0;
-      for (const r of matchedReceipts) {
-        totalReceipts += Number(r.amount || 0);
+      let cumulativeReceipts = 0;
+      for (const r of allCustReceipts) {
+        cumulativeReceipts += Number(r.amount || 0);
       }
-      let totalReturns = 0;
-      for (const sr of matchedReturns) {
-        totalReturns += Number(sr.netTotal || sr.totalAmount || 0);
+      let cumulativeReturns = 0;
+      for (const sr of allCustReturns) {
+        cumulativeReturns += Number(sr.netTotal || sr.totalAmount || 0);
       }
 
       // Exact running ledger balance
-      let ledgerBalance = initBal + totalBillsReceivable - totalReceipts - totalReturns;
+      let ledgerBalance = initBal + cumulativeBillsReceivable - cumulativeReceipts - cumulativeReturns;
 
-      // Fallback if no transactions exist and outstandingBalance was stored
-      if (matchedBills.length === 0 && matchedReceipts.length === 0 && matchedReturns.length === 0) {
+      // Fallback if no transactions recorded and customer has saved outstandingBalance
+      if (allCustBills.length === 0 && allCustReceipts.length === 0 && allCustReturns.length === 0) {
         if (!isNaN(rawOut) && rawOut !== 0) {
           ledgerBalance = rawOut;
         }
@@ -499,10 +534,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
     // Matched bills
     const cBills = salesBills.filter((b) => {
       if (b.status === 'Cancelled') return false;
-      return (
-        b.customerId === c.id ||
-        (b.customerAccountTitle && b.customerAccountTitle.trim().toLowerCase() === (c.accountTitle || c.name || '').trim().toLowerCase())
-      );
+      return resolveCustId(b.customerId, (b as any).customerCode, b.customerAccountTitle || b.customerName) === c.id;
     });
 
     cBills.forEach((b) => {
@@ -550,10 +582,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
       if (v.status !== 'POSTED') return;
       if (v.voucherType !== 'CR' && v.voucherType !== 'BR' && v.voucherType !== 'CB' && v.voucherType !== 'JV') return;
       (v.entries || []).forEach((e, idx) => {
-        const match =
-          e.accountId === c.id ||
-          (e.accountCode && (e.accountCode === c.code || e.accountCode === c.accountCode || e.accountCode === c.manualCode)) ||
-          (e.accountTitle && (e.accountTitle.trim().toLowerCase() === (c.accountTitle || c.name || '').trim().toLowerCase()));
+        const match = resolveCustId(e.accountId, e.accountCode, e.accountTitle) === c.id;
         if (!match) return;
 
         let debit = 0;
@@ -584,11 +613,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
     // Matched returns
     const cReturns = saleReturns.filter((sr) => {
       if (sr.status === 'CANCELLED') return false;
-      return (
-        sr.customerId === c.id ||
-        sr.customerCode === c.code ||
-        (sr.customerAccountTitle && sr.customerAccountTitle.trim().toLowerCase() === (c.accountTitle || c.name || '').trim().toLowerCase())
-      );
+      return resolveCustId(sr.customerId, sr.customerCode, sr.customerAccountTitle) === c.id;
     });
 
     cReturns.forEach((sr) => {
@@ -1186,12 +1211,12 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
                       }`}
                     >
                       {/* S.NO */}
-                      <td className="party-rec-sno py-2.5 px-3 text-center font-mono font-medium border-r border-slate-200 dark:border-slate-800">
+                      <td className="party-rec-sno py-2.5 px-3 text-center font-mono font-medium border-r border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
                         {row.sNo}
                       </td>
 
                       {/* M.CODE */}
-                      <td className="party-rec-code py-2.5 px-3 text-center font-mono font-bold border-r border-slate-200 dark:border-slate-800">
+                      <td className="party-rec-code py-2.5 px-3 text-center font-mono font-bold border-r border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-200">
                         {row.mCode || '—'}
                       </td>
 
@@ -1200,15 +1225,15 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
                         <div className="flex items-start justify-between gap-1">
                           <div className="leading-tight">
                             {/* Line 1: (Salesman Name) or 0 */}
-                            <div className="party-rec-salesman text-[11px] font-bold">
+                            <div className={`party-rec-salesman text-[11px] font-bold ${row.salesman ? 'text-blue-700 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}>
                               {row.salesman ? `(${row.salesman})` : '0'}
                             </div>
                             {/* Line 2: Customer Account Title */}
-                            <div className="party-rec-title text-xs sm:text-sm font-bold capitalize">
+                            <div className="party-rec-title text-xs sm:text-sm font-bold capitalize text-slate-900 dark:text-white">
                               {row.accountTitle}
                             </div>
                             {/* Line 3: Mobile Phone Number */}
-                            <div className="party-rec-mobile text-[11px] font-mono">
+                            <div className="party-rec-mobile text-[11px] font-mono text-slate-600 dark:text-slate-400">
                               {row.mobile || '—'}
                             </div>
                           </div>
@@ -1229,32 +1254,38 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
                       </td>
 
                       {/* LASTBILL # */}
-                      <td className="party-rec-bill-no py-2.5 px-3 text-center font-mono font-bold border-r border-slate-200 dark:border-slate-800">
+                      <td className="party-rec-bill-no py-2.5 px-3 text-center font-mono font-bold border-r border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200">
                         {row.lastBillNumber}
                       </td>
 
                       {/* BILL DATED */}
-                      <td className="party-rec-bill-date py-2.5 px-3 text-center font-mono font-medium border-r border-slate-200 dark:border-slate-800">
+                      <td className="party-rec-bill-date py-2.5 px-3 text-center font-mono font-medium border-r border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
                         {row.lastBillDate}
                       </td>
 
                       {/* BILL AMOUNT */}
-                      <td className="party-rec-bill-amt py-2.5 px-3 text-right font-mono font-black border-r border-slate-200 dark:border-slate-800">
+                      <td className="party-rec-bill-amt py-2.5 px-3 text-right font-mono font-black border-r border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white">
                         {row.lastBillAmount > 0 ? formatAmount(row.lastBillAmount) : '0.00'}
                       </td>
 
                       {/* LAST RECEIPT DATE */}
-                      <td className="party-rec-receipt-date py-2.5 px-3 text-center font-mono font-medium border-r border-slate-200 dark:border-slate-800">
+                      <td className="party-rec-receipt-date py-2.5 px-3 text-center font-mono font-medium border-r border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
                         {row.lastReceiptDate}
                       </td>
 
                       {/* RECEIPT AMOUNT */}
-                      <td className="party-rec-receipt-amt py-2.5 px-3 text-right font-mono font-black border-r border-slate-200 dark:border-slate-800">
+                      <td className="party-rec-receipt-amt py-2.5 px-3 text-right font-mono font-black border-r border-slate-200 dark:border-slate-800 text-emerald-700 dark:text-emerald-400">
                         {row.lastReceiptAmount > 0 ? formatAmount(row.lastReceiptAmount) : '0.00'}
                       </td>
 
                       {/* LEDGER BALANCE (e.g. 1576.61 DR) */}
-                      <td className="party-rec-balance py-2.5 px-3 text-right font-mono font-black">
+                      <td className={`party-rec-balance py-2.5 px-3 text-right font-mono font-black ${
+                        row.ledgerBalance > 0
+                          ? 'text-rose-700 dark:text-rose-400'
+                          : row.ledgerBalance < 0
+                          ? 'text-emerald-700 dark:text-emerald-400'
+                          : 'text-slate-700 dark:text-slate-300'
+                      }`}>
                         {formatLedgerBalance(row.ledgerBalance)}
                       </td>
                     </tr>
@@ -1265,23 +1296,29 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
 
             {/* Table Footer: Totals Row matching Image 2 */}
             <tfoot>
-              <tr className="party-rec-totals font-bold border-t-2 border-slate-300 dark:border-slate-700 text-xs">
+              <tr className="party-rec-totals font-bold border-t-2 border-slate-300 dark:border-slate-700 text-xs bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white">
                 <td
                   colSpan={5}
-                  className="party-rec-total-label py-3 px-3 text-right font-extrabold uppercase tracking-wider border-r border-slate-300 dark:border-slate-800"
+                  className="party-rec-total-label py-3 px-3 text-right font-extrabold uppercase tracking-wider border-r border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white"
                 >
                   TOTAL:
                 </td>
-                <td className="party-rec-total-bill py-3 px-3 text-right font-mono font-black border-r border-slate-300 dark:border-slate-800">
+                <td className="party-rec-total-bill py-3 px-3 text-right font-mono font-black border-r border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white">
                   {formatAmount(totals.billAmount)}
                 </td>
-                <td className="party-rec-total-dash py-3 px-3 text-center border-r border-slate-300 dark:border-slate-800">
+                <td className="party-rec-total-dash py-3 px-3 text-center border-r border-slate-300 dark:border-slate-800 text-slate-500 dark:text-slate-400">
                   —
                 </td>
-                <td className="party-rec-total-receipt py-3 px-3 text-right font-mono font-black border-r border-slate-300 dark:border-slate-800">
+                <td className="party-rec-total-receipt py-3 px-3 text-right font-mono font-black border-r border-slate-300 dark:border-slate-800 text-emerald-700 dark:text-emerald-400">
                   {formatAmount(totals.receiptAmount)}
                 </td>
-                <td className="party-rec-total-balance py-3 px-3 text-right font-mono font-black">
+                <td className={`party-rec-total-balance py-3 px-3 text-right font-mono font-black ${
+                  totals.ledgerBalance > 0
+                    ? 'text-rose-700 dark:text-rose-400'
+                    : totals.ledgerBalance < 0
+                    ? 'text-emerald-700 dark:text-emerald-400'
+                    : 'text-slate-900 dark:text-white'
+                }`}>
                   {formatLedgerBalance(totals.ledgerBalance)}
                 </td>
               </tr>

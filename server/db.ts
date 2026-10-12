@@ -3014,25 +3014,21 @@ class DatabaseService {
               const prev = existingCustMap.get(k) || (tc.code ? existingCustMap.get(tc.code.trim().toLowerCase()) : undefined);
               const sc = seedCustMap.get(k) || (tc.code ? seedCustMap.get(tc.code.trim().toLowerCase()) : undefined) || (tc.accountTitle ? seedCustMap.get(tc.accountTitle.trim().toLowerCase()) : undefined);
 
-              // Prioritize seed customer opening balance if present in authoritative seed
-              const scOB = sc && sc.openingBalance !== undefined && sc.openingBalance !== null ? Number(sc.openingBalance) : 0;
-              const scType = sc?.openingBalanceType || 'DR';
-
-              const openBal = (sc && scOB > 0)
-                ? scOB
-                : (tc.openingBalance !== undefined && tc.openingBalance !== null && tc.openingBalance !== 0
-                    ? tc.openingBalance
-                    : (prev?.openingBalance !== undefined && prev?.openingBalance !== null
-                        ? prev.openingBalance
+              // Prioritize PostgreSQL customer data, then in-memory DB, then seed fallback
+              const openBal = (tc.openingBalance !== undefined && tc.openingBalance !== null)
+                ? Number(tc.openingBalance)
+                : (prev?.openingBalance !== undefined && prev?.openingBalance !== null
+                    ? Number(prev.openingBalance)
+                    : (sc && sc.openingBalance !== undefined && sc.openingBalance !== null
+                        ? Number(sc.openingBalance)
                         : 0));
-              const openType = (sc && scOB > 0)
-                ? scType
-                : (tc.openingBalanceType || sc?.openingBalanceType || prev?.openingBalanceType || 'DR');
+              const openType = tc.openingBalanceType || prev?.openingBalanceType || sc?.openingBalanceType || 'DR';
 
-              let outBal = tc.outstandingBalance;
-              if (outBal === undefined || outBal === null || (outBal === 0 && scOB > 0)) {
-                outBal = openType === 'CR' ? -Math.abs(openBal) : Math.abs(openBal);
-              }
+              let outBal = (tc.outstandingBalance !== undefined && tc.outstandingBalance !== null)
+                ? Number(tc.outstandingBalance)
+                : (prev?.outstandingBalance !== undefined && prev?.outstandingBalance !== null
+                    ? Number(prev.outstandingBalance)
+                    : (openType === 'CR' ? -Math.abs(openBal) : Math.abs(openBal)));
 
               return {
                 ...prev,
@@ -3040,13 +3036,13 @@ class DatabaseService {
                 openingBalance: openBal,
                 openingBalanceType: openType,
                 outstandingBalance: outBal,
-                assignedSalesman: tc.assignedSalesman || sc?.assignedSalesman || (sc as any)?.salesman || prev?.assignedSalesman,
-                salesman: (tc as any).salesman || (sc as any)?.salesman || sc?.assignedSalesman || (prev as any)?.salesman,
-                lastBillNumber: tc.lastBillNumber || sc?.lastBillNumber || prev?.lastBillNumber,
-                lastBillDate: tc.lastBillDate || sc?.lastBillDate || prev?.lastBillDate,
-                lastBillAmount: tc.lastBillAmount !== undefined ? tc.lastBillAmount : (sc?.lastBillAmount !== undefined ? sc.lastBillAmount : prev?.lastBillAmount),
-                lastReceiptDate: tc.lastReceiptDate || sc?.lastReceiptDate || prev?.lastReceiptDate,
-                lastReceiptAmount: tc.lastReceiptAmount !== undefined ? tc.lastReceiptAmount : (sc?.lastReceiptAmount !== undefined ? sc.lastReceiptAmount : prev?.lastReceiptAmount),
+                assignedSalesman: tc.assignedSalesman || prev?.assignedSalesman || sc?.assignedSalesman || (sc as any)?.salesman,
+                salesman: (tc as any).salesman || prev?.salesman || (sc as any)?.salesman || sc?.assignedSalesman,
+                lastBillNumber: tc.lastBillNumber || prev?.lastBillNumber || sc?.lastBillNumber,
+                lastBillDate: tc.lastBillDate || prev?.lastBillDate || sc?.lastBillDate,
+                lastBillAmount: tc.lastBillAmount !== undefined ? tc.lastBillAmount : (prev?.lastBillAmount !== undefined ? prev.lastBillAmount : sc?.lastBillAmount),
+                lastReceiptDate: tc.lastReceiptDate || prev?.lastReceiptDate || sc?.lastReceiptDate,
+                lastReceiptAmount: tc.lastReceiptAmount !== undefined ? tc.lastReceiptAmount : (prev?.lastReceiptAmount !== undefined ? prev.lastReceiptAmount : sc?.lastReceiptAmount),
               };
             });
 
@@ -3214,35 +3210,27 @@ class DatabaseService {
             }
             const purchaseReturns = mergedPR;
 
-            this.tenants.set(cid, { ...current, ...pgData, customers, restaurants, employees, suppliers, vouchers, banks, expenseAccounts, saleReturns, purchaseReturns });
+            // Merge sale bills: ensure all local & PostgreSQL sale bills are preserved
+            const tenantSaleBills = Array.isArray(pgData.saleBills) ? pgData.saleBills : [];
+            const existingSBIds = new Set(tenantSaleBills.map((b: any) => (b.id || b.billNumber || '').toString()));
+            const mergedSB: SaleBill[] = [...tenantSaleBills];
+            for (const b of (current.saleBills || [])) {
+              const bKey = (b.id || b.billNumber || '').toString();
+              if (b && bKey && !existingSBIds.has(bKey)) {
+                mergedSB.push(b);
+                await postgresService.upsertSaleBill(b, cid);
+              }
+            }
+            const saleBills = mergedSB;
+
+            this.tenants.set(cid, { ...current, ...pgData, customers, restaurants, employees, suppliers, vouchers, banks, expenseAccounts, saleReturns, purchaseReturns, saleBills });
             this.persist(this.tenants.get(cid), cid);
 
-            // Synchronize authoritative customer opening balances into PostgreSQL for company
+            // Ensure any new seed customers not yet in PostgreSQL are upserted without overwriting existing data
             if (DEFAULT_SEED_CUSTOMERS.length > 0) {
-              console.log(`[PostgreSQL] Synchronizing authoritative customer opening balances for company ${cid}...`);
               for (const cust of customers) {
-                const cKey = (cust.code || cust.accountCode || '').trim().toLowerCase();
-                const tKey = (cust.accountTitle || cust.name || '').trim().toLowerCase();
-                const sc = seedCustMap.get(cKey) || seedCustMap.get(tKey);
-                if (sc) {
-                  const targetOB = Number(sc.openingBalance) || 0;
-                  const targetType = sc.openingBalanceType || 'DR';
-                  const expectedOut = targetType === 'CR' ? -Math.abs(targetOB) : Math.abs(targetOB);
-                  if (targetOB > 0) {
-                    if (cust.openingBalance !== targetOB || cust.openingBalanceType !== targetType || cust.outstandingBalance === 0) {
-                      cust.openingBalance = targetOB;
-                      cust.openingBalanceType = targetType;
-                      cust.outstandingBalance = expectedOut;
-                    }
-                    await postgresService.upsertCustomer(cust, cid);
-                  } else if (cust.openingBalance !== 0) {
-                    cust.openingBalance = 0;
-                    cust.outstandingBalance = 0;
-                    await postgresService.upsertCustomer(cust, cid);
-                  } else if (!pgData.customers || !pgData.customers.some((pc: any) => (pc.code || pc.accountCode) === (cust.code || cust.accountCode))) {
-                    await postgresService.upsertCustomer(cust, cid);
-                  }
-                } else if (!pgData.customers || !pgData.customers.some((pc: any) => (pc.code || pc.accountCode) === (cust.code || cust.accountCode))) {
+                const existsInPg = pgData.customers && pgData.customers.some((pc: any) => (pc.id === cust.id || (pc.code && pc.code === cust.code)));
+                if (!existsInPg) {
                   await postgresService.upsertCustomer(cust, cid);
                 }
               }
@@ -7984,16 +7972,12 @@ class DatabaseService {
       );
       if (matchedCustomer) {
         if (!partyBalanceBefore) {
-          let currentBal = Number(matchedCustomer.outstandingBalance);
-          if (isNaN(currentBal) || currentBal === 0) {
+          if (matchedCustomer.outstandingBalance !== undefined && matchedCustomer.outstandingBalance !== null && !isNaN(Number(matchedCustomer.outstandingBalance))) {
+            partyBalanceBefore = Number(matchedCustomer.outstandingBalance);
+          } else {
             const rawOB = Number(matchedCustomer.openingBalance) || 0;
-            if (rawOB !== 0) {
-              currentBal = matchedCustomer.openingBalanceType === 'CR' ? -Math.abs(rawOB) : Math.abs(rawOB);
-            } else {
-              currentBal = 0;
-            }
+            partyBalanceBefore = matchedCustomer.openingBalanceType === 'CR' ? -Math.abs(rawOB) : Math.abs(rawOB);
           }
-          partyBalanceBefore = currentBal;
         }
         const netReceivableDelta = (Number(balanceReceivable) || 0) - (billData.balanceRecovered ? (Number(balanceRecoveredAmount) || 0) : 0);
         matchedCustomer.outstandingBalance = Number(((partyBalanceBefore || 0) + netReceivableDelta).toFixed(2));
@@ -8067,6 +8051,9 @@ class DatabaseService {
     });
 
     this.persist();
+    postgresService.upsertSaleBill(newSaleBill, getActiveCompanyId()).catch((err) => {
+      console.warn('[PostgreSQL upsertSaleBill on create Error]:', err.message);
+    });
     return newSaleBill;
   }
 
@@ -8271,6 +8258,9 @@ class DatabaseService {
     });
 
     this.persist();
+    postgresService.upsertSaleBill(newBill, getActiveCompanyId()).catch((err) => {
+      console.warn('[PostgreSQL upsertSaleBill on update Error]:', err.message);
+    });
     return newBill;
   }
 
@@ -9506,15 +9496,14 @@ class DatabaseService {
       const cid = getActiveCompanyId();
 
       const getCustEffectiveBal = (c: Customer): number => {
-        let cur = Number(c.outstandingBalance);
-        if (isNaN(cur) || cur === 0) {
-          const rawOB = Number(c.openingBalance) || 0;
-          if (rawOB !== 0) {
-            return c.openingBalanceType === 'CR' ? -Math.abs(rawOB) : Math.abs(rawOB);
-          }
-          return 0;
+        if (c.outstandingBalance !== undefined && c.outstandingBalance !== null && !isNaN(Number(c.outstandingBalance))) {
+          return Number(c.outstandingBalance);
         }
-        return cur;
+        const rawOB = Number(c.openingBalance) || 0;
+        if (rawOB !== 0) {
+          return c.openingBalanceType === 'CR' ? -Math.abs(rawOB) : Math.abs(rawOB);
+        }
+        return 0;
       };
 
       if (voucher.voucherType === 'BR' || voucher.voucherType === 'CR') {
@@ -11111,6 +11100,7 @@ class DatabaseService {
       if (customer) {
         customer.outstandingBalance = Number(((customer.outstandingBalance || 0) - netTotal).toFixed(2));
         customer.updatedAt = new Date().toISOString();
+        postgresService.upsertCustomer(customer, getActiveCompanyId()).catch(() => {});
       }
     }
 
