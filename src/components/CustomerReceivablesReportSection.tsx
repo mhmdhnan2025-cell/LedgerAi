@@ -9,8 +9,11 @@ import {
   CheckCircle2,
   Calendar,
   Filter,
+  BookOpen,
+  X,
+  ExternalLink,
 } from 'lucide-react';
-import { Customer, SaleBill, CompanyProfile, Voucher } from '../types';
+import { Customer, SaleBill, CompanyProfile, Voucher, SaleReturn } from '../types';
 import { api } from '../services/api';
 import { exportToCsv } from '../utils/exportCsv';
 
@@ -111,11 +114,15 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
   const [customers, setCustomers] = useState<Customer[]>(initialCustomers);
   const [salesBills, setSalesBills] = useState<SaleBill[]>([]);
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
+  const [saleReturns, setSaleReturns] = useState<SaleReturn[]>([]);
   const [cashRecoveredItems, setCashRecoveredItems] = useState<any[]>([]);
   const [salesmenList, setSalesmenList] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Quick Customer Ledger Drawer/Modal State
+  const [activeLedgerCustomerId, setActiveLedgerCustomerId] = useState<string | null>(null);
 
   // Selected row for highlight (soft yellow row highlight matching reference Image 2)
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
@@ -145,10 +152,11 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
     setIsLoading(true);
     setErrorMsg(null);
     try {
-      const [custList, billsList, vouchersList, smList, cashRecReport] = await Promise.all([
+      const [custList, billsList, vouchersList, returnsList, smList, cashRecReport] = await Promise.all([
         api.getCustomers().catch(() => []),
         api.getSales().catch(() => []),
         api.getVouchers().catch(() => []),
+        api.getSaleReturns().catch(() => []),
         api.getSalesmen().catch(() => []),
         api.getCashRecoveredReport().catch(() => ({ items: [] })),
       ]);
@@ -158,6 +166,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
       }
       setSalesBills(billsList || []);
       setVouchers(vouchersList || []);
+      setSaleReturns(returnsList || []);
       setSalesmenList(smList || []);
       setCashRecoveredItems(cashRecReport?.items || []);
     } catch (err: any) {
@@ -231,96 +240,153 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
     const normFrom = fromDate ? normalizeToYMD(fromDate) : '';
     const normTo = toDate ? normalizeToYMD(toDate) : '';
 
-    // Group sales bills by customer ID and lower-case title
-    const billsByCustId = new Map<string, SaleBill[]>();
-    const billsByCustTitle = new Map<string, SaleBill[]>();
+    // Canonical customer lookup map: matches ID, stripped comp ID, code, accountCode, manualCode, or title
+    const custKeyToId = new Map<string, string>();
+    customers.forEach((c) => {
+      const cid = c.id;
+      custKeyToId.set(cid.toLowerCase(), cid);
+      const stripped = cid.replace(/_comp[_-].*$/, '').toLowerCase();
+      if (stripped) custKeyToId.set(stripped, cid);
+      if (c.code) custKeyToId.set(c.code.trim().toLowerCase(), cid);
+      if (c.accountCode) custKeyToId.set(c.accountCode.trim().toLowerCase(), cid);
+      if (c.manualCode) custKeyToId.set(c.manualCode.trim().toLowerCase(), cid);
+      const title = (c.accountTitle || c.name || '').trim().toLowerCase();
+      if (title) custKeyToId.set(title, cid);
+    });
 
+    const resolveCustId = (id?: string | null, code?: string | null, title?: string | null): string | null => {
+      if (id) {
+        const idLower = id.trim().toLowerCase();
+        if (custKeyToId.has(idLower)) return custKeyToId.get(idLower)!;
+        const stripped = idLower.replace(/_comp[_-].*$/, '');
+        if (custKeyToId.has(stripped)) return custKeyToId.get(stripped)!;
+      }
+      if (code) {
+        const codeLower = code.trim().toLowerCase();
+        if (custKeyToId.has(codeLower)) return custKeyToId.get(codeLower)!;
+      }
+      if (title) {
+        const titleLower = title.trim().toLowerCase();
+        if (custKeyToId.has(titleLower)) return custKeyToId.get(titleLower)!;
+      }
+      return null;
+    };
+
+    // 1. Group sales bills by customer ID (each bill counted EXACTLY once)
+    const billsByCust = new Map<string, SaleBill[]>();
     salesBills.forEach((b) => {
       if (b.status === 'Cancelled') return;
       const bDateNorm = normalizeToYMD(b.date);
       if (normFrom && bDateNorm && bDateNorm < normFrom) return;
       if (normTo && bDateNorm && bDateNorm > normTo) return;
 
-      if (b.customerId) {
-        if (!billsByCustId.has(b.customerId)) billsByCustId.set(b.customerId, []);
-        billsByCustId.get(b.customerId)!.push(b);
-      }
-      const titleLower = (b.customerAccountTitle || b.customerName || '').toLowerCase().trim();
-      if (titleLower) {
-        if (!billsByCustTitle.has(titleLower)) billsByCustTitle.set(titleLower, []);
-        billsByCustTitle.get(titleLower)!.push(b);
+      const custId = resolveCustId(b.customerId, undefined, b.customerAccountTitle || b.customerName);
+      if (custId) {
+        if (!billsByCust.has(custId)) billsByCust.set(custId, []);
+        billsByCust.get(custId)!.push(b);
       }
     });
 
-    // Group receipt vouchers by customer ID, code, and lower-case title
+    // 2. Group receipts by customer ID (de-duplicated so each voucher/payment is counted EXACTLY once)
     interface ReceiptRecord {
+      id: string;
       date: string;
       amount: number;
+      refType: string;
+      refNumber: string;
+      narration: string;
     }
-    const receiptsByCustId = new Map<string, ReceiptRecord[]>();
-    const receiptsByCustCode = new Map<string, ReceiptRecord[]>();
-    const receiptsByCustTitle = new Map<string, ReceiptRecord[]>();
+    const receiptsByCust = new Map<string, ReceiptRecord[]>();
+    const seenReceiptKeys = new Set<string>();
 
-    // 1. From Vouchers (CR, BR, CB)
+    // Vouchers (CR, BR, CB, JV credit)
     vouchers.forEach((v) => {
       if (v.status !== 'POSTED') return;
-      if (v.voucherType !== 'CR' && v.voucherType !== 'BR' && v.voucherType !== 'CB') return;
+      if (v.voucherType !== 'CR' && v.voucherType !== 'BR' && v.voucherType !== 'CB' && v.voucherType !== 'JV') return;
       const vDateNorm = normalizeToYMD(v.date);
       if (normFrom && vDateNorm && vDateNorm < normFrom) return;
       if (normTo && vDateNorm && vDateNorm > normTo) return;
 
-      (v.entries || []).forEach((e) => {
-        const amt = v.voucherType === 'CB' ? (Number(e.receipt) || Number(e.amount) || 0) : (Number(e.amount) || 0);
+      (v.entries || []).forEach((e, idx) => {
+        let amt = 0;
+        if (v.voucherType === 'CB') {
+          amt = Number(e.receipt) || Number(e.amount) || 0;
+        } else if (v.voucherType === 'JV') {
+          amt = Number(e.credit) || 0;
+        } else {
+          amt = Number(e.amount) || 0;
+        }
         if (amt <= 0) return;
 
-        const rec: ReceiptRecord = { date: v.date, amount: amt };
-        if (e.accountId) {
-          if (!receiptsByCustId.has(e.accountId)) receiptsByCustId.set(e.accountId, []);
-          receiptsByCustId.get(e.accountId)!.push(rec);
-        }
-        const cCode = String(e.accountCode || '').trim();
-        if (cCode) {
-          if (!receiptsByCustCode.has(cCode)) receiptsByCustCode.set(cCode, []);
-          receiptsByCustCode.get(cCode)!.push(rec);
-        }
-        const titleLower = (e.accountTitle || '').toLowerCase().trim();
-        if (titleLower) {
-          if (!receiptsByCustTitle.has(titleLower)) receiptsByCustTitle.set(titleLower, []);
-          receiptsByCustTitle.get(titleLower)!.push(rec);
-        }
+        const custId = resolveCustId(e.accountId, e.accountCode, e.accountTitle);
+        if (!custId) return;
+
+        const uniqueKey = `v_${v.id}_${e.id || idx}`;
+        if (seenReceiptKeys.has(uniqueKey)) return;
+        seenReceiptKeys.add(uniqueKey);
+
+        if (!receiptsByCust.has(custId)) receiptsByCust.set(custId, []);
+        receiptsByCust.get(custId)!.push({
+          id: uniqueKey,
+          date: v.date,
+          amount: amt,
+          refType: `${v.voucherType}#`,
+          refNumber: v.voucherNumberFormatted || String(v.voucherNumber || ''),
+          narration: e.narration || `${v.voucherType} Voucher`,
+        });
       });
     });
 
-    // 2. From Cash Recovered items
-    cashRecoveredItems.forEach((ci) => {
+    // Cash Recovered items (from direct payments or market udhaar recoveries)
+    const existingVoucherIds = new Set(vouchers.map((v) => v.id));
+    cashRecoveredItems.forEach((ci, idx) => {
+      if (ci.voucherId && existingVoucherIds.has(ci.voucherId)) return;
       const ciDateNorm = normalizeToYMD(ci.date);
       if (normFrom && ciDateNorm && ciDateNorm < normFrom) return;
       if (normTo && ciDateNorm && ciDateNorm > normTo) return;
       const amt = Number(ci.amount) || 0;
       if (amt <= 0) return;
 
-      const rec: ReceiptRecord = { date: ci.date, amount: amt };
-      const cCode = String(ci.accountCode || '').trim();
-      if (cCode) {
-        if (!receiptsByCustCode.has(cCode)) receiptsByCustCode.set(cCode, []);
-        receiptsByCustCode.get(cCode)!.push(rec);
-      }
-      const titleLower = (ci.accountTitle || '').toLowerCase().trim();
-      if (titleLower) {
-        if (!receiptsByCustTitle.has(titleLower)) receiptsByCustTitle.set(titleLower, []);
-        receiptsByCustTitle.get(titleLower)!.push(rec);
+      const custId = resolveCustId(undefined, ci.accountCode, ci.accountTitle);
+      if (!custId) return;
+
+      const uniqueKey = `ci_${ci.voucherId || idx}_${ci.accountCode}_${amt}`;
+      if (seenReceiptKeys.has(uniqueKey)) return;
+      seenReceiptKeys.add(uniqueKey);
+
+      if (!receiptsByCust.has(custId)) receiptsByCust.set(custId, []);
+      receiptsByCust.get(custId)!.push({
+        id: uniqueKey,
+        date: ci.date,
+        amount: amt,
+        refType: `${ci.voucherType || 'CR'}#`,
+        refNumber: ci.voucherNumberFormatted || '',
+        narration: ci.narration || 'Payment Recovery',
+      });
+    });
+
+    // 3. Group Sales Returns by customer ID
+    const returnsByCust = new Map<string, SaleReturn[]>();
+    saleReturns.forEach((sr) => {
+      if (sr.status === 'CANCELLED') return;
+      const srDateNorm = normalizeToYMD(sr.date);
+      if (normFrom && srDateNorm && srDateNorm < normFrom) return;
+      if (normTo && srDateNorm && srDateNorm > normTo) return;
+
+      const custId = resolveCustId(sr.customerId, sr.customerCode, sr.customerAccountTitle);
+      if (custId) {
+        if (!returnsByCust.has(custId)) returnsByCust.set(custId, []);
+        returnsByCust.get(custId)!.push(sr);
       }
     });
 
     // Map each customer to a report row
     return customers.map((c) => {
       const custTitle = (c.accountTitle || c.name || 'Unnamed Customer').trim();
-      const custTitleLower = custTitle.toLowerCase();
       const custCode = (c.code || c.accountCode || '').trim();
 
       // Find matched bills
-      const matchedBills = billsByCustId.get(c.id) || billsByCustTitle.get(custTitleLower) || [];
-      // Sort bills by date descending to find the latest bill
+      const matchedBills = billsByCust.get(c.id) || [];
       matchedBills.sort((a, b) => {
         const da = normalizeToYMD(a.date);
         const db = normalizeToYMD(b.date);
@@ -330,16 +396,11 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
 
       const latestBill = matchedBills.length > 0 ? matchedBills[0] : null;
       const lastBillNumber = latestBill ? (latestBill.billNumber || latestBill.id) : (c.lastBillNumber || '-');
-      const lastBillDate = latestBill ? formatDateDDMMYYYY(latestBill.date) : (c.lastBillDate || '-');
+      const lastBillDate = latestBill ? formatDateDDMMYYYY(latestBill.date) : (c.lastBillDate ? formatDateDDMMYYYY(c.lastBillDate) : '-');
       const lastBillAmount = latestBill ? Number(latestBill.netTotal || latestBill.totalAmount || 0) : Number(c.lastBillAmount || 0);
 
       // Find matched receipts
-      const matchedReceipts = [
-        ...(receiptsByCustId.get(c.id) || []),
-        ...(receiptsByCustCode.get(custCode) || []),
-        ...(receiptsByCustTitle.get(custTitleLower) || []),
-      ];
-      // Sort receipts by date descending to find latest receipt
+      const matchedReceipts = receiptsByCust.get(c.id) || [];
       matchedReceipts.sort((a, b) => {
         const da = normalizeToYMD(a.date);
         const db = normalizeToYMD(b.date);
@@ -347,8 +408,11 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
       });
 
       const latestReceipt = matchedReceipts.length > 0 ? matchedReceipts[0] : null;
-      const lastReceiptDate = latestReceipt ? formatDateDDMMYYYY(latestReceipt.date) : (c.lastReceiptDate || '-');
+      const lastReceiptDate = latestReceipt ? formatDateDDMMYYYY(latestReceipt.date) : (c.lastReceiptDate ? formatDateDDMMYYYY(c.lastReceiptDate) : '-');
       const lastReceiptAmount = latestReceipt ? Number(latestReceipt.amount || 0) : Number(c.lastReceiptAmount || 0);
+
+      // Find matched returns
+      const matchedReturns = returnsByCust.get(c.id) || [];
 
       // Handling Salesman
       let salesman = c.assignedSalesman?.trim() || (c as any).salesman?.trim() || '';
@@ -363,16 +427,27 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
       const balType = (c as any).openingBalanceType || (c as any).opening_balance_type || 'DR';
       const initBal = balType === 'CR' ? -Math.abs(rawOpen) : Math.abs(rawOpen);
 
-      let ledgerBalance = !isNaN(rawOut) && rawOut !== 0 ? rawOut : initBal;
-      if (matchedBills.length > 0 || matchedReceipts.length > 0) {
-        let computed = initBal;
-        for (const b of matchedBills) {
-          computed += Number(b.balanceReceivable !== undefined ? b.balanceReceivable : (Number(b.netTotal || 0) - Number(b.cashReceived || 0)));
+      let totalBillsReceivable = 0;
+      for (const b of matchedBills) {
+        totalBillsReceivable += Number(b.balanceReceivable !== undefined ? b.balanceReceivable : (Number(b.netTotal || 0) - Number(b.cashReceived || 0)));
+      }
+      let totalReceipts = 0;
+      for (const r of matchedReceipts) {
+        totalReceipts += Number(r.amount || 0);
+      }
+      let totalReturns = 0;
+      for (const sr of matchedReturns) {
+        totalReturns += Number(sr.netTotal || sr.totalAmount || 0);
+      }
+
+      // Exact running ledger balance
+      let ledgerBalance = initBal + totalBillsReceivable - totalReceipts - totalReturns;
+
+      // Fallback if no transactions exist and outstandingBalance was stored
+      if (matchedBills.length === 0 && matchedReceipts.length === 0 && matchedReturns.length === 0) {
+        if (!isNaN(rawOut) && rawOut !== 0) {
+          ledgerBalance = rawOut;
         }
-        for (const r of matchedReceipts) {
-          computed -= Number(r.amount || 0);
-        }
-        ledgerBalance = computed;
       }
 
       return {
@@ -393,7 +468,178 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
         city: c.city,
       };
     });
-  }, [customers, salesBills, vouchers, cashRecoveredItems, fromDate, toDate]);
+  }, [customers, salesBills, vouchers, cashRecoveredItems, saleReturns, fromDate, toDate]);
+
+  // Comprehensive Customer Ledger Statement for Quick Modal View
+  const activeCustomerLedgerData = useMemo(() => {
+    if (!activeLedgerCustomerId) return null;
+    const c = customers.find((cust) => cust.id === activeLedgerCustomerId);
+    if (!c) return null;
+
+    const rawOpen = Number(c.openingBalance) || 0;
+    const balType = c.openingBalanceType || (c as any).opening_balance_type || 'DR';
+    const initBal = balType === 'CR' ? -Math.abs(rawOpen) : Math.abs(rawOpen);
+
+    interface LedgerLine {
+      id: string;
+      sNo: number;
+      date: string;
+      refType: string;
+      refNumber: string;
+      billNumber: string;
+      narration: string;
+      debit: number;
+      credit: number;
+      balance: number;
+      balanceType: 'DR' | 'CR';
+    }
+
+    const lines: Omit<LedgerLine, 'sNo' | 'balance' | 'balanceType'>[] = [];
+
+    // Matched bills
+    const cBills = salesBills.filter((b) => {
+      if (b.status === 'Cancelled') return false;
+      return (
+        b.customerId === c.id ||
+        (b.customerAccountTitle && b.customerAccountTitle.trim().toLowerCase() === (c.accountTitle || c.name || '').trim().toLowerCase())
+      );
+    });
+
+    cBills.forEach((b) => {
+      const itemDesc = (b.items || []).map((it) => `${it.itemTitle || 'Item'} (x${it.qty})`).join(', ');
+      lines.push({
+        id: `bill-${b.id}`,
+        date: b.date,
+        refType: 'SV#',
+        refNumber: b.billNumber || b.id,
+        billNumber: b.billNumber || '',
+        narration: `Sale Bill #${b.billNumber}${itemDesc ? ` — ${itemDesc}` : ''}`,
+        debit: Number(b.netTotal || b.totalAmount || 0),
+        credit: 0,
+      });
+
+      if (b.cashReceived && Number(b.cashReceived) > 0) {
+        lines.push({
+          id: `bill-cash-${b.id}`,
+          date: b.date,
+          refType: 'CR#',
+          refNumber: b.billNumber || b.id,
+          billNumber: b.billNumber || '',
+          narration: `Cash Received against Bill #${b.billNumber}`,
+          debit: 0,
+          credit: Number(b.cashReceived),
+        });
+      }
+
+      if (b.balanceRecovered && Number(b.balanceRecoveredAmount) > 0) {
+        lines.push({
+          id: `bill-rec-${b.id}`,
+          date: b.date,
+          refType: 'CR#',
+          refNumber: b.billNumber || b.id,
+          billNumber: b.billNumber || '',
+          narration: `Old Recovery collected on Bill #${b.billNumber}`,
+          debit: 0,
+          credit: Number(b.balanceRecoveredAmount),
+        });
+      }
+    });
+
+    // Matched vouchers
+    vouchers.forEach((v) => {
+      if (v.status !== 'POSTED') return;
+      if (v.voucherType !== 'CR' && v.voucherType !== 'BR' && v.voucherType !== 'CB' && v.voucherType !== 'JV') return;
+      (v.entries || []).forEach((e, idx) => {
+        const match =
+          e.accountId === c.id ||
+          (e.accountCode && (e.accountCode === c.code || e.accountCode === c.accountCode || e.accountCode === c.manualCode)) ||
+          (e.accountTitle && (e.accountTitle.trim().toLowerCase() === (c.accountTitle || c.name || '').trim().toLowerCase()));
+        if (!match) return;
+
+        let debit = 0;
+        let credit = 0;
+        if (v.voucherType === 'CR' || v.voucherType === 'BR') {
+          credit = Number(e.amount) || 0;
+        } else if (v.voucherType === 'CB') {
+          credit = Number(e.receipt) || Number(e.amount) || 0;
+        } else if (v.voucherType === 'JV') {
+          debit = Number(e.debit) || 0;
+          credit = Number(e.credit) || 0;
+        }
+        if (debit <= 0 && credit <= 0) return;
+
+        lines.push({
+          id: `v-${v.id}-${idx}`,
+          date: v.date,
+          refType: `${v.voucherType}#`,
+          refNumber: v.voucherNumberFormatted || String(v.voucherNumber || ''),
+          billNumber: v.poNumber || '',
+          narration: e.narration || `${v.voucherType} Voucher Payment/Recovery`,
+          debit,
+          credit,
+        });
+      });
+    });
+
+    // Matched returns
+    const cReturns = saleReturns.filter((sr) => {
+      if (sr.status === 'CANCELLED') return false;
+      return (
+        sr.customerId === c.id ||
+        sr.customerCode === c.code ||
+        (sr.customerAccountTitle && sr.customerAccountTitle.trim().toLowerCase() === (c.accountTitle || c.name || '').trim().toLowerCase())
+      );
+    });
+
+    cReturns.forEach((sr) => {
+      lines.push({
+        id: `ret-${sr.id}`,
+        date: sr.date,
+        refType: 'SR#',
+        refNumber: sr.returnNumber || sr.id,
+        billNumber: sr.originalBillNumber || '',
+        narration: `Sale Return #${sr.returnNumber} (${sr.reason || 'Returned Items'})`,
+        debit: 0,
+        credit: Number(sr.netTotal || sr.totalAmount || 0),
+      });
+    });
+
+    // Sort chronologically ascending
+    lines.sort((a, b) => {
+      const da = normalizeToYMD(a.date);
+      const db = normalizeToYMD(b.date);
+      if (da !== db) return da.localeCompare(db);
+      return a.refNumber.localeCompare(b.refNumber);
+    });
+
+    // Running balance calculation
+    let running = initBal;
+    let totalDebit = 0;
+    let totalCredit = 0;
+
+    const fullEntries: LedgerLine[] = lines.map((l, index) => {
+      totalDebit += l.debit;
+      totalCredit += l.credit;
+      running += (l.debit - l.credit);
+      return {
+        ...l,
+        sNo: index + 1,
+        balance: Math.abs(running),
+        balanceType: running >= 0 ? 'DR' : 'CR',
+      };
+    });
+
+    return {
+      customer: c,
+      openingBalance: Math.abs(initBal),
+      openingBalanceType: balType,
+      entries: fullEntries,
+      totalDebit,
+      totalCredit,
+      closingBalance: Math.abs(running),
+      closingBalanceType: running >= 0 ? 'DR' : 'CR',
+    };
+  }, [activeLedgerCustomerId, customers, salesBills, vouchers, saleReturns]);
 
   // Filtered Rows based on the user's active filter criteria
   const filteredRows = useMemo(() => {
@@ -949,21 +1195,36 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
                         {row.mCode || '—'}
                       </td>
 
-                      {/* TITLE (3-Line Format: (Salesman) / Customer Title / Mobile) */}
+                      {/* TITLE (3-Line Format: (Salesman) / Customer Title / Mobile) + Quick Ledger button */}
                       <td className="py-2.5 px-3 border-r border-slate-100 dark:border-slate-800">
-                        <div className="leading-tight">
-                          {/* Line 1: (Salesman Name) or 0 */}
-                          <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                            {row.salesman ? `(${row.salesman})` : '0'}
+                        <div className="flex items-start justify-between gap-1">
+                          <div className="leading-tight">
+                            {/* Line 1: (Salesman Name) or 0 */}
+                            <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                              {row.salesman ? `(${row.salesman})` : '0'}
+                            </div>
+                            {/* Line 2: Customer Account Title */}
+                            <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white capitalize">
+                              {row.accountTitle}
+                            </div>
+                            {/* Line 3: Mobile Phone Number */}
+                            <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                              {row.mobile || '—'}
+                            </div>
                           </div>
-                          {/* Line 2: Customer Account Title */}
-                          <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white capitalize">
-                            {row.accountTitle}
-                          </div>
-                          {/* Line 3: Mobile Phone Number */}
-                          <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
-                            {row.mobile || '—'}
-                          </div>
+                          {/* Quick Ledger Action Button */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveLedgerCustomerId(row.id);
+                            }}
+                            className="print-hide shrink-0 mt-0.5 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/70 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[10px] font-bold transition shadow-2xs cursor-pointer select-none"
+                            title="View complete customer ledger"
+                          >
+                            <BookOpen className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                            <span>Ledger ↗</span>
+                          </button>
                         </div>
                       </td>
 
@@ -1028,6 +1289,215 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
           </table>
         </div>
       </div>
+
+      {/* ------------------------------------------------------------- */}
+      {/* COMPLETE CUSTOMER LEDGER STATEMENT MODAL                     */}
+      {/* ------------------------------------------------------------- */}
+      {activeCustomerLedgerData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-xs overflow-y-auto print-hide">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-300 dark:border-slate-700 w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden">
+            {/* Modal Header */}
+            <div className="px-5 py-3.5 bg-[#1a2332] text-white flex items-center justify-between border-b border-[#2d3a4e]">
+              <div className="flex items-center gap-2.5">
+                <BookOpen className="w-5 h-5 text-blue-400 shrink-0" />
+                <div>
+                  <h3 className="text-sm font-bold tracking-wide">
+                    Customer Statement of Account &amp; Complete Ledger
+                  </h3>
+                  <p className="text-[11px] text-slate-300">
+                    Continuous ledger showing past opening balance and all real-time billing and recovery transactions
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {onNavigateTab && (
+                  <button
+                    onClick={() => {
+                      sessionStorage.setItem('erp_selected_customer_ledger_id', activeCustomerLedgerData.customer.id);
+                      setActiveLedgerCustomerId(null);
+                      onNavigateTab('customerLedger');
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition cursor-pointer"
+                    title="Open in full Reports > Customer Ledger tab"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Full Ledger Tab</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold transition cursor-pointer"
+                  title="Print this Statement"
+                >
+                  <Printer className="w-3.5 h-3.5 text-blue-300" />
+                  <span>Print</span>
+                </button>
+                <button
+                  onClick={() => setActiveLedgerCustomerId(null)}
+                  className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Customer Details Summary Card */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-950/60 border-b border-slate-200 dark:border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div>
+                <span className="text-slate-500 dark:text-slate-400 font-medium block">Customer Title:</span>
+                <span className="font-bold text-slate-900 dark:text-white text-sm capitalize">
+                  {activeCustomerLedgerData.customer.accountTitle || activeCustomerLedgerData.customer.name}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-500 dark:text-slate-400 font-medium block">Account Code:</span>
+                <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                  {activeCustomerLedgerData.customer.code || activeCustomerLedgerData.customer.accountCode || '—'}
+                  {activeCustomerLedgerData.customer.manualCode ? ` (M: ${activeCustomerLedgerData.customer.manualCode})` : ''}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-500 dark:text-slate-400 font-medium block">Contact &amp; Area:</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                  {activeCustomerLedgerData.customer.mobile || 'No Mobile'}
+                  {activeCustomerLedgerData.customer.city ? ` • ${activeCustomerLedgerData.customer.city}` : ''}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-500 dark:text-slate-400 font-medium block">Assigned Salesman:</span>
+                <span className="font-bold text-blue-600 dark:text-blue-400">
+                  {activeCustomerLedgerData.customer.assignedSalesman || (activeCustomerLedgerData.customer as any).salesman || 'None'}
+                </span>
+              </div>
+            </div>
+
+            {/* Statement Table */}
+            <div className="overflow-y-auto flex-1 p-4">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-100 dark:bg-slate-800 font-bold uppercase tracking-wider text-[11px] text-slate-900 dark:text-white border-y border-slate-300 dark:border-slate-700">
+                    <th className="py-2 px-2 text-center w-10">#</th>
+                    <th className="py-2 px-2 text-center w-16">REF</th>
+                    <th className="py-2 px-2 text-center w-20">REF#</th>
+                    <th className="py-2 px-2.5 text-center w-24">DATE</th>
+                    <th className="py-2 px-2 text-center w-20">BILL#</th>
+                    <th className="py-2 px-3">NARRATION / PARTICULARS</th>
+                    <th className="py-2 px-3 text-right w-24">DEBIT (AED)</th>
+                    <th className="py-2 px-3 text-right w-24">CREDIT (AED)</th>
+                    <th className="py-2 px-3 text-right w-28">BALANCE</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800 font-mono text-xs">
+                  {/* Row 0: Opening Balance */}
+                  <tr className="bg-amber-50/50 dark:bg-amber-950/20 font-bold text-slate-900 dark:text-white">
+                    <td className="py-2 px-2 text-center text-slate-400">0</td>
+                    <td className="py-2 px-2 text-center">
+                      <span className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-[10px] font-black">OB</span>
+                    </td>
+                    <td className="py-2 px-2 text-center text-slate-400">—</td>
+                    <td className="py-2 px-2.5 text-center text-slate-500 font-sans">—</td>
+                    <td className="py-2 px-2 text-center text-slate-400">—</td>
+                    <td className="py-2 px-3 font-sans font-bold text-slate-900 dark:text-slate-100">
+                      Opening Balance (Ledger B/F)
+                    </td>
+                    <td className="py-2 px-3 text-right text-slate-400">—</td>
+                    <td className="py-2 px-3 text-right text-slate-400">—</td>
+                    <td className="py-2 px-3 text-right font-black text-slate-900 dark:text-white">
+                      {formatAmount(activeCustomerLedgerData.openingBalance)} {activeCustomerLedgerData.openingBalanceType}
+                    </td>
+                  </tr>
+
+                  {/* Transaction Rows */}
+                  {activeCustomerLedgerData.entries.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="py-8 text-center text-slate-500 dark:text-slate-400 font-sans text-xs">
+                        No transactions recorded for this customer yet. Balance remains at opening balance.
+                      </td>
+                    </tr>
+                  ) : (
+                    activeCustomerLedgerData.entries.map((entry) => (
+                      <tr
+                        key={entry.id}
+                        className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                      >
+                        <td className="py-2 px-2 text-center text-slate-500">{entry.sNo}</td>
+                        <td className="py-2 px-2 text-center">
+                          <span
+                            className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-black ${
+                              entry.refType === 'SV#'
+                                ? 'bg-blue-100 text-blue-900 dark:bg-blue-900/60 dark:text-blue-200'
+                                : entry.refType === 'CR#'
+                                ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/60 dark:text-emerald-200'
+                                : entry.refType === 'BR#'
+                                ? 'bg-purple-100 text-purple-900 dark:bg-purple-900/60 dark:text-purple-200'
+                                : entry.refType === 'SR#'
+                                ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/60 dark:text-amber-200'
+                                : 'bg-indigo-100 text-indigo-900 dark:bg-indigo-900/60 dark:text-indigo-200'
+                            }`}
+                          >
+                            {entry.refType}
+                          </span>
+                        </td>
+                        <td className="py-2 px-2 text-center text-slate-700 dark:text-slate-300 font-semibold">
+                          {entry.refNumber || '—'}
+                        </td>
+                        <td className="py-2 px-2.5 text-center text-slate-600 dark:text-slate-400">
+                          {formatDateDDMMYYYY(entry.date)}
+                        </td>
+                        <td className="py-2 px-2 text-center text-slate-700 dark:text-slate-300">
+                          {entry.billNumber || '—'}
+                        </td>
+                        <td className="py-2 px-3 font-sans text-slate-800 dark:text-slate-200">
+                          {entry.narration}
+                        </td>
+                        <td className="py-2 px-3 text-right font-semibold text-slate-900 dark:text-white">
+                          {entry.debit > 0 ? formatAmount(entry.debit) : '—'}
+                        </td>
+                        <td className="py-2 px-3 text-right font-semibold text-emerald-600 dark:text-emerald-400">
+                          {entry.credit > 0 ? formatAmount(entry.credit) : '—'}
+                        </td>
+                        <td className="py-2 px-3 text-right font-black text-slate-900 dark:text-white">
+                          {formatAmount(entry.balance)} {entry.balanceType}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-slate-100 dark:bg-slate-950 font-bold border-t-2 border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white">
+                    <td colSpan={6} className="py-2.5 px-3 text-right uppercase tracking-wider font-extrabold">
+                      Total Activity / Current Closing Balance:
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-black text-slate-900 dark:text-white">
+                      {formatAmount(activeCustomerLedgerData.totalDebit)}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-black text-emerald-600 dark:text-emerald-400">
+                      {formatAmount(activeCustomerLedgerData.totalCredit)}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-black text-blue-600 dark:text-blue-400">
+                      {formatAmount(activeCustomerLedgerData.closingBalance)} {activeCustomerLedgerData.closingBalanceType}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-5 py-3 bg-slate-100 dark:bg-slate-950/80 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
+              <span className="text-slate-500 dark:text-slate-400">
+                Total Transactions: <strong className="text-slate-900 dark:text-white font-bold">{activeCustomerLedgerData.entries.length}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={() => setActiveLedgerCustomerId(null)}
+                className="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-md font-semibold transition cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
