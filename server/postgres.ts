@@ -1757,6 +1757,17 @@ class PostgresService {
     }
   }
 
+  public async deleteAllCustomers(companyId = 'comp_default_01'): Promise<number> {
+    if (!this.pool) return 0;
+    try {
+      const res = await this.pool.query('DELETE FROM customers WHERE company_id = $1 OR company_id IS NULL', [companyId]);
+      return res.rowCount || 0;
+    } catch (err: any) {
+      console.error('[PostgreSQL deleteAllCustomers error]:', err.message);
+      throw new Error(`PostgreSQL deleteAllCustomers failed: ${err.message}`);
+    }
+  }
+
   public async upsertSupplier(sup: Supplier, companyId = 'comp_default_01'): Promise<void> {
     if (!this.pool) return;
     try {

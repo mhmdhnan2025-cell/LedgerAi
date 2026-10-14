@@ -1181,6 +1181,23 @@ app.patch('/api/customers/:id/status', (req, res) => {
   }
 });
 
+// Delete ALL customers (A-Z) from local + PostgreSQL database (Settings > Customers)
+// NOTE: must be registered BEFORE /api/customers/:id so "delete-all" is not treated as an :id
+app.delete('/api/customers/delete-all', async (req, res) => {
+  try {
+    const source = req.body?.source || 'settings';
+    const user = req.body?.user;
+    const result = await db.deleteAllCustomers(source, user);
+    res.json({
+      success: true,
+      ...result,
+      message: `All customers deleted successfully! Local database: ${result.deleted} customers removed, PostgreSQL: ${result.postgresDeleted} rows removed, linked restaurants: ${result.restaurantsRemoved} removed.`,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.delete('/api/customers/:id', (req, res) => {
   try {
     const success = db.deleteCustomer(req.params.id, req.body.source || 'manual', req.body.user);

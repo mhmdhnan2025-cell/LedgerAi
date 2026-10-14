@@ -1084,6 +1084,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           companyProfile={companyProfile}
           onBackToSettings={() => setActiveSection('overview')}
           onNavigateTab={onNavigateTab}
+          onRefreshData={onRefreshData}
         />
       </div>
     );

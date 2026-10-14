@@ -1357,6 +1357,25 @@ export const api = {
     return res.json();
   },
 
+  async deleteAllCustomers(): Promise<{
+    success: boolean;
+    deleted: number;
+    restaurantsRemoved: number;
+    postgresDeleted: number;
+    message?: string;
+  }> {
+    const res = await fetch('/api/customers/delete-all', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source: 'settings' }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({} as any));
+      throw new Error(err.error || 'Failed to delete all customers');
+    }
+    return res.json();
+  },
+
   async getCustomerMeta(type: 'groups' | 'cities' | 'areas' | 'sectors' | 'zones' | 'countries'): Promise<string[]> {
     const res = await fetch(`/api/customers/meta/${type}`);
     if (!res.ok) throw new Error(`Failed to fetch customer ${type}`);

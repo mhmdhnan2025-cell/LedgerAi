@@ -33,6 +33,7 @@ import {
 import { Customer, CompanyProfile } from '../types';
 import { api } from '../services/api';
 import { exportToCsv } from '../utils/exportCsv';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
 interface CustomerManagementViewProps {
   onBackToSettings?: () => void;
@@ -174,6 +175,10 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
 
   // Action status message
   const [actionMsg, setActionMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Delete ALL customers (A-Z) state
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
 
   const loadCustomers = async () => {
     setIsLoading(true);
@@ -437,6 +442,27 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
     }
   };
 
+  const handleDeleteAll = async () => {
+    setIsDeletingAll(true);
+    try {
+      const res = await api.deleteAllCustomers();
+      setCustomersList([]);
+      setShowDeleteAllConfirm(false);
+      if (onRefreshData) {
+        await onRefreshData();
+      }
+      setActionMsg({
+        type: 'success',
+        text: res.message || `All customers deleted! ${res.deleted} customers removed from database (A-Z).`,
+      });
+    } catch (err: any) {
+      setActionMsg({ type: 'error', text: err.message || 'Failed to delete all customers.' });
+      setShowDeleteAllConfirm(false);
+    } finally {
+      setIsDeletingAll(false);
+    }
+  };
+
   const handleAddGroup = () => {
     const val = newGroupInput.trim();
     if (val && !availableGroups.includes(val)) {
@@ -574,6 +600,15 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Print Directory</span>
+            </button>
+            <button
+              onClick={() => setShowDeleteAllConfirm(true)}
+              disabled={customersList.length === 0 || isDeletingAll}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600/20 hover:bg-rose-600/40 text-rose-300 border border-rose-500/40 text-xs font-bold rounded-lg transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Delete ALL customers (A-Z) permanently from local + PostgreSQL database"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Delete All (A–Z)</span>
             </button>
             {onBackToSettings && (
               <button
@@ -1528,6 +1563,18 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
           </div>
         </form>
       )}
+
+      {/* Delete ALL Customers (A-Z) Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={showDeleteAllConfirm}
+        title="Delete ALL Customers (A–Z)?"
+        itemName={`${customersList.length} customers — A to Z`}
+        itemDetails="Tamam customers database se permanently delete ho jayenge (local JSON + PostgreSQL dono se). Unka data, opening balance aur linked restaurant records bhi remove ho jayenge. Ye action undo nahi ho sakta — pehle Export CSV kar ke backup zaroor lein."
+        onConfirm={handleDeleteAll}
+        onCancel={() => setShowDeleteAllConfirm(false)}
+        confirmButtonText="Haan, Sab Delete Karo"
+        isDeleting={isDeletingAll}
+      />
     </div>
   );
 };

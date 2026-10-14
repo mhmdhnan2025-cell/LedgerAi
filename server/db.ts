@@ -105,6 +105,7 @@ export interface DatabaseSchema {
   nextJvNumber?: number;
   nextVoucherNumbers?: Record<string, number>;
   geminiApiKey?: string;
+  customersPurged?: boolean;
 }
 
 const DB_DIR = path.join(process.cwd(), 'data');
@@ -2842,7 +2843,7 @@ class DatabaseService {
               parsed.products = getQamarStockSeed().map((p) => ({ ...p, companyId: cid }));
               this.persist(parsed, cid);
             }
-            if (!Array.isArray(parsed.customers) || parsed.customers.length === 0) {
+            if (!parsed.customersPurged && (!Array.isArray(parsed.customers) || parsed.customers.length === 0)) {
               parsed.customers = DEFAULT_SEED_CUSTOMERS.map((c) => ({ ...c, companyId: cid }));
             }
             if (!Array.isArray(parsed.suppliers) || parsed.suppliers.length === 0) {
@@ -3046,21 +3047,25 @@ class DatabaseService {
               };
             });
 
-            for (const cust of DEFAULT_SEED_CUSTOMERS) {
-              const cKey = (cust.code || cust.accountCode || '').trim().toLowerCase();
-              if (cKey && !existingCustCodes.has(cKey)) {
-                const prev = existingCustMap.get(cKey);
-                const baseId = cust.id.replace(/_comp[_-].*$/, '');
-                mergedCustomers.push({
-                  ...(prev || {}),
-                  ...cust,
-                  id: `${baseId}_${cid}`,
-                  companyId: cid,
-                });
-                existingCustCodes.add(cKey);
+            if (!current.customersPurged) {
+              for (const cust of DEFAULT_SEED_CUSTOMERS) {
+                const cKey = (cust.code || cust.accountCode || '').trim().toLowerCase();
+                if (cKey && !existingCustCodes.has(cKey)) {
+                  const prev = existingCustMap.get(cKey);
+                  const baseId = cust.id.replace(/_comp[_-].*$/, '');
+                  mergedCustomers.push({
+                    ...(prev || {}),
+                    ...cust,
+                    id: `${baseId}_${cid}`,
+                    companyId: cid,
+                  });
+                  existingCustCodes.add(cKey);
+                }
               }
             }
-            const customers = mergedCustomers.length > 0 ? mergedCustomers : DEFAULT_SEED_CUSTOMERS;
+            const customers = current.customersPurged
+              ? tenantCustomers
+              : (mergedCustomers.length > 0 ? mergedCustomers : DEFAULT_SEED_CUSTOMERS);
             
             const restaurants = (pgData.restaurants && pgData.restaurants.length > 0)
               ? pgData.restaurants
@@ -3406,7 +3411,11 @@ class DatabaseService {
           if (!Array.isArray(parsed.suppliers) || parsed.suppliers.length === 0) {
             parsed.suppliers = [...DEFAULT_SEED_SUPPLIERS];
           }
-          if (!Array.isArray(parsed.customers) || parsed.customers.length === 0) {
+          if (parsed.customersPurged) {
+            if (!Array.isArray(parsed.customers)) {
+              parsed.customers = [];
+            }
+          } else if (!Array.isArray(parsed.customers) || parsed.customers.length === 0) {
             parsed.customers = [...DEFAULT_SEED_CUSTOMERS];
           } else if (ALL_337_CUSTOMERS.length > 0 && parsed.customers.length < ALL_337_CUSTOMERS.length) {
             const existingCodes = new Set(parsed.customers.map((c: any) => c.code));
@@ -3596,7 +3605,7 @@ class DatabaseService {
     if (!Array.isArray(d.suppliers) || d.suppliers.length === 0) {
       d.suppliers = [...DEFAULT_SEED_SUPPLIERS];
     }
-    if (!Array.isArray(d.customers) || d.customers.length === 0) {
+    if (!d.customersPurged && (!Array.isArray(d.customers) || d.customers.length === 0)) {
       d.customers = [...DEFAULT_SEED_CUSTOMERS];
     }
     return d;
@@ -7737,6 +7746,67 @@ class DatabaseService {
       console.warn('[PostgreSQL deleteCustomer error]:', err.message)
     );
     return true;
+  }
+
+  public async deleteAllCustomers(
+    source: string = 'settings',
+    user: { id: string; name: string; role: UserRole } = { id: 'admin', name: 'Admin', role: 'Admin' }
+  ): Promise<{ deleted: number; restaurantsRemoved: number; postgresDeleted: number }> {
+    const cid = getActiveCompanyId();
+
+    // 1. Clean PostgreSQL first — if this fails, nothing is changed locally
+    let postgresDeleted = 0;
+    try {
+      postgresDeleted = await postgresService.deleteAllCustomers(cid);
+    } catch (err: any) {
+      throw new Error(`Customers were NOT deleted — PostgreSQL cleanup failed: ${err.message}`);
+    }
+
+    // 2. Remove all customers from local database
+    const data = this.data;
+    const removedCustomers = [...(data.customers || [])];
+    const removedIds = new Set(removedCustomers.map((c) => c.id));
+
+    // 3. Remove auto-created mirror restaurant entries (rest-<customerId> or id === customerId)
+    const isRemovedMirror = (r: { id?: string }) =>
+      Boolean(r.id && (removedIds.has(r.id) || (r.id.startsWith('rest-') && removedIds.has(r.id.slice(5)))));
+
+    const beforeRestaurants = (data.restaurants || []).length;
+    const removedRestaurants = (data.restaurants || []).filter(isRemovedMirror);
+    data.restaurants = (data.restaurants || []).filter((r) => !isRemovedMirror(r));
+    const restaurantsRemoved = beforeRestaurants - (data.restaurants || []).length;
+
+    // 4. Permanently stop seed customers from being re-injected on restart / sync
+    data.customers = [];
+    data.customersPurged = true;
+
+    this.logAudit({
+      userId: user.id,
+      userName: user.name,
+      userRole: user.role,
+      action: 'CANCEL_ORDER' as any,
+      entityType: 'Restaurant',
+      entityId: 'ALL_CUSTOMERS',
+      source: source as any,
+      description: `Deleted ALL customers (A-Z) from database. Customers removed: ${removedCustomers.length}, linked restaurant records removed: ${restaurantsRemoved}.`,
+    });
+
+    this.persist();
+
+    // 5. Clean mirror restaurant rows from PostgreSQL
+    for (const r of removedRestaurants) {
+      try {
+        await postgresService.deleteRestaurant(r.id, cid);
+      } catch (err: any) {
+        console.warn('[PostgreSQL deleteAllCustomers restaurant cleanup warning]:', err.message);
+      }
+    }
+
+    return {
+      deleted: removedCustomers.length,
+      restaurantsRemoved,
+      postgresDeleted,
+    };
   }
 
   public getCustomerGroups(): string[] {
