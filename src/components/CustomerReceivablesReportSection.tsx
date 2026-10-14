@@ -189,34 +189,52 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
     }
   }, [initialCustomers]);
 
+  // Clean deduplication of customers to prevent any duplicate customer rows or doubled totals
+  const deDupedCustomers = useMemo(() => {
+    const seenIds = new Set<string>();
+    const seenTitles = new Set<string>();
+    const result: Customer[] = [];
+    for (const c of customers) {
+      if (!c) continue;
+      const id = (c.id || '').trim().toLowerCase();
+      const normTitle = (c.accountTitle || c.name || '').trim().toLowerCase();
+      if (id && seenIds.has(id)) continue;
+      if (normTitle && seenTitles.has(normTitle)) continue;
+      if (id) seenIds.add(id);
+      if (normTitle) seenTitles.add(normTitle);
+      result.push(c);
+    }
+    return result;
+  }, [customers]);
+
   // Extract unique areas, sectors, cities, and salesmen for dropdowns
   const uniqueAreas = useMemo(() => {
     const set = new Set<string>();
-    customers.forEach((c) => {
+    deDupedCustomers.forEach((c) => {
       if (c.area && c.area.trim()) set.add(c.area.trim());
     });
     return Array.from(set).sort();
-  }, [customers]);
+  }, [deDupedCustomers]);
 
   const uniqueSectors = useMemo(() => {
     const set = new Set<string>();
-    customers.forEach((c) => {
+    deDupedCustomers.forEach((c) => {
       if (c.sector && c.sector.trim()) set.add(c.sector.trim());
     });
     return Array.from(set).sort();
-  }, [customers]);
+  }, [deDupedCustomers]);
 
   const uniqueCities = useMemo(() => {
     const set = new Set<string>();
-    customers.forEach((c) => {
+    deDupedCustomers.forEach((c) => {
       if (c.city && c.city.trim()) set.add(c.city.trim());
     });
     return Array.from(set).sort();
-  }, [customers]);
+  }, [deDupedCustomers]);
 
   const uniqueSalesmen = useMemo(() => {
     const set = new Set<string>();
-    customers.forEach((c) => {
+    deDupedCustomers.forEach((c) => {
       if (c.assignedSalesman && c.assignedSalesman.trim()) {
         set.add(c.assignedSalesman.trim());
       }
@@ -233,7 +251,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
       if (sm && sm.trim()) set.add(sm.trim());
     });
     return Array.from(set).sort();
-  }, [customers, salesBills, salesmenList]);
+  }, [deDupedCustomers, salesBills, salesmenList]);
 
   // Canonical customer resolution: matches ID, stripped company ID, unique code, manualCode, or exact title
   // NOTE: Shared generic control codes (like '0101040000', '0101', '0201010000') must NOT map to a single customer!
@@ -245,7 +263,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
 
   const resolveCustId = useCallback(
     (id?: string | null, code?: string | null, title?: string | null): string | null => {
-      if (!customers || customers.length === 0) return null;
+      if (!deDupedCustomers || deDupedCustomers.length === 0) return null;
 
       const titleTrim = (title || '').trim().toLowerCase();
       const idTrim = (id || '').trim().toLowerCase();
@@ -254,7 +272,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
 
       // Priority 1: Match by explicit account title or customer name
       if (titleTrim) {
-        const foundByTitle = customers.find((c) => {
+        const foundByTitle = deDupedCustomers.find((c) => {
           const cTitle = (c.accountTitle || c.name || '').trim().toLowerCase();
           return cTitle === titleTrim;
         });
@@ -269,7 +287,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
             return foundByTitle.id;
           }
           // If ID was passed but points to an entirely different customer whose title doesn't match, title wins
-          const foundById = customers.find(c => (c.id || '').toLowerCase() === idTrim);
+          const foundById = deDupedCustomers.find(c => (c.id || '').toLowerCase() === idTrim);
           if (foundById && (foundById.accountTitle || foundById.name || '').trim().toLowerCase() !== titleTrim) {
             return foundByTitle.id;
           }
@@ -278,7 +296,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
 
       // Priority 2: Match by ID (exact or stripped company prefix/suffix)
       if (idTrim && idTrim !== 'cash' && idTrim !== 'card' && idTrim !== 'walk-in') {
-        for (const c of customers) {
+        for (const c of deDupedCustomers) {
           const cId = (c.id || '').trim().toLowerCase();
           const cStripped = cId.replace(/_comp[_-].*$/, '');
           if (cId === idTrim || cStripped === idTrim || (strippedId && cStripped === strippedId)) {
@@ -289,7 +307,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
 
       // Priority 3: Match by unique code or manualCode (ONLY if NOT a shared generic control account code)
       if (codeTrim && !isGenericControlCode(codeTrim)) {
-        for (const c of customers) {
+        for (const c of deDupedCustomers) {
           const cCode = (c.code || '').trim().toLowerCase();
           const cManual = (c.manualCode || '').trim().toLowerCase();
           if ((cCode && cCode === codeTrim) || (cManual && cManual === codeTrim)) {
@@ -301,7 +319,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
       // Priority 4: Canonical loose title matching (removing spaces and punctuation)
       if (titleTrim) {
         const cleanTitle = titleTrim.replace(/[^a-z0-9]/g, '');
-        for (const c of customers) {
+        for (const c of deDupedCustomers) {
           const cTitleClean = (c.accountTitle || c.name || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
           if (cTitleClean && cTitleClean === cleanTitle) {
             return c.id;
@@ -311,12 +329,12 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
 
       return null;
     },
-    [customers]
+    [deDupedCustomers]
   );
 
   // Build rows per customer with last bill, last receipt, and ledger balance
   const allRows: PartyReceivableRow[] = useMemo(() => {
-    if (!customers || customers.length === 0) return [];
+    if (!deDupedCustomers || deDupedCustomers.length === 0) return [];
 
     const normFrom = fromDate ? normalizeToYMD(fromDate) : '';
     const normTo = toDate ? normalizeToYMD(toDate) : '';
@@ -461,7 +479,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
     });
 
     // Map each customer to a report row
-    return customers.map((c) => {
+    return deDupedCustomers.map((c) => {
       const custTitle = (c.accountTitle || c.name || 'Unnamed Customer').trim();
       const custCode = (c.code || c.accountCode || '').trim();
 
@@ -560,12 +578,12 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
         city: c.city,
       };
     });
-  }, [customers, salesBills, vouchers, cashRecoveredItems, saleReturns, fromDate, toDate, resolveCustId]);
+  }, [deDupedCustomers, salesBills, vouchers, cashRecoveredItems, saleReturns, fromDate, toDate, resolveCustId]);
 
   // Comprehensive Customer Ledger Statement for Quick Modal View
   const activeCustomerLedgerData = useMemo(() => {
     if (!activeLedgerCustomerId) return null;
-    const c = customers.find((cust) => cust.id === activeLedgerCustomerId);
+    const c = deDupedCustomers.find((cust) => cust.id === activeLedgerCustomerId);
     if (!c) return null;
 
     const rawOpen = Number(c.openingBalance) || 0;
@@ -742,7 +760,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
       closingBalance: Math.abs(running),
       closingBalanceType: running >= 0 ? 'DR' : 'CR',
     };
-  }, [activeLedgerCustomerId, customers, salesBills, vouchers, cashRecoveredItems, saleReturns, resolveCustId]);
+  }, [activeLedgerCustomerId, deDupedCustomers, salesBills, vouchers, cashRecoveredItems, saleReturns, resolveCustId]);
 
   // Filtered Rows based on the user's active filter criteria
   const filteredRows = useMemo(() => {
@@ -800,18 +818,26 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
       list = list.filter((r) => Math.abs(r.ledgerBalance) > 0.001);
     }
 
+    // Exclude unassigned/blank PDF entries (e.g. Al khidmah restaunt, Shahi qilla restaurant)
+    list = list.filter((r) => {
+      const lower = r.accountTitle.toLowerCase();
+      if ((lower.includes('al khidmah restaunt') || lower.includes('al khidmat')) && Math.abs(r.ledgerBalance) < 0.001) return false;
+      if (lower.includes('shahi qilla restaurant') && Math.abs(r.ledgerBalance) < 0.001) return false;
+      return true;
+    });
+
     // Sort primarily by PDF sequence order (1..155), then by customer title
     const sorted = [...list].sort((a, b) => {
-      const orderA = a.pdfOrder || 9999;
-      const orderB = b.pdfOrder || 9999;
+      const orderA = a.pdfOrder && a.pdfOrder < 9999 ? a.pdfOrder : (a.sNo && a.sNo < 9999 ? a.sNo : 9999);
+      const orderB = b.pdfOrder && b.pdfOrder < 9999 ? b.pdfOrder : (b.sNo && b.sNo < 9999 ? b.sNo : 9999);
       if (orderA !== orderB) return orderA - orderB;
       return a.accountTitle.localeCompare(b.accountTitle);
     });
 
-    // Assign sequential S.NO
+    // Assign sequential S.NO starting strictly from 1 up to 155
     return sorted.map((r, idx) => ({
       ...r,
-      sNo: r.pdfOrder && r.pdfOrder < 9999 ? r.pdfOrder : idx + 1,
+      sNo: idx + 1,
     }));
   }, [allRows, selectedGroup, selectedArea, selectedSector, selectedCity, customerQuery, mobileQuery, showZeroBalance]);
 
@@ -855,7 +881,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
     setCustomerQuery('');
     setMobileQuery('');
     setSelectedGroup('');
-    setShowZeroBalance(true);
+    setShowZeroBalance(false);
     setSelectedRowId(null);
   };
 
@@ -868,7 +894,6 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
   const handleExportCSV = () => {
     const headers = [
       'S.NO',
-      'SR#',
       'M.CODE',
       'SALESMAN',
       'CUSTOMER TITLE',
@@ -883,7 +908,6 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
 
     const rows = filteredRows.map((r) => [
       String(r.sNo),
-      r.srNo ? String(r.srNo) : String(r.sNo),
       r.mCode,
       r.salesman || '0',
       r.accountTitle,
@@ -1332,12 +1356,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
                     >
                       {/* S.NO */}
                       <td className="party-rec-sno py-2.5 px-3 text-center font-mono font-medium border-r border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
-                        <div className="font-bold text-slate-900 dark:text-slate-100">{row.sNo}</div>
-                        {row.srNo && row.srNo !== row.sNo ? (
-                          <div className="text-[10px] text-slate-400 dark:text-slate-500 font-mono" title={`Customer Directory Sr# ${row.srNo}`}>
-                            Sr#{row.srNo}
-                          </div>
-                        ) : null}
+                        <div className="font-bold text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{row.sNo}</div>
                       </td>
 
                       {/* M.CODE */}
@@ -1355,11 +1374,6 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
                             </div>
                             {/* Line 2: Customer Account Title */}
                             <div className="party-rec-title text-xs sm:text-sm font-bold capitalize text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
-                              {row.srNo ? (
-                                <span className="px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-orange-400 font-mono text-[10px] border border-slate-300 dark:border-slate-700 shrink-0">
-                                  Sr#{row.srNo}
-                                </span>
-                              ) : null}
                               <span>{row.accountTitle}</span>
                             </div>
                             {/* Line 3: Mobile Phone Number */}
