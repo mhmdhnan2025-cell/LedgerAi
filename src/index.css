@@ -636,37 +636,53 @@ table.party-rec-table thead th {
   font-weight: 800 !important;
 }
 
-/* LEDGER BALANCE in light themes: Deep bold black/slate */
-[data-theme="cream"] .party-rec-table .party-rec-balance,
-[data-theme="pearl"] .party-rec-table .party-rec-balance,
-[data-theme="sand"] .party-rec-table .party-rec-balance,
-[data-theme="light_blue"] .party-rec-table .party-rec-balance {
-  color: #0F172A !important;
+/* LEDGER BALANCE in light themes (cream, pearl, sand, light_blue) */
+[data-theme="cream"] .party-rec-table .party-rec-balance.party-rec-balance-dr,
+[data-theme="pearl"] .party-rec-table .party-rec-balance.party-rec-balance-dr,
+[data-theme="light_blue"] .party-rec-table .party-rec-balance.party-rec-balance-dr {
+  color: #b91c1c !important; /* Bold vivid crimson DR */
   font-weight: 900 !important;
 }
 
-/* TOTALS FOOTER in light themes */
-[data-theme="cream"] .party-rec-table tfoot tr,
-[data-theme="pearl"] .party-rec-table tfoot tr,
-[data-theme="sand"] .party-rec-table tfoot tr,
-[data-theme="light_blue"] .party-rec-table tfoot tr {
-  background-color: #E2E8F0 !important;
-  border-top: 2px solid #94A3B8 !important;
+[data-theme="sand"] .party-rec-table .party-rec-balance.party-rec-balance-dr {
+  color: #c2410c !important; /* Rich deep amber-rust DR */
+  font-weight: 900 !important;
 }
 
+[data-theme="cream"] .party-rec-table .party-rec-balance.party-rec-balance-cr,
+[data-theme="pearl"] .party-rec-table .party-rec-balance.party-rec-balance-cr,
+[data-theme="sand"] .party-rec-table .party-rec-balance.party-rec-balance-cr,
+[data-theme="light_blue"] .party-rec-table .party-rec-balance.party-rec-balance-cr {
+  color: #047857 !important; /* Deep emerald CR */
+  font-weight: 900 !important;
+}
+
+[data-theme="cream"] .party-rec-table .party-rec-balance.party-rec-balance-zero,
+[data-theme="pearl"] .party-rec-table .party-rec-balance.party-rec-balance-zero,
+[data-theme="sand"] .party-rec-table .party-rec-balance.party-rec-balance-zero,
+[data-theme="light_blue"] .party-rec-table .party-rec-balance.party-rec-balance-zero {
+  color: #64748b !important;
+  font-weight: 700 !important;
+}
+
+/* TOTALS FOOTER in light themes */
 [data-theme="cream"] .party-rec-table .party-rec-total-label,
 [data-theme="cream"] .party-rec-table .party-rec-total-bill,
-[data-theme="cream"] .party-rec-table .party-rec-total-balance,
 [data-theme="pearl"] .party-rec-table .party-rec-total-label,
 [data-theme="pearl"] .party-rec-table .party-rec-total-bill,
-[data-theme="pearl"] .party-rec-table .party-rec-total-balance,
 [data-theme="sand"] .party-rec-table .party-rec-total-label,
 [data-theme="sand"] .party-rec-table .party-rec-total-bill,
-[data-theme="sand"] .party-rec-table .party-rec-total-balance,
 [data-theme="light_blue"] .party-rec-table .party-rec-total-label,
-[data-theme="light_blue"] .party-rec-table .party-rec-total-bill,
+[data-theme="light_blue"] .party-rec-table .party-rec-total-bill {
+  color: #FFFFFF !important;
+  font-weight: 900 !important;
+}
+
+[data-theme="cream"] .party-rec-table .party-rec-total-balance,
+[data-theme="pearl"] .party-rec-table .party-rec-total-balance,
+[data-theme="sand"] .party-rec-table .party-rec-total-balance,
 [data-theme="light_blue"] .party-rec-table .party-rec-total-balance {
-  color: #0F172A !important;
+  color: #fca5a5 !important; /* High-contrast vibrant rose/coral on dark footer */
   font-weight: 900 !important;
 }
 
@@ -674,7 +690,7 @@ table.party-rec-table thead th {
 [data-theme="pearl"] .party-rec-table .party-rec-total-receipt,
 [data-theme="sand"] .party-rec-table .party-rec-total-receipt,
 [data-theme="light_blue"] .party-rec-table .party-rec-total-receipt {
-  color: #047857 !important;
+  color: #34D399 !important;
   font-weight: 900 !important;
 }
 
@@ -767,10 +783,23 @@ table.party-rec-table thead th {
   font-weight: 800 !important;
 }
 
-[data-theme="dark"] .party-rec-table .party-rec-balance,
-[data-theme="dark_blue"] .party-rec-table .party-rec-balance {
-  color: #FFFFFF !important;
+/* LEDGER BALANCE in dark themes (dark, dark_blue) */
+[data-theme="dark"] .party-rec-table .party-rec-balance.party-rec-balance-dr,
+[data-theme="dark_blue"] .party-rec-table .party-rec-balance.party-rec-balance-dr {
+  color: #f87171 !important; /* High-contrast vivid rose/coral DR in dark mode */
   font-weight: 900 !important;
+}
+
+[data-theme="dark"] .party-rec-table .party-rec-balance.party-rec-balance-cr,
+[data-theme="dark_blue"] .party-rec-table .party-rec-balance.party-rec-balance-cr {
+  color: #34d399 !important; /* Bright emerald-400 CR in dark mode */
+  font-weight: 900 !important;
+}
+
+[data-theme="dark"] .party-rec-table .party-rec-balance.party-rec-balance-zero,
+[data-theme="dark_blue"] .party-rec-table .party-rec-balance.party-rec-balance-zero {
+  color: #94a3b8 !important; /* Muted slate-400 zero balance */
+  font-weight: 700 !important;
 }
 
 /* TOTALS FOOTER in dark themes */
@@ -785,11 +814,15 @@ table.party-rec-table thead th {
 
 [data-theme="dark"] .party-rec-table .party-rec-total-label,
 [data-theme="dark"] .party-rec-table .party-rec-total-bill,
-[data-theme="dark"] .party-rec-table .party-rec-total-balance,
 [data-theme="dark_blue"] .party-rec-table .party-rec-total-label,
-[data-theme="dark_blue"] .party-rec-table .party-rec-total-bill,
-[data-theme="dark_blue"] .party-rec-table .party-rec-total-balance {
+[data-theme="dark_blue"] .party-rec-table .party-rec-total-bill {
   color: #FFFFFF !important;
+  font-weight: 900 !important;
+}
+
+[data-theme="dark"] .party-rec-table .party-rec-total-balance,
+[data-theme="dark_blue"] .party-rec-table .party-rec-total-balance {
+  color: #fca5a5 !important; /* High contrast vibrant rose/coral on dark footer */
   font-weight: 900 !important;
 }
 

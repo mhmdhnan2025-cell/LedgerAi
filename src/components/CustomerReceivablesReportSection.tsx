@@ -1385,10 +1385,10 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
                       {/* LEDGER BALANCE (e.g. 1576.61 DR) */}
                       <td className={`party-rec-balance py-2.5 px-3 text-right font-mono font-black ${
                         row.ledgerBalance > 0
-                          ? 'text-rose-700 dark:text-rose-400'
+                          ? 'party-rec-balance-dr text-rose-700 dark:text-rose-400'
                           : row.ledgerBalance < 0
-                          ? 'text-emerald-700 dark:text-emerald-400'
-                          : 'text-slate-700 dark:text-slate-300'
+                          ? 'party-rec-balance-cr text-emerald-700 dark:text-emerald-400'
+                          : 'party-rec-balance-zero text-slate-700 dark:text-slate-300'
                       }`}>
                         {formatLedgerBalance(row.ledgerBalance)}
                       </td>
@@ -1419,12 +1419,20 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
                 </td>
                 <td className={`party-rec-total-balance py-3 px-3 text-right font-mono font-black sticky bottom-0 z-25 ${
                   totals.ledgerBalance > 0
-                    ? 'text-rose-400'
+                    ? 'party-rec-total-balance-dr text-rose-400'
                     : totals.ledgerBalance < 0
-                    ? 'text-emerald-400'
-                    : 'text-white'
+                    ? 'party-rec-total-balance-cr text-emerald-400'
+                    : 'party-rec-total-balance-zero text-white'
                 }`} style={{ backgroundColor: '#0f172a' }}>
-                  {formatLedgerBalance(totals.ledgerBalance)}
+                  <span className={`inline-block px-2.5 py-0.5 rounded font-black text-xs sm:text-sm tracking-wide ${
+                    totals.ledgerBalance > 0
+                      ? 'bg-rose-950/80 text-rose-300 border border-rose-600/60 shadow-xs'
+                      : totals.ledgerBalance < 0
+                      ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-600/60 shadow-xs'
+                      : 'bg-slate-800 text-white border border-slate-700'
+                  }`}>
+                    {formatLedgerBalance(totals.ledgerBalance)}
+                  </span>
                 </td>
               </tr>
             </tfoot>
