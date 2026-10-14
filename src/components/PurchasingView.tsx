@@ -504,7 +504,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
       const p = products.find((prod) => prod.id === selectedProductId);
       if (p) {
         const rawStock = Number(p.totalStock !== undefined ? p.totalStock : p.currentQuantity) || 0;
-        setItemStock(rawStock);
+        setItemStock(Math.max(0, rawStock));
       }
     }
   }, [products, selectedProductId]);
@@ -1368,12 +1368,12 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                   Warehouse Stock Remaining
                 </span>
                 <span className={`font-mono font-bold text-xs sm:text-sm ${
-                  (activeProduct?.currentQuantity || itemStock) <= 10 ? 'text-rose-400' : 'text-sky-300'
+                  Math.max(0, activeProduct?.currentQuantity ?? itemStock) <= 10 ? 'text-rose-400' : 'text-sky-300'
                 }`}>
-                  {activeProduct ? (activeProduct.currentQuantity ?? 0) : itemStock} units
+                  {Math.max(0, activeProduct ? (activeProduct.currentQuantity ?? 0) : itemStock)} units
                 </span>
                 <span className="block text-[10px] text-slate-400 font-mono">
-                  {activeProduct ? ((Number(activeProduct.currentQuantity) || 0) / (Number(activeProduct.qtyInCarton) || 1)).toFixed(1) : 0} CTN in godown
+                  {activeProduct ? (Math.max(0, Number(activeProduct.currentQuantity) || 0) / (Number(activeProduct.qtyInCarton) || 15)).toFixed(1) : 0} CTN in godown
                 </span>
               </div>
 
@@ -1602,12 +1602,12 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                               </div>
                               <div className="text-right shrink-0">
                                 <span className={`font-mono text-[11px] font-bold block ${
-                                  (p.currentQuantity || 0) <= 5 ? 'text-rose-400' : 'text-sky-400'
+                                  Math.max(0, p.currentQuantity || 0) <= 5 ? 'text-rose-400' : 'text-sky-400'
                                 }`}>
-                                  ~ {p.currentQuantity ?? 0}
+                                  ~ {Math.max(0, p.currentQuantity ?? 0)}
                                 </span>
                                 <span className="text-[9px] text-slate-500 font-mono block">
-                                  {(((Number(p.currentQuantity) || 0) / qCtn)).toFixed(1)} {pkgUnit}
+                                  {(Math.max(0, Number(p.currentQuantity) || 0) / (qCtn > 0 ? qCtn : 15)).toFixed(1)} {pkgUnit}
                                 </span>
                               </div>
                             </div>

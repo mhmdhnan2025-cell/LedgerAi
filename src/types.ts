@@ -85,6 +85,7 @@ export interface Product {
   ctnSaleRate?: number;           // CTN Sale Rate
   ctnMinSaleRate?: number;        // CTN Min Sale Rate
   totalStock?: number;            // Total Stock = (Carton * QtyInCarton) + ExtraKg
+  openingStock?: number;          // Opening Stock B/F
   currentQuantity: number;
   minStockLevel: number;
   minQuantity?: number;           // Min Quantity for generate demand list

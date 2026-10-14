@@ -3275,12 +3275,38 @@ class DatabaseService {
                     p.id !== 'prod-almond-397'
                 );
 
+                const existingProdMap = new Map<string, Product>();
+                for (const ep of existingProds) {
+                  existingProdMap.set(ep.id, ep);
+                  if (ep.sku) existingProdMap.set(ep.sku, ep);
+                  if (ep.mcode) existingProdMap.set(ep.mcode, ep);
+                  if (ep.name) existingProdMap.set(ep.name.toLowerCase(), ep);
+                }
+
                 const prefix = cid === 'comp_default_01' ? 'def_' : '';
-                const syncedStock: Product[] = qamarStock.map((s) => ({
-                  ...s,
-                  id: prefix ? `${prefix}${s.id}` : s.id,
-                  companyId: cid,
-                }));
+                const syncedStock: Product[] = qamarStock.map((s) => {
+                  const targetId = prefix ? `${prefix}${s.id}` : s.id;
+                  const prev = existingProdMap.get(targetId) || existingProdMap.get(s.id) || existingProdMap.get(s.sku) || (s.mcode ? existingProdMap.get(s.mcode) : undefined) || existingProdMap.get(s.name.toLowerCase());
+                  const currentQty = prev?.currentQuantity !== undefined ? Math.max(0, prev.currentQuantity) : s.currentQuantity;
+                  const totStock = prev?.totalStock !== undefined ? Math.max(0, prev.totalStock) : s.totalStock;
+                  const purPrice = prev?.purchasePrice !== undefined && prev.purchasePrice > 0 ? prev.purchasePrice : s.purchasePrice;
+                  const selPrice = prev?.sellingPrice !== undefined && prev.sellingPrice > 0 ? prev.sellingPrice : s.sellingPrice;
+                  const qCtn = prev?.qtyInCarton && prev.qtyInCarton > 0 ? prev.qtyInCarton : s.qtyInCarton;
+                  return {
+                    ...s,
+                    ...prev,
+                    id: targetId,
+                    companyId: cid,
+                    currentQuantity: currentQty,
+                    totalStock: totStock,
+                    purchasePrice: purPrice,
+                    sellingPrice: selPrice,
+                    salePrice: selPrice,
+                    stockValue: Number((totStock * purPrice).toFixed(2)),
+                    qtyInCarton: qCtn,
+                    packageType: prev?.packageType || s.packageType,
+                  };
+                });
 
                 const finalProducts = [...syncedStock, ...customUserProds];
                 tenantData.products = finalProducts;
@@ -5217,7 +5243,19 @@ class DatabaseService {
     });
 
     this.persist();
+    this.syncProductStockToPostgres(newProd);
     return newProd;
+  }
+
+  public syncProductStockToPostgres(product: Product): void {
+    try {
+      const cid = getActiveCompanyId();
+      postgresService.upsertProduct(product, cid).catch((err) => {
+        console.warn(`[PostgreSQL upsertProduct error for ${product.id}]:`, err.message);
+      });
+    } catch (e: any) {
+      console.warn(`[PostgreSQL upsertProduct error]:`, e.message);
+    }
   }
 
   public updateProduct(
@@ -5326,6 +5364,7 @@ class DatabaseService {
     });
 
     this.persist();
+    this.syncProductStockToPostgres(this.data.products[idx]);
     return this.data.products[idx];
   }
 
@@ -5350,6 +5389,7 @@ class DatabaseService {
     });
 
     this.persist();
+    postgresService.deleteProduct(id, getActiveCompanyId()).catch(() => {});
     return true;
   }
 
@@ -6952,12 +6992,29 @@ class DatabaseService {
 
     // Reverse inventory quantities
     for (const it of bill.items) {
-      const product = this.getProductById(it.productId);
+      const product = it.productId ? this.getProductById(it.productId) : this.findProductByName(it.itemTitle);
       if (product) {
-        const revertedQty = Math.max(0, product.currentQuantity - it.qty);
+        const intakeQty = it.totalIntakeQty !== undefined && Number(it.totalIntakeQty) > 0
+          ? Number(it.totalIntakeQty)
+          : Number(((Number(it.ctn || 0) * Number(it.qtyPerCtn || product.qtyInCarton || 1)) + Number(it.qty || 0)).toFixed(2));
+        const revertedQty = Math.max(0, Number((product.currentQuantity - intakeQty).toFixed(2)));
         product.currentQuantity = revertedQty;
         product.totalStock = revertedQty;
-        product.stockValue = Number((revertedQty * product.purchasePrice).toFixed(2));
+        const qCtn = product.qtyInCarton && product.qtyInCarton > 0 ? product.qtyInCarton : 15;
+        if (qCtn > 1) {
+          product.carton = Math.floor(revertedQty / qCtn);
+          product.ctn = product.carton;
+          product.extraKg = Number((revertedQty % qCtn).toFixed(2));
+          product.pcs = product.extraKg;
+        } else {
+          product.carton = revertedQty;
+          product.ctn = revertedQty;
+          product.extraKg = 0;
+          product.pcs = 0;
+        }
+        product.stockValue = Number((revertedQty * (product.purchasePrice || 0)).toFixed(2));
+        product.updatedAt = new Date().toISOString();
+        this.syncProductStockToPostgres(product);
       }
     }
 
@@ -7016,10 +7073,27 @@ class DatabaseService {
       for (const it of oldBill.items) {
         const product = it.productId ? this.getProductById(it.productId) : this.findProductByName(it.itemTitle);
         if (product) {
-          const revertedQty = Math.max(0, product.currentQuantity - it.qty);
+          const oldIntake = it.totalIntakeQty !== undefined && Number(it.totalIntakeQty) > 0
+            ? Number(it.totalIntakeQty)
+            : Number(((Number(it.ctn || 0) * Number(it.qtyPerCtn || product.qtyInCarton || 1)) + Number(it.qty || 0)).toFixed(2));
+          const revertedQty = Math.max(0, Number((product.currentQuantity - oldIntake).toFixed(2)));
           product.currentQuantity = revertedQty;
           product.totalStock = revertedQty;
-          product.stockValue = Number((revertedQty * product.purchasePrice).toFixed(2));
+          const qCtn = product.qtyInCarton && product.qtyInCarton > 0 ? product.qtyInCarton : 15;
+          if (qCtn > 1) {
+            product.carton = Math.floor(revertedQty / qCtn);
+            product.ctn = product.carton;
+            product.extraKg = Number((revertedQty % qCtn).toFixed(2));
+            product.pcs = product.extraKg;
+          } else {
+            product.carton = revertedQty;
+            product.ctn = revertedQty;
+            product.extraKg = 0;
+            product.pcs = 0;
+          }
+          product.stockValue = Number((revertedQty * (product.purchasePrice || 0)).toFixed(2));
+          product.updatedAt = new Date().toISOString();
+          this.syncProductStockToPostgres(product);
         }
       }
     }
@@ -7065,14 +7139,31 @@ class DatabaseService {
       for (const it of newBill.items) {
         const product = it.productId ? this.getProductById(it.productId) : this.findProductByName(it.itemTitle);
         if (product) {
-          const newQty = product.currentQuantity + it.qty;
+          const newIntake = it.totalIntakeQty !== undefined && Number(it.totalIntakeQty) > 0
+            ? Number(it.totalIntakeQty)
+            : Number(((Number(it.ctn || 0) * Number(it.qtyPerCtn || product.qtyInCarton || 1)) + Number(it.qty || 0)).toFixed(2));
+          const newQty = Number((product.currentQuantity + newIntake).toFixed(2));
           product.currentQuantity = newQty;
           product.totalStock = newQty;
-          product.stockValue = Number((newQty * product.purchasePrice).toFixed(2));
+          const qCtn = product.qtyInCarton && product.qtyInCarton > 0 ? product.qtyInCarton : 15;
+          if (qCtn > 1) {
+            product.carton = Math.floor(newQty / qCtn);
+            product.ctn = product.carton;
+            product.extraKg = Number((newQty % qCtn).toFixed(2));
+            product.pcs = product.extraKg;
+          } else {
+            product.carton = newQty;
+            product.ctn = newQty;
+            product.extraKg = 0;
+            product.pcs = 0;
+          }
           if (it.rate > 0) {
             product.purchasePrice = it.rate;
             product.lastPurchasePrice = it.rate;
           }
+          product.stockValue = Number((newQty * (product.purchasePrice || 0)).toFixed(2));
+          product.updatedAt = new Date().toISOString();
+          this.syncProductStockToPostgres(product);
         }
       }
     }
@@ -8012,6 +8103,7 @@ class DatabaseService {
         product.stockValue = Number((newQty * (product.purchasePrice || 0)).toFixed(2));
         product.lowStockAlert = newQty <= (product.minStockLevel || 10);
         product.updatedAt = new Date().toISOString();
+        this.syncProductStockToPostgres(product);
 
         // Record inventory ledger transaction
         const tx: InventoryTransaction = {
@@ -8142,11 +8234,28 @@ class DatabaseService {
         product = this.data.products.find((p) => p.name.toLowerCase() === it.itemTitle.toLowerCase());
       }
       if (product) {
-        const restoredQty = (product.currentQuantity || 0) + it.qty;
+        const qtyToRestore = it.totalDeductedQty !== undefined && Number(it.totalDeductedQty) > 0
+          ? Number(it.totalDeductedQty)
+          : Number(((Number(it.ctn || 0) * Number(it.qtyPerCtn || product.qtyInCarton || 1)) + Number(it.qty || 0)).toFixed(2));
+        const restoredQty = Number(((product.currentQuantity || 0) + qtyToRestore).toFixed(2));
         product.currentQuantity = restoredQty;
         product.totalStock = restoredQty;
+        const qCtn = product.qtyInCarton && product.qtyInCarton > 0 ? product.qtyInCarton : 15;
+        if (qCtn > 1) {
+          product.carton = Math.floor(restoredQty / qCtn);
+          product.ctn = product.carton;
+          product.extraKg = Number((restoredQty % qCtn).toFixed(2));
+          product.pcs = product.extraKg;
+        } else {
+          product.carton = restoredQty;
+          product.ctn = restoredQty;
+          product.extraKg = 0;
+          product.pcs = 0;
+        }
         product.stockValue = Number((restoredQty * (product.purchasePrice || 0)).toFixed(2));
         product.lowStockAlert = restoredQty <= (product.minStockLevel || 10);
+        product.updatedAt = new Date().toISOString();
+        this.syncProductStockToPostgres(product);
       }
     }
 
@@ -8218,10 +8327,28 @@ class DatabaseService {
     for (const it of oldBill.items) {
       const product = it.productId ? this.data.products.find((p) => p.id === it.productId) : this.data.products.find((p) => p.name.toLowerCase() === (it.itemTitle || '').toLowerCase());
       if (product) {
-        const restoredQty = (product.currentQuantity || 0) + it.qty;
+        const qtyToRestore = it.totalDeductedQty !== undefined && Number(it.totalDeductedQty) > 0
+          ? Number(it.totalDeductedQty)
+          : Number(((Number(it.ctn || 0) * Number(it.qtyPerCtn || product.qtyInCarton || 1)) + Number(it.qty || 0)).toFixed(2));
+        const restoredQty = Number(((product.currentQuantity || 0) + qtyToRestore).toFixed(2));
         product.currentQuantity = restoredQty;
         product.totalStock = restoredQty;
+        const qCtn = product.qtyInCarton && product.qtyInCarton > 0 ? product.qtyInCarton : 15;
+        if (qCtn > 1) {
+          product.carton = Math.floor(restoredQty / qCtn);
+          product.ctn = product.carton;
+          product.extraKg = Number((restoredQty % qCtn).toFixed(2));
+          product.pcs = product.extraKg;
+        } else {
+          product.carton = restoredQty;
+          product.ctn = restoredQty;
+          product.extraKg = 0;
+          product.pcs = 0;
+        }
         product.stockValue = Number((restoredQty * (product.purchasePrice || 0)).toFixed(2));
+        product.lowStockAlert = restoredQty <= (product.minStockLevel || 10);
+        product.updatedAt = new Date().toISOString();
+        this.syncProductStockToPostgres(product);
       }
     }
 
@@ -8296,10 +8423,28 @@ class DatabaseService {
     for (const it of newBill.items) {
       const product = it.productId ? this.data.products.find((p) => p.id === it.productId) : this.data.products.find((p) => p.name.toLowerCase() === (it.itemTitle || '').toLowerCase());
       if (product) {
-        const deductedQty = Math.max(0, (product.currentQuantity || 0) - it.qty);
+        const qtyToDeduct = it.totalDeductedQty !== undefined && Number(it.totalDeductedQty) > 0
+          ? Number(it.totalDeductedQty)
+          : Number(((Number(it.ctn || 0) * Number(it.qtyPerCtn || product.qtyInCarton || 1)) + Number(it.qty || 0)).toFixed(2));
+        const deductedQty = Math.max(0, Number(((product.currentQuantity || 0) - qtyToDeduct).toFixed(2)));
         product.currentQuantity = deductedQty;
         product.totalStock = deductedQty;
+        const qCtn = product.qtyInCarton && product.qtyInCarton > 0 ? product.qtyInCarton : 15;
+        if (qCtn > 1) {
+          product.carton = Math.floor(deductedQty / qCtn);
+          product.ctn = product.carton;
+          product.extraKg = Number((deductedQty % qCtn).toFixed(2));
+          product.pcs = product.extraKg;
+        } else {
+          product.carton = deductedQty;
+          product.ctn = deductedQty;
+          product.extraKg = 0;
+          product.pcs = 0;
+        }
         product.stockValue = Number((deductedQty * (product.purchasePrice || 0)).toFixed(2));
+        product.lowStockAlert = deductedQty <= (product.minStockLevel || 10);
+        product.updatedAt = new Date().toISOString();
+        this.syncProductStockToPostgres(product);
       }
     }
 
@@ -11500,6 +11645,7 @@ class DatabaseService {
         }
         product.stockValue = Number((newQty * (product.purchasePrice || 0)).toFixed(2));
         product.updatedAt = new Date().toISOString();
+        this.syncProductStockToPostgres(product);
 
         // Log stock movement
         const tx: InventoryTransaction = {
@@ -11682,6 +11828,8 @@ class DatabaseService {
         prod.currentQuantity = Math.max(0, Number(((prod.currentQuantity || 0) - it.qty).toFixed(2)));
         prod.totalStock = prod.currentQuantity;
         prod.stockValue = Number((prod.currentQuantity * (prod.purchasePrice || 0)).toFixed(2));
+        prod.updatedAt = new Date().toISOString();
+        this.syncProductStockToPostgres(prod);
       }
     }
 
@@ -11779,6 +11927,7 @@ class DatabaseService {
         }
         product.stockValue = Number((newQty * (product.purchasePrice || 0)).toFixed(2));
         product.updatedAt = new Date().toISOString();
+        this.syncProductStockToPostgres(product);
 
         // Log stock movement
         const tx: InventoryTransaction = {
@@ -11963,6 +12112,8 @@ class DatabaseService {
         prod.currentQuantity = Number(((prod.currentQuantity || 0) + it.qty).toFixed(2));
         prod.totalStock = prod.currentQuantity;
         prod.stockValue = Number((prod.currentQuantity * (prod.purchasePrice || 0)).toFixed(2));
+        prod.updatedAt = new Date().toISOString();
+        this.syncProductStockToPostgres(prod);
       }
     }
 

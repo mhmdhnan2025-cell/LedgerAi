@@ -112,44 +112,57 @@ for (const line of dataLines) {
   if (!itemName) continue;
 
   const type = cols[4]?.trim() || '';
-  const pRate = parseFloat(cols[5]) || 0;
+  let pRate = parseFloat(cols[5]) || 0;
   const sRate = parseFloat(cols[6]) || 0;
   const disc = parseFloat(cols[7]) || 0;
   const rawTStock = parseFloat(cols[8]) || 0;
-  
-  const hasCartonCol = cols[9] !== undefined && cols[9].trim() !== '';
-  const hasPcsCol = cols[10] !== undefined && cols[10].trim() !== '';
+
+  // Rule 1: Under no circumstances should stock ever be negative. Minimum is 0.
+  // Rule 2: Do NOT add Pcs column to totalStock. Total stock is purely T.Stock clamped >= 0.
+  let totalStock = Math.max(0, rawTStock);
 
   const unit = normalizeUnit(type, itemName);
   const category = categorize(itemName);
-  const sellingPrice = sRate;
+  let sellingPrice = sRate;
 
-  let qtyInCarton = 1;
-  let carton = 0;
-  let extraKg = rawTStock;
-  let totalStock = rawTStock;
+  // Rule 4 & 5: Default qtyInCarton for all items is 15, EXCEPT Pak Atta 50 Kg (sr === 12)
+  let qtyInCarton = 15;
+  let pkgType = 'Carton';
 
-  if (hasCartonCol || hasPcsCol) {
-    carton = parseInt(cols[9], 10);
-    if (isNaN(carton)) carton = 0;
+  const n = itemName.toLowerCase();
+  const isAtta = sr === 12 || n.includes('pak atta');
 
-    qtyInCarton = getQtyInCarton(sr, itemName);
-
-    // Calculate extraKg so (carton * qtyInCarton) + extraKg = rawTStock
-    const ctnTotal = carton * qtyInCarton;
-    extraKg = Number((rawTStock - ctnTotal).toFixed(2));
-    totalStock = Number((ctnTotal + extraKg).toFixed(2));
-  } else {
-    // If no carton breakdown entered, default carton is 0 and all stock is extraKg / loose units
-    carton = 0;
+  if (isAtta) {
     qtyInCarton = 1;
-    extraKg = rawTStock;
-    totalStock = rawTStock;
+    pkgType = 'Bag';
+    totalStock = 3.00; // As user specified and confirmed in screenshot: 3 bags
+    pRate = 119.59;    // User verified purchase price
+    sellingPrice = 6.00;
+  } else if (unit === 'Bag' || n.includes('bori') || n.includes('bag')) {
+    pkgType = 'Bag';
+    qtyInCarton = 15;
+  } else if (unit === 'Liter' || n.includes('tin') || n.includes('can')) {
+    pkgType = 'Can';
+    qtyInCarton = 15;
+  } else if (n.includes('box')) {
+    pkgType = 'Box';
+    qtyInCarton = 15;
+  } else {
+    pkgType = 'Carton';
+    qtyInCarton = 15;
   }
 
-  const pkgType = carton > 0
-    ? 'Carton'
-    : (unit === 'Kilo grams' || unit === 'Bag' ? 'Bag' : (unit === 'Liter' ? 'Can' : 'Carton'));
+  // Calculate whole packages and loose extra kgs dynamically
+  let carton = 0;
+  let extraKg = 0;
+
+  if (qtyInCarton === 1) {
+    carton = totalStock;
+    extraKg = 0;
+  } else {
+    carton = Math.floor(totalStock / qtyInCarton);
+    extraKg = Number((totalStock % qtyInCarton).toFixed(2));
+  }
 
   const prod = {
     id: `prod-qmr-${sr}`,
@@ -173,6 +186,7 @@ for (const line of dataLines) {
     saleDiscount: disc,
     currentQuantity: totalStock,
     totalStock: totalStock,
+    openingStock: totalStock,
     minStockLevel: 5,
     minQuantity: 5,
     stockValue: Number((totalStock * pRate).toFixed(2)),

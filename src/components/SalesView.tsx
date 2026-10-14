@@ -1468,11 +1468,11 @@ export const SalesView: React.FC<SalesViewProps> = ({
                 >
                   <div className="space-y-1">
                     {filteredProducts.map((p) => {
-                      const qCtn = Number(p.qtyInCarton) > 1 ? Number(p.qtyInCarton) : 1;
-                      const stock = Number(p.totalStock !== undefined ? p.totalStock : p.currentQuantity) || 0;
+                      const qCtn = Number(p.qtyInCarton) && Number(p.qtyInCarton) > 0 ? Number(p.qtyInCarton) : 15;
+                      const stock = Math.max(0, Number(p.totalStock !== undefined ? p.totalStock : p.currentQuantity) || 0);
                       const unitName = (p.unit || p.measure || 'Unit').toUpperCase();
                       const isKgOrLtr = unitName.includes('KG') || unitName.includes('LIT') || unitName.includes('LTR');
-                      const ctnPart = qCtn > 1 ? Math.floor(stock / qCtn) : 0;
+                      const ctnPart = qCtn > 1 ? Math.floor(stock / qCtn) : stock;
                       const pcsPart = qCtn > 1 ? Number((stock % qCtn).toFixed(2)) : 0;
                       const pkgName = (p.packageType || 'CTN').toUpperCase();
 
@@ -1808,10 +1808,10 @@ export const SalesView: React.FC<SalesViewProps> = ({
                   <span className={`font-mono font-bold text-xs sm:text-sm ${
                     (activeProduct?.currentQuantity || itemStock) <= 10 ? 'text-rose-400' : 'text-emerald-400'
                   }`}>
-                    {activeProduct ? (activeProduct.currentQuantity ?? 0) : itemStock} units
+                    {Math.max(0, activeProduct ? (activeProduct.currentQuantity ?? 0) : itemStock)} units
                   </span>
                   <span className="block text-[10px] text-slate-400 font-mono">
-                    {activeProduct ? ((Number(activeProduct.currentQuantity) || 0) / (Number(activeProduct.qtyInCarton) || 1)).toFixed(1) : 0} CTN Available
+                    {activeProduct ? (Math.max(0, Number(activeProduct.currentQuantity) || 0) / (Number(activeProduct.qtyInCarton) || 15)).toFixed(1) : 0} CTN Available
                   </span>
                 </div>
 

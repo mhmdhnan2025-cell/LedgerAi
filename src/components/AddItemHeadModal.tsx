@@ -169,11 +169,13 @@ export const AddItemHeadModal: React.FC<AddItemHeadModalProps> = ({
                    packageType === 'Pack' ? 'Pack' : 'CTN';
 
   // Live breakdown of Total Stock
-  const numStock = typeof totalStock === 'number' ? totalStock : parseFloat(String(totalStock)) || 0;
+  const numStock = Math.max(0, typeof totalStock === 'number' ? totalStock : parseFloat(String(totalStock)) || 0);
   const numQtyInPkg = typeof qtyInCarton === 'number' ? qtyInCarton : parseFloat(String(qtyInCarton)) || 1;
-  const hasPkg = packageType !== 'Single' && numQtyInPkg > 1;
-  const computedWholePkgs = hasPkg ? Math.floor(numStock / numQtyInPkg) : Math.floor(numStock);
-  const computedLooseUnits = hasPkg ? Number((numStock % numQtyInPkg).toFixed(2)) : 0;
+  const isSingle = packageType === 'Single';
+  const hasPkg = !isSingle;
+  const effectivePkgSize = numQtyInPkg > 0 ? numQtyInPkg : 1;
+  const computedWholePkgs = isSingle ? Math.floor(numStock) : Math.floor(numStock / effectivePkgSize);
+  const computedLooseUnits = isSingle ? 0 : Number((numStock % effectivePkgSize).toFixed(2));
 
   // Handle Quick Add Handlers
   const handleAddCategory = async () => {

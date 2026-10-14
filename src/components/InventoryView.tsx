@@ -1198,24 +1198,23 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               ) : (
                 filteredProducts.map((prod, index) => {
                   const rawStock = prod.totalStock !== undefined ? prod.totalStock : prod.currentQuantity;
-                  const stock = Number(rawStock) || 0;
-                  const qCtn = Number(prod.qtyInCarton) && Number(prod.qtyInCarton) > 0 ? Number(prod.qtyInCarton) : 1;
+                  // Under no circumstances should stock ever be negative. Minimum is 0.
+                  const stock = Math.max(0, Number(rawStock) || 0);
+                  const qCtn = Number(prod.qtyInCarton) && Number(prod.qtyInCarton) > 0 ? Number(prod.qtyInCarton) : 15;
+                  const pkgType = (prod.packageType || 'Carton').toLowerCase();
 
                   let displayCarton: string | number = '-';
                   let displayExtraKg: string | number = '-';
 
-                  if (prod.carton !== undefined) {
-                    displayCarton = prod.carton;
-                    const ex = prod.extraKg !== undefined ? prod.extraKg : (prod.pcs !== undefined ? prod.pcs : 0);
-                    displayExtraKg = typeof ex === 'number' ? (ex % 1 === 0 ? ex : Number(ex.toFixed(2))) : ex;
-                  } else if (qCtn > 1) {
-                    const ctnCalc = stock >= 0 ? Math.floor(stock / qCtn) : Math.ceil(stock / qCtn);
-                    const looseCalc = Number((stock % qCtn).toFixed(2));
-                    displayCarton = isNaN(ctnCalc) ? 0 : ctnCalc;
-                    displayExtraKg = isNaN(looseCalc) ? 0 : (looseCalc % 1 === 0 ? looseCalc : looseCalc);
-                  } else {
+                  if (pkgType === 'single') {
                     displayCarton = '-';
                     displayExtraKg = '-';
+                  } else if (qCtn === 1) {
+                    displayCarton = stock;
+                    displayExtraKg = 0;
+                  } else {
+                    displayCarton = Math.floor(stock / qCtn);
+                    displayExtraKg = Number((stock % qCtn).toFixed(2));
                   }
 
                   const rawMeasure = (prod.measure || prod.unit || 'CTN').toString().trim();
