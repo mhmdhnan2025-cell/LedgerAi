@@ -1381,7 +1381,7 @@ export const api = {
       const res = await fetch('/api/salesmen');
       if (res.ok) return res.json();
     } catch {}
-    return ['HAFIZ ABDUL QADEER', 'SULTAN MIR', 'Ashiq Ali', 'Akbar Bhai', 'Aman Deep'];
+    return ['HAFIZ ABDUL QADEER', 'Qamar Abbas', 'SULTAN MIR', 'Ashiq Ali', 'Akbar Bhai', 'Aman Deep', 'Zahrat Al Fajr'];
   },
 
   async getSales(filters?: {

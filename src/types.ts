@@ -903,16 +903,18 @@ export interface StockMovementLedgerEntry {
   productName: string;
   mcode: string;
   category: string;
-  movementType: 'SALE' | 'PURCHASE' | 'ADJUSTMENT' | 'RETURN' | 'OPENING';
+  movementType: 'SALE' | 'PURCHASE' | 'ADJUSTMENT' | 'RETURN' | 'SALE_RETURN' | 'PURCHASE_RETURN' | 'OPENING';
   referenceId: string;
-  referenceLabel: string; // e.g. "Sale Bill #6762" or "Purchase Bill #1713"
+  referenceLabel: string; // e.g. "Sale Bill #6762", "Purchase Bill #1713", "Sale Return #SR-101", "Purchase Return #PR-201"
   partyName: string;      // Customer Name or Supplier Name
   salesmanOrUser: string; // Salesman name or Performed by
-  cartonsChange: number;  // negative for sales, positive for purchases
-  quantityChange: number; // negative for sales, positive for purchases
+  cartonsChange: number;  // negative for sales/purchase-returns, positive for purchases/sale-returns
+  quantityChange: number; // negative for sales/purchase-returns, positive for purchases/sale-returns
   unitRate: number;
   totalAmount: number;
   runningStockAfter: number;
+  runningCartonsAfter?: number;
+  runningExtraKgAfter?: number;
   notes?: string;
 }
 
@@ -927,8 +929,12 @@ export interface StockMovementSummaryItem {
   openingStock: number;
   stockInPurchases: number;
   stockOutSales: number;
+  saleReturns?: number;
+  purchaseReturns?: number;
   closingStock: number;
   closingStockCartons: number;
+  carton?: number;
+  extraKg?: number;
   purchasePrice: number;
   sellingPrice: number;
   totalStockValue: number;
@@ -942,7 +948,11 @@ export interface StockMovementReport {
   totalOpeningUnits: number;
   totalInwardUnits: number;
   totalOutwardUnits: number;
+  totalSaleReturnUnits?: number;
+  totalPurchaseReturnUnits?: number;
   totalClosingUnits: number;
+  totalCartons?: number;
+  totalExtraKg?: number;
   totalStockValue: number;
   itemsSummary: StockMovementSummaryItem[];
   ledgerTransactions: StockMovementLedgerEntry[];

@@ -8997,15 +8997,21 @@ class DatabaseService {
     const allSaleReturns = this.data.saleReturns || [];
     const allPurchaseReturns = this.data.purchaseReturns || [];
 
-    const netMovementSinceFrom = new Map<string, number>();
-    const inwardInWindowMap = new Map<string, number>();
-    const outwardInWindowMap = new Map<string, number>();
-    const inwardCartonsInWindowMap = new Map<string, number>();
-    const outwardCartonsInWindowMap = new Map<string, number>();
+    const purchasesInWindowMap = new Map<string, number>();
+    const salesInWindowMap = new Map<string, number>();
+    const saleReturnsInWindowMap = new Map<string, number>();
+    const purchaseReturnsInWindowMap = new Map<string, number>();
+
+    const purchasesCartonsInWindowMap = new Map<string, number>();
+    const salesCartonsInWindowMap = new Map<string, number>();
+    const saleReturnsCartonsInWindowMap = new Map<string, number>();
+    const purchaseReturnsCartonsInWindowMap = new Map<string, number>();
+
+    const netMovementAfterWindowMap = new Map<string, number>();
 
     const ledgerTransactions: StockMovementLedgerEntry[] = [];
 
-    // 1. Process All Purchases
+    // 1. Process All Purchases (Inward Stock +)
     for (const pbill of allPurchaseBills) {
       const pDate = this.normalizeDateToYMD(pbill.date);
       for (const it of pbill.items || []) {
@@ -9014,13 +9020,13 @@ class DatabaseService {
         const { ctn, totalUnits, rate, amount } = calculateLineMovement(it, p);
         if (totalUnits <= 0 && ctn <= 0) continue;
 
-        if (pDate >= fromDate) {
-          netMovementSinceFrom.set(pId, (netMovementSinceFrom.get(pId) || 0) + totalUnits);
+        if (pDate > toDate) {
+          netMovementAfterWindowMap.set(pId, (netMovementAfterWindowMap.get(pId) || 0) + totalUnits);
         }
 
         if (pDate >= fromDate && pDate <= toDate) {
-          inwardInWindowMap.set(pId, (inwardInWindowMap.get(pId) || 0) + totalUnits);
-          inwardCartonsInWindowMap.set(pId, (inwardCartonsInWindowMap.get(pId) || 0) + ctn);
+          purchasesInWindowMap.set(pId, (purchasesInWindowMap.get(pId) || 0) + totalUnits);
+          purchasesCartonsInWindowMap.set(pId, (purchasesCartonsInWindowMap.get(pId) || 0) + ctn);
 
           const pkgLabel = it.packageType || p?.packageType || 'CTN';
           const unitLabel = p?.unit || it.unit || 'Units';
@@ -9049,7 +9055,7 @@ class DatabaseService {
       }
     }
 
-    // 2. Process All Sales
+    // 2. Process All Sales (Outward Stock -)
     for (const sbill of allSaleBills) {
       const sDate = this.normalizeDateToYMD(sbill.date);
       for (const it of sbill.items || []) {
@@ -9058,13 +9064,13 @@ class DatabaseService {
         const { ctn, totalUnits, rate, amount } = calculateLineMovement(it, p);
         if (totalUnits <= 0 && ctn <= 0) continue;
 
-        if (sDate >= fromDate) {
-          netMovementSinceFrom.set(pId, (netMovementSinceFrom.get(pId) || 0) - totalUnits);
+        if (sDate > toDate) {
+          netMovementAfterWindowMap.set(pId, (netMovementAfterWindowMap.get(pId) || 0) - totalUnits);
         }
 
         if (sDate >= fromDate && sDate <= toDate) {
-          outwardInWindowMap.set(pId, (outwardInWindowMap.get(pId) || 0) + totalUnits);
-          outwardCartonsInWindowMap.set(pId, (outwardCartonsInWindowMap.get(pId) || 0) + ctn);
+          salesInWindowMap.set(pId, (salesInWindowMap.get(pId) || 0) + totalUnits);
+          salesCartonsInWindowMap.set(pId, (salesCartonsInWindowMap.get(pId) || 0) + ctn);
 
           const pkgLabel = it.packageType || p?.packageType || 'CTN';
           const unitLabel = p?.unit || it.unit || 'Units';
@@ -9093,8 +9099,9 @@ class DatabaseService {
       }
     }
 
-    // 3. Process Sale Returns (Customer Returns - Inward)
+    // 3. Process Sale Returns (Customer Returns Back Into Warehouse +)
     for (const sret of allSaleReturns) {
+      if (sret.status === 'CANCELLED') continue;
       const rDate = this.normalizeDateToYMD(sret.date);
       for (const it of sret.items || []) {
         const p = resolveProduct(it);
@@ -9102,13 +9109,16 @@ class DatabaseService {
         const { ctn, totalUnits, rate, amount } = calculateLineMovement(it, p);
         if (totalUnits <= 0 && ctn <= 0) continue;
 
-        if (rDate >= fromDate) {
-          netMovementSinceFrom.set(pId, (netMovementSinceFrom.get(pId) || 0) + totalUnits);
+        if (rDate > toDate) {
+          netMovementAfterWindowMap.set(pId, (netMovementAfterWindowMap.get(pId) || 0) + totalUnits);
         }
 
         if (rDate >= fromDate && rDate <= toDate) {
-          inwardInWindowMap.set(pId, (inwardInWindowMap.get(pId) || 0) + totalUnits);
-          inwardCartonsInWindowMap.set(pId, (inwardCartonsInWindowMap.get(pId) || 0) + ctn);
+          saleReturnsInWindowMap.set(pId, (saleReturnsInWindowMap.get(pId) || 0) + totalUnits);
+          saleReturnsCartonsInWindowMap.set(pId, (saleReturnsCartonsInWindowMap.get(pId) || 0) + ctn);
+
+          const pkgLabel = it.packageType || p?.packageType || 'CTN';
+          const unitLabel = p?.unit || it.unit || 'Units';
 
           ledgerTransactions.push({
             id: `mv-sret-${sret.returnNumber}-${it.id || Math.random().toString(36).substring(2, 7)}`,
@@ -9118,7 +9128,7 @@ class DatabaseService {
             productName: p ? p.name : (it.itemTitle || 'Returned Item'),
             mcode: p?.mcode || (it as any).mcode || p?.sku || 'ITEM',
             category: p?.category || it.category || 'General',
-            movementType: 'RETURN',
+            movementType: 'SALE_RETURN',
             referenceId: sret.id,
             referenceLabel: `Sale Return #${sret.returnNumberFormatted || sret.returnNumber}`,
             partyName: sret.customerAccountTitle || sret.customerName || 'Customer',
@@ -9128,14 +9138,15 @@ class DatabaseService {
             unitRate: rate,
             totalAmount: amount,
             runningStockAfter: 0,
-            notes: `Customer Return: ${ctn} CTN (${totalUnits} Units) from ${sret.customerName || sret.customerAccountTitle}`,
+            notes: `Customer Return (Restocked): +${ctn} ${pkgLabel} (+${totalUnits} ${unitLabel}) from ${sret.customerName || sret.customerAccountTitle}`,
           });
         }
       }
     }
 
-    // 4. Process Purchase Returns (Supplier Returns - Outward)
+    // 4. Process Purchase Returns (Supplier Returns Out Of Warehouse -)
     for (const pret of allPurchaseReturns) {
+      if (pret.status === 'CANCELLED') continue;
       const prDate = this.normalizeDateToYMD(pret.date);
       for (const it of pret.items || []) {
         const p = resolveProduct(it);
@@ -9143,13 +9154,16 @@ class DatabaseService {
         const { ctn, totalUnits, rate, amount } = calculateLineMovement(it, p);
         if (totalUnits <= 0 && ctn <= 0) continue;
 
-        if (prDate >= fromDate) {
-          netMovementSinceFrom.set(pId, (netMovementSinceFrom.get(pId) || 0) - totalUnits);
+        if (prDate > toDate) {
+          netMovementAfterWindowMap.set(pId, (netMovementAfterWindowMap.get(pId) || 0) - totalUnits);
         }
 
         if (prDate >= fromDate && prDate <= toDate) {
-          outwardInWindowMap.set(pId, (outwardInWindowMap.get(pId) || 0) + totalUnits);
-          outwardCartonsInWindowMap.set(pId, (outwardCartonsInWindowMap.get(pId) || 0) + ctn);
+          purchaseReturnsInWindowMap.set(pId, (purchaseReturnsInWindowMap.get(pId) || 0) + totalUnits);
+          purchaseReturnsCartonsInWindowMap.set(pId, (purchaseReturnsCartonsInWindowMap.get(pId) || 0) + ctn);
+
+          const pkgLabel = it.packageType || p?.packageType || 'CTN';
+          const unitLabel = p?.unit || it.unit || 'Units';
 
           ledgerTransactions.push({
             id: `mv-pret-${pret.returnNumber}-${it.id || Math.random().toString(36).substring(2, 7)}`,
@@ -9159,7 +9173,7 @@ class DatabaseService {
             productName: p ? p.name : (it.itemTitle || 'Returned Item'),
             mcode: p?.mcode || (it as any).mcode || p?.sku || 'ITEM',
             category: p?.category || it.category || 'General',
-            movementType: 'RETURN',
+            movementType: 'PURCHASE_RETURN',
             referenceId: pret.id,
             referenceLabel: `Purchase Return #${pret.returnNumberFormatted || pret.returnNumber}`,
             partyName: pret.supplierAccountTitle || pret.supplierName || 'Supplier',
@@ -9169,13 +9183,13 @@ class DatabaseService {
             unitRate: rate,
             totalAmount: amount,
             runningStockAfter: 0,
-            notes: `Supplier Return: ${ctn} CTN (${totalUnits} Units) to ${pret.supplierName || pret.supplierAccountTitle}`,
+            notes: `Supplier Return (Sent Back): -${ctn} ${pkgLabel} (-${totalUnits} ${unitLabel}) to ${pret.supplierName || pret.supplierAccountTitle}`,
           });
         }
       }
     }
 
-    // 5. Ensure all products (catalog + any item with movements in bills) are available
+    // 5. Build Products Map
     const allProductsMap = new Map<string, Product>();
     for (const p of products) {
       allProductsMap.set(p.id, p);
@@ -9189,7 +9203,7 @@ class DatabaseService {
           sku: tx.mcode,
           category: tx.category || 'General',
           unit: 'Units',
-          qtyInCarton: 1,
+          qtyInCarton: 15,
           currentQuantity: 0,
           totalStock: 0,
           carton: 0,
@@ -9211,13 +9225,24 @@ class DatabaseService {
     }
     const allAvailableProducts = Array.from(allProductsMap.values());
 
-    // 6. Accurate Opening Stock per product as of fromDate
+    // 6. Accurate Opening and Closing Stock per product
     const openingStockMap = new Map<string, number>();
-    for (const p of allAvailableProducts) {
-      const netSince = netMovementSinceFrom.get(p.id) || 0;
-      const liveQty = p.currentQuantity || 0;
-      const calcOpening = Number((liveQty - netSince).toFixed(2));
-      openingStockMap.set(p.id, Math.max(0, calcOpening));
+    const closingStockMap = new Map<string, number>();
+
+    for (const prod of allAvailableProducts) {
+      const liveQty = Number(prod.currentQuantity || 0);
+      const netAfter = netMovementAfterWindowMap.get(prod.id) || 0;
+      const closing = Number((liveQty - netAfter).toFixed(2));
+      closingStockMap.set(prod.id, closing);
+
+      const purchases = purchasesInWindowMap.get(prod.id) || 0;
+      const sales = salesInWindowMap.get(prod.id) || 0;
+      const sReturns = saleReturnsInWindowMap.get(prod.id) || 0;
+      const pReturns = purchaseReturnsInWindowMap.get(prod.id) || 0;
+      const netInWindow = purchases - sales + sReturns - pReturns;
+
+      const opening = Number((closing - netInWindow).toFixed(2));
+      openingStockMap.set(prod.id, opening);
     }
 
     // 7. Chronological Running Balance calculation per product
@@ -9236,10 +9261,20 @@ class DatabaseService {
         return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
       });
 
+      const prod = allProductsMap.get(pId);
+      const qCtn = prod?.qtyInCarton && prod.qtyInCarton > 0 ? prod.qtyInCarton : 15;
+
       let running = openingStockMap.get(pId) || 0;
       for (const tx of pTxs) {
         running = Number((running + tx.quantityChange).toFixed(2));
         tx.runningStockAfter = running;
+        if (qCtn > 1) {
+          tx.runningCartonsAfter = Math.floor(running / qCtn);
+          tx.runningExtraKgAfter = Number((running % qCtn).toFixed(2));
+        } else {
+          tx.runningCartonsAfter = running;
+          tx.runningExtraKgAfter = 0;
+        }
       }
     }
 
@@ -9256,7 +9291,8 @@ class DatabaseService {
       filteredTransactions = filteredTransactions.filter((tx) => tx.productId === filters.productId);
     }
     if (filters?.category) {
-      filteredTransactions = filteredTransactions.filter((tx) => tx.category.toLowerCase() === filters.category!.toLowerCase());
+      const catLower = filters.category.trim().toLowerCase();
+      filteredTransactions = filteredTransactions.filter((tx) => (tx.category || '').toLowerCase() === catLower);
     }
     if (filters?.movementType) {
       const mType = filters.movementType.toUpperCase();
@@ -9267,7 +9303,11 @@ class DatabaseService {
     let totalOpeningUnits = 0;
     let totalInwardUnits = 0;
     let totalOutwardUnits = 0;
+    let totalSaleReturnUnits = 0;
+    let totalPurchaseReturnUnits = 0;
     let totalClosingUnits = 0;
+    let totalCartons = 0;
+    let totalExtraKg = 0;
     let totalStockValue = 0;
 
     let targetProducts = allAvailableProducts;
@@ -9275,22 +9315,32 @@ class DatabaseService {
       targetProducts = targetProducts.filter((p) => p.id === filters.productId);
     }
     if (filters?.category) {
-      targetProducts = targetProducts.filter((p) => (p.category || '').toLowerCase() === filters.category!.toLowerCase());
+      const catLower = filters.category.trim().toLowerCase();
+      targetProducts = targetProducts.filter((p) => (p.category || '').trim().toLowerCase() === catLower);
     }
 
     const itemsSummary: StockMovementSummaryItem[] = targetProducts.map((prod) => {
       const opening = openingStockMap.get(prod.id) || 0;
-      const inward = inwardInWindowMap.get(prod.id) || 0;
-      const outward = outwardInWindowMap.get(prod.id) || 0;
-      const closing = Number((opening + inward - outward).toFixed(2));
-      const qtyInCarton = prod.qtyInCarton && prod.qtyInCarton > 0 ? prod.qtyInCarton : 1;
+      const purchases = purchasesInWindowMap.get(prod.id) || 0;
+      const sales = salesInWindowMap.get(prod.id) || 0;
+      const sReturns = saleReturnsInWindowMap.get(prod.id) || 0;
+      const pReturns = purchaseReturnsInWindowMap.get(prod.id) || 0;
+      const closing = closingStockMap.get(prod.id) !== undefined ? closingStockMap.get(prod.id)! : Number((opening + purchases - sales + sReturns - pReturns).toFixed(2));
+
+      const qtyInCarton = prod.qtyInCarton && prod.qtyInCarton > 0 ? prod.qtyInCarton : 15;
+      const carton = qtyInCarton > 1 ? Math.floor(closing / qtyInCarton) : closing;
+      const extraKg = qtyInCarton > 1 ? Number((closing % qtyInCarton).toFixed(2)) : 0;
       const closingStockCartons = Number((closing / qtyInCarton).toFixed(1));
       const value = Number((closing * (prod.purchasePrice || 0)).toFixed(2));
 
       totalOpeningUnits += opening;
-      totalInwardUnits += inward;
-      totalOutwardUnits += outward;
+      totalInwardUnits += purchases;
+      totalOutwardUnits += sales;
+      totalSaleReturnUnits += sReturns;
+      totalPurchaseReturnUnits += pReturns;
       totalClosingUnits += closing;
+      totalCartons += carton;
+      totalExtraKg += extraKg;
       totalStockValue += value;
 
       let status: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' = 'IN_STOCK';
@@ -9306,16 +9356,20 @@ class DatabaseService {
         unit: prod.unit || 'Units',
         qtyInCarton,
         openingStock: opening,
-        stockInPurchases: inward,
-        stockOutSales: outward,
+        stockInPurchases: purchases,
+        stockOutSales: sales,
+        saleReturns: sReturns,
+        purchaseReturns: pReturns,
         closingStock: closing,
         closingStockCartons,
+        carton,
+        extraKg,
         purchasePrice: prod.purchasePrice || 0,
         sellingPrice: prod.sellingPrice || prod.salePrice || 0,
         totalStockValue: value,
         status,
       };
-    }).sort((a, b) => (b.stockInPurchases + b.stockOutSales) - (a.stockInPurchases + a.stockOutSales));
+    }).sort((a, b) => (b.stockInPurchases + b.stockOutSales + (b.saleReturns || 0) + (b.purchaseReturns || 0)) - (a.stockInPurchases + a.stockOutSales + (a.saleReturns || 0) + (a.purchaseReturns || 0)));
 
     return {
       timeframe,
@@ -9324,7 +9378,11 @@ class DatabaseService {
       totalOpeningUnits: Number(totalOpeningUnits.toFixed(2)),
       totalInwardUnits: Number(totalInwardUnits.toFixed(2)),
       totalOutwardUnits: Number(totalOutwardUnits.toFixed(2)),
+      totalSaleReturnUnits: Number(totalSaleReturnUnits.toFixed(2)),
+      totalPurchaseReturnUnits: Number(totalPurchaseReturnUnits.toFixed(2)),
       totalClosingUnits: Number(totalClosingUnits.toFixed(2)),
+      totalCartons: Math.floor(totalCartons),
+      totalExtraKg: Number(totalExtraKg.toFixed(2)),
       totalStockValue: Number(totalStockValue.toFixed(2)),
       itemsSummary,
       ledgerTransactions: filteredTransactions,
@@ -9376,7 +9434,7 @@ class DatabaseService {
     });
 
     // Default salesmen from company master list
-    ['HAFIZ ABDUL QADEER', 'SULTAN MIR', 'Ashiq Ali', 'Akbar Bhai', 'Aman Deep', 'Zahrat Al Fajr'].forEach((d) => addName(d));
+    ['HAFIZ ABDUL QADEER', 'Qamar Abbas', 'SULTAN MIR', 'Ashiq Ali', 'Akbar Bhai', 'Aman Deep', 'Zahrat Al Fajr'].forEach((d) => addName(d));
 
     return list.sort((a, b) => a.localeCompare(b));
   }

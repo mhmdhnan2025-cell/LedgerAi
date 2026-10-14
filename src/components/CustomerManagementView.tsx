@@ -124,6 +124,7 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
   // Salesmen list & inline addition
   const [availableSalesmen, setAvailableSalesmen] = useState<string[]>([
     'HAFIZ ABDUL QADEER',
+    'Qamar Abbas',
     'SULTAN MIR',
     'Ashiq Ali',
     'Akbar Bhai',
