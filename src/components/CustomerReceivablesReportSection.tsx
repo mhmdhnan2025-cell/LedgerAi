@@ -504,13 +504,12 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
       // Exact running ledger balance
       let ledgerBalance = initBal + cumulativeBillsReceivable - cumulativeReceipts - cumulativeReturns;
 
-      // When viewing current receivables without date constraints, prioritize authoritative outstandingBalance
-      const isCurrentView = !normFrom && (!normTo || normTo >= new Date().toISOString().split('T')[0]);
-      if (isCurrentView && c.outstandingBalance !== undefined && c.outstandingBalance !== null && !isNaN(rawOut)) {
-        ledgerBalance = rawOut;
-      } else if (allCustBills.length === 0 && allCustReceipts.length === 0 && allCustReturns.length === 0) {
-        if (!isNaN(rawOut)) {
+      // When viewing current receivables without a starting date cutoff, prioritize authoritative outstandingBalance
+      if (!normFrom) {
+        if (c.outstandingBalance !== undefined && c.outstandingBalance !== null && !isNaN(rawOut)) {
           ledgerBalance = rawOut;
+        } else if (!isNaN(rawOpen)) {
+          ledgerBalance = initBal;
         }
       }
 

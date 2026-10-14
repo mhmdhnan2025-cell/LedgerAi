@@ -6,7 +6,7 @@
 
 export interface CsvColumn<T = any> {
   header: string;
-  accessor: (item: T) => string | number | null | undefined;
+  accessor: (item: T, index?: number) => string | number | null | undefined;
 }
 
 export function exportToCsv<T = any>(
@@ -28,10 +28,10 @@ export function exportToCsv<T = any>(
       .join(',');
 
     // Data rows
-    const dataLines = (data as T[]).map((item) =>
+    const dataLines = (data as T[]).map((item, index) =>
       columns
         .map((col) => {
-          const val = col.accessor(item);
+          const val = col.accessor(item, index);
           if (val === null || val === undefined) return '""';
           return `"${String(val).replace(/"/g, '""')}"`;
         })

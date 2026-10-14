@@ -2027,23 +2027,23 @@ export const DEFAULT_CUSTOMER_COUNTRIES: string[] = [
   'Qatar',
 ];
 
-let ALL_329_CUSTOMERS: Customer[] = [];
+let ALL_337_CUSTOMERS: Customer[] = [];
 try {
-  const seedsRootPath = path.join(process.cwd(), 'server', 'seeds', 'all_329_customers.json');
-  const distSeedsPath = path.join(process.cwd(), 'dist', 'seeds', 'all_329_customers.json');
-  const dataPath = path.join(process.cwd(), 'data', 'all_329_customers.json');
+  const seedsRootPath = path.join(process.cwd(), 'server', 'seeds', 'all_337_customers.json');
+  const distSeedsPath = path.join(process.cwd(), 'dist', 'seeds', 'all_337_customers.json');
+  const dataPath = path.join(process.cwd(), 'data', 'all_337_customers.json');
   if (fs.existsSync(seedsRootPath)) {
-    ALL_329_CUSTOMERS = JSON.parse(fs.readFileSync(seedsRootPath, 'utf8'));
+    ALL_337_CUSTOMERS = JSON.parse(fs.readFileSync(seedsRootPath, 'utf8'));
   } else if (fs.existsSync(distSeedsPath)) {
-    ALL_329_CUSTOMERS = JSON.parse(fs.readFileSync(distSeedsPath, 'utf8'));
+    ALL_337_CUSTOMERS = JSON.parse(fs.readFileSync(distSeedsPath, 'utf8'));
   } else if (fs.existsSync(dataPath)) {
-    ALL_329_CUSTOMERS = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+    ALL_337_CUSTOMERS = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
   }
 } catch (e) {
-  console.warn('Could not load all_329_customers.json:', e);
+  console.warn('Could not load all_337_customers.json:', e);
 }
 
-export const DEFAULT_SEED_CUSTOMERS: Customer[] = ALL_329_CUSTOMERS.length > 0 ? ALL_329_CUSTOMERS : [
+export const DEFAULT_SEED_CUSTOMERS: Customer[] = ALL_337_CUSTOMERS.length > 0 ? ALL_337_CUSTOMERS : [
   {
     id: 'cust-1',
     code: '0101040001',
@@ -3408,9 +3408,9 @@ class DatabaseService {
           }
           if (!Array.isArray(parsed.customers) || parsed.customers.length === 0) {
             parsed.customers = [...DEFAULT_SEED_CUSTOMERS];
-          } else if (ALL_329_CUSTOMERS.length > 0 && parsed.customers.length < ALL_329_CUSTOMERS.length) {
+          } else if (ALL_337_CUSTOMERS.length > 0 && parsed.customers.length < ALL_337_CUSTOMERS.length) {
             const existingCodes = new Set(parsed.customers.map((c: any) => c.code));
-            for (const c of ALL_329_CUSTOMERS) {
+            for (const c of ALL_337_CUSTOMERS) {
               if (!existingCodes.has(c.code)) {
                 parsed.customers.push(c);
                 existingCodes.add(c.code);
@@ -9138,7 +9138,7 @@ class DatabaseService {
           saleReturnsInWindowMap.set(pId, (saleReturnsInWindowMap.get(pId) || 0) + totalUnits);
           saleReturnsCartonsInWindowMap.set(pId, (saleReturnsCartonsInWindowMap.get(pId) || 0) + ctn);
 
-          const pkgLabel = it.packageType || p?.packageType || 'CTN';
+          const pkgLabel = (it as any).packageType || p?.packageType || 'CTN';
           const unitLabel = p?.unit || it.unit || 'Units';
 
           ledgerTransactions.push({
@@ -9183,7 +9183,7 @@ class DatabaseService {
           purchaseReturnsInWindowMap.set(pId, (purchaseReturnsInWindowMap.get(pId) || 0) + totalUnits);
           purchaseReturnsCartonsInWindowMap.set(pId, (purchaseReturnsCartonsInWindowMap.get(pId) || 0) + ctn);
 
-          const pkgLabel = it.packageType || p?.packageType || 'CTN';
+          const pkgLabel = (it as any).packageType || p?.packageType || 'CTN';
           const unitLabel = p?.unit || it.unit || 'Units';
 
           ledgerTransactions.push({
