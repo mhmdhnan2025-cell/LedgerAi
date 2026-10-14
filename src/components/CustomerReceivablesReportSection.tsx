@@ -27,6 +27,7 @@ interface CustomerReceivablesReportSectionProps {
 export interface PartyReceivableRow {
   id: string;
   sNo: number;
+  pdfOrder?: number;
   mCode: string;
   salesman: string;
   accountTitle: string;
@@ -143,7 +144,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
   const [customerQuery, setCustomerQuery] = useState<string>('');
   const [mobileQuery, setMobileQuery] = useState<string>('');
   const [selectedGroup, setSelectedGroup] = useState<string>(''); // Handling Salesman Group
-  const [showZeroBalance, setShowZeroBalance] = useState<boolean>(true); // Default true so user sees records immediately
+  const [showZeroBalance, setShowZeroBalance] = useState<boolean>(false); // Default false so exact 155 PDF records show immediately
 
   const printAreaRef = useRef<HTMLDivElement>(null);
 
@@ -512,9 +513,11 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
         }
       }
 
+      const pOrder = (c as any).pdfOrder || (c as any).sno || (c as any).sNo || 9999;
       return {
         id: c.id,
-        sNo: 0, // Assigned later
+        sNo: pOrder < 9999 ? pOrder : 0, // Assigned later
+        pdfOrder: pOrder,
         mCode: c.manualCode?.trim() || c.code?.trim() || c.accountCode?.trim() || '',
         salesman,
         accountTitle: custTitle,
@@ -760,21 +763,24 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
     }
 
     // 7. Show Zero Balance Filter
-    // When unchecked, only show rows with ledger balance != 0 OR rows with bills/receipts
+    // When unchecked, only show rows with non-zero ledger balance (exact 155 PDF rows)
     // When checked, show all rows including zero balance
     if (!showZeroBalance) {
-      // If user explicitly chose a salesman or searched customer, keep rows to avoid empty confusion
-      if (!selectedGroup && !customerQuery) {
-        list = list.filter((r) => Math.abs(r.ledgerBalance) > 0.001 || r.lastBillAmount > 0 || r.lastReceiptAmount > 0);
-      } else {
-        list = list.filter((r) => Math.abs(r.ledgerBalance) > 0.001);
-      }
+      list = list.filter((r) => Math.abs(r.ledgerBalance) > 0.001);
     }
 
+    // Sort primarily by PDF sequence order (1..155), then by customer title
+    const sorted = [...list].sort((a, b) => {
+      const orderA = a.pdfOrder || 9999;
+      const orderB = b.pdfOrder || 9999;
+      if (orderA !== orderB) return orderA - orderB;
+      return a.accountTitle.localeCompare(b.accountTitle);
+    });
+
     // Assign sequential S.NO
-    return list.map((r, idx) => ({
+    return sorted.map((r, idx) => ({
       ...r,
-      sNo: idx + 1,
+      sNo: r.pdfOrder && r.pdfOrder < 9999 ? r.pdfOrder : idx + 1,
     }));
   }, [allRows, selectedGroup, selectedArea, selectedSector, selectedCity, customerQuery, mobileQuery, showZeroBalance]);
 
@@ -939,6 +945,39 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
+        }
+        .party-rec-table-container {
+          max-height: calc(100vh - 210px);
+          min-height: 480px;
+          overflow-y: auto;
+          overflow-x: auto;
+          position: relative;
+        }
+        .party-rec-table thead {
+          position: sticky !important;
+          top: 0 !important;
+          z-index: 30 !important;
+        }
+        .party-rec-table thead th {
+          position: sticky !important;
+          top: 0 !important;
+          z-index: 30 !important;
+          background-color: #1a2332 !important;
+          color: #ffffff !important;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25) !important;
+        }
+        .party-rec-table tfoot {
+          position: sticky !important;
+          bottom: 0 !important;
+          z-index: 25 !important;
+        }
+        .party-rec-table tfoot td {
+          position: sticky !important;
+          bottom: 0 !important;
+          z-index: 25 !important;
+          background-color: #0f172a !important;
+          color: #ffffff !important;
+          box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.25) !important;
         }
       `}</style>
 
@@ -1198,36 +1237,36 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
         {/* ------------------------------------------------------------- */}
         {/* REPORT TABLE: Strictly matching reference Image 2              */}
         {/* ------------------------------------------------------------- */}
-        <div className="overflow-x-auto border border-slate-300 dark:border-slate-800 rounded-lg shadow-xs bg-white dark:bg-slate-900">
+        <div className="party-rec-table-container border border-slate-300 dark:border-slate-800 rounded-lg shadow-sm bg-white dark:bg-slate-900 w-full">
           <table className="w-full text-left text-xs border-collapse party-rec-table">
-            {/* Dark Navy Table Header matching Image 2 */}
-            <thead>
-              <tr className="bg-[#1a2332] text-white font-bold uppercase tracking-wider text-[11px] select-none" style={{ backgroundColor: '#1a2332', color: '#ffffff' }}>
-                <th className="py-2.5 px-3 text-center w-14 border-r border-[#2d3a4e]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
+            {/* Dark Navy Table Header matching Image 2 with sticky lock */}
+            <thead className="sticky top-0 z-30 shadow-xs">
+              <tr className="bg-[#1a2332] text-white font-bold uppercase tracking-wider text-[11px] select-none sticky top-0 z-30" style={{ backgroundColor: '#1a2332', color: '#ffffff' }}>
+                <th className="sticky top-0 z-30 py-3 px-3 text-center w-14 border-r border-[#2d3a4e] bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
                   S.NO
                 </th>
-                <th className="py-2.5 px-3 text-center w-28 border-r border-[#2d3a4e]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
+                <th className="sticky top-0 z-30 py-3 px-3 text-center w-28 border-r border-[#2d3a4e] bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
                   M.CODE
                 </th>
-                <th className="py-2.5 px-3 text-left min-w-[240px] border-r border-[#2d3a4e]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
+                <th className="sticky top-0 z-30 py-3 px-3 text-left min-w-[280px] border-r border-[#2d3a4e] bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
                   TITLE
                 </th>
-                <th className="py-2.5 px-3 text-center w-24 border-r border-[#2d3a4e]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
+                <th className="sticky top-0 z-30 py-3 px-3 text-center w-24 border-r border-[#2d3a4e] bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
                   LASTBILL #
                 </th>
-                <th className="py-2.5 px-3 text-center w-28 border-r border-[#2d3a4e]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
+                <th className="sticky top-0 z-30 py-3 px-3 text-center w-28 border-r border-[#2d3a4e] bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
                   BILL DATED
                 </th>
-                <th className="py-2.5 px-3 text-right w-28 border-r border-[#2d3a4e]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
+                <th className="sticky top-0 z-30 py-3 px-3 text-right w-28 border-r border-[#2d3a4e] bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
                   BILL AMOUNT
                 </th>
-                <th className="py-2.5 px-3 text-center w-36 border-r border-[#2d3a4e]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
+                <th className="sticky top-0 z-30 py-3 px-3 text-center w-36 border-r border-[#2d3a4e] bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
                   LAST RECEIPT DATE
                 </th>
-                <th className="py-2.5 px-3 text-right w-32 border-r border-[#2d3a4e]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
+                <th className="sticky top-0 z-30 py-3 px-3 text-right w-32 border-r border-[#2d3a4e] bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
                   RECEIPT AMOUNT
                 </th>
-                <th className="py-2.5 px-3 text-right w-36" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
+                <th className="sticky top-0 z-30 py-3 px-3 text-right w-36 bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
                   LEDGER BALANCE
                 </th>
               </tr>
@@ -1342,31 +1381,32 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
               )}
             </tbody>
 
-            {/* Table Footer: Totals Row matching Image 2 */}
-            <tfoot>
-              <tr className="party-rec-totals font-bold border-t-2 border-slate-300 dark:border-slate-700 text-xs bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white">
+            {/* Table Footer: Totals Row matching Image 2 with sticky lock */}
+            <tfoot className="sticky bottom-0 z-25">
+              <tr className="party-rec-totals font-bold border-t-2 border-slate-700 text-xs bg-slate-900 dark:bg-slate-950 text-white sticky bottom-0 z-25" style={{ backgroundColor: '#0f172a', color: '#ffffff' }}>
                 <td
                   colSpan={5}
-                  className="party-rec-total-label py-3 px-3 text-right font-extrabold uppercase tracking-wider border-r border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white"
+                  className="party-rec-total-label py-3 px-3 text-right font-extrabold uppercase tracking-wider border-r border-slate-700 text-white sticky bottom-0 z-25"
+                  style={{ backgroundColor: '#0f172a', color: '#ffffff' }}
                 >
                   TOTAL:
                 </td>
-                <td className="party-rec-total-bill py-3 px-3 text-right font-mono font-black border-r border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white">
+                <td className="party-rec-total-bill py-3 px-3 text-right font-mono font-black border-r border-slate-700 text-white sticky bottom-0 z-25" style={{ backgroundColor: '#0f172a', color: '#ffffff' }}>
                   {formatAmount(totals.billAmount)}
                 </td>
-                <td className="party-rec-total-dash py-3 px-3 text-center border-r border-slate-300 dark:border-slate-800 text-slate-500 dark:text-slate-400">
+                <td className="party-rec-total-dash py-3 px-3 text-center border-r border-slate-700 text-slate-400 sticky bottom-0 z-25" style={{ backgroundColor: '#0f172a' }}>
                   —
                 </td>
-                <td className="party-rec-total-receipt py-3 px-3 text-right font-mono font-black border-r border-slate-300 dark:border-slate-800 text-emerald-700 dark:text-emerald-400">
+                <td className="party-rec-total-receipt py-3 px-3 text-right font-mono font-black border-r border-slate-700 text-emerald-400 sticky bottom-0 z-25" style={{ backgroundColor: '#0f172a' }}>
                   {formatAmount(totals.receiptAmount)}
                 </td>
-                <td className={`party-rec-total-balance py-3 px-3 text-right font-mono font-black ${
+                <td className={`party-rec-total-balance py-3 px-3 text-right font-mono font-black sticky bottom-0 z-25 ${
                   totals.ledgerBalance > 0
-                    ? 'text-rose-700 dark:text-rose-400'
+                    ? 'text-rose-400'
                     : totals.ledgerBalance < 0
-                    ? 'text-emerald-700 dark:text-emerald-400'
-                    : 'text-slate-900 dark:text-white'
-                }`}>
+                    ? 'text-emerald-400'
+                    : 'text-white'
+                }`} style={{ backgroundColor: '#0f172a' }}>
                   {formatLedgerBalance(totals.ledgerBalance)}
                 </td>
               </tr>
