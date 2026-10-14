@@ -244,12 +244,18 @@ export const SaleReturnModal: React.FC<SaleReturnModalProps> = ({
                 required
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
               >
-                <option value="">Select customer...</option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.code || c.accountCode} - {c.accountTitle || c.name} ({currencySymbol()} {Number(c.outstandingBalance || 0).toLocaleString()})
-                  </option>
-                ))}
+                {[...customers]
+                  .sort((a, b) => {
+                    const srA = a.srNo !== undefined && a.srNo !== null ? Number(a.srNo) : 9999;
+                    const srB = b.srNo !== undefined && b.srNo !== null ? Number(b.srNo) : 9999;
+                    if (srA !== srB) return srA - srB;
+                    return (a.code || '').localeCompare(b.code || '');
+                  })
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.srNo ? `[Sr# ${c.srNo}] ` : ''}{c.code || c.accountCode} - {c.accountTitle || c.name} ({currencySymbol()} {Number(c.outstandingBalance || 0).toLocaleString()})
+                    </option>
+                  ))}
               </select>
             </div>
 

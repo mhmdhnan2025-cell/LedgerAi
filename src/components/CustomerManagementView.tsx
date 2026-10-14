@@ -17,6 +17,7 @@ import {
   Save,
   RotateCcw,
   Printer,
+  FileSpreadsheet,
   FileText,
   CreditCard,
   Hash,
@@ -31,6 +32,7 @@ import {
 } from 'lucide-react';
 import { Customer, CompanyProfile } from '../types';
 import { api } from '../services/api';
+import { exportToCsv } from '../utils/exportCsv';
 
 interface CustomerManagementViewProps {
   onBackToSettings?: () => void;
@@ -225,8 +227,10 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
   };
 
   const resetForm = () => {
+    const maxSr = customersList.reduce((max, c) => Math.max(max, Number(c.srNo) || 0), 0);
     setEditingCustomerId(null);
     setFormData({
+      srNo: maxSr + 1,
       code: '',
       manualCode: '',
       accountTitle: '',
@@ -274,6 +278,7 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
       setAvailableSalesmen((prev) => (prev.includes(custSm) ? prev : [...prev, custSm]));
     }
     setFormData({
+      srNo: cust.srNo,
       code: cust.code || cust.accountCode || '',
       manualCode: cust.manualCode || '',
       accountTitle: cust.accountTitle || cust.name || cust.title || '',
@@ -324,8 +329,14 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
       const openType = formData.openingBalanceType || 'DR';
       const outBal = (openType === 'CR' ? -1 : 1) * Math.abs(openBal);
       const sm = (formData.assignedSalesman || '').trim();
+      const existingCust = editingCustomerId ? customersList.find((c) => c.id === editingCustomerId) : null;
+      const srNo = (formData as any).srNo !== undefined && (formData as any).srNo !== null && !isNaN(Number((formData as any).srNo)) && Number((formData as any).srNo) > 0
+        ? Number((formData as any).srNo)
+        : (existingCust?.srNo || customersList.length + 1);
       const payload = {
         ...formData,
+        srNo,
+        sNo: srNo,
         assignedSalesman: sm,
         salesman: sm,
         openingBalance: openBal,
@@ -341,7 +352,7 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
         }
         setActionMsg({
           type: 'success',
-          text: `Customer "${updated.accountTitle}" (Code: ${updated.code}) updated successfully!`,
+          text: `Customer "${updated.accountTitle}" (Sr# ${updated.srNo || srNo}, Code: ${updated.code}) updated successfully!`,
         });
       } else {
         const created = await api.createCustomer(payload);
@@ -351,7 +362,7 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
         }
         setActionMsg({
           type: 'success',
-          text: `Customer "${created.accountTitle}" (Code: ${created.code}) created successfully!`,
+          text: `Customer "${created.accountTitle}" (Sr# ${created.srNo || srNo}, Code: ${created.code}) created successfully!`,
         });
       }
       setTimeout(() => {
@@ -359,6 +370,38 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
       }, 1000);
     } catch (err: any) {
       setActionMsg({ type: 'error', text: err.message || 'Failed to save customer.' });
+    }
+  };
+
+  const handleExportCSV = () => {
+    if (filteredCustomers.length === 0) {
+      setActionMsg({ type: 'error', text: 'No customer records to export.' });
+      return;
+    }
+    const ok = exportToCsv(
+      `Customers_Directory_${new Date().toISOString().split('T')[0]}`,
+      filteredCustomers,
+      [
+        { header: 'Sr#', accessor: (c, idx) => c.srNo || idx + 1 },
+        { header: 'Date', accessor: (c) => c.regDate || '' },
+        { header: 'Employee / Salesman', accessor: (c) => c.assignedSalesman || (c as any).salesman || '' },
+        { header: 'C.Code', accessor: (c) => c.code || '' },
+        { header: 'Customer Name', accessor: (c) => c.accountTitle || c.name || '' },
+        { header: 'Group', accessor: (c) => c.customerGroup || '' },
+        { header: 'Contact Person', accessor: (c) => c.contactPerson || '' },
+        { header: 'Mobiles', accessor: (c) => (c as any).rawMobiles || c.mobile || '' },
+        { header: 'Area', accessor: (c) => c.area || '' },
+        { header: 'Sector', accessor: (c) => c.sector || '' },
+        { header: 'City', accessor: (c) => c.city || '' },
+        { header: 'Outstanding Balance', accessor: (c) => c.outstandingBalance || 0 },
+        { header: 'Opening Balance', accessor: (c) => c.openingBalance || 0 },
+        { header: 'Balance Type', accessor: (c) => c.openingBalanceType || 'DR' },
+        { header: 'Status', accessor: (c) => c.status || 'ACTIVE' },
+      ]
+    );
+    if (ok) {
+      setActionMsg({ type: 'success', text: 'Customers Directory exported to Excel / CSV successfully!' });
+      setTimeout(() => setActionMsg(null), 3000);
     }
   };
 
@@ -416,7 +459,7 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
 
   // Filtered customer list
   const filteredCustomers = useMemo(() => {
-    return customersList.filter((c) => {
+    const filtered = customersList.filter((c) => {
       // Status filter
       if (statusFilter !== 'ALL' && c.status !== statusFilter) return false;
       // Group filter
@@ -441,9 +484,11 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
           (c.mobile && c.mobile.includes(q)) ||
           (c.city && c.city.toLowerCase().includes(q)) ||
           (c.area && c.area.toLowerCase().includes(q)) ||
-          (c.sector && c.sector.toLowerCase().includes(q)) ||
           (c.cnic && c.cnic.includes(q)) ||
-          (c.trn && c.trn.includes(q));
+          (c.trn && c.trn.includes(q)) ||
+          (c.srNo !== undefined && String(c.srNo) === q) ||
+          (c.srNo !== undefined && `sr# ${c.srNo}`.includes(q)) ||
+          (c.srNo !== undefined && `sr#${c.srNo}`.includes(q));
         if (!matches) return false;
       }
 
@@ -460,6 +505,15 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
       }
 
       return true;
+    });
+
+    return [...filtered].sort((a, b) => {
+      const srA = a.srNo !== undefined && a.srNo !== null ? Number(a.srNo) : 9999;
+      const srB = b.srNo !== undefined && b.srNo !== null ? Number(b.srNo) : 9999;
+      if (srA !== srB) return srA - srB;
+      const codeA = (a.code || '').localeCompare(b.code || '');
+      if (codeA !== 0) return codeA;
+      return (a.accountTitle || a.name || '').localeCompare(b.accountTitle || b.name || '');
     });
   }, [
     customersList,
@@ -504,7 +558,23 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleExportCSV}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold rounded-lg transition cursor-pointer"
+              title="Export complete customers directory with Serial Numbers"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <span>Export CSV</span>
+            </button>
+            <button
+              onClick={() => window.print()}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg transition cursor-pointer"
+              title="Print Customer Directory"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Print Directory</span>
+            </button>
             {onBackToSettings && (
               <button
                 onClick={onBackToSettings}
@@ -666,6 +736,7 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-950/80 text-slate-400 border-b border-slate-800 uppercase tracking-wider font-semibold">
                 <tr>
+                  <th className="py-2.5 px-3 text-center w-14">Sr#</th>
                   <th className="py-2.5 px-3">Code / M.Code</th>
                   <th className="py-2.5 px-3">Customer Account Title</th>
                   <th className="py-2.5 px-3">Salesman</th>
@@ -680,12 +751,12 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
               <tbody className="divide-y divide-slate-800/80 text-slate-300">
                 {filteredCustomers.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-8 text-center text-slate-500">
+                    <td colSpan={10} className="py-8 text-center text-slate-500">
                       No customers found matching the criteria. Click &quot;Add Customer&quot; to create one.
                     </td>
                   </tr>
                 ) : (
-                  filteredCustomers.map((cust) => {
+                  filteredCustomers.map((cust, idx) => {
                     const effBal = cust.outstandingBalance !== undefined && cust.outstandingBalance !== 0
                       ? cust.outstandingBalance
                       : (cust.openingBalance !== undefined && cust.openingBalance !== 0
@@ -694,6 +765,11 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
                     const balType = effBal < 0 ? 'CR' : (effBal > 0 ? 'DR' : (cust.openingBalanceType || 'DR'));
                     return (
                       <tr key={cust.id} className="hover:bg-slate-800/40 transition">
+                        <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-400">
+                          <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/60 text-[11px]">
+                            {cust.srNo || idx + 1}
+                          </span>
+                        </td>
                         <td className="py-2.5 px-3 font-mono font-bold text-orange-400">
                           <div>{cust.code || '---'}</div>
                           {cust.manualCode && (
@@ -936,8 +1012,13 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
               <div className="w-8 h-8 rounded-lg bg-orange-500/20 text-orange-400 flex items-center justify-center font-bold">
                 {editingCustomerId ? <Edit2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
               </div>
-              <h2 className="text-base font-bold text-white">
-                {editingCustomerId ? 'Edit Customer Details' : 'Add New Customer Account'}
+              <h2 className="text-base font-bold text-white flex items-center gap-2">
+                <span>{editingCustomerId ? 'Edit Customer Details' : 'Add New Customer Account'}</span>
+                {editingCustomerId && (
+                  <span className="px-2 py-0.5 rounded bg-slate-800 text-orange-400 font-mono text-xs border border-orange-500/30">
+                    Sr# {customersList.find((c) => c.id === editingCustomerId)?.srNo || '---'}
+                  </span>
+                )}
               </h2>
             </div>
             <button
@@ -955,7 +1036,21 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
               <span>1. Account Information</span>
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 text-xs">
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1 flex items-center justify-between">
+                  <span>Serial # (Sr#)</span>
+                  <span className="text-[10px] text-orange-400 font-mono">1..337</span>
+                </label>
+                <input
+                  type="number"
+                  value={(formData as any).srNo || ''}
+                  onChange={(e) => setFormData({ ...formData, srNo: e.target.value ? Number(e.target.value) : undefined } as any)}
+                  placeholder="Auto (1..337)"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-orange-400 font-mono font-bold focus:outline-hidden focus:border-orange-500"
+                />
+              </div>
+
               <div className="md:col-span-2">
                 <label className="block text-slate-300 font-semibold mb-1">
                   Customer Account Title / Business Name <span className="text-rose-400">*</span>

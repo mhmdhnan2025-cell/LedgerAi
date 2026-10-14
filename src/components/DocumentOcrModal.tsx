@@ -1160,20 +1160,32 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
     )
   );
 
-  // Filtered customer search list for sale bill
+  // Filtered customer search list for sale bill sorted by Sr#
   const filteredCustomers = useMemo(() => {
-    if (!customerSearch.trim()) return customersList.slice(0, 30);
+    const sorted = [...customersList].sort((a, b) => {
+      const srA = a.srNo !== undefined && a.srNo !== null ? Number(a.srNo) : 9999;
+      const srB = b.srNo !== undefined && b.srNo !== null ? Number(b.srNo) : 9999;
+      if (srA !== srB) return srA - srB;
+      const codeA = (a.code || '').localeCompare(b.code || '');
+      if (codeA !== 0) return codeA;
+      return (a.accountTitle || a.name || '').localeCompare(b.accountTitle || b.name || '');
+    });
+
+    if (!customerSearch.trim()) return sorted.slice(0, 50);
     const q = customerSearch.toLowerCase().trim();
-    return customersList
+    return sorted
       .filter(
         (c) =>
           c.code.toLowerCase().includes(q) ||
           c.accountTitle.toLowerCase().includes(q) ||
           c.name.toLowerCase().includes(q) ||
           (c.mobile && c.mobile.includes(q)) ||
-          (c.area && c.area.toLowerCase().includes(q))
+          (c.area && c.area.toLowerCase().includes(q)) ||
+          (c.srNo !== undefined && String(c.srNo) === q) ||
+          (c.srNo !== undefined && `sr# ${c.srNo}`.includes(q)) ||
+          (c.srNo !== undefined && `sr#${c.srNo}`.includes(q))
       )
-      .slice(0, 40);
+      .slice(0, 50);
   }, [customersList, customerSearch]);
 
   // Mandatory fields check
@@ -2136,7 +2148,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                           <option value="">-- Choose Customer from Directory --</option>
                           {filteredCustomers.map((c) => (
                             <option key={c.id} value={c.id}>
-                              [{c.code}] {c.accountTitle} &bull; {c.contactPerson || c.area || ''} (Bal: {currencySymbol()}{' '}
+                              {c.srNo ? `[Sr# ${c.srNo}] ` : ''}[{c.code}] {c.accountTitle} &bull; {c.contactPerson || c.area || ''} (Bal: {currencySymbol()}{' '}
                               {c.outstandingBalance || 0})
                             </option>
                           ))}
@@ -2489,7 +2501,7 @@ export const DocumentOcrModal: React.FC<DocumentOcrModalProps> = ({
                             <option value="">-- Choose Customer from Directory --</option>
                             {filteredCustomers.map((c) => (
                               <option key={c.id} value={c.id}>
-                                [{c.code}] {c.accountTitle} &bull; {c.contactPerson || c.area || ''} (Bal: {currencySymbol()}{' '}
+                                {c.srNo ? `[Sr# ${c.srNo}] ` : ''}[{c.code}] {c.accountTitle} &bull; {c.contactPerson || c.area || ''} (Bal: {currencySymbol()}{' '}
                                 {c.outstandingBalance || 0})
                               </option>
                             ))}

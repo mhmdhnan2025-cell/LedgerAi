@@ -663,6 +663,9 @@ export interface BusinessProfitDiagnosis {
 export interface Customer {
   id: string;
   companyId?: string;
+  srNo?: number;                // Serial Number from Customer List PDF (1..337)
+  sNo?: number;                 // Compatibility serial number
+  pdfOrder?: number;            // PDF sequence order
   code: string;                 // A/C Code e.g. "0101040001" or "0101040087"
   accountCode?: string;         // compatibility
   manualCode?: string;          // C.CODE / M.CODE (User defined code)
@@ -1123,6 +1126,7 @@ export interface CashAccount {
 
 export interface GlAccountOption {
   id: string;
+  srNo?: number;
   code: string;
   title: string;
   type: 'Customer' | 'Supplier' | 'Bank' | 'Cash' | 'Expense' | 'General';

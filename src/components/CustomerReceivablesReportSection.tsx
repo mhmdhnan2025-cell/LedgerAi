@@ -27,6 +27,7 @@ interface CustomerReceivablesReportSectionProps {
 export interface PartyReceivableRow {
   id: string;
   sNo: number;
+  srNo?: number;
   pdfOrder?: number;
   mCode: string;
   salesman: string;
@@ -518,6 +519,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
         id: c.id,
         sNo: pOrder < 9999 ? pOrder : 0, // Assigned later
         pdfOrder: pOrder,
+        srNo: c.srNo,
         mCode: c.manualCode?.trim() || c.code?.trim() || c.accountCode?.trim() || '',
         salesman,
         accountTitle: custTitle,
@@ -752,7 +754,11 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
         (r) =>
           r.accountTitle.toLowerCase().includes(cq) ||
           r.mCode.toLowerCase().includes(cq) ||
-          r.salesman.toLowerCase().includes(cq)
+          r.salesman.toLowerCase().includes(cq) ||
+          (r.srNo !== undefined && String(r.srNo) === cq) ||
+          (r.srNo !== undefined && `sr# ${r.srNo}`.includes(cq)) ||
+          (r.srNo !== undefined && `sr#${r.srNo}`.includes(cq)) ||
+          String(r.sNo) === cq
       );
     }
 
@@ -837,6 +843,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
   const handleExportCSV = () => {
     const headers = [
       'S.NO',
+      'SR#',
       'M.CODE',
       'SALESMAN',
       'CUSTOMER TITLE',
@@ -851,6 +858,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
 
     const rows = filteredRows.map((r) => [
       String(r.sNo),
+      r.srNo ? String(r.srNo) : String(r.sNo),
       r.mCode,
       r.salesman || '0',
       r.accountTitle,
@@ -1299,7 +1307,12 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
                     >
                       {/* S.NO */}
                       <td className="party-rec-sno py-2.5 px-3 text-center font-mono font-medium border-r border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
-                        {row.sNo}
+                        <div className="font-bold text-slate-900 dark:text-slate-100">{row.sNo}</div>
+                        {row.srNo && row.srNo !== row.sNo ? (
+                          <div className="text-[10px] text-slate-400 dark:text-slate-500 font-mono" title={`Customer Directory Sr# ${row.srNo}`}>
+                            Sr#{row.srNo}
+                          </div>
+                        ) : null}
                       </td>
 
                       {/* M.CODE */}
@@ -1316,8 +1329,13 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
                               {row.salesman ? `(${row.salesman})` : '0'}
                             </div>
                             {/* Line 2: Customer Account Title */}
-                            <div className="party-rec-title text-xs sm:text-sm font-bold capitalize text-slate-900 dark:text-white">
-                              {row.accountTitle}
+                            <div className="party-rec-title text-xs sm:text-sm font-bold capitalize text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
+                              {row.srNo ? (
+                                <span className="px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-orange-400 font-mono text-[10px] border border-slate-300 dark:border-slate-700 shrink-0">
+                                  Sr#{row.srNo}
+                                </span>
+                              ) : null}
+                              <span>{row.accountTitle}</span>
                             </div>
                             {/* Line 3: Mobile Phone Number */}
                             <div className="party-rec-mobile text-[11px] font-mono text-slate-600 dark:text-slate-400">

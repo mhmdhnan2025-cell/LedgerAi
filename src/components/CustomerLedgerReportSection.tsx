@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   FileSpreadsheet,
   Printer,
@@ -219,20 +219,33 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
     }
   };
 
-  const filteredCustomers = customers.filter((c) => {
+  const filteredCustomers = useMemo(() => {
     const q = customerSearch.trim().toLowerCase();
-    if (!q) return true;
-    const code = (c.code || c.accountCode || '').toLowerCase();
-    const name = (c.accountTitle || c.name || '').toLowerCase();
-    const mobile = (c.mobile || '').toLowerCase();
-    const city = (c.city || c.area || '').toLowerCase();
-    const full = `${code} - ${name} ${mobile} ${city}`.toLowerCase();
+    const list = customers.filter((c) => {
+      if (!q) return true;
+      const code = (c.code || c.accountCode || '').toLowerCase();
+      const name = (c.accountTitle || c.name || '').toLowerCase();
+      const mobile = (c.mobile || '').toLowerCase();
+      const city = (c.city || c.area || '').toLowerCase();
+      const srStr = c.srNo !== undefined ? String(c.srNo) : '';
+      const srTag = c.srNo !== undefined ? `sr# ${c.srNo} sr#${c.srNo}` : '';
+      const full = `${code} - ${name} ${mobile} ${city} ${srStr} ${srTag}`.toLowerCase();
 
-    if (full.includes(q) || code.includes(q) || name.includes(q)) return true;
+      if (full.includes(q) || code.includes(q) || name.includes(q) || srStr === q) return true;
 
-    const tokens = q.split(/\s+/).filter(Boolean);
-    return tokens.every((token) => full.includes(token));
-  });
+      const tokens = q.split(/\s+/).filter(Boolean);
+      return tokens.every((token) => full.includes(token));
+    });
+
+    return [...list].sort((a, b) => {
+      const srA = a.srNo !== undefined && a.srNo !== null ? Number(a.srNo) : 9999;
+      const srB = b.srNo !== undefined && b.srNo !== null ? Number(b.srNo) : 9999;
+      if (srA !== srB) return srA - srB;
+      const codeA = (a.code || '').localeCompare(b.code || '');
+      if (codeA !== 0) return codeA;
+      return (a.accountTitle || a.name || '').localeCompare(b.accountTitle || b.name || '');
+    });
+  }, [customers, customerSearch]);
 
   // Focus and sync highlighted index when dropdown opens
   useEffect(() => {
@@ -444,10 +457,21 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
               onClick={handleToggleDropdown}
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white flex items-center justify-between cursor-pointer hover:border-slate-600 transition"
             >
-              <span className={`truncate ${selectedCustomer ? 'text-white font-semibold' : 'text-sky-300 font-bold'}`}>
-                {selectedCustomer
-                  ? `${selectedCustomer.code || selectedCustomer.accountCode || ''} - ${selectedCustomer.accountTitle || selectedCustomer.name}`
-                  : 'All Accounts / Nothing Selected'}
+              <span className={`truncate ${selectedCustomer ? 'text-white font-semibold flex items-center gap-1.5' : 'text-sky-300 font-bold'}`}>
+                {selectedCustomer ? (
+                  <>
+                    {selectedCustomer.srNo ? (
+                      <span className="px-1.5 py-0.2 rounded bg-slate-750 text-orange-400 font-mono text-[10px] border border-orange-500/30 shrink-0">
+                        Sr#{selectedCustomer.srNo}
+                      </span>
+                    ) : null}
+                    <span className="truncate">
+                      {selectedCustomer.code || selectedCustomer.accountCode || ''} - {selectedCustomer.accountTitle || selectedCustomer.name}
+                    </span>
+                  </>
+                ) : (
+                  'All Accounts / Nothing Selected'
+                )}
               </span>
               <div className="flex items-center gap-1.5 ml-2 shrink-0">
                 {selectedCustomer && (
@@ -547,6 +571,11 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
                         >
                           <div className="flex items-center gap-2">
                             {isHighlighted && <span className="text-amber-300 font-black text-xs select-none">▶</span>}
+                            {c.srNo ? (
+                              <span className="px-1.5 py-0.5 rounded bg-slate-900 text-orange-400 font-mono text-[10px] border border-orange-500/30 shrink-0">
+                                Sr#{c.srNo}
+                              </span>
+                            ) : null}
                             <div>
                               <div className={`font-semibold ${isHighlighted ? 'font-bold text-white' : 'text-white'}`}>
                                 {c.code || c.accountCode} - {c.accountTitle || c.name}

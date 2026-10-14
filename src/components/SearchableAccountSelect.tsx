@@ -56,7 +56,7 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
 
-  // Filter accounts in real-time with multi-token smart search
+  // Filter accounts in real-time with multi-token smart search (including Sr#)
   const filteredAccounts = useMemo(() => {
     if (!searchTerm.trim()) return safeAccounts;
     const q = searchTerm.trim().toLowerCase();
@@ -68,16 +68,26 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
       const code = String(a.code || '').toLowerCase();
       const type = String(a.type || '').toLowerCase();
       const city = String((a as any).city || '').toLowerCase();
-      const combined = `${code} ${title} ${type} ${city}`;
+      const srStr = a.srNo !== undefined ? String(a.srNo) : '';
+      const srTag = a.srNo !== undefined ? `sr# ${a.srNo} sr#${a.srNo}` : '';
+      const combined = `${code} ${title} ${type} ${city} ${srStr} ${srTag}`;
 
+      if (srStr === q) return true;
       return tokens.every((token) => combined.includes(token));
     });
   }, [safeAccounts, searchTerm]);
 
-  // Group accounts safely
+  // Group accounts safely with Customers sorted by Master Serial Number (Sr# 1..337)
   const grouped = useMemo(() => {
     const exp = filteredAccounts.filter((a) => a && a.type === 'Expense');
-    const cust = filteredAccounts.filter((a) => a && a.type === 'Customer');
+    const cust = filteredAccounts
+      .filter((a) => a && a.type === 'Customer')
+      .sort((a, b) => {
+        const srA = a.srNo !== undefined && a.srNo !== null ? Number(a.srNo) : 9999;
+        const srB = b.srNo !== undefined && b.srNo !== null ? Number(b.srNo) : 9999;
+        if (srA !== srB) return srA - srB;
+        return (a.code || '').localeCompare(b.code || '');
+      });
     const supp = filteredAccounts.filter((a) => a && a.type === 'Supplier');
     const bank = filteredAccounts.filter((a) => a && a.type === 'Bank');
     const cash = filteredAccounts.filter((a) => a && a.type === 'Cash');
@@ -135,6 +145,11 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
         >
           <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
             {getTypeIcon(selectedAccount.type)}
+            {selectedAccount.srNo ? (
+              <span className="px-1.5 py-0.5 rounded bg-slate-800 text-orange-400 font-mono text-[10px] border border-orange-500/30 shrink-0">
+                Sr#{selectedAccount.srNo}
+              </span>
+            ) : null}
             <span className="font-mono font-bold text-sky-400 text-xs shrink-0">
               {selectedAccount.code || ''}
             </span>
@@ -335,9 +350,16 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
                         }`}
                       >
                         <div className="flex-1 min-w-0 pr-2">
-                          {/* Prominent, large customer name */}
-                          <div className="text-sm sm:text-base font-extrabold text-white tracking-wide truncate">
-                            {acc.title || ''}
+                          {/* Prominent, large customer name with Sr# badge */}
+                          <div className="flex items-center gap-2">
+                            {acc.srNo ? (
+                              <span className="px-1.5 py-0.5 rounded bg-slate-800 text-orange-400 font-mono text-[10px] border border-orange-500/30 shrink-0">
+                                Sr#{acc.srNo}
+                              </span>
+                            ) : null}
+                            <div className="text-sm sm:text-base font-extrabold text-white tracking-wide truncate">
+                              {acc.title || ''}
+                            </div>
                           </div>
                           {/* Code & Area */}
                           <div className="flex items-center gap-2 mt-0.5 text-xs font-mono text-slate-400">

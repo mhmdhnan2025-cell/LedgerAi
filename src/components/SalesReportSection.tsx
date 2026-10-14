@@ -238,12 +238,27 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
   // Selected Customer Display
   const selectedCustomerObj = customers.find((c) => c.id === selectedCustomerId);
 
-  const filteredCustomers = customers.filter(
-    (c) =>
-      c.accountTitle?.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
-      c.name?.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
-      c.code?.includes(customerSearchQuery)
-  );
+  const filteredCustomers = useMemo(() => {
+    const q = customerSearchQuery.trim().toLowerCase();
+    const list = customers.filter(
+      (c) =>
+        !q ||
+        c.accountTitle?.toLowerCase().includes(q) ||
+        c.name?.toLowerCase().includes(q) ||
+        c.code?.includes(q) ||
+        (c.srNo !== undefined && String(c.srNo) === q) ||
+        (c.srNo !== undefined && `sr# ${c.srNo}`.includes(q)) ||
+        (c.srNo !== undefined && `sr#${c.srNo}`.includes(q))
+    );
+    return [...list].sort((a, b) => {
+      const srA = a.srNo !== undefined && a.srNo !== null ? Number(a.srNo) : 9999;
+      const srB = b.srNo !== undefined && b.srNo !== null ? Number(b.srNo) : 9999;
+      if (srA !== srB) return srA - srB;
+      const codeA = (a.code || '').localeCompare(b.code || '');
+      if (codeA !== 0) return codeA;
+      return (a.accountTitle || a.name || '').localeCompare(b.accountTitle || b.name || '');
+    });
+  }, [customers, customerSearchQuery]);
 
   const [editingSaleBill, setEditingSaleBill] = useState<SaleBill | null>(null);
 
@@ -485,8 +500,19 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
               }}
               className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white cursor-pointer flex items-center justify-between hover:border-emerald-500 truncate"
             >
-              <span className="truncate">
-                {selectedCustomerObj ? selectedCustomerObj.accountTitle || selectedCustomerObj.name : 'All Customers'}
+              <span className="truncate flex items-center gap-1.5">
+                {selectedCustomerObj ? (
+                  <>
+                    {selectedCustomerObj.srNo ? (
+                      <span className="px-1.5 py-0.2 rounded bg-slate-800 text-orange-400 font-mono text-[10px] border border-orange-500/30 shrink-0">
+                        Sr#{selectedCustomerObj.srNo}
+                      </span>
+                    ) : null}
+                    <span className="truncate">{selectedCustomerObj.accountTitle || selectedCustomerObj.name}</span>
+                  </>
+                ) : (
+                  'All Customers'
+                )}
               </span>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-1 shrink-0" />
             </div>
@@ -519,10 +545,17 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
                       setCustomerSearchQuery('');
                       setIsCustomerDropdownOpen(false);
                     }}
-                    className="px-2 py-1 text-white hover:bg-slate-800 rounded cursor-pointer flex justify-between"
+                    className="px-2 py-1 text-white hover:bg-slate-800 rounded cursor-pointer flex items-center justify-between gap-1.5"
                   >
-                    <span className="truncate">{c.accountTitle || c.name}</span>
-                    <span className="text-[10px] text-orange-400 font-mono">{c.code}</span>
+                    <div className="flex items-center gap-1.5 truncate">
+                      {c.srNo ? (
+                        <span className="px-1 py-0.2 rounded bg-slate-800 text-orange-400 font-mono text-[9px] border border-orange-500/30 shrink-0">
+                          Sr#{c.srNo}
+                        </span>
+                      ) : null}
+                      <span className="truncate">{c.accountTitle || c.name}</span>
+                    </div>
+                    <span className="text-[10px] text-orange-400 font-mono shrink-0">{c.code}</span>
                   </div>
                 ))}
               </div>

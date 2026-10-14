@@ -7326,7 +7326,10 @@ class DatabaseService {
             (c.mobile && c.mobile.includes(q)) ||
             (c.city && c.city.toLowerCase().includes(q)) ||
             (c.area && c.area.toLowerCase().includes(q)) ||
-            (c.sector && c.sector.toLowerCase().includes(q))
+            (c.sector && c.sector.toLowerCase().includes(q)) ||
+            (c.srNo !== undefined && String(c.srNo) === q) ||
+            (c.srNo !== undefined && `sr# ${c.srNo}`.includes(q)) ||
+            (c.srNo !== undefined && `sr#${c.srNo}`.includes(q))
         );
       }
 
@@ -7407,6 +7410,16 @@ class DatabaseService {
       }
     }
 
+    // Sort primarily by Sr# (1..337)
+    list.sort((a, b) => {
+      const srA = a.srNo !== undefined && a.srNo !== null ? Number(a.srNo) : 9999;
+      const srB = b.srNo !== undefined && b.srNo !== null ? Number(b.srNo) : 9999;
+      if (srA !== srB) return srA - srB;
+      const codeA = (a.code || '').localeCompare(b.code || '');
+      if (codeA !== 0) return codeA;
+      return (a.accountTitle || a.name || '').localeCompare(b.accountTitle || b.name || '');
+    });
+
     return list;
   }
 
@@ -7480,8 +7493,16 @@ class DatabaseService {
 
     const regDate = data.regDate ? this.normalizeDateToYMD(data.regDate) : new Date().toISOString().split('T')[0];
 
+    const existingSrNos = this.data.customers
+      .map((c) => Number(c.srNo))
+      .filter((n) => !isNaN(n) && n > 0);
+    const maxSrNo = existingSrNos.length > 0 ? Math.max(...existingSrNos) : 0;
+    const srNo = data.srNo !== undefined && data.srNo !== null ? Number(data.srNo) : maxSrNo + 1;
+
     const newCustomer: Customer = {
       id: `cust-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      srNo,
+      sNo: srNo,
       code,
       accountCode: code,
       manualCode: (data.manualCode || '').trim(),
@@ -9713,6 +9734,7 @@ class DatabaseService {
       const cleanTitle = (c.accountTitle || c.name || 'Customer').trim();
       accounts.push({
         id: c.id,
+        srNo: c.srNo,
         code: c.code || c.accountCode || '0101040000',
         title: cleanTitle,
         type: 'Customer',

@@ -1,5 +1,5 @@
 import { currencySymbol } from '../utils/currency';
-import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import {
   Receipt,
   Plus,
@@ -964,14 +964,29 @@ export const SalesView: React.FC<SalesViewProps> = ({
     setIsReceiptModalOpen(true);
   };
 
-  // Filtered customers for live dropdown
-  const filteredCustomers = customers.filter(
-    (c) =>
-      c.accountTitle?.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
-      c.name?.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
-      c.code?.includes(customerSearchQuery) ||
-      c.mobile?.includes(customerSearchQuery)
-  );
+  // Filtered customers for live dropdown with Sr# search and sorting
+  const filteredCustomers = useMemo(() => {
+    const q = customerSearchQuery.trim().toLowerCase();
+    const list = customers.filter(
+      (c) =>
+        !q ||
+        c.accountTitle?.toLowerCase().includes(q) ||
+        c.name?.toLowerCase().includes(q) ||
+        c.code?.toLowerCase().includes(q) ||
+        c.mobile?.includes(q) ||
+        (c.srNo !== undefined && String(c.srNo) === q) ||
+        (c.srNo !== undefined && `sr# ${c.srNo}`.includes(q)) ||
+        (c.srNo !== undefined && `sr#${c.srNo}`.includes(q))
+    );
+    return [...list].sort((a, b) => {
+      const srA = a.srNo !== undefined && a.srNo !== null ? Number(a.srNo) : 9999;
+      const srB = b.srNo !== undefined && b.srNo !== null ? Number(b.srNo) : 9999;
+      if (srA !== srB) return srA - srB;
+      const codeA = (a.code || '').localeCompare(b.code || '');
+      if (codeA !== 0) return codeA;
+      return (a.accountTitle || a.name || '').localeCompare(b.accountTitle || b.name || '');
+    });
+  }, [customers, customerSearchQuery]);
 
   // Filtered products for line item dropdown
   const filteredProducts = products.filter(
@@ -1304,8 +1319,20 @@ export const SalesView: React.FC<SalesViewProps> = ({
                 isCashCustomer ? 'opacity-80' : 'hover:border-emerald-500'
               }`}
             >
-              <span className={`font-bold truncate ${customerAccountTitle ? 'text-white' : 'text-slate-400'}`}>
-                {customerAccountTitle || '-- Nothing Selected --'}
+              <span className={`font-bold truncate flex items-center gap-1.5 ${customerAccountTitle ? 'text-white' : 'text-slate-400'}`}>
+                {(() => {
+                  const cust = customers.find((c) => c.id === selectedCustomerId || c.code === selectedCustomerId);
+                  return (
+                    <>
+                      {cust?.srNo ? (
+                        <span className="px-1.5 py-0.2 rounded bg-slate-800 text-orange-400 font-mono text-[10px] border border-orange-500/30 shrink-0">
+                          Sr#{cust.srNo}
+                        </span>
+                      ) : null}
+                      <span className="truncate">{customerAccountTitle || '-- Nothing Selected --'}</span>
+                    </>
+                  );
+                })()}
               </span>
               <ChevronDown className="w-4 h-4 text-slate-400" />
             </div>
@@ -1348,12 +1375,19 @@ export const SalesView: React.FC<SalesViewProps> = ({
                       onClick={() => handleSelectCustomer(c)}
                       className="px-2.5 py-1.5 rounded-lg hover:bg-slate-800 cursor-pointer flex items-center justify-between text-xs transition"
                     >
-                      <div>
-                        <div className="font-bold text-white">{c.accountTitle || c.name}</div>
-                        <div className="text-[10px] text-slate-400 flex items-center gap-2">
-                          <span className="font-mono text-orange-400">{c.code}</span>
-                          <span>{c.customerGroup || 'General'}</span>
-                          {c.mobile && <span>Ph: {c.mobile}</span>}
+                      <div className="flex items-start gap-2">
+                        {c.srNo ? (
+                          <span className="px-1.5 py-0.5 rounded bg-slate-800 text-orange-400 font-mono text-[10px] border border-orange-500/30 shrink-0 mt-0.5">
+                            Sr#{c.srNo}
+                          </span>
+                        ) : null}
+                        <div>
+                          <div className="font-bold text-white">{c.accountTitle || c.name}</div>
+                          <div className="text-[10px] text-slate-400 flex items-center gap-2">
+                            <span className="font-mono text-orange-400">{c.code}</span>
+                            <span>{c.customerGroup || 'General'}</span>
+                            {c.mobile && <span>Ph: {c.mobile}</span>}
+                          </div>
                         </div>
                       </div>
                       <div className="text-right">
