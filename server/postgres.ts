@@ -57,6 +57,10 @@ class PostgresService {
   private pool: pg.Pool | null = null;
   private isInitialized = false;
   private lastStatus: PostgresStatus = { connected: false };
+  private pgConnFails = 0;
+  private pgCircuitOpenUntil = 0;
+  private pgBackoffMs = 5000;
+  private pgLastPoolErrLog = 0;
 
   constructor() {
     this.createPool();
@@ -113,20 +117,105 @@ class PostgresService {
     }
 
     try {
-      this.pool = new Pool({
+      const pool = new Pool({
         ...config,
         max: 20,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 5000,
       });
 
-      this.pool.on('error', (err) => {
-        console.warn('[PostgreSQL Pool Warning]:', err.message);
+      pool.on('error', (err) => {
+        this.notePgFailure(err);
+        const now = Date.now();
+        if (now - this.pgLastPoolErrLog > 30000) {
+          this.pgLastPoolErrLog = now;
+          console.warn('[PostgreSQL Pool Warning]:', err.message);
+        }
       });
+
+      const origQuery = pool.query.bind(pool);
+      const origConnect = pool.connect.bind(pool);
+
+      (pool as any).query = async (...args: any[]) => {
+        this.assertPgCircuit();
+        try {
+          const result = await (origQuery as any)(...args);
+          this.notePgSuccess();
+          return result;
+        } catch (err: any) {
+          this.notePgFailure(err);
+          throw err;
+        }
+      };
+
+      (pool as any).connect = async (...args: any[]) => {
+        this.assertPgCircuit();
+        try {
+          const client = await (origConnect as any)(...args);
+          this.notePgSuccess();
+          return client;
+        } catch (err: any) {
+          this.notePgFailure(err);
+          throw err;
+        }
+      };
+
+      this.pool = pool;
     } catch (err: any) {
       console.warn('[PostgreSQL Init Error]:', err.message);
       this.pool = null;
     }
+  }
+
+  private isPgConnError(err: any): boolean {
+    const msg = String(err?.message || err || '').toLowerCase();
+    const code = String(err?.code || '');
+    return (
+      code === 'ECONNREFUSED' ||
+      code === 'ETIMEDOUT' ||
+      code === 'ECONNRESET' ||
+      code === 'ENOTFOUND' ||
+      code === 'EPIPE' ||
+      code === '57P03' ||
+      code === '53300' ||
+      msg.includes('database system is not yet accepting connections') ||
+      msg.includes('database system is starting up') ||
+      msg.includes('database system is in recovery mode') ||
+      msg.includes('connection terminated') ||
+      msg.includes('connection ended') ||
+      msg.includes('timeout exceeded when trying to connect') ||
+      msg.includes('client has encountered a connection error') ||
+      msg.includes('server closed the connection unexpectedly')
+    );
+  }
+
+  private assertPgCircuit() {
+    if (Date.now() < this.pgCircuitOpenUntil) {
+      throw new Error(
+        `PostgreSQL temporarily unavailable (circuit open, retry in ${Math.ceil((this.pgCircuitOpenUntil - Date.now()) / 1000)}s)`
+      );
+    }
+  }
+
+  private notePgFailure(err: any) {
+    if (!this.isPgConnError(err)) return;
+    this.pgConnFails++;
+    if (this.pgConnFails >= 3) {
+      this.pgCircuitOpenUntil = Date.now() + this.pgBackoffMs;
+      console.warn(
+        `[PostgreSQL] Connection failures (${this.pgConnFails}) — circuit open for ${Math.round(this.pgBackoffMs / 1000)}s: ${err?.message || err}`
+      );
+      this.pgBackoffMs = Math.min(this.pgBackoffMs * 2, 60000);
+    }
+  }
+
+  private notePgSuccess() {
+    if (this.pgConnFails >= 3) {
+      console.log('[PostgreSQL] Connection recovered — circuit closed');
+    }
+    this.pgConnFails = 0;
+    this.pgBackoffMs = 5000;
+    this.pgCircuitOpenUntil = 0;
   }
 
   public getPool(): pg.Pool | null {
