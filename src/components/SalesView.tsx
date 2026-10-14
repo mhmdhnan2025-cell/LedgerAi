@@ -592,32 +592,15 @@ export const SalesView: React.FC<SalesViewProps> = ({
   // Synchronize itemPackageType whenever activeProduct changes
   useEffect(() => {
     if (activeProduct) {
-      const combined = `${activeProduct.name || ''} ${activeProduct.itemTitle || ''} ${activeProduct.category || ''} ${activeProduct.measure || ''}`.toLowerCase();
-      const detectedPkg = activeProduct.packageType ||
-        (combined.includes('bag') || combined.includes('bori') || combined.includes('sugar') || combined.includes('suger') || combined.includes('atta') || combined.includes('flour') || combined.includes('rice') || combined.includes('chawal') || combined.includes('daal') ? 'Bag' :
-         combined.includes('box') || combined.includes('dabba') ? 'Box' :
-         combined.includes('tin') || combined.includes('can') || combined.includes('drum') ? 'Tin' :
-         combined.includes('pack') ? 'Pack' : 'Carton');
-      setItemPackageType(detectedPkg);
+      setItemPackageType(activeProduct.packageType || 'Single');
     }
   }, [activeProduct]);
 
   const resolvedPackageType = React.useMemo(() => {
-    if (itemPackageType && itemPackageType !== 'Carton' && itemPackageType !== 'Single') {
-      return itemPackageType;
-    }
-    if (activeProduct?.packageType && activeProduct.packageType !== 'Single') {
-      return activeProduct.packageType;
-    }
-    const combined = `${itemTitle} ${activeProduct?.name || ''} ${activeProduct?.category || ''} ${activeProduct?.measure || ''}`.toLowerCase();
-    if (combined.includes('bag') || combined.includes('bori') || combined.includes('sugar') || combined.includes('suger') || combined.includes('atta') || combined.includes('rice') || combined.includes('daal')) {
-      return 'Bag';
-    }
-    if (combined.includes('box')) return 'Box';
-    if (combined.includes('tin')) return 'Tin';
-    if (combined.includes('pack')) return 'Pack';
-    return itemPackageType || 'Carton';
-  }, [itemPackageType, activeProduct, itemTitle]);
+    if (itemPackageType) return itemPackageType;
+    if (activeProduct?.packageType) return activeProduct.packageType;
+    return 'Single';
+  }, [itemPackageType, activeProduct]);
 
   const resolvedBaseUnit = React.useMemo(() => {
     const raw = (activeProduct?.measure || activeProduct?.unit || '').trim();
@@ -697,7 +680,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
     setSelectedProductId('');
     setItemTitle('');
     setItemMCode('');
-    setItemPackageType('Carton');
+    setItemPackageType('Single');
     setCtn(1);
     setRatePerCtn('');
     setQtyPerCtn(1);

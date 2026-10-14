@@ -5285,9 +5285,27 @@ class DatabaseService {
 
     const minLevel = updates.minStockLevel !== undefined ? updates.minStockLevel : current.minStockLevel;
 
+    const pkgType = updates.packageType !== undefined ? updates.packageType : (current.packageType || 'Single');
+    const qCtn = Number(updates.qtyInCarton !== undefined ? updates.qtyInCarton : current.qtyInCarton) || 1;
+    let computedCarton = updates.carton !== undefined ? updates.carton : updates.ctn;
+    let computedExtra = updates.extraKg !== undefined ? updates.extraKg : updates.pcs;
+
+    if (computedCarton === undefined) {
+      computedCarton = pkgType === 'Single' ? 0 : (qCtn > 1 ? Math.floor(updatedQty / qCtn) : updatedQty);
+    }
+    if (computedExtra === undefined) {
+      computedExtra = pkgType === 'Single' ? updatedQty : (qCtn > 1 ? Number((updatedQty % qCtn).toFixed(2)) : 0);
+    }
+
     this.data.products[idx] = {
       ...current,
       ...updates,
+      packageType: pkgType,
+      qtyInCarton: qCtn,
+      carton: computedCarton,
+      ctn: computedCarton,
+      extraKg: computedExtra,
+      pcs: computedExtra,
       currentQuantity: updatedQty,
       totalStock: updatedQty,
       purchasePrice: updatedPurchasePrice,

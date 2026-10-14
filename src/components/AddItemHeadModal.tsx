@@ -38,7 +38,7 @@ export const AddItemHeadModal: React.FC<AddItemHeadModalProps> = ({
   const [companyBrand, setCompanyBrand] = useState<string>('Nothing selected');
 
   // Package Type Selection (Carton, Bag, Box, Tin, Pack, Single)
-  const [packageType, setPackageType] = useState<'Carton' | 'Bag' | 'Box' | 'Tin' | 'Pack' | 'Single'>('Carton');
+  const [packageType, setPackageType] = useState<'Carton' | 'Bag' | 'Box' | 'Tin' | 'Pack' | 'Single'>('Single');
   const [qtyInCarton, setQtyInCarton] = useState<number | ''>('');
   const [ctnPurchaseRate, setCtnPurchaseRate] = useState<number | ''>('');
   const [ctnSaleRate, setCtnSaleRate] = useState<number | ''>('');
@@ -81,12 +81,8 @@ export const AddItemHeadModal: React.FC<AddItemHeadModalProps> = ({
       setMeasure(initialProduct.measure || initialProduct.unit || 'Nothing selected');
       setCompanyBrand(initialProduct.companyBrand || 'Nothing selected');
 
-      // Detect package type
-      const pkg = (initialProduct.packageType as any) ||
-        (initialProduct.category?.toLowerCase().includes('bag') ? 'Bag' :
-         initialProduct.category?.toLowerCase().includes('box') ? 'Box' :
-         initialProduct.category?.toLowerCase().includes('tin') ? 'Tin' :
-         initialProduct.qtyInCarton && initialProduct.qtyInCarton > 1 ? 'Carton' : 'Carton');
+      // Package type: strictly respect saved packageType or default to Single
+      const pkg = (initialProduct.packageType as any) || 'Single';
       setPackageType(pkg);
 
       setQtyInCarton(initialProduct.qtyInCarton || '');
@@ -136,7 +132,7 @@ export const AddItemHeadModal: React.FC<AddItemHeadModalProps> = ({
     setDescription('');
     setMeasure('Nothing selected');
     setCompanyBrand('Nothing selected');
-    setPackageType('Carton');
+    setPackageType('Single');
     setQtyInCarton('');
     setCtnPurchaseRate('');
     setCtnSaleRate('');
@@ -296,6 +292,10 @@ export const AddItemHeadModal: React.FC<AddItemHeadModalProps> = ({
         ctnPurchaseRate: numericCtnPur,
         ctnSaleRate: numericCtnSale,
         ctnMinSaleRate: numericCtnMinSale,
+        carton: packageType === 'Single' ? 0 : (numericQtyInCtn > 1 ? Math.floor(numericTotalStock / numericQtyInCtn) : numericTotalStock),
+        ctn: packageType === 'Single' ? 0 : (numericQtyInCtn > 1 ? Math.floor(numericTotalStock / numericQtyInCtn) : numericTotalStock),
+        extraKg: packageType === 'Single' ? numericTotalStock : (numericQtyInCtn > 1 ? Number((numericTotalStock % numericQtyInCtn).toFixed(2)) : 0),
+        pcs: packageType === 'Single' ? numericTotalStock : (numericQtyInCtn > 1 ? Number((numericTotalStock % numericQtyInCtn).toFixed(2)) : 0),
         totalStock: numericTotalStock,
         currentQuantity: numericTotalStock,
         purchasePrice: numericPurchasePrice,

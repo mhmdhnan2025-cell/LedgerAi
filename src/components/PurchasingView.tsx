@@ -657,39 +657,16 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
   // Synchronize itemPackageType whenever activeProduct changes
   useEffect(() => {
     if (activeProduct) {
-      const combined = `${activeProduct.name || ''} ${activeProduct.itemTitle || ''} ${activeProduct.category || ''} ${activeProduct.measure || ''}`.toLowerCase();
-      const detectedPkg = activeProduct.packageType ||
-        (combined.includes('bag') || combined.includes('bori') || combined.includes('sugar') || combined.includes('suger') || combined.includes('atta') || combined.includes('flour') || combined.includes('rice') || combined.includes('chawal') || combined.includes('daal') ? 'Bag' :
-         combined.includes('box') || combined.includes('dabba') ? 'Box' :
-         combined.includes('tin') || combined.includes('can') || combined.includes('drum') ? 'Tin' :
-         combined.includes('pack') ? 'Pack' : 'Carton');
-      setItemPackageType(detectedPkg);
+      setItemPackageType(activeProduct.packageType || 'Single');
     }
   }, [activeProduct]);
 
-  // Dynamic packaging type resolved from current product / selection / keywords
+  // Dynamic packaging type resolved from current product / selection
   const resolvedPackageType = React.useMemo(() => {
-    if (itemPackageType && itemPackageType !== 'Carton' && itemPackageType !== 'Single') {
-      return itemPackageType;
-    }
-    if (activeProduct?.packageType && activeProduct.packageType !== 'Single') {
-      return activeProduct.packageType;
-    }
-    const combined = `${itemTitle} ${itemCategory} ${activeProduct?.name || ''} ${activeProduct?.itemTitle || ''} ${activeProduct?.category || ''} ${activeProduct?.measure || ''}`.toLowerCase();
-    if (combined.includes('bag') || combined.includes('bori') || combined.includes('sugar') || combined.includes('suger') || combined.includes('atta') || combined.includes('flour') || combined.includes('rice') || combined.includes('chawal') || combined.includes('daal')) {
-      return 'Bag';
-    }
-    if (combined.includes('box') || combined.includes('dabba')) {
-      return 'Box';
-    }
-    if (combined.includes('tin') || combined.includes('can') || combined.includes('drum')) {
-      return 'Tin';
-    }
-    if (combined.includes('pack')) {
-      return 'Pack';
-    }
-    return itemPackageType || 'Carton';
-  }, [itemPackageType, activeProduct, itemTitle, itemCategory]);
+    if (itemPackageType) return itemPackageType;
+    if (activeProduct?.packageType) return activeProduct.packageType;
+    return 'Single';
+  }, [itemPackageType, activeProduct]);
 
   const resolvedBaseUnit = React.useMemo(() => {
     const raw = (activeProduct?.measure || activeProduct?.unit || '').trim();

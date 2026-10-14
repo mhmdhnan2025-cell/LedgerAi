@@ -1148,12 +1148,7 @@ class PostgresService {
           const name = row.name || d.name || d.itemTitle || '';
           const category = row.category || d.category || 'General';
           const measure = row.measure_unit || d.measure || d.unit || 'Units';
-          const combined = `${name} ${category} ${measure}`.toLowerCase();
-          const pkg = d.packageType || row.package_type ||
-            (combined.includes('bag') || combined.includes('bori') || combined.includes('sugar') || combined.includes('suger') || combined.includes('rice') || combined.includes('chawal') || combined.includes('atta') || combined.includes('flour') || combined.includes('daal') ? 'Bag' :
-             combined.includes('box') || combined.includes('dabba') ? 'Box' :
-             combined.includes('tin') || combined.includes('can') || combined.includes('drum') ? 'Tin' :
-             combined.includes('pack') ? 'Pack' : 'Carton');
+          const pkg = d.packageType || row.package_type || 'Single';
 
           const qtyInCarton = Number(d.qtyInCarton) > 0 ? Number(d.qtyInCarton) : 1;
           const purchasePrice = parseFloat(row.purchase_price ?? d.purchasePrice ?? 0);

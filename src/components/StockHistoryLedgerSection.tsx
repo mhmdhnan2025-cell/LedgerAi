@@ -808,7 +808,10 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
                         </td>
                         <td className="py-2.5 px-3 text-center text-slate-300 font-bold">
                           {(() => {
-                            const pkg = (it.packageType || 'CTN').toUpperCase();
+                            const pkg = (it.packageType || 'Single').toUpperCase();
+                            if (pkg === 'SINGLE') {
+                              return `${it.closingStock} ${it.unit || 'Units'}`;
+                            }
                             const ctn = it.carton !== undefined ? it.carton : Math.floor(it.closingStock / (it.qtyInCarton || 15));
                             const extra = it.extraKg !== undefined ? it.extraKg : Number((it.closingStock % (it.qtyInCarton || 15)).toFixed(2));
                             if (it.qtyInCarton > 1) {
