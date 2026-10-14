@@ -563,7 +563,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
         sNo: pOrder < 9999 ? pOrder : 0, // Assigned later
         pdfOrder: pOrder,
         srNo: c.srNo,
-        mCode: c.manualCode?.trim() || c.code?.trim() || c.accountCode?.trim() || '',
+        mCode: c.manualCode?.trim() || '',
         salesman,
         accountTitle: custTitle,
         mobile: c.mobile?.trim() || (c as any).mobile2?.trim() || '',
@@ -812,29 +812,21 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
     }
 
     // 7. Show Zero Balance Filter
-    // When unchecked, only show rows with non-zero ledger balance (exact 155 PDF rows)
-    // When checked, show all rows including zero balance
+    // When unchecked (default), only show rows with non-zero ledger balance.
+    // When checked, show all rows including zero balance.
     if (!showZeroBalance) {
       list = list.filter((r) => Math.abs(r.ledgerBalance) > 0.001);
     }
 
-    // Exclude unassigned/blank PDF entries (e.g. Al khidmah restaunt, Shahi qilla restaurant)
-    list = list.filter((r) => {
-      const lower = r.accountTitle.toLowerCase();
-      if ((lower.includes('al khidmah restaunt') || lower.includes('al khidmat')) && Math.abs(r.ledgerBalance) < 0.001) return false;
-      if (lower.includes('shahi qilla restaurant') && Math.abs(r.ledgerBalance) < 0.001) return false;
-      return true;
-    });
-
-    // Sort primarily by PDF sequence order (1..155), then by customer title
+    // Sort primarily by customer serial number (srNo 1..337), then by customer title
     const sorted = [...list].sort((a, b) => {
-      const orderA = a.pdfOrder && a.pdfOrder < 9999 ? a.pdfOrder : (a.sNo && a.sNo < 9999 ? a.sNo : 9999);
-      const orderB = b.pdfOrder && b.pdfOrder < 9999 ? b.pdfOrder : (b.sNo && b.sNo < 9999 ? b.sNo : 9999);
+      const orderA = a.srNo !== undefined && a.srNo !== null ? Number(a.srNo) : (a.pdfOrder && a.pdfOrder < 9999 ? a.pdfOrder : (a.sNo && a.sNo < 9999 ? a.sNo : 9999));
+      const orderB = b.srNo !== undefined && b.srNo !== null ? Number(b.srNo) : (b.pdfOrder && b.pdfOrder < 9999 ? b.pdfOrder : (b.sNo && b.sNo < 9999 ? b.sNo : 9999));
       if (orderA !== orderB) return orderA - orderB;
       return a.accountTitle.localeCompare(b.accountTitle);
     });
 
-    // Assign sequential S.NO starting strictly from 1 up to 155
+    // Assign sequential S.NO starting strictly from 1
     return sorted.map((r, idx) => ({
       ...r,
       sNo: idx + 1,
@@ -843,19 +835,13 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
 
   // Overall Totals for Table Footer
   const totals = useMemo(() => {
-    let billAmount = 0;
-    let receiptAmount = 0;
     let ledgerBalance = 0;
 
     filteredRows.forEach((r) => {
-      billAmount += r.lastBillAmount || 0;
-      receiptAmount += r.lastReceiptAmount || 0;
       ledgerBalance += r.ledgerBalance || 0;
     });
 
     return {
-      billAmount,
-      receiptAmount,
       ledgerBalance,
     };
   }, [filteredRows]);
@@ -895,28 +881,14 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
     const headers = [
       'S.NO',
       'M.CODE',
-      'SALESMAN',
-      'CUSTOMER TITLE',
-      'MOBILE',
-      'LASTBILL #',
-      'BILL DATED',
-      'BILL AMOUNT',
-      'LAST RECEIPT DATE',
-      'RECEIPT AMOUNT',
+      'TITLE',
       'LEDGER BALANCE',
     ];
 
     const rows = filteredRows.map((r) => [
       String(r.sNo),
       r.mCode || '',
-      r.salesman || '',
       r.accountTitle,
-      r.mobile || '',
-      r.lastBillNumber && r.lastBillNumber !== '-' ? r.lastBillNumber : '',
-      r.lastBillDate && r.lastBillDate !== '-' ? r.lastBillDate : '',
-      r.lastBillAmount > 0 ? r.lastBillAmount.toFixed(2) : '',
-      r.lastReceiptDate && r.lastReceiptDate !== '-' ? r.lastReceiptDate : '',
-      r.lastReceiptAmount > 0 ? r.lastReceiptAmount.toFixed(2) : '',
       formatLedgerBalance(r.ledgerBalance),
     ]);
 
@@ -925,13 +897,6 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
       'TOTAL:',
       '',
       '',
-      '',
-      '',
-      '',
-      '',
-      totals.billAmount.toFixed(2),
-      '',
-      totals.receiptAmount.toFixed(2),
       formatLedgerBalance(totals.ledgerBalance),
     ]);
 
@@ -1296,10 +1261,10 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
         {/* ------------------------------------------------------------- */}
         <div className="party-rec-table-container border border-slate-300 dark:border-slate-800 rounded-lg shadow-sm bg-white dark:bg-slate-900 w-full">
           <table className="w-full text-left text-xs border-collapse party-rec-table">
-            {/* Dark Navy Table Header matching Image 2 with sticky lock */}
+            {/* Dark Navy Table Header with sticky lock */}
             <thead className="sticky top-0 z-30 shadow-xs">
               <tr className="bg-[#1a2332] text-white font-bold uppercase tracking-wider text-[11px] select-none sticky top-0 z-30" style={{ backgroundColor: '#1a2332', color: '#ffffff' }}>
-                <th className="sticky top-0 z-30 py-3 px-3 text-center w-14 border-r border-[#2d3a4e] bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
+                <th className="sticky top-0 z-30 py-3 px-3 text-center w-16 border-r border-[#2d3a4e] bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
                   S.NO
                 </th>
                 <th className="sticky top-0 z-30 py-3 px-3 text-center w-28 border-r border-[#2d3a4e] bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
@@ -1308,33 +1273,18 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
                 <th className="sticky top-0 z-30 py-3 px-3 text-left min-w-[280px] border-r border-[#2d3a4e] bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
                   TITLE
                 </th>
-                <th className="sticky top-0 z-30 py-3 px-3 text-center w-24 border-r border-[#2d3a4e] bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
-                  LASTBILL #
-                </th>
-                <th className="sticky top-0 z-30 py-3 px-3 text-center w-28 border-r border-[#2d3a4e] bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
-                  BILL DATED
-                </th>
-                <th className="sticky top-0 z-30 py-3 px-3 text-right w-28 border-r border-[#2d3a4e] bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
-                  BILL AMOUNT
-                </th>
-                <th className="sticky top-0 z-30 py-3 px-3 text-center w-36 border-r border-[#2d3a4e] bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
-                  LAST RECEIPT DATE
-                </th>
-                <th className="sticky top-0 z-30 py-3 px-3 text-right w-32 border-r border-[#2d3a4e] bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
-                  RECEIPT AMOUNT
-                </th>
-                <th className="sticky top-0 z-30 py-3 px-3 text-right w-36 bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
+                <th className="sticky top-0 z-30 py-3 px-4 text-right w-44 bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
                   LEDGER BALANCE
                 </th>
               </tr>
             </thead>
 
-            {/* Table Body with Soft Yellow Row Highlight (Image 2 Row 11) */}
+            {/* Table Body with Soft Yellow Row Highlight */}
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800/80">
               {filteredRows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={4}
                     className="text-center py-12 text-slate-500 dark:text-slate-400 font-medium"
                   >
                     No party receivable records found for the selected filter criteria.
@@ -1364,25 +1314,18 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
                         {row.mCode || ''}
                       </td>
 
-                      {/* TITLE (3-Line Format: (Salesman) / Customer Title / Mobile) + Quick Ledger button */}
+                      {/* TITLE (Customer Account Title + Quick Ledger button) */}
                       <td className="party-rec-title-cell py-2.5 px-3 border-r border-slate-200 dark:border-slate-800">
                         <div className="flex items-start justify-between gap-1">
                           <div className="leading-tight">
-                            {/* Line 1: (Salesman Name) or () */}
                             {row.salesman ? (
                               <div className="party-rec-salesman text-[11px] font-bold text-blue-700 dark:text-blue-400">
                                 ({row.salesman})
                               </div>
-                            ) : [2, 4, 6, 9, 11, 28, 30, 32, 37, 49, 53, 59, 60, 66, 74, 90, 93, 97, 116, 120].includes(row.pdfOrder || row.sNo) ? (
-                              <div className="party-rec-salesman text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                                ()
-                              </div>
                             ) : null}
-                            {/* Line 2: Customer Account Title */}
                             <div className="party-rec-title text-xs sm:text-sm font-bold capitalize text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
                               <span>{row.accountTitle}</span>
                             </div>
-                            {/* Line 3: Mobile Phone Number */}
                             {row.mobile ? (
                               <div className="party-rec-mobile text-[11px] font-mono text-slate-600 dark:text-slate-400">
                                 {row.mobile}
@@ -1405,33 +1348,8 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
                         </div>
                       </td>
 
-                      {/* LASTBILL # */}
-                      <td className="party-rec-bill-no py-2.5 px-3 text-center font-mono font-bold border-r border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200">
-                        {row.lastBillNumber && row.lastBillNumber !== '-' ? row.lastBillNumber : ''}
-                      </td>
-
-                      {/* BILL DATED */}
-                      <td className="party-rec-bill-date py-2.5 px-3 text-center font-mono font-medium border-r border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
-                        {row.lastBillDate && row.lastBillDate !== '-' ? row.lastBillDate : ''}
-                      </td>
-
-                      {/* BILL AMOUNT */}
-                      <td className="party-rec-bill-amt py-2.5 px-3 text-right font-mono font-black border-r border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white">
-                        {row.lastBillAmount > 0 ? formatAmount(row.lastBillAmount) : ''}
-                      </td>
-
-                      {/* LAST RECEIPT DATE */}
-                      <td className="party-rec-receipt-date py-2.5 px-3 text-center font-mono font-medium border-r border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
-                        {row.lastReceiptDate && row.lastReceiptDate !== '-' ? row.lastReceiptDate : ''}
-                      </td>
-
-                      {/* RECEIPT AMOUNT */}
-                      <td className="party-rec-receipt-amt py-2.5 px-3 text-right font-mono font-black border-r border-slate-200 dark:border-slate-800 text-emerald-700 dark:text-emerald-400">
-                        {row.lastReceiptAmount > 0 ? formatAmount(row.lastReceiptAmount) : ''}
-                      </td>
-
-                      {/* LEDGER BALANCE (e.g. 1576.61 DR) */}
-                      <td className={`party-rec-balance py-2.5 px-3 text-right font-mono font-black ${
+                      {/* LEDGER BALANCE */}
+                      <td className={`party-rec-balance py-2.5 px-4 text-right font-mono font-black ${
                         row.ledgerBalance > 0
                           ? 'party-rec-balance-dr text-rose-700 dark:text-rose-400'
                           : row.ledgerBalance < 0
@@ -1446,26 +1364,17 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
               )}
             </tbody>
 
-            {/* Table Footer: Totals Row matching Image 2 with sticky lock */}
+            {/* Table Footer: Totals Row with sticky lock */}
             <tfoot className="sticky bottom-0 z-25">
               <tr className="party-rec-totals font-bold border-t-2 border-slate-700 text-xs bg-slate-900 dark:bg-slate-950 text-white sticky bottom-0 z-25" style={{ backgroundColor: '#0f172a', color: '#ffffff' }}>
                 <td
-                  colSpan={5}
+                  colSpan={3}
                   className="party-rec-total-label py-3 px-3 text-right font-extrabold uppercase tracking-wider border-r border-slate-700 text-white sticky bottom-0 z-25"
                   style={{ backgroundColor: '#0f172a', color: '#ffffff' }}
                 >
                   TOTAL:
                 </td>
-                <td className="party-rec-total-bill py-3 px-3 text-right font-mono font-black border-r border-slate-700 text-white sticky bottom-0 z-25" style={{ backgroundColor: '#0f172a', color: '#ffffff' }}>
-                  {formatAmount(totals.billAmount)}
-                </td>
-                <td className="party-rec-total-dash py-3 px-3 text-center border-r border-slate-700 text-slate-400 sticky bottom-0 z-25" style={{ backgroundColor: '#0f172a' }}>
-                  —
-                </td>
-                <td className="party-rec-total-receipt py-3 px-3 text-right font-mono font-black border-r border-slate-700 text-emerald-400 sticky bottom-0 z-25" style={{ backgroundColor: '#0f172a' }}>
-                  {formatAmount(totals.receiptAmount)}
-                </td>
-                <td className={`party-rec-total-balance py-3 px-3 text-right font-mono font-black sticky bottom-0 z-25 ${
+                <td className={`party-rec-total-balance py-3 px-4 text-right font-mono font-black sticky bottom-0 z-25 ${
                   totals.ledgerBalance > 0
                     ? 'party-rec-total-balance-dr text-rose-400'
                     : totals.ledgerBalance < 0

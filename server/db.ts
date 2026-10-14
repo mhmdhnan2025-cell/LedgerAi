@@ -7430,8 +7430,8 @@ class DatabaseService {
 
     // Sort primarily by Sr# (1..337)
     list.sort((a, b) => {
-      const srA = a.srNo !== undefined && a.srNo !== null ? Number(a.srNo) : 9999;
-      const srB = b.srNo !== undefined && b.srNo !== null ? Number(b.srNo) : 9999;
+      const srA = a.srNo !== undefined && a.srNo !== null ? Number(a.srNo) : (a.sNo !== undefined && a.sNo !== null ? Number(a.sNo) : 9999);
+      const srB = b.srNo !== undefined && b.srNo !== null ? Number(b.srNo) : (b.sNo !== undefined && b.sNo !== null ? Number(b.sNo) : 9999);
       if (srA !== srB) return srA - srB;
       const codeA = (a.code || '').localeCompare(b.code || '');
       if (codeA !== 0) return codeA;

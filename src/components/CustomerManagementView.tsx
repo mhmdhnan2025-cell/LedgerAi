@@ -508,8 +508,8 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
     });
 
     return [...filtered].sort((a, b) => {
-      const srA = a.srNo !== undefined && a.srNo !== null ? Number(a.srNo) : 9999;
-      const srB = b.srNo !== undefined && b.srNo !== null ? Number(b.srNo) : 9999;
+      const srA = a.srNo !== undefined && a.srNo !== null ? Number(a.srNo) : (a.sNo !== undefined && a.sNo !== null ? Number(a.sNo) : 9999);
+      const srB = b.srNo !== undefined && b.srNo !== null ? Number(b.srNo) : (b.sNo !== undefined && b.sNo !== null ? Number(b.sNo) : 9999);
       if (srA !== srB) return srA - srB;
       const codeA = (a.code || '').localeCompare(b.code || '');
       if (codeA !== 0) return codeA;
@@ -767,7 +767,7 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
                       <tr key={cust.id} className="hover:bg-slate-800/40 transition">
                         <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-400">
                           <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/60 text-[11px]">
-                            {cust.srNo || idx + 1}
+                            {cust.srNo ?? cust.sNo ?? (idx + 1)}
                           </span>
                         </td>
                         <td className="py-2.5 px-3 font-mono font-bold text-orange-400">
