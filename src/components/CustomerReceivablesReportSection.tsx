@@ -46,7 +46,7 @@ export interface PartyReceivableRow {
 
 // Format date to DD-MM-YYYY as displayed in the reference images
 export const formatDateDDMMYYYY = (dateStr?: string | null): string => {
-  if (!dateStr || dateStr === '-' || dateStr === '0') return '-';
+  if (!dateStr || dateStr === '-' || dateStr === '0') return '';
   try {
     const trimmed = String(dateStr).trim();
     if (/^\d{2}-\d{2}-\d{4}$/.test(trimmed)) return trimmed;
@@ -145,7 +145,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
   const [customerQuery, setCustomerQuery] = useState<string>('');
   const [mobileQuery, setMobileQuery] = useState<string>('');
   const [selectedGroup, setSelectedGroup] = useState<string>(''); // Handling Salesman Group
-  const [showZeroBalance, setShowZeroBalance] = useState<boolean>(false); // Default false so exact 155 PDF records show immediately
+  const [showZeroBalance, setShowZeroBalance] = useState<boolean>(false); // Default false so exact 152 PDF records show immediately
 
   const printAreaRef = useRef<HTMLDivElement>(null);
 
@@ -495,8 +495,8 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
       });
 
       const latestBill = billsForLast.length > 0 ? billsForLast[0] : null;
-      const lastBillNumber = latestBill ? (latestBill.billNumber || latestBill.id) : (c.lastBillNumber || '-');
-      const lastBillDate = latestBill ? formatDateDDMMYYYY(latestBill.date) : (c.lastBillDate ? formatDateDDMMYYYY(c.lastBillDate) : '-');
+      const lastBillNumber = latestBill ? (latestBill.billNumber || latestBill.id) : (c.lastBillNumber || '');
+      const lastBillDate = latestBill ? formatDateDDMMYYYY(latestBill.date) : (c.lastBillDate ? formatDateDDMMYYYY(c.lastBillDate) : '');
       const lastBillAmount = latestBill ? Number(latestBill.netTotal || latestBill.totalAmount || 0) : Number(c.lastBillAmount || 0);
 
       // Find matched receipts
@@ -510,7 +510,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
       });
 
       const latestReceipt = receiptsForLast.length > 0 ? receiptsForLast[0] : null;
-      const lastReceiptDate = latestReceipt ? formatDateDDMMYYYY(latestReceipt.date) : (c.lastReceiptDate ? formatDateDDMMYYYY(c.lastReceiptDate) : '-');
+      const lastReceiptDate = latestReceipt ? formatDateDDMMYYYY(latestReceipt.date) : (c.lastReceiptDate ? formatDateDDMMYYYY(c.lastReceiptDate) : '');
       const lastReceiptAmount = latestReceipt ? Number(latestReceipt.amount || 0) : Number(c.lastReceiptAmount || 0);
 
       // Find matched returns
@@ -880,21 +880,33 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
   const handleExportCSV = () => {
     const headers = [
       'S.NO',
-      'M.CODE',
       'TITLE',
+      'LAST BILL#',
+      'BILL DATE',
+      'BILL AMOUNT',
+      'LAST RECEIPT DATE',
+      'RECEIPT AMOUNT',
       'LEDGER BALANCE',
     ];
 
     const rows = filteredRows.map((r) => [
       String(r.sNo),
-      r.mCode || '',
       r.accountTitle,
+      r.lastBillNumber || '',
+      r.lastBillDate || '',
+      r.lastBillAmount ? formatAmount(r.lastBillAmount) : '',
+      r.lastReceiptDate || '',
+      r.lastReceiptAmount ? formatAmount(r.lastReceiptAmount) : '',
       formatLedgerBalance(r.ledgerBalance),
     ]);
 
     // Totals row
     rows.push([
       'TOTAL:',
+      '',
+      '',
+      '',
+      '',
       '',
       '',
       formatLedgerBalance(totals.ledgerBalance),
@@ -1264,16 +1276,28 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
             {/* Dark Navy Table Header with sticky lock */}
             <thead className="sticky top-0 z-30 shadow-xs">
               <tr className="bg-[#1a2332] text-white font-bold uppercase tracking-wider text-[11px] select-none sticky top-0 z-30" style={{ backgroundColor: '#1a2332', color: '#ffffff' }}>
-                <th className="sticky top-0 z-30 py-3 px-3 text-center w-16 border-r border-[#2d3a4e] bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
+                <th className="sticky top-0 z-30 py-3 px-3 text-center w-14 border-r border-[#2d3a4e] bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
                   S.NO
                 </th>
-                <th className="sticky top-0 z-30 py-3 px-3 text-center w-28 border-r border-[#2d3a4e] bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
-                  M.CODE
-                </th>
-                <th className="sticky top-0 z-30 py-3 px-3 text-left min-w-[280px] border-r border-[#2d3a4e] bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
+                <th className="sticky top-0 z-30 py-3 px-3 text-left min-w-[240px] border-r border-[#2d3a4e] bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
                   TITLE
                 </th>
-                <th className="sticky top-0 z-30 py-3 px-4 text-right w-44 bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
+                <th className="sticky top-0 z-30 py-3 px-3 text-center w-24 border-r border-[#2d3a4e] bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
+                  LAST BILL#
+                </th>
+                <th className="sticky top-0 z-30 py-3 px-3 text-center w-28 border-r border-[#2d3a4e] bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
+                  BILL DATE
+                </th>
+                <th className="sticky top-0 z-30 py-3 px-3 text-right w-28 border-r border-[#2d3a4e] bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
+                  BILL AMOUNT
+                </th>
+                <th className="sticky top-0 z-30 py-3 px-3 text-center w-28 border-r border-[#2d3a4e] bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
+                  LAST RECEIPT DATE
+                </th>
+                <th className="sticky top-0 z-30 py-3 px-3 text-right w-28 border-r border-[#2d3a4e] bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
+                  RECEIPT AMOUNT
+                </th>
+                <th className="sticky top-0 z-30 py-3 px-4 text-right w-40 bg-[#1a2332]" style={{ color: '#ffffff', backgroundColor: '#1a2332' }}>
                   LEDGER BALANCE
                 </th>
               </tr>
@@ -1284,7 +1308,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
               {filteredRows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={4}
+                    colSpan={8}
                     className="text-center py-12 text-slate-500 dark:text-slate-400 font-medium"
                   >
                     No party receivable records found for the selected filter criteria.
@@ -1307,11 +1331,6 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
                       {/* S.NO */}
                       <td className="party-rec-sno py-2.5 px-3 text-center font-mono font-medium border-r border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
                         <div className="font-bold text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{row.sNo}</div>
-                      </td>
-
-                      {/* M.CODE */}
-                      <td className="party-rec-code py-2.5 px-3 text-center font-mono font-bold border-r border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-200">
-                        {row.mCode || ''}
                       </td>
 
                       {/* TITLE (Customer Account Title + Quick Ledger button) */}
@@ -1348,6 +1367,31 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
                         </div>
                       </td>
 
+                      {/* LAST BILL# */}
+                      <td className="party-rec-bill-no py-2.5 px-3 text-center font-mono text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-800">
+                        {row.lastBillNumber || ''}
+                      </td>
+
+                      {/* BILL DATE */}
+                      <td className="party-rec-bill-date py-2.5 px-3 text-center font-mono text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-800">
+                        {row.lastBillDate || ''}
+                      </td>
+
+                      {/* BILL AMOUNT */}
+                      <td className="party-rec-bill-amt py-2.5 px-3 text-right font-mono text-slate-800 dark:text-slate-200 border-r border-slate-200 dark:border-slate-800">
+                        {row.lastBillAmount ? formatAmount(row.lastBillAmount) : ''}
+                      </td>
+
+                      {/* LAST RECEIPT DATE */}
+                      <td className="party-rec-receipt-date py-2.5 px-3 text-center font-mono text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-800">
+                        {row.lastReceiptDate || ''}
+                      </td>
+
+                      {/* RECEIPT AMOUNT */}
+                      <td className="party-rec-receipt-amt py-2.5 px-3 text-right font-mono text-slate-800 dark:text-slate-200 border-r border-slate-200 dark:border-slate-800">
+                        {row.lastReceiptAmount ? formatAmount(row.lastReceiptAmount) : ''}
+                      </td>
+
                       {/* LEDGER BALANCE */}
                       <td className={`party-rec-balance py-2.5 px-4 text-right font-mono font-black ${
                         row.ledgerBalance > 0
@@ -1368,7 +1412,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
             <tfoot className="sticky bottom-0 z-25">
               <tr className="party-rec-totals font-bold border-t-2 border-slate-700 text-xs bg-slate-900 dark:bg-slate-950 text-white sticky bottom-0 z-25" style={{ backgroundColor: '#0f172a', color: '#ffffff' }}>
                 <td
-                  colSpan={3}
+                  colSpan={7}
                   className="party-rec-total-label py-3 px-3 text-right font-extrabold uppercase tracking-wider border-r border-slate-700 text-white sticky bottom-0 z-25"
                   style={{ backgroundColor: '#0f172a', color: '#ffffff' }}
                 >
