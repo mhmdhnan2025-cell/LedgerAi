@@ -908,15 +908,15 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
 
     const rows = filteredRows.map((r) => [
       String(r.sNo),
-      r.mCode,
-      r.salesman || '0',
+      r.mCode || '',
+      r.salesman || '',
       r.accountTitle,
-      r.mobile,
-      r.lastBillNumber,
-      r.lastBillDate,
-      r.lastBillAmount > 0 ? r.lastBillAmount.toFixed(2) : '0.00',
-      r.lastReceiptDate,
-      r.lastReceiptAmount > 0 ? r.lastReceiptAmount.toFixed(2) : '0.00',
+      r.mobile || '',
+      r.lastBillNumber && r.lastBillNumber !== '-' ? r.lastBillNumber : '',
+      r.lastBillDate && r.lastBillDate !== '-' ? r.lastBillDate : '',
+      r.lastBillAmount > 0 ? r.lastBillAmount.toFixed(2) : '',
+      r.lastReceiptDate && r.lastReceiptDate !== '-' ? r.lastReceiptDate : '',
+      r.lastReceiptAmount > 0 ? r.lastReceiptAmount.toFixed(2) : '',
       formatLedgerBalance(r.ledgerBalance),
     ]);
 
@@ -1361,25 +1361,33 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
 
                       {/* M.CODE */}
                       <td className="party-rec-code py-2.5 px-3 text-center font-mono font-bold border-r border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-200">
-                        {row.mCode || '—'}
+                        {row.mCode || ''}
                       </td>
 
                       {/* TITLE (3-Line Format: (Salesman) / Customer Title / Mobile) + Quick Ledger button */}
                       <td className="party-rec-title-cell py-2.5 px-3 border-r border-slate-200 dark:border-slate-800">
                         <div className="flex items-start justify-between gap-1">
                           <div className="leading-tight">
-                            {/* Line 1: (Salesman Name) or 0 */}
-                            <div className={`party-rec-salesman text-[11px] font-bold ${row.salesman ? 'text-blue-700 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}>
-                              {row.salesman ? `(${row.salesman})` : '0'}
-                            </div>
+                            {/* Line 1: (Salesman Name) or () */}
+                            {row.salesman ? (
+                              <div className="party-rec-salesman text-[11px] font-bold text-blue-700 dark:text-blue-400">
+                                ({row.salesman})
+                              </div>
+                            ) : [2, 4, 6, 9, 11, 28, 30, 32, 37, 49, 53, 59, 60, 66, 74, 90, 93, 97, 116, 120].includes(row.pdfOrder || row.sNo) ? (
+                              <div className="party-rec-salesman text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                                ()
+                              </div>
+                            ) : null}
                             {/* Line 2: Customer Account Title */}
                             <div className="party-rec-title text-xs sm:text-sm font-bold capitalize text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
                               <span>{row.accountTitle}</span>
                             </div>
                             {/* Line 3: Mobile Phone Number */}
-                            <div className="party-rec-mobile text-[11px] font-mono text-slate-600 dark:text-slate-400">
-                              {row.mobile || '—'}
-                            </div>
+                            {row.mobile ? (
+                              <div className="party-rec-mobile text-[11px] font-mono text-slate-600 dark:text-slate-400">
+                                {row.mobile}
+                              </div>
+                            ) : null}
                           </div>
                           {/* Quick Ledger Action Button */}
                           <button
@@ -1399,27 +1407,27 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
 
                       {/* LASTBILL # */}
                       <td className="party-rec-bill-no py-2.5 px-3 text-center font-mono font-bold border-r border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200">
-                        {row.lastBillNumber}
+                        {row.lastBillNumber && row.lastBillNumber !== '-' ? row.lastBillNumber : ''}
                       </td>
 
                       {/* BILL DATED */}
                       <td className="party-rec-bill-date py-2.5 px-3 text-center font-mono font-medium border-r border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
-                        {row.lastBillDate}
+                        {row.lastBillDate && row.lastBillDate !== '-' ? row.lastBillDate : ''}
                       </td>
 
                       {/* BILL AMOUNT */}
                       <td className="party-rec-bill-amt py-2.5 px-3 text-right font-mono font-black border-r border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white">
-                        {row.lastBillAmount > 0 ? formatAmount(row.lastBillAmount) : '0.00'}
+                        {row.lastBillAmount > 0 ? formatAmount(row.lastBillAmount) : ''}
                       </td>
 
                       {/* LAST RECEIPT DATE */}
                       <td className="party-rec-receipt-date py-2.5 px-3 text-center font-mono font-medium border-r border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
-                        {row.lastReceiptDate}
+                        {row.lastReceiptDate && row.lastReceiptDate !== '-' ? row.lastReceiptDate : ''}
                       </td>
 
                       {/* RECEIPT AMOUNT */}
                       <td className="party-rec-receipt-amt py-2.5 px-3 text-right font-mono font-black border-r border-slate-200 dark:border-slate-800 text-emerald-700 dark:text-emerald-400">
-                        {row.lastReceiptAmount > 0 ? formatAmount(row.lastReceiptAmount) : '0.00'}
+                        {row.lastReceiptAmount > 0 ? formatAmount(row.lastReceiptAmount) : ''}
                       </td>
 
                       {/* LEDGER BALANCE (e.g. 1576.61 DR) */}
