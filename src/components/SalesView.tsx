@@ -134,19 +134,26 @@ export const SalesView: React.FC<SalesViewProps> = ({
     setBillNumber(bill.billNumber || '');
     setBillDate(bill.date || new Date().toISOString().split('T')[0]);
     setLpoNo(bill.lpoNo || '');
-    setSelectedCustomerId(bill.customerId || '');
-    setCustomerAccountTitle(bill.customerAccountTitle || '');
-    setCustomerMobile(bill.customerMobile || '');
-    setCustomerTrn(bill.customerTrn || '');
+    const allCusts = (propCustomers && propCustomers.length > 0) ? propCustomers : customers;
+    const bTitleNorm = (bill.customerAccountTitle || '').trim().toLowerCase();
+    const foundCust = allCusts.find((c) =>
+      (bill.customerId && (c.id === bill.customerId || c.code === bill.customerId)) ||
+      (bTitleNorm && (c.accountTitle?.trim().toLowerCase() === bTitleNorm || c.name?.trim().toLowerCase() === bTitleNorm))
+    );
+
+    const resolvedCustId = foundCust ? foundCust.id : (bill.customerId || '');
+    const resolvedCustTitle = foundCust ? (foundCust.accountTitle || foundCust.name) : (bill.customerAccountTitle || '');
+
+    setSelectedCustomerId(resolvedCustId);
+    setCustomerAccountTitle(resolvedCustTitle);
+    setCustomerMobile(bill.customerMobile || foundCust?.mobile || '');
+    setCustomerTrn(bill.customerTrn || foundCust?.trn || '');
 
     // Derive correct opening balance prior to this bill taking place:
     let opening = Number(bill.partyBalanceBefore) || 0;
-    const allCusts = (propCustomers && propCustomers.length > 0) ? propCustomers : customers;
-    const foundCust = allCusts.find((c) => c.id === bill.customerId || c.code === bill.customerId);
     if (foundCust && foundCust.outstandingBalance !== undefined) {
       const liveBal = Number(foundCust.outstandingBalance) || 0;
       const billRec = Number(bill.balanceReceivable !== undefined ? bill.balanceReceivable : (Number(bill.netTotal || 0) - Number(bill.cashReceived || 0)));
-      // If partyBalanceBefore was omitted/null or equal to live customer balance (meaning it had mistakenly stored the closing/including balance)
       if (bill.partyBalanceBefore === undefined || bill.partyBalanceBefore === null || (billRec > 0 && Math.abs(opening - liveBal) < 0.01)) {
         opening = Number((liveBal - billRec).toFixed(2));
       }
@@ -763,11 +770,24 @@ export const SalesView: React.FC<SalesViewProps> = ({
     setSuccessMsg(null);
 
     try {
+      const bTitleNorm = customerAccountTitle.trim().toLowerCase();
+      let finalCustId = selectedCustomerId;
+      if (!finalCustId || finalCustId === 'cust-1') {
+        const found = customers.find(
+          (c) =>
+            (c.accountTitle && c.accountTitle.trim().toLowerCase() === bTitleNorm) ||
+            (c.name && c.name.trim().toLowerCase() === bTitleNorm)
+        );
+        if (found) {
+          finalCustId = found.id;
+        }
+      }
+
       const payload: Partial<SaleBill> = {
         billNumber: billNumber.trim(),
         lpoNo: lpoNo.trim(),
         date: billDate,
-        customerId: selectedCustomerId || 'cust-1',
+        customerId: finalCustId || 'cust-1',
         customerAccountTitle: customerAccountTitle.trim(),
         customerMobile: customerMobile.trim(),
         customerTrn: customerTrn.trim(),
@@ -1330,6 +1350,16 @@ export const SalesView: React.FC<SalesViewProps> = ({
                     placeholder="Search by Title, Code, Mobile..."
                     value={customerSearchQuery}
                     onChange={(e) => setCustomerSearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (filteredCustomers.length > 0) {
+                          handleSelectCustomer(filteredCustomers[0]);
+                        }
+                      } else if (e.key === 'Escape') {
+                        setIsCustomerDropdownOpen(false);
+                      }
+                    }}
                     className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 pl-8 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-emerald-500"
                     autoFocus
                   />

@@ -143,18 +143,30 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
     const resolveAndGenerate = (custList: Customer[]) => {
       setCustomers(custList);
       let targetCust: Customer | null = null;
+      const matchCustomer = (c: Customer, searchId: string) => {
+        const norm = searchId.trim().toLowerCase();
+        const stripped = norm.replace(/_comp[_-].*$/, '');
+        const cId = (c.id || '').toLowerCase();
+        const cStripped = cId.replace(/_comp[_-].*$/, '');
+        return (
+          cId === norm ||
+          cStripped === norm ||
+          (stripped && cStripped === stripped) ||
+          (c.code && c.code.toLowerCase() === norm) ||
+          (c.accountCode && c.accountCode.toLowerCase() === norm) ||
+          (c.accountTitle && c.accountTitle.trim().toLowerCase() === norm) ||
+          (c.name && c.name.trim().toLowerCase() === norm)
+        );
+      };
+
       if (initialCustomerId) {
-        targetCust = custList.find(
-          (c) => c.id === initialCustomerId || c.code === initialCustomerId || c.accountCode === initialCustomerId
-        ) || null;
+        targetCust = custList.find((c) => matchCustomer(c, initialCustomerId)) || null;
       }
       if (!targetCust) {
         try {
           const savedId = sessionStorage.getItem('erp_selected_customer_ledger_id');
           if (savedId && savedId !== 'ALL') {
-            targetCust = custList.find(
-              (c) => c.id === savedId || c.code === savedId || c.accountCode === savedId
-            ) || null;
+            targetCust = custList.find((c) => matchCustomer(c, savedId)) || null;
           }
         } catch {}
       }

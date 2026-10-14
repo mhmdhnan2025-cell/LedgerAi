@@ -7932,9 +7932,39 @@ class DatabaseService {
     const strippedId = cId ? cId.replace(/_comp[_-].*$/, '') : '';
     const cCode = (code || '').trim().toLowerCase();
     const cTitle = (title || '').trim().toLowerCase();
+    const cleanTitle = cTitle ? cTitle.replace(/[^a-z0-9]/g, '') : '';
 
     const customers = this.data.customers || [];
-    // Priority 1: Match by ID
+
+    // Priority 1: If title is explicitly provided and matches a customer, verify or use it
+    if (cTitle) {
+      const matchByTitle = customers.find((c) => {
+        if (!c) return false;
+        const myTitle = (c.accountTitle || c.name || '').trim().toLowerCase();
+        return myTitle && (myTitle === cTitle || (cleanTitle && myTitle.replace(/[^a-z0-9]/g, '') === cleanTitle));
+      });
+      if (matchByTitle) {
+        // If ID is empty, 'cust-1' fallback, walk-in, or matches matchByTitle, return it directly!
+        if (!cId || cId === 'cust-1' || cId === 'cash' || cId === 'card' || cId === 'walk-in') {
+          return matchByTitle;
+        }
+        const myId = (matchByTitle.id || '').toLowerCase();
+        const myStripped = myId.replace(/_comp[_-].*$/, '');
+        if (myId === cId || myStripped === cId || (strippedId && myStripped === strippedId)) {
+          return matchByTitle;
+        }
+        // If ID points to a different customer whose title does not match cTitle, the explicit title is authoritative!
+        const matchById = customers.find(c => {
+          const mId = (c?.id || '').toLowerCase();
+          return mId === cId || (strippedId && mId.replace(/_comp[_-].*$/, '') === strippedId);
+        });
+        if (matchById && (matchById.accountTitle || matchById.name || '').trim().toLowerCase() !== cTitle) {
+          return matchByTitle;
+        }
+      }
+    }
+
+    // Priority 2: Match by ID
     if (cId && cId !== 'cash' && cId !== 'card' && cId !== 'walk-in') {
       const match = customers.find((c) => {
         if (!c || !c.id) return false;
@@ -7944,7 +7974,7 @@ class DatabaseService {
       });
       if (match) return match;
     }
-    // Priority 2: Match by unique code (NEVER generic control code)
+    // Priority 3: Match by unique code (NEVER generic control code)
     if (cCode && !isGeneric(cCode)) {
       const match = customers.find((c) => {
         if (!c) return false;
@@ -7954,12 +7984,12 @@ class DatabaseService {
       });
       if (match) return match;
     }
-    // Priority 3: Match by title
+    // Priority 4: Match by title (fallback)
     if (cTitle) {
       const match = customers.find((c) => {
         if (!c) return false;
         const myTitle = (c.accountTitle || c.name || '').trim().toLowerCase();
-        return myTitle && myTitle === cTitle;
+        return myTitle && (myTitle === cTitle || (cleanTitle && myTitle.replace(/[^a-z0-9]/g, '') === cleanTitle));
       });
       if (match) return match;
     }
@@ -7972,9 +8002,37 @@ class DatabaseService {
     const strippedId = sId ? sId.replace(/_comp[_-].*$/, '') : '';
     const sCode = (code || '').trim().toLowerCase();
     const sTitle = (title || '').trim().toLowerCase();
+    const cleanTitle = sTitle ? sTitle.replace(/[^a-z0-9]/g, '') : '';
 
     const suppliers = this.data.suppliers || [];
-    // Priority 1: Match by ID
+
+    // Priority 1: If title is explicitly provided and matches a supplier, verify or use it
+    if (sTitle) {
+      const matchByTitle = suppliers.find((s) => {
+        if (!s) return false;
+        const myTitle = (s.title || s.name || '').trim().toLowerCase();
+        return myTitle && (myTitle === sTitle || (cleanTitle && myTitle.replace(/[^a-z0-9]/g, '') === cleanTitle));
+      });
+      if (matchByTitle) {
+        if (!sId || sId === 'supp-1') {
+          return matchByTitle;
+        }
+        const myId = (matchByTitle.id || '').toLowerCase();
+        const myStripped = myId.replace(/_comp[_-].*$/, '');
+        if (myId === sId || myStripped === sId || (strippedId && myStripped === strippedId)) {
+          return matchByTitle;
+        }
+        const matchById = suppliers.find(s => {
+          const mId = (s?.id || '').toLowerCase();
+          return mId === sId || (strippedId && mId.replace(/_comp[_-].*$/, '') === strippedId);
+        });
+        if (matchById && (matchById.title || matchById.name || '').trim().toLowerCase() !== sTitle) {
+          return matchByTitle;
+        }
+      }
+    }
+
+    // Priority 2: Match by ID
     if (sId) {
       const match = suppliers.find((s) => {
         if (!s || !s.id) return false;
@@ -7984,7 +8042,7 @@ class DatabaseService {
       });
       if (match) return match;
     }
-    // Priority 2: Match by unique code (NEVER generic control code)
+    // Priority 3: Match by unique code (NEVER generic control code)
     if (sCode && !isGeneric(sCode)) {
       const match = suppliers.find((s) => {
         if (!s) return false;
@@ -7994,12 +8052,12 @@ class DatabaseService {
       });
       if (match) return match;
     }
-    // Priority 3: Match by title
+    // Priority 4: Match by title
     if (sTitle) {
       const match = suppliers.find((s) => {
         if (!s) return false;
         const myTitle = (s.title || s.name || '').trim().toLowerCase();
-        return myTitle && myTitle === sTitle;
+        return myTitle && (myTitle === sTitle || (cleanTitle && myTitle.replace(/[^a-z0-9]/g, '') === cleanTitle));
       });
       if (match) return match;
     }
@@ -8167,32 +8225,37 @@ class DatabaseService {
     // Update customer outstanding balance if on Account
     let partyBalanceBefore = Number(billData.partyBalanceBefore) || 0;
     let matchedCustomer: Customer | undefined;
-    if (billData.customerId && billData.customerId !== 'cash' && billData.customerId !== 'card') {
+    if (billData.customerAccountTitle) {
       matchedCustomer = this.findCustomerByRef(billData.customerId, (billData as any).customerCode, billData.customerAccountTitle);
-      if (matchedCustomer) {
-        if (matchedCustomer.outstandingBalance !== undefined && matchedCustomer.outstandingBalance !== null && !isNaN(Number(matchedCustomer.outstandingBalance))) {
-          partyBalanceBefore = Number(matchedCustomer.outstandingBalance);
-        } else if (!partyBalanceBefore) {
-          const rawOB = Number(matchedCustomer.openingBalance) || 0;
-          partyBalanceBefore = matchedCustomer.openingBalanceType === 'CR' ? -Math.abs(rawOB) : Math.abs(rawOB);
-        }
-        const netReceivableDelta = (Number(balanceReceivable) || 0) - (billData.balanceRecovered ? (Number(balanceRecoveredAmount) || 0) : 0);
-        matchedCustomer.outstandingBalance = Number(((partyBalanceBefore || 0) + netReceivableDelta).toFixed(2));
-        matchedCustomer.totalSales = Number(((matchedCustomer.totalSales || 0) + netTotal).toFixed(2));
-        matchedCustomer.lastBillNumber = billNumber;
-        matchedCustomer.lastBillDate = billDate;
-        matchedCustomer.lastBillAmount = netTotal;
-        if (billData.balanceRecovered && Number(balanceRecoveredAmount) > 0) {
-          matchedCustomer.lastReceiptDate = billDate;
-          matchedCustomer.lastReceiptAmount = Number(balanceRecoveredAmount);
-        }
-        matchedCustomer.updatedAt = new Date().toISOString();
+    } else if (billData.customerId && billData.customerId !== 'cash' && billData.customerId !== 'card') {
+      matchedCustomer = this.findCustomerByRef(billData.customerId, (billData as any).customerCode, undefined);
+    }
 
-        const cid = getActiveCompanyId();
-        postgresService.upsertCustomer(matchedCustomer, cid).catch((err) => {
-          console.warn('[PostgreSQL upsertCustomer on SaleBill Error]:', err.message);
-        });
+    if (matchedCustomer) {
+      billData.customerId = matchedCustomer.id;
+      billData.customerAccountTitle = matchedCustomer.accountTitle || matchedCustomer.name;
+      if (matchedCustomer.outstandingBalance !== undefined && matchedCustomer.outstandingBalance !== null && !isNaN(Number(matchedCustomer.outstandingBalance))) {
+        partyBalanceBefore = Number(matchedCustomer.outstandingBalance);
+      } else if (!partyBalanceBefore) {
+        const rawOB = Number(matchedCustomer.openingBalance) || 0;
+        partyBalanceBefore = matchedCustomer.openingBalanceType === 'CR' ? -Math.abs(rawOB) : Math.abs(rawOB);
       }
+      const netReceivableDelta = (Number(balanceReceivable) || 0) - (billData.balanceRecovered ? (Number(balanceRecoveredAmount) || 0) : 0);
+      matchedCustomer.outstandingBalance = Number(((partyBalanceBefore || 0) + netReceivableDelta).toFixed(2));
+      matchedCustomer.totalSales = Number(((matchedCustomer.totalSales || 0) + netTotal).toFixed(2));
+      matchedCustomer.lastBillNumber = billNumber;
+      matchedCustomer.lastBillDate = billDate;
+      matchedCustomer.lastBillAmount = netTotal;
+      if (billData.balanceRecovered && Number(balanceRecoveredAmount) > 0) {
+        matchedCustomer.lastReceiptDate = billDate;
+        matchedCustomer.lastReceiptAmount = Number(balanceRecoveredAmount);
+      }
+      matchedCustomer.updatedAt = new Date().toISOString();
+
+      const cid = getActiveCompanyId();
+      postgresService.upsertCustomer(matchedCustomer, cid).catch((err) => {
+        console.warn('[PostgreSQL upsertCustomer on SaleBill Error]:', err.message);
+      });
     }
 
     const custAssignedSm = matchedCustomer ? (matchedCustomer.assignedSalesman || (matchedCustomer as any).salesman || '').trim() : '';
@@ -8203,8 +8266,8 @@ class DatabaseService {
       billNumber,
       lpoNo: (billData.lpoNo || '').trim(),
       date: billDate,
-      customerId: billData.customerId || 'cust-1',
-      customerAccountTitle: (billData.customerAccountTitle || 'Walk-in Customer').trim(),
+      customerId: matchedCustomer?.id || billData.customerId || 'cust-1',
+      customerAccountTitle: matchedCustomer?.accountTitle || matchedCustomer?.name || (billData.customerAccountTitle || 'Walk-in Customer').trim(),
       customerMobile: billData.customerMobile || '',
       customerTrn: billData.customerTrn || '',
       salesmanId: billData.salesmanId || resolvedSalesman,
@@ -8392,15 +8455,14 @@ class DatabaseService {
     }
 
     // 2. Revert previous customer outstanding balance
-    if (oldBill.customerId && (oldBill.paymentType === 'Account' || (oldBill.balanceReceivable || 0) > 0)) {
-      const customer = this.findCustomerByRef(oldBill.customerId, (oldBill as any).customerCode, oldBill.customerAccountTitle);
-      if (customer) {
-        customer.outstandingBalance = Number(((customer.outstandingBalance || 0) - oldBill.balanceReceivable).toFixed(2));
-        customer.totalSales = Math.max(0, Number(((customer.totalSales || 0) - oldBill.netTotal).toFixed(2)));
-        customer.updatedAt = new Date().toISOString();
-        const cid = getActiveCompanyId();
-        postgresService.upsertCustomer(customer, cid).catch(() => {});
-      }
+    const oldReceivable = Number(oldBill.balanceReceivable !== undefined ? oldBill.balanceReceivable : (Number(oldBill.netTotal || 0) - Number(oldBill.cashReceived || 0)));
+    const oldCustomer = this.findCustomerByRef(oldBill.customerId, (oldBill as any).customerCode, oldBill.customerAccountTitle);
+    if (oldCustomer && oldReceivable > 0) {
+      oldCustomer.outstandingBalance = Number(((oldCustomer.outstandingBalance || 0) - oldReceivable).toFixed(2));
+      oldCustomer.totalSales = Math.max(0, Number(((oldCustomer.totalSales || 0) - Number(oldBill.netTotal || 0)).toFixed(2)));
+      oldCustomer.updatedAt = new Date().toISOString();
+      const cid = getActiveCompanyId();
+      postgresService.upsertCustomer(oldCustomer, cid).catch(() => {});
     }
 
     // 3. Merge updated bill fields
@@ -8419,17 +8481,16 @@ class DatabaseService {
 
     let preservedPartyBalanceBefore: number;
     if (isSameCustomer) {
-      const customer = this.findCustomerByRef(oldCustomerId, (oldBill as any).customerCode, oldBill.customerAccountTitle);
+      const customer = oldCustomer || this.findCustomerByRef(oldCustomerId, (oldBill as any).customerCode, oldBill.customerAccountTitle);
       const customerBalAfterRevert = customer ? (Number(customer.outstandingBalance) || 0) : 0;
       if (oldBill.partyBalanceBefore !== undefined && oldBill.partyBalanceBefore !== null) {
-        // Sanity check: if oldBill.partyBalanceBefore was corrupted to match customer balance including this bill:
-        if (customer && Math.abs(Number(oldBill.partyBalanceBefore) - (customerBalAfterRevert + (oldBill.balanceReceivable || 0))) < 0.01 && (oldBill.balanceReceivable || 0) > 0) {
+        if (customer && Math.abs(Number(oldBill.partyBalanceBefore) - (customerBalAfterRevert + oldReceivable)) < 0.01 && oldReceivable > 0) {
           preservedPartyBalanceBefore = customerBalAfterRevert;
         } else {
           preservedPartyBalanceBefore = Number(oldBill.partyBalanceBefore);
         }
       } else if (updatedData.partyBalanceBefore !== undefined && updatedData.partyBalanceBefore !== null) {
-        if (customer && Math.abs(Number(updatedData.partyBalanceBefore) - (customerBalAfterRevert + (oldBill.balanceReceivable || 0))) < 0.01 && (oldBill.balanceReceivable || 0) > 0) {
+        if (customer && Math.abs(Number(updatedData.partyBalanceBefore) - (customerBalAfterRevert + oldReceivable)) < 0.01 && oldReceivable > 0) {
           preservedPartyBalanceBefore = customerBalAfterRevert;
         } else {
           preservedPartyBalanceBefore = Number(updatedData.partyBalanceBefore);
@@ -8443,9 +8504,16 @@ class DatabaseService {
       preservedPartyBalanceBefore = newCustomer ? (Number(newCustomer.outstandingBalance) || 0) : (Number(updatedData.partyBalanceBefore) || 0);
     }
 
+    // Resolve target new customer
+    const targetCustomer = this.findCustomerByRef(updatedData.customerId || oldBill.customerId, (updatedData as any).customerCode, updatedData.customerAccountTitle || oldBill.customerAccountTitle);
+    const finalCustomerId = targetCustomer?.id || updatedData.customerId || oldBill.customerId || 'cust-1';
+    const finalCustomerTitle = targetCustomer?.accountTitle || targetCustomer?.name || updatedData.customerAccountTitle || oldBill.customerAccountTitle || 'Walk-in Customer';
+
     const newBill: SaleBill = {
       ...oldBill,
       ...updatedData,
+      customerId: finalCustomerId,
+      customerAccountTitle: finalCustomerTitle,
       partyBalanceBefore: Number(preservedPartyBalanceBefore.toFixed(2)),
       totalCtn,
       totalQty,
@@ -8488,18 +8556,19 @@ class DatabaseService {
     }
 
     // 5. Apply new customer outstanding balance
-    if (newBill.customerId && (newBill.paymentType === 'Account' || (newBill.balanceReceivable || 0) > 0)) {
-      const customer = this.findCustomerByRef(newBill.customerId, (newBill as any).customerCode, newBill.customerAccountTitle);
-      if (customer) {
-        customer.outstandingBalance = Number(((customer.outstandingBalance || 0) + newBill.balanceReceivable).toFixed(2));
-        customer.totalSales = Number(((customer.totalSales || 0) + newBill.netTotal).toFixed(2));
-        customer.lastBillNumber = newBill.billNumber;
-        customer.lastBillDate = newBill.date;
-        customer.lastBillAmount = newBill.netTotal;
-        customer.updatedAt = new Date().toISOString();
-        const cid = getActiveCompanyId();
-        postgresService.upsertCustomer(customer, cid).catch(() => {});
+    const newCustomer = targetCustomer || this.findCustomerByRef(newBill.customerId, (newBill as any).customerCode, newBill.customerAccountTitle);
+    if (newCustomer) {
+      const newRec = Number(newBill.balanceReceivable !== undefined ? newBill.balanceReceivable : (Number(newBill.netTotal || 0) - Number(newBill.cashReceived || 0)));
+      if (newRec > 0) {
+        newCustomer.outstandingBalance = Number(((newCustomer.outstandingBalance || 0) + newRec).toFixed(2));
       }
+      newCustomer.totalSales = Number(((newCustomer.totalSales || 0) + Number(newBill.netTotal || 0)).toFixed(2));
+      newCustomer.lastBillNumber = newBill.billNumber;
+      newCustomer.lastBillDate = newBill.date;
+      newCustomer.lastBillAmount = newBill.netTotal;
+      newCustomer.updatedAt = new Date().toISOString();
+      const cid = getActiveCompanyId();
+      postgresService.upsertCustomer(newCustomer, cid).catch(() => {});
     }
 
     this.data.saleBills[idx] = newBill;
@@ -10087,12 +10156,14 @@ class DatabaseService {
         } else if (supp) {
           supp.payableToSupplier = Number(((supp.payableToSupplier || 0) + factor * e.amount).toFixed(2));
           supp.balanceOwed = supp.payableToSupplier;
+          postgresService.upsertSupplier(supp, cid).catch(() => {});
         }
       } else if (voucher.voucherType === 'BP' || voucher.voucherType === 'CP') {
         // Company Paying Supplier / Party -> Account DR -> CR Payables Decrease
         if (supp) {
           supp.payableToSupplier = Number(((supp.payableToSupplier || 0) - factor * e.amount).toFixed(2));
           supp.balanceOwed = supp.payableToSupplier;
+          postgresService.upsertSupplier(supp, cid).catch(() => {});
         } else if (cust) {
           cust.outstandingBalance = Number(((getCustEffectiveBal(cust)) + factor * e.amount).toFixed(2));
           cust.updatedAt = new Date().toISOString();
@@ -10648,30 +10719,29 @@ class DatabaseService {
       const normCode = (code || '').trim().toLowerCase();
       const normTitle = (title || '').trim().toLowerCase();
 
-      // If transaction has an explicit customer ID:
-      if (normId && normId !== 'cash' && normId !== 'card' && normId !== 'walk-in') {
-        if (targetIds.has(normId) || (normBaseId && targetIds.has(normBaseId))) {
-          return true;
-        }
-        if (normCode && targetCodes.has(normCode)) {
-          return true;
-        }
-        // Transaction points to a different customer ID, reject immediately
-        return false;
+      // 1. Direct ID match
+      if (normId && (targetIds.has(normId) || (normBaseId && targetIds.has(normBaseId)))) {
+        return true;
       }
 
-      // If transaction has a code:
-      if (normCode) {
-        if (targetCodes.has(normCode)) {
-          return true;
-        }
-        return false;
+      // 2. Direct Code match (if not generic)
+      if (normCode && targetCodes.has(normCode)) {
+        return true;
       }
 
-      // If neither ID nor code is present, match by exact Title
+      // 3. Direct Title match
+      if (normTitle && targetTitles.has(normTitle)) {
+        return true;
+      }
+
+      // 4. Normalized/canonical title match (removing punctuation and whitespace)
       if (normTitle) {
-        if (targetTitles.has(normTitle)) {
-          return true;
+        const cleanNorm = normTitle.replace(/[^a-z0-9]/g, '');
+        for (const t of targetTitles) {
+          const cleanTarget = t.replace(/[^a-z0-9]/g, '');
+          if (cleanNorm && cleanTarget && cleanNorm === cleanTarget) {
+            return true;
+          }
         }
       }
 
@@ -11069,26 +11139,29 @@ class DatabaseService {
       const normCode = (code || '').trim().toLowerCase();
       const normTitle = (title || '').trim().toLowerCase();
 
-      if (normId) {
-        if (targetSuppIds.has(normId) || (normBaseId && targetSuppIds.has(normBaseId))) {
-          return true;
-        }
-        if (normCode && targetSuppCodes.has(normCode)) {
-          return true;
-        }
-        return false;
+      // 1. Direct ID match
+      if (normId && (targetSuppIds.has(normId) || (normBaseId && targetSuppIds.has(normBaseId)))) {
+        return true;
       }
 
-      if (normCode) {
-        if (targetSuppCodes.has(normCode)) {
-          return true;
-        }
-        return false;
+      // 2. Direct Code match (if not generic)
+      if (normCode && targetSuppCodes.has(normCode)) {
+        return true;
       }
 
+      // 3. Direct Title match
+      if (normTitle && targetSuppTitles.has(normTitle)) {
+        return true;
+      }
+
+      // 4. Normalized/canonical title match (removing punctuation and whitespace)
       if (normTitle) {
-        if (targetSuppTitles.has(normTitle)) {
-          return true;
+        const cleanNorm = normTitle.replace(/[^a-z0-9]/g, '');
+        for (const t of targetSuppTitles) {
+          const cleanTarget = t.replace(/[^a-z0-9]/g, '');
+          if (cleanNorm && cleanTarget && cleanNorm === cleanTarget) {
+            return true;
+          }
         }
       }
 

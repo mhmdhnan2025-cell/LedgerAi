@@ -247,37 +247,63 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
     (id?: string | null, code?: string | null, title?: string | null): string | null => {
       if (!customers || customers.length === 0) return null;
 
-      // 1. Match by ID (exact or stripped company prefix/suffix)
-      if (id && id.trim()) {
-        const idLower = id.trim().toLowerCase();
-        const strippedId = idLower.replace(/_comp[_-].*$/, '');
+      const titleTrim = (title || '').trim().toLowerCase();
+      const idTrim = (id || '').trim().toLowerCase();
+      const strippedId = idTrim ? idTrim.replace(/_comp[_-].*$/, '') : '';
+      const codeTrim = (code || '').trim().toLowerCase();
+
+      // Priority 1: Match by explicit account title or customer name
+      if (titleTrim) {
+        const foundByTitle = customers.find((c) => {
+          const cTitle = (c.accountTitle || c.name || '').trim().toLowerCase();
+          return cTitle === titleTrim;
+        });
+        if (foundByTitle) {
+          // If ID is empty, 'cust-1' fallback, walk-in, or matches foundByTitle, trust the title!
+          if (!idTrim || idTrim === 'cust-1' || idTrim === 'cash' || idTrim === 'card' || idTrim === 'walk-in') {
+            return foundByTitle.id;
+          }
+          const cId = (foundByTitle.id || '').toLowerCase();
+          const cStripped = cId.replace(/_comp[_-].*$/, '');
+          if (cId === idTrim || cStripped === idTrim || (strippedId && cStripped === strippedId)) {
+            return foundByTitle.id;
+          }
+          // If ID was passed but points to an entirely different customer whose title doesn't match, title wins
+          const foundById = customers.find(c => (c.id || '').toLowerCase() === idTrim);
+          if (foundById && (foundById.accountTitle || foundById.name || '').trim().toLowerCase() !== titleTrim) {
+            return foundByTitle.id;
+          }
+        }
+      }
+
+      // Priority 2: Match by ID (exact or stripped company prefix/suffix)
+      if (idTrim && idTrim !== 'cash' && idTrim !== 'card' && idTrim !== 'walk-in') {
         for (const c of customers) {
           const cId = (c.id || '').trim().toLowerCase();
           const cStripped = cId.replace(/_comp[_-].*$/, '');
-          if (cId === idLower || cStripped === idLower || (strippedId && cStripped === strippedId)) {
+          if (cId === idTrim || cStripped === idTrim || (strippedId && cStripped === strippedId)) {
             return c.id;
           }
         }
       }
 
-      // 2. Match by unique code or manualCode (ONLY if NOT a shared generic control account code)
-      if (code && code.trim() && !isGenericControlCode(code)) {
-        const codeLower = code.trim().toLowerCase();
+      // Priority 3: Match by unique code or manualCode (ONLY if NOT a shared generic control account code)
+      if (codeTrim && !isGenericControlCode(codeTrim)) {
         for (const c of customers) {
           const cCode = (c.code || '').trim().toLowerCase();
           const cManual = (c.manualCode || '').trim().toLowerCase();
-          if ((cCode && cCode === codeLower) || (cManual && cManual === codeLower)) {
+          if ((cCode && cCode === codeTrim) || (cManual && cManual === codeTrim)) {
             return c.id;
           }
         }
       }
 
-      // 3. Match by exact account title or customer name
-      if (title && title.trim()) {
-        const titleLower = title.trim().toLowerCase();
+      // Priority 4: Canonical loose title matching (removing spaces and punctuation)
+      if (titleTrim) {
+        const cleanTitle = titleTrim.replace(/[^a-z0-9]/g, '');
         for (const c of customers) {
-          const cTitle = (c.accountTitle || c.name || '').trim().toLowerCase();
-          if (cTitle && cTitle === titleLower) {
+          const cTitleClean = (c.accountTitle || c.name || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (cTitleClean && cTitleClean === cleanTitle) {
             return c.id;
           }
         }

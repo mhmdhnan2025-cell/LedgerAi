@@ -32,6 +32,8 @@ import {
   NextVoucherNumbers,
   User,
   CompanyProfile,
+  Customer,
+  Supplier,
 } from '../types';
 import { api } from '../services/api';
 import { currencySymbol } from '../utils/currency';
@@ -63,6 +65,8 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
   const [banks, setBanks] = useState<BankAccount[]>([]);
   const [cashAccounts, setCashAccounts] = useState<CashAccount[]>([]);
   const [glAccounts, setGlAccounts] = useState<GlAccountOption[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [salesmen, setSalesmen] = useState<string[]>([]);
   const [nextNumbers, setNextNumbers] = useState<NextVoucherNumbers>({
     jvNumber: 19694,
@@ -147,7 +151,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
   const loadPrimaryData = async () => {
     setIsLoading(true);
     try {
-      const [banksData, cashData, glData, numsData, salesData] = await Promise.all([
+      const [banksData, cashData, glData, numsData, salesData, custList, suppList] = await Promise.all([
         api.getBanks().catch(() => []),
         api.getCashAccounts().catch(() => []),
         api.getGlAccounts().catch(() => []),
@@ -156,11 +160,15 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
           voucherNumbers: { BR: 1, BP: 1, CR: 5514, CP: 1025, CB: 101, JV: 19694 },
         })),
         api.getSalesmen().catch(() => []),
+        api.getCustomers().catch(() => []),
+        api.getSuppliers().catch(() => []),
       ]);
 
       setBanks(Array.isArray(banksData) ? banksData.filter(Boolean) : []);
       setCashAccounts(Array.isArray(cashData) ? cashData.filter(Boolean) : []);
       setGlAccounts(Array.isArray(glData) ? glData.filter(Boolean) : []);
+      setCustomers(Array.isArray(custList) ? custList.filter(Boolean) : []);
+      setSuppliers(Array.isArray(suppList) ? suppList.filter(Boolean) : []);
       setNextNumbers(
         numsData && numsData.voucherNumbers
           ? numsData
@@ -970,11 +978,13 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                     inputRef={accountInputRef}
                     accounts={safeGlAccounts}
                     selectedAccountId={selectedAccountId}
+                    currentTab={activeTab}
                     onSelectAccount={(id) => {
                       setSelectedAccountId(id);
                       if (id) {
                         const acc = safeGlAccounts.find((a) => a && (a.id === id || a.code === id));
-                        const sm = (acc?.assignedSalesman || acc?.salesman || '').trim();
+                        const cust = customers.find((c) => c && (c.id === id || c.code === id || (acc && (c.accountTitle?.toLowerCase() === acc.title?.toLowerCase() || c.name?.toLowerCase() === acc.title?.toLowerCase()))));
+                        const sm = (cust?.assignedSalesman || cust?.salesman || acc?.assignedSalesman || acc?.salesman || '').trim();
                         if (sm) {
                           if (!salesmen.includes(sm)) {
                             setSalesmen((prev) => [...prev, sm]);
@@ -995,13 +1005,19 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                         }, 50);
                       }
                     }}
-                    placeholder="Search account name or code (↑ ↓ to navigate, Enter to select)..."
                     required
                   />
 
                   {/* Account Live Balance Display (Under Account Dropdown as shown in Image 1, 3, 5) */}
-                  <div className="pt-1 text-[11px] font-bold text-amber-400">
-                    Balance : {currentEntryAccount ? currentEntryAccount.balanceFormatted : '0.00 DR'}
+                  <div className="pt-1 text-[11px] font-bold flex items-center justify-between">
+                    <span className="text-amber-400">
+                      Balance : {currentEntryAccount ? currentEntryAccount.balanceFormatted : '0.00 DR'}
+                    </span>
+                    {currentEntryAccount && (
+                      <span className="text-slate-400 font-mono text-[10px]">
+                        {currentEntryAccount.type} {currentEntryAccount.code ? `• ${currentEntryAccount.code}` : ''}
+                      </span>
+                    )}
                   </div>
                 </div>
 
