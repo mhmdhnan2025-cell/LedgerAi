@@ -2218,7 +2218,7 @@ class DatabaseService {
     source: string = 'manual',
     userName: string = 'Admin'
   ): Supplier {
-    const list = this.getSuppliers();
+    const list = this.data.suppliers;
     
     // Auto-generate sequential ERP code e.g. 0401010349
     let autoCode = supData.code && supData.code.trim();
@@ -2301,7 +2301,7 @@ class DatabaseService {
     source: string = 'manual',
     userName: string = 'Admin'
   ): Supplier {
-    const list = this.getSuppliers();
+    const list = this.data.suppliers;
     const idx = list.findIndex((s) => s.id === id || s.code === id);
     if (idx === -1) {
       throw new Error(`Supplier with ID/Code "${id}" not found.`);
@@ -2361,7 +2361,7 @@ class DatabaseService {
     source: string = 'manual',
     userName: string = 'Admin'
   ): Supplier {
-    const list = this.getSuppliers();
+    const list = this.data.suppliers;
     const idx = list.findIndex((s) => s.id === id || s.code === id);
     if (idx === -1) {
       throw new Error(`Supplier "${id}" not found.`);
@@ -2397,7 +2397,7 @@ class DatabaseService {
     source: string = 'manual',
     userName: string = 'Admin'
   ): boolean {
-    const list = this.getSuppliers();
+    const list = this.data.suppliers;
     const idx = list.findIndex((s) => s.id === id || s.code === id);
     if (idx === -1) return false;
 

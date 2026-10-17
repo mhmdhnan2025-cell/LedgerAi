@@ -72,3 +72,59 @@ const out = [
 
 fs.writeFileSync(OUT_PATH, out, 'utf8');
 console.log(`Wrote ${rows.length} rows -> ${OUT_PATH}`);
+
+// --- Suppliers phase: from recovery backup, deterministic ids, city Sharjah ---
+const SUP_OUT = path.join(ROOT, 'server', 'seeds', 'zafr_supplier_data.ts');
+const recovery = JSON.parse(
+  fs.readFileSync(path.join(ROOT, 'data', 'recovery', 'database_comp-muocj00t-j3co.json'), 'utf8')
+);
+const sups = recovery.suppliers || [];
+if (sups.length !== 75) {
+  console.error(`ABORT: expected 75 suppliers in recovery, got ${sups.length}`);
+  process.exit(1);
+}
+
+const supLines = sups.map((s, i) => {
+  const id = `sup-zaf-${String(i + 1).padStart(4, '0')}`;
+  const obj = {
+    id,
+    code: s.code || '',
+    title: s.title,
+    accountTitle: s.accountTitle || s.title,
+    name: s.name || s.title,
+    supplierGroup: s.supplierGroup || 'General Trading',
+    mobile: s.mobile || '',
+    phone: s.phone || s.mobile || '',
+    telephones: s.telephones || s.mobile || s.phone || '',
+    contactPerson: s.contactPerson || '',
+    firstName: s.firstName || '',
+    lastName: s.lastName || '',
+    prefixTitle: s.prefixTitle || 'Mr',
+    email: s.email || '',
+    vatNumber: s.vatNumber || '',
+    ntnNumber: s.ntnNumber || '',
+    bankName: s.bankName || '',
+    bankTitle: s.bankTitle || '',
+    bankAccountNo: s.bankAccountNo || '',
+    city: 'Sharjah',
+    address: s.address || '',
+    status: s.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
+    payableToSupplier: s.payableToSupplier || 0,
+    payableType: s.payableType || 'CR',
+    documents: s.documents || [],
+    categories: Array.isArray(s.categories) && s.categories.length ? s.categories : [s.supplierGroup || 'General Trading'],
+    totalPurchases: s.totalPurchases || 0,
+    createdAt: s.createdAt || '',
+  };
+  return `  ${JSON.stringify(obj)},`;
+});
+
+const supOut = [
+  '// AUTO-GENERATED from data/recovery database by scripts/generate_zafr_seed.cjs — do not edit by hand.',
+  'export const ZAFR_SUPPLIERS: any[] = [',
+  ...supLines,
+  '];',
+  '',
+].join('\n');
+fs.writeFileSync(SUP_OUT, supOut, 'utf8');
+console.log(`Wrote ${sups.length} suppliers -> ${SUP_OUT}`);

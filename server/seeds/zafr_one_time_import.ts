@@ -1,8 +1,10 @@
 import { postgresService } from '../postgres';
 import { ZAFR_STOCK_ROWS } from './zafr_stock_data';
+import { ZAFR_SUPPLIERS } from './zafr_supplier_data';
 
 const COMPANY_ID = 'comp-muocj00t-j3co';
 const MARKER_KEY = 'zafr_stock_import_v1';
+const SUP_MARKER_KEY = 'zafr_supplier_import_v1';
 
 function categorize(name: string): string {
   const n = name.toLowerCase();
@@ -103,23 +105,54 @@ function buildProducts() {
   return { products, txs };
 }
 
-export async function runZafrOneTimeStockImport(companyExists: (id: string) => boolean): Promise<void> {
-  try {
-    if (process.env.SKIP_ZAFR_IMPORT === 'true') return;
-    const marker = await postgresService.getSystemSetting(MARKER_KEY);
-    if (marker === 'done') return;
-    if (!companyExists(COMPANY_ID)) return;
+async function importZafrStock(): Promise<void> {
+  if (process.env.SKIP_ZAFR_IMPORT === 'true') return;
+  const marker = await postgresService.getSystemSetting(MARKER_KEY);
+  if (marker === 'done') return;
 
-    const { products, txs } = buildProducts();
-    for (const p of products) {
-      await postgresService.upsertProduct(p, COMPANY_ID);
-    }
-    for (const t of txs) {
-      await postgresService.insertInventoryTransaction(t, COMPANY_ID);
-    }
-    await postgresService.setSystemSetting(MARKER_KEY, 'done');
-    console.log(`✅ [ZafrImport] Imported ${products.length} stock items (+${txs.length} intake entries) for ${COMPANY_ID}`);
+  const { products, txs } = buildProducts();
+  for (const p of products) {
+    await postgresService.upsertProduct(p, COMPANY_ID);
+  }
+  for (const t of txs) {
+    await postgresService.insertInventoryTransaction(t, COMPANY_ID);
+  }
+  await postgresService.setSystemSetting(MARKER_KEY, 'done');
+  console.log(`✅ [ZafrImport] Imported ${products.length} stock items (+${txs.length} intake entries) for ${COMPANY_ID}`);
+}
+
+async function importZafrSuppliers(): Promise<void> {
+  if (process.env.SKIP_ZAFR_IMPORT === 'true') return;
+  const supMarker = await postgresService.getSystemSetting(SUP_MARKER_KEY);
+  if (supMarker === 'done') return;
+
+  const existing = await postgresService.loadCompanyData(COMPANY_ID);
+  const existingSuppliers: any[] = (existing as any)?.suppliers || [];
+  for (const s of existingSuppliers) {
+    if (s?.id) await postgresService.deleteSupplier(s.id, COMPANY_ID);
+  }
+  for (const s of ZAFR_SUPPLIERS) {
+    await postgresService.upsertSupplier(s as any, COMPANY_ID);
+  }
+  await postgresService.setSystemSetting(SUP_MARKER_KEY, 'done');
+  console.log(
+    `✅ [ZafrImport] Imported ${ZAFR_SUPPLIERS.length} suppliers for ${COMPANY_ID} (replaced ${existingSuppliers.length} existing)`
+  );
+}
+
+export async function runZafrOneTimeStockImport(companyExists: (id: string) => boolean): Promise<void> {
+  if (process.env.SKIP_ZAFR_IMPORT === 'true') return;
+  if (!companyExists(COMPANY_ID)) return;
+
+  try {
+    await importZafrStock();
   } catch (err: any) {
-    console.warn('[ZafrImport] Skipped due to error:', err?.message || err);
+    console.warn('[ZafrImport] Stock phase skipped due to error:', err?.message || err);
+  }
+
+  try {
+    await importZafrSuppliers();
+  } catch (err: any) {
+    console.warn('[ZafrImport] Supplier phase skipped due to error:', err?.message || err);
   }
 }
