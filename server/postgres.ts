@@ -847,6 +847,34 @@ class PostgresService {
           `);
         }
 
+        // -------------------------------------------------------------
+        // ONE-TIME PURGE: remove all legacy seed customers, suppliers,
+        // products/inventory and transaction bills across all companies.
+        // Once purged, only user-created data in each company is kept.
+        // -------------------------------------------------------------
+        const purgeRes = await client.query(`SELECT value FROM system_settings WHERE key = 'purge_all_legacy_data_v1' LIMIT 1;`);
+        if (purgeRes.rows.length === 0 || purgeRes.rows[0].value !== 'true') {
+          console.log('[PostgreSQL] Executing one-time purge of legacy customers, suppliers, inventory, and transactions...');
+          await client.query(`
+            DELETE FROM inventory_transactions;
+            DELETE FROM sale_returns;
+            DELETE FROM purchase_returns;
+            DELETE FROM purchase_bills;
+            DELETE FROM sale_bills;
+            DELETE FROM orders;
+            DELETE FROM payments;
+            DELETE FROM vouchers;
+            DELETE FROM products;
+            DELETE FROM suppliers;
+            DELETE FROM customers;
+            DELETE FROM restaurants;
+            INSERT INTO system_settings (key, value, updated_at)
+            VALUES ('purge_all_legacy_data_v1', 'true', NOW())
+            ON CONFLICT (key) DO UPDATE SET value = 'true', updated_at = NOW();
+          `);
+          console.log('[PostgreSQL] One-time purge complete.');
+        }
+
         await client.query('COMMIT');
         this.isInitialized = true;
         console.log('[PostgreSQL] Multi-tenant database tables & company isolation verified successfully.');
