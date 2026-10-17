@@ -189,9 +189,9 @@ export const SalesBillReceiptModal: React.FC<SalesBillReceiptModalProps> = ({
   const totalBeforeVat = Number(Math.max(0, grossAmount - billDiscount).toFixed(2));
   const vatTotal = Number(bill.totalVatAmount) || 0;
   const netTotal = Number(bill.netTotal) || Number((totalBeforeVat + vatTotal).toFixed(2));
-  const currentTotalBalance = Number((openingBalance + netTotal).toFixed(2));
+  const currentBillAmount = Number(netTotal.toFixed(2));
   const cashPaid = Number(bill.cashReceived) || 0;
-  const closingBalance = Number((currentTotalBalance - cashPaid).toFixed(2));
+  const closingBalance = Number((openingBalance + netTotal - cashPaid).toFixed(2));
   const vatPercent = items.length > 0 ? Number(items[0].vatPercent ?? 5) : 5;
 
   // ---------------------------------------------------------------
@@ -373,7 +373,8 @@ ${items
 *NET TOTAL:* *${cur} ${money(netTotal)}*
 ----------------------------------------
 *Opening Balance:* ${money(openingBalance)}
-*Current Balance:* ${money(currentTotalBalance)}
+*Current Bill:* ${money(currentBillAmount)}
+*Amount Paid:* ${money(cashPaid)}
 *Closing Balance:* ${money(closingBalance)}
 ----------------------------------------
 Thank you for your business!`;
@@ -870,26 +871,32 @@ Thank you for your business!`;
               <div className="text-[10.5px] text-slate-600">Total ({cur}) in Words:</div>
               <div className="font-black text-[12.5px] uppercase leading-snug mt-0.5">{totalInWords}</div>
 
-              <div className="grid grid-cols-3 border border-slate-400 mt-2.5">
+              <div className="grid grid-cols-4 border border-slate-400 mt-2.5">
                 <div className="text-center px-1 py-1.5 border-r border-slate-400">
-                  <div className="font-black leading-tight text-slate-800">Opening Balance</div>
+                  <div className="font-black leading-tight text-slate-800 text-[10.5px]">Opening Balance</div>
                 </div>
                 <div className="text-center px-1 py-1.5 border-r border-slate-400">
-                  <div className="font-black leading-tight text-slate-800">Current Balance</div>
+                  <div className="font-black leading-tight text-slate-800 text-[10.5px]">Current Bill</div>
+                </div>
+                <div className="text-center px-1 py-1.5 border-r border-slate-400">
+                  <div className="font-black leading-tight text-slate-800 text-[10.5px]">Amount Paid</div>
                 </div>
                 <div className="text-center px-1 py-1.5">
-                  <div className="font-black leading-tight text-slate-800">Closing Balance</div>
+                  <div className="font-black leading-tight text-slate-800 text-[10.5px]">Closing Balance</div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 border border-slate-400 border-t-0">
-                <div className="text-center px-1 py-1.5 border-r border-slate-400 font-black text-[12.5px] font-mono">
+              <div className="grid grid-cols-4 border border-slate-400 border-t-0">
+                <div className="text-center px-1 py-1.5 border-r border-slate-400 font-black text-[12px] font-mono">
                   {money(openingBalance)}
                 </div>
-                <div className="text-center px-1 py-1.5 border-r border-slate-400 font-black text-[12.5px] font-mono text-[#0f7b3f]">
-                  {money(currentTotalBalance)}
+                <div className="text-center px-1 py-1.5 border-r border-slate-400 font-black text-[12px] font-mono text-[#0f7b3f]">
+                  {money(currentBillAmount)}
                 </div>
-                <div className="text-center px-1 py-1.5 font-black text-[12.5px] font-mono text-[#c1121f]">
+                <div className="text-center px-1 py-1.5 border-r border-slate-400 font-black text-[12px] font-mono text-blue-700">
+                  {money(cashPaid)}
+                </div>
+                <div className="text-center px-1 py-1.5 font-black text-[12px] font-mono text-[#c1121f]">
                   {money(closingBalance)}
                 </div>
               </div>

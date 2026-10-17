@@ -533,12 +533,10 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
                     filteredSuppliers.map((s, index) => {
                       const isSelected = selectedSupplier?.id === s.id;
                       const isHighlighted = highlightedIndex === index;
-                      const effSupplierBal = s.payableToSupplier !== undefined && s.payableToSupplier !== 0
-                        ? s.payableToSupplier
-                        : (s.openingBalance !== undefined && s.openingBalance !== 0
-                            ? (s.openingBalanceType === 'DR' ? -Math.abs(s.openingBalance) : Math.abs(s.openingBalance))
-                            : (s.balanceOwed || 0));
-                      const supType = effSupplierBal < 0 ? 'DR' : (effSupplierBal > 0 ? 'CR' : (s.openingBalanceType || s.payableType || 'CR'));
+                      const effSupplierBal = s.payableToSupplier !== undefined && s.payableToSupplier !== null
+                        ? Number(s.payableToSupplier)
+                        : (s.balanceOwed !== undefined && s.balanceOwed !== null ? Number(s.balanceOwed) : (Number(s.openingBalance) || 0));
+                      const supType = s.payableType || (effSupplierBal < 0 ? 'DR' : 'CR');
                       return (
                         <div
                           key={s.id}

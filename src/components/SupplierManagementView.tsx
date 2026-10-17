@@ -463,7 +463,12 @@ export const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({
 
   // Summary figures
   const totalPayableAll = useMemo(() => {
-    return suppliersList.reduce((sum, s) => sum + (Number(s.payableToSupplier) || Number(s.balanceOwed) || 0), 0);
+    return suppliersList.reduce((sum, s) => {
+      const p = s.payableToSupplier !== undefined && s.payableToSupplier !== null
+        ? Number(s.payableToSupplier)
+        : (s.balanceOwed !== undefined && s.balanceOwed !== null ? Number(s.balanceOwed) : (Number(s.openingBalance) || 0));
+      return sum + p;
+    }, 0);
   }, [suppliersList]);
 
   const activeCount = useMemo(() => {
@@ -690,7 +695,9 @@ export const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({
                     </tr>
                   ) : (
                     filteredList.map((sup, idx) => {
-                      const payable = Number(sup.payableToSupplier) || Number((sup as any).payable_to_supplier) || Number(sup.openingBalance) || Number((sup as any).balanceOwed) || 0;
+                      const payable = sup.payableToSupplier !== undefined && sup.payableToSupplier !== null
+                        ? Number(sup.payableToSupplier)
+                        : (sup.balanceOwed !== undefined && sup.balanceOwed !== null ? Number(sup.balanceOwed) : (Number(sup.openingBalance) || 0));
                       const supTitle = sup.title || sup.name || (sup as any).account_title || (sup as any).accountTitle || 'Supplier';
                       const supGroup = sup.supplierGroup || (sup as any).supplier_group || 'General';
                       const supVat = sup.vatNumber || (sup as any).vat_number || '';
@@ -1532,7 +1539,9 @@ export const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({
                     </tr>
                   ) : (
                     reportResults.map((sup, idx) => {
-                      const payable = Number(sup.payableToSupplier) || Number(sup.balanceOwed) || 0;
+                      const payable = sup.payableToSupplier !== undefined && sup.payableToSupplier !== null
+                        ? Number(sup.payableToSupplier)
+                        : (sup.balanceOwed !== undefined && sup.balanceOwed !== null ? Number(sup.balanceOwed) : (Number(sup.openingBalance) || 0));
                       return (
                         <tr key={sup.id} className="hover:bg-slate-800/50 transition">
                           <td className="px-3 py-2.5 text-center text-slate-400 font-mono text-[11px]">

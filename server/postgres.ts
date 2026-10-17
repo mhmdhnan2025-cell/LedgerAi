@@ -56,6 +56,7 @@ export interface PostgresStatus {
 class PostgresService {
   private pool: pg.Pool | null = null;
   private isInitialized = false;
+  private schemaInitInFlight: Promise<boolean> | null = null;
   private lastStatus: PostgresStatus = { connected: false };
   private pgConnFails = 0;
   private pgCircuitOpenUntil = 0;
@@ -98,6 +99,9 @@ class PostgresService {
       this.pool.end().catch(() => {});
       this.pool = null;
     }
+    // New pool = new database: schema must be re-verified once on next initSchema()
+    this.isInitialized = false;
+    this.schemaInitInFlight = null;
 
     let config: PostgresConfig;
     if (overrideConnectionString) {
@@ -254,6 +258,17 @@ class PostgresService {
   }
 
   public async initSchema(): Promise<boolean> {
+    if (this.isInitialized) return true;
+    // Serialize concurrent init calls (sync + status + configure racing together
+    // previously triggered duplicate CREATE TABLE transactions and pg_type errors)
+    if (this.schemaInitInFlight) return this.schemaInitInFlight;
+    this.schemaInitInFlight = this.runSchemaInit().finally(() => {
+      this.schemaInitInFlight = null;
+    });
+    return this.schemaInitInFlight;
+  }
+
+  private async runSchemaInit(): Promise<boolean> {
     if (!this.pool) return false;
 
     try {
@@ -809,6 +824,29 @@ class PostgresService {
              OR LOWER(username) IN ('accountant', 'manager', 'sales');
         `);
 
+        // -------------------------------------------------------------
+        // DUPLICATE BILL GUARD: exactly ONE row per bill number per company.
+        // All reports are generated from purchase_bills / sale_bills, so a
+        // duplicate bill row would duplicate report rows everywhere.
+        // -------------------------------------------------------------
+        for (const billTbl of ['purchase_bills', 'sale_bills']) {
+          await client.query(`
+            DELETE FROM ${billTbl} a
+            USING ${billTbl} b
+            WHERE a.company_id IS NOT DISTINCT FROM b.company_id
+              AND a.bill_number = b.bill_number
+              AND COALESCE(a.bill_number, '') <> ''
+              AND a.id <> b.id
+              AND (COALESCE(a.updated_at, 'epoch') < COALESCE(b.updated_at, 'epoch')
+                   OR (COALESCE(a.updated_at, 'epoch') = COALESCE(b.updated_at, 'epoch') AND a.id < b.id));
+          `);
+          await client.query(`
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_${billTbl}_company_bill_number
+            ON ${billTbl} (company_id, bill_number)
+            WHERE bill_number IS NOT NULL AND bill_number <> '';
+          `);
+        }
+
         await client.query('COMMIT');
         this.isInitialized = true;
         console.log('[PostgreSQL] Multi-tenant database tables & company isolation verified successfully.');
@@ -1184,15 +1222,9 @@ class PostgresService {
         const extractSupplier = (row: any): Supplier => {
           const d = row.data || {};
           const title = row.title || d.title || row.account_title || d.accountTitle || row.name || d.name || 'Supplier';
-          const openBal = (row.opening_balance !== undefined && row.opening_balance !== null && parseFloat(row.opening_balance) !== 0)
-            ? parseFloat(row.opening_balance)
-            : (d.openingBalance !== undefined && d.openingBalance !== null && parseFloat(d.openingBalance) !== 0
-                ? parseFloat(d.openingBalance)
-                : (row.payable_to_supplier !== undefined && parseFloat(row.payable_to_supplier) !== 0
-                    ? parseFloat(row.payable_to_supplier)
-                    : (row.balance_owed !== undefined && parseFloat(row.balance_owed) !== 0
-                        ? parseFloat(row.balance_owed)
-                        : (d.payableToSupplier !== undefined ? parseFloat(d.payableToSupplier) : 0))));
+          const rawRowOpen = row.opening_balance !== undefined && row.opening_balance !== null ? parseFloat(row.opening_balance) : NaN;
+          const rawDOpen = d.openingBalance !== undefined && d.openingBalance !== null ? parseFloat(d.openingBalance) : NaN;
+          const openBal = !isNaN(rawRowOpen) ? rawRowOpen : (!isNaN(rawDOpen) ? rawDOpen : 0);
           const openType = ((row.opening_balance_type || d.openingBalanceType || row.payable_type || 'CR') as string).toUpperCase() as 'CR' | 'DR';
           const payable = parseFloat(row.payable_to_supplier ?? d.payableToSupplier ?? row.balance_owed ?? d.balanceOwed ?? openBal);
 
@@ -2224,6 +2256,16 @@ class PostgresService {
     if (!this.pool) return;
     try {
       const pb = bill as any;
+      let targetId = pb.id;
+      // One row per bill number per company: never insert a second row for the same bill
+      const billNumber = pb.billNumber != null ? String(pb.billNumber).trim() : '';
+      if (billNumber) {
+        const dup = await this.pool.query(
+          `SELECT id FROM purchase_bills WHERE company_id = $1 AND bill_number = $2 AND id <> $3 LIMIT 1`,
+          [companyId, billNumber, pb.id]
+        );
+        if (dup.rows[0]?.id) targetId = dup.rows[0].id;
+      }
       await this.pool.query(
         `INSERT INTO purchase_bills (id, company_id, bill_number, supplier_id, supplier_name, bill_date, total_amount, paid_amount, balance_amount, status, items, data, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
@@ -2241,7 +2283,7 @@ class PostgresService {
            data = EXCLUDED.data,
            updated_at = NOW();`,
         [
-          pb.id,
+          targetId,
           companyId,
           pb.billNumber,
           pb.supplierId,
@@ -2252,7 +2294,7 @@ class PostgresService {
           pb.remainingBalance ?? pb.balanceAmount ?? 0,
           pb.status || 'POSTED',
           JSON.stringify(pb.items || []),
-          JSON.stringify(bill),
+          JSON.stringify(targetId === pb.id ? bill : { ...bill, id: targetId }),
         ]
       );
     } catch (err: any) {
@@ -2273,6 +2315,16 @@ class PostgresService {
     if (!this.pool) return;
     try {
       const sb = bill as any;
+      let targetId = sb.id;
+      // One row per bill number per company: never insert a second row for the same bill
+      const billNumber = sb.billNumber != null ? String(sb.billNumber).trim() : '';
+      if (billNumber) {
+        const dup = await this.pool.query(
+          `SELECT id FROM sale_bills WHERE company_id = $1 AND bill_number = $2 AND id <> $3 LIMIT 1`,
+          [companyId, billNumber, sb.id]
+        );
+        if (dup.rows[0]?.id) targetId = dup.rows[0].id;
+      }
       await this.pool.query(
         `INSERT INTO sale_bills (id, company_id, bill_number, customer_id, customer_name, bill_date, total_amount, paid_amount, balance_amount, status, items, data, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
@@ -2290,7 +2342,7 @@ class PostgresService {
            data = EXCLUDED.data,
            updated_at = NOW();`,
         [
-          sb.id,
+          targetId,
           companyId,
           sb.billNumber,
           sb.customerId,
@@ -2301,7 +2353,7 @@ class PostgresService {
           Number(sb.balanceReceivable ?? sb.remainingBalance ?? sb.balanceAmount ?? Math.max(0, Number(sb.netTotal ?? sb.totalAmount ?? 0) - Number(sb.cashReceived ?? sb.paidAmount ?? 0))),
           sb.status || 'COMPLETED',
           JSON.stringify(sb.items || []),
-          JSON.stringify(bill),
+          JSON.stringify(targetId === sb.id ? bill : { ...bill, id: targetId }),
         ]
       );
     } catch (err: any) {

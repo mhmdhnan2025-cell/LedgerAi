@@ -3115,17 +3115,13 @@ class DatabaseService {
               const k = (ts.id || ts.code || ts.title || ts.name || '').trim().toLowerCase();
               const prev = existingSupMap.get(k) || (ts.code ? existingSupMap.get(ts.code.trim().toLowerCase()) : undefined);
               if (!prev) return ts;
-              const openBal = ts.openingBalance !== undefined && ts.openingBalance !== 0
-                ? ts.openingBalance
-                : (prev.openingBalance !== undefined && prev.openingBalance !== 0
-                    ? prev.openingBalance
-                    : (ts.payableToSupplier !== undefined && ts.payableToSupplier !== 0
-                        ? ts.payableToSupplier
-                        : (prev.payableToSupplier !== undefined ? prev.payableToSupplier : 0)));
+              const rawTsOpen = ts.openingBalance !== undefined && ts.openingBalance !== null ? Number(ts.openingBalance) : NaN;
+              const rawPrevOpen = prev.openingBalance !== undefined && prev.openingBalance !== null ? Number(prev.openingBalance) : NaN;
+              const openBal = !isNaN(rawTsOpen) ? rawTsOpen : (!isNaN(rawPrevOpen) ? rawPrevOpen : 0);
               const openType = ts.openingBalanceType || prev.openingBalanceType || ts.payableType || prev.payableType || 'CR';
-              const payable = ts.payableToSupplier !== undefined && ts.payableToSupplier !== 0
-                ? ts.payableToSupplier
-                : (prev.payableToSupplier !== undefined && prev.payableToSupplier !== 0 ? prev.payableToSupplier : openBal);
+              const payable = ts.payableToSupplier !== undefined && ts.payableToSupplier !== null
+                ? Number(ts.payableToSupplier)
+                : (prev.payableToSupplier !== undefined && prev.payableToSupplier !== null ? Number(prev.payableToSupplier) : openBal);
               return {
                 ...prev,
                 ...ts,
@@ -4587,25 +4583,26 @@ class DatabaseService {
     }
 
     return this.data.suppliers.map((s) => {
-      const openBal = s.openingBalance !== undefined && s.openingBalance !== null && s.openingBalance !== 0
-        ? s.openingBalance
-        : (s.payableToSupplier !== undefined && s.payableToSupplier !== 0 ? s.payableToSupplier : (s.balanceOwed || 0));
+      const openBal = s.openingBalance !== undefined && s.openingBalance !== null
+        ? Number(s.openingBalance)
+        : 0;
       const openType = s.openingBalanceType || s.payableType || 'CR';
       const payable = s.payableToSupplier !== undefined && s.payableToSupplier !== null
-        ? s.payableToSupplier
+        ? Number(s.payableToSupplier)
         : openBal;
       return {
         ...s,
         openingBalance: openBal,
         openingBalanceType: openType,
         payableToSupplier: payable,
+        balanceOwed: payable,
         payableType: openType,
       };
     });
   }
 
   public getSupplierById(id: string): Supplier | undefined {
-    return this.getSuppliers().find((s) => s.id === id || s.code === id);
+    return this.findSupplierByRef(id) || (this.data.suppliers || []).find((s) => s.id === id || s.code === id);
   }
 
   public createSupplier(
@@ -6238,6 +6235,94 @@ class DatabaseService {
       r.orderCount = restOrders.length;
       r.averageOrderValue = restOrders.length > 0 ? Math.round(restPurchases / restOrders.length) : 0;
     });
+
+    this.recalculateAllSupplierBalances();
+  }
+
+  // AUTHORITATIVELY SYNCHRONIZE ALL SUPPLIER BALANCES
+  public recalculateAllSupplierBalances(): void {
+    const suppliers = this.data.suppliers || [];
+    const bills = (this.data.purchaseBills || []).filter((b) => b.status !== 'Cancelled');
+    const vouchers = (this.data.vouchers || []).filter((v) => v.status === 'POSTED');
+    const returns = (this.data.purchaseReturns || []).filter((pr) => pr.status !== 'CANCELLED');
+    const payments = (this.data.payments || []).filter((p) => !(p as any).isDeleted && p.status !== 'Cancelled' && (p as any).status !== 'DELETED');
+
+    for (const s of suppliers) {
+      const rawOpen = Number(s.openingBalance) || 0;
+      const openType = s.openingBalanceType || s.payableType || 'CR';
+      let running = openType === 'DR' ? -Math.abs(rawOpen) : Math.abs(rawOpen);
+
+      const sId = (s.id || '').trim().toLowerCase();
+      const sBaseId = sId ? sId.replace(/_comp[_-].*$/, '') : '';
+      const sCode = (s.code || s.accountNumber || '').trim().toLowerCase();
+      const sTitle = (s.accountTitle || s.title || s.name || '').trim().toLowerCase();
+      const cleanTitle = sTitle ? sTitle.replace(/[^a-z0-9]/g, '') : '';
+
+      const matches = (id?: string, code?: string, title?: string) => {
+        const cId = (id || '').trim().toLowerCase();
+        const cBaseId = cId ? cId.replace(/_comp[_-].*$/, '') : '';
+        const cCode = (code || '').trim().toLowerCase();
+        const cTitle = (title || '').trim().toLowerCase();
+        const cleanCTitle = cTitle ? cTitle.replace(/[^a-z0-9]/g, '') : '';
+
+        if (sId && cId && (sId === cId || sBaseId === cBaseId || sId === cBaseId || sBaseId === cId)) return true;
+        if (sCode && cCode && sCode === cCode && !['0201010000', '0201', '0101040000', '0101'].includes(sCode)) return true;
+        if (sTitle && cTitle && (sTitle === cTitle || (cleanTitle && cleanCTitle && cleanTitle === cleanCTitle))) return true;
+        return false;
+      };
+
+      // 1. Purchase Bills
+      let totalPurch = 0;
+      for (const b of bills) {
+        if (!matches(b.supplierId, undefined, b.supplierAccountTitle)) continue;
+        const net = Number(b.netTotal || b.totalAmount || 0);
+        totalPurch += net;
+        running += net;
+        const paid = Number(b.paidAmount) || 0;
+        if (paid > 0) {
+          const hasVoucher = vouchers.some(
+            (v) => ((v as any).referenceNumber && (v as any).referenceNumber === b.billNumber) ||
+                   (v.entries || []).some((e) => e.narration?.includes(b.billNumber))
+          );
+          if (!hasVoucher) {
+            running -= paid;
+          }
+        }
+      }
+
+      // 2. Vouchers
+      for (const v of vouchers) {
+        for (const e of (v.entries || [])) {
+          if (!matches(e.accountId, e.accountCode, e.accountTitle)) continue;
+          if (v.voucherType === 'CP' || v.voucherType === 'BP') {
+            running -= Number(e.amount || 0);
+          } else if (v.voucherType === 'CR' || v.voucherType === 'BR') {
+            running += Number(e.amount || 0);
+          } else if (v.voucherType === 'CB') {
+            running += (Number(e.receipt || 0) - Number(e.payment || 0));
+          } else if (v.voucherType === 'JV') {
+            running += (Number(e.credit || 0) - Number(e.debit || 0));
+          }
+        }
+      }
+
+      // 3. Purchase Returns
+      for (const pr of returns) {
+        if (!matches(pr.supplierId, pr.supplierCode, pr.supplierAccountTitle)) continue;
+        running -= Number(pr.netTotal || pr.totalAmount || 0);
+      }
+
+      // 4. Direct Payments
+      for (const p of payments) {
+        if (!matches((p as any).supplierId || p.restaurantId)) continue;
+        running -= Number(p.amount || 0);
+      }
+
+      s.payableToSupplier = Math.abs(Number(running.toFixed(2)));
+      s.balanceOwed = s.payableToSupplier;
+      s.payableType = running >= 0 ? 'CR' : 'DR';
+      s.totalPurchases = Number(totalPurch.toFixed(2));
+    }
   }
 
   // PROFIT DIAGNOSIS ENGINE (Exact Mathematical Accuracy)
@@ -10527,6 +10612,28 @@ class DatabaseService {
     }
 
     // 2. Process Customer Payments recorded directly in payments table
+    // Receipt vouchers are tracked so a bill's one-time recovery is never
+    // double-counted below (same money reported twice).
+    const receiptVoucherRefs = new Set<string>();
+    const receiptVoucherNarrations: string[] = [];
+    for (const v of vouchers) {
+      if (v.status !== 'POSTED') continue;
+      if (v.voucherType !== 'BR' && v.voucherType !== 'CR' && v.voucherType !== 'CB') continue;
+      const ref = String((v as any).referenceNumber || v.poNumber || '').trim();
+      if (ref) receiptVoucherRefs.add(ref.toLowerCase());
+      for (const e of (v.entries || [])) {
+        if (e.narration) receiptVoucherNarrations.push(String(e.narration));
+      }
+    }
+    const isBookedByReceiptVoucher = (ref?: string): boolean => {
+      const bn = String(ref || '').trim();
+      if (!bn) return false;
+      if (receiptVoucherRefs.has(bn.toLowerCase())) return true;
+      const escaped = bn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const billRef = new RegExp(`bill\\s*#?\\s*${escaped}(?!\\d)`, 'i');
+      return receiptVoucherNarrations.some((n) => billRef.test(n));
+    };
+
     const existingPaymentIds = new Set(items.map((it) => it.voucherId));
     for (const p of (this.data.payments || [])) {
       if (existingPaymentIds.has(p.id)) continue;
@@ -10555,6 +10662,9 @@ class DatabaseService {
     // 3. Process Market Udhaar recoveries recorded on Sale Bills
     for (const b of (this.data.saleBills || [])) {
       if (!b.balanceRecovered) continue;
+      // Recovery already booked as a CR/BR/CB receipt voucher for this bill ->
+      // skip so the same recovered money is not reported twice.
+      if (isBookedByReceiptVoucher(b.billNumber)) continue;
       const recAmt = Number(b.balanceRecoveredAmount) || 0;
       if (recAmt <= 0) continue;
 
@@ -11273,18 +11383,14 @@ class DatabaseService {
     // 1. Calculate Opening Balance before normFrom (Credit = Payable to Supplier; incorporates legacy opening balances)
     let calcOpening = 0;
     if (!isAll && supplier) {
-      const rawOpen = Number(supplier.openingBalance);
-      const rawPayable = Number(supplier.payableToSupplier !== undefined ? supplier.payableToSupplier : (supplier as any).outstandingBalance);
-      const initBal = !isNaN(rawOpen) && rawOpen !== 0 ? rawOpen : (!isNaN(rawPayable) ? rawPayable : 0);
-      const balType = supplier.payableType || supplier.openingBalanceType || 'CR';
-      calcOpening += balType === 'DR' ? -Math.abs(initBal) : Math.abs(initBal);
+      const rawOpen = Number(supplier.openingBalance) || 0;
+      const balType = supplier.openingBalanceType || supplier.payableType || 'CR';
+      calcOpening += balType === 'DR' ? -Math.abs(rawOpen) : Math.abs(rawOpen);
     } else if (isAll) {
       for (const s of (this.data.suppliers || [])) {
-        const rawOpen = Number(s.openingBalance);
-        const rawPayable = Number(s.payableToSupplier !== undefined ? s.payableToSupplier : (s as any).outstandingBalance);
-        const initBal = !isNaN(rawOpen) && rawOpen !== 0 ? rawOpen : (!isNaN(rawPayable) ? rawPayable : 0);
-        const balType = s.payableType || s.openingBalanceType || 'CR';
-        calcOpening += balType === 'DR' ? -Math.abs(initBal) : Math.abs(initBal);
+        const rawOpen = Number(s.openingBalance) || 0;
+        const balType = s.openingBalanceType || s.payableType || 'CR';
+        calcOpening += balType === 'DR' ? -Math.abs(rawOpen) : Math.abs(rawOpen);
       }
     }
 

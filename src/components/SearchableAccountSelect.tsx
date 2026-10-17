@@ -39,6 +39,18 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
     return Array.isArray(accounts) ? accounts.filter((a): a is GlAccountOption => Boolean(a && a.id)) : [];
   }, [accounts]);
 
+  // Tab categorization flags
+  const isReceiptTab = currentTab === 'cashReceipt' || currentTab === 'bankReceipt';
+  const isPaymentTab = currentTab === 'cashPayment' || currentTab === 'bankPayment';
+
+  // Tab-scoped account universe: Receipt panels show only Customers,
+  // Payment panels show only Suppliers. Other tabs show everything.
+  const tabScopedAccounts = useMemo(() => {
+    if (isReceiptTab) return safeAccounts.filter((a) => a && a.type === 'Customer');
+    if (isPaymentTab) return safeAccounts.filter((a) => a && a.type === 'Supplier');
+    return safeAccounts;
+  }, [safeAccounts, isReceiptTab, isPaymentTab]);
+
   // Safely find selected account
   const selectedAccount = useMemo(() => {
     if (!selectedAccountId) return undefined;
@@ -54,7 +66,7 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
       return 'Select or search Customer by name, Sr#, or code...';
     }
     if (currentTab === 'cashPayment' || currentTab === 'bankPayment') {
-      return 'Select or search Supplier or Expense Account...';
+      return 'Select or search Supplier by name or code...';
     }
     return 'Search account name or code (↑ ↓ to navigate, Enter to select)...';
   }, [placeholder, currentTab]);
@@ -72,11 +84,11 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
 
   // Filter accounts in real-time with multi-token smart search (including Sr#)
   const filteredAccounts = useMemo(() => {
-    if (!searchTerm.trim()) return safeAccounts;
+    if (!searchTerm.trim()) return tabScopedAccounts;
     const q = searchTerm.trim().toLowerCase();
     const tokens = q.split(/\s+/).filter(Boolean);
 
-    return safeAccounts.filter((a) => {
+    return tabScopedAccounts.filter((a) => {
       if (!a) return false;
       const title = String(a.title || '').toLowerCase();
       const code = String(a.code || '').toLowerCase();
@@ -91,7 +103,7 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
       if (srStr === q) return true;
       return tokens.every((token) => combined.includes(token));
     });
-  }, [safeAccounts, searchTerm]);
+  }, [tabScopedAccounts, searchTerm]);
 
   // Group accounts safely with Customers sorted by Master Serial Number (Sr# 1..339)
   const grouped = useMemo(() => {
@@ -110,9 +122,7 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
     return { exp, cust, supp, bank, cash };
   }, [filteredAccounts]);
 
-  // Tab categorization flags
-  const isReceiptTab = currentTab === 'cashReceipt' || currentTab === 'bankReceipt';
-  const isPaymentTab = currentTab === 'cashPayment' || currentTab === 'bankPayment';
+  // Tab categorization flags (defined above, near safeAccounts)
 
   const handleSelect = (account: GlAccountOption) => {
     if (account && account.id) {
@@ -534,25 +544,11 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
             </div>
           ) : (
             <>
-              {/* Receipt Tabs (Cash Receipt / Bank Receipt): Customers are FIRST */}
-              {isReceiptTab && (
-                <>
-                  {renderCustomerGroup()}
-                  {renderExpenseGroup()}
-                  {renderSupplierGroup()}
-                  {renderBanksAndCashGroup()}
-                </>
-              )}
+              {/* Receipt Tabs (Cash Receipt / Bank Receipt): Customers ONLY */}
+              {isReceiptTab && renderCustomerGroup()}
 
-              {/* Payment Tabs (Cash Payment / Bank Payment): Suppliers are FIRST, then Expenses */}
-              {isPaymentTab && (
-                <>
-                  {renderSupplierGroup()}
-                  {renderExpenseGroup()}
-                  {renderCustomerGroup()}
-                  {renderBanksAndCashGroup()}
-                </>
-              )}
+              {/* Payment Tabs (Cash Payment / Bank Payment): Suppliers ONLY */}
+              {isPaymentTab && renderSupplierGroup()}
 
               {/* Other tabs (Cash Book / Journal Voucher): Standard order */}
               {!isReceiptTab && !isPaymentTab && (

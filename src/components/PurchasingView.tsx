@@ -1607,8 +1607,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                     type="number"
                     min="0"
                     step="any"
-                    placeholder="0"
-                    value={ctn}
+                    value={ctn === 0 || ctn === '' ? '' : ctn}
                     onChange={(e) => handleCtnChange(e.target.value === '' ? '' : Number(e.target.value))}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
@@ -1662,8 +1661,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                     type="number"
                     min="0"
                     step="any"
-                    placeholder="0"
-                    value={qty}
+                    value={qty === 0 || qty === '' ? '' : qty}
                     onChange={(e) => handleQtyDirectChange(e.target.value === '' ? '' : Number(e.target.value))}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {

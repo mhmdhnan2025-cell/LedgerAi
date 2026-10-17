@@ -177,9 +177,9 @@ export const SalesView: React.FC<SalesViewProps> = ({
     }
     setSelectedProductId('');
     setItemTitle('');
-    setCtn(1);
+    setCtn('');
     setRatePerCtn('');
-    setQty(1);
+    setQty('');
     setRate('');
     setDiscount(0);
     setVatPercent(5);
@@ -223,10 +223,10 @@ export const SalesView: React.FC<SalesViewProps> = ({
     setItemCategory(target.category || 'General');
     setItemMCode(target.mcode || '');
     setItemPackageType(target.packageType || 'Carton');
-    setCtn(target.ctn || 1);
+    setCtn(target.ctn ?? '');
     setRatePerCtn(target.ratePerCtn || '');
     setQtyPerCtn(target.qtyPerCtn || 1);
-    setQty(target.qty || 1);
+    setQty(target.qty ?? '');
     setRate(target.rate || '');
     setDiscount(target.discount || 0);
     setVatPercent(target.vatPercent || 5);
@@ -257,10 +257,10 @@ export const SalesView: React.FC<SalesViewProps> = ({
   const [itemCategory, setItemCategory] = useState<string>('General');
   const [itemMCode, setItemMCode] = useState<string>('');
   const [itemPackageType, setItemPackageType] = useState<string>('Carton');
-  const [ctn, setCtn] = useState<number | ''>(1);
+  const [ctn, setCtn] = useState<number | ''>('');
   const [ratePerCtn, setRatePerCtn] = useState<number | ''>('');
   const [qtyPerCtn, setQtyPerCtn] = useState<number | ''>(1);
-  const [qty, setQty] = useState<number | ''>(1);
+  const [qty, setQty] = useState<number | ''>('');
   const [rate, setRate] = useState<number | ''>('');
   const [discount, setDiscount] = useState<number | ''>(0);
   const [vatPercent, setVatPercent] = useState<number | ''>(5);
@@ -276,8 +276,23 @@ export const SalesView: React.FC<SalesViewProps> = ({
   // Live item search dropdown
   const [isItemDropdownOpen, setIsItemDropdownOpen] = useState(false);
   const [itemSearchQuery, setItemSearchQuery] = useState('');
+  const [highlightedItemIndex, setHighlightedItemIndex] = useState(0);
   const itemDropdownRef = useRef<HTMLDivElement>(null);
+  const itemDropdownListRef = useRef<HTMLDivElement>(null);
   const [itemDropdownStyle, setItemDropdownStyle] = useState<React.CSSProperties>({});
+
+  const scrollItemIntoView = (index: number) => {
+    const list = itemDropdownListRef.current;
+    if (!list) return;
+    const itemEl = list.children[index] as HTMLElement;
+    if (itemEl && typeof itemEl.scrollIntoView === 'function') {
+      itemEl.scrollIntoView({ block: 'nearest' });
+    }
+  };
+
+  useEffect(() => {
+    setHighlightedItemIndex(0);
+  }, [itemSearchQuery, isItemDropdownOpen]);
 
   // Floating dropdown positioning effect
   useLayoutEffect(() => {
@@ -514,13 +529,8 @@ export const SalesView: React.FC<SalesViewProps> = ({
     const rateCtn = prod.ctnSaleRate || Number((sellPrice * qPerCtn).toFixed(2));
     setRatePerCtn(rateCtn);
 
-    if (qPerCtn > 1) {
-      setCtn(1);
-      setQty('');
-    } else {
-      setCtn(0);
-      setQty(1);
-    }
+    setCtn('');
+    setQty('');
 
     setIsItemDropdownOpen(false);
     if (ctnInputRef.current) {
@@ -688,10 +698,10 @@ export const SalesView: React.FC<SalesViewProps> = ({
     setItemTitle('');
     setItemMCode('');
     setItemPackageType('Single');
-    setCtn(1);
+    setCtn('');
     setRatePerCtn('');
     setQtyPerCtn(1);
-    setQty(1);
+    setQty('');
     setRate('');
     setDiscount(0);
     setItemStock(0);
@@ -1502,6 +1512,37 @@ export const SalesView: React.FC<SalesViewProps> = ({
                     setIsItemDropdownOpen(true);
                   }}
                   onFocus={() => setIsItemDropdownOpen(true)}
+                  onKeyDown={(e) => {
+                    if (!isItemDropdownOpen) {
+                      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                        setIsItemDropdownOpen(true);
+                        e.preventDefault();
+                      }
+                      return;
+                    }
+                    if (e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      setHighlightedItemIndex((prev) => {
+                        const next = prev < filteredProducts.length - 1 ? prev + 1 : 0;
+                        scrollItemIntoView(next);
+                        return next;
+                      });
+                    } else if (e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      setHighlightedItemIndex((prev) => {
+                        const next = prev > 0 ? prev - 1 : Math.max(0, filteredProducts.length - 1);
+                        scrollItemIntoView(next);
+                        return next;
+                      });
+                    } else if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (filteredProducts[highlightedItemIndex]) {
+                        handleSelectItem(filteredProducts[highlightedItemIndex]);
+                      }
+                    } else if (e.key === 'Escape') {
+                      setIsItemDropdownOpen(false);
+                    }
+                  }}
                   className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-white font-medium text-xs focus:outline-hidden focus:border-emerald-500"
                 />
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -1513,8 +1554,9 @@ export const SalesView: React.FC<SalesViewProps> = ({
                   style={itemDropdownStyle}
                   className="absolute top-full left-0 mt-1 min-w-[340px] bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-2 max-h-72 overflow-y-auto z-50"
                 >
-                  <div className="space-y-1">
-                    {filteredProducts.map((p) => {
+                  <div ref={itemDropdownListRef} className="space-y-1">
+                    {filteredProducts.map((p, idx) => {
+                      const isHighlighted = idx === highlightedItemIndex;
                       const qCtn = Number(p.qtyInCarton) && Number(p.qtyInCarton) > 0 ? Number(p.qtyInCarton) : 15;
                       const stock = Math.max(0, Number(p.totalStock !== undefined ? p.totalStock : p.currentQuantity) || 0);
                       const unitName = (p.unit || p.measure || 'Unit').toUpperCase();
@@ -1527,7 +1569,12 @@ export const SalesView: React.FC<SalesViewProps> = ({
                         <div
                           key={p.id}
                           onClick={() => handleSelectItem(p)}
-                          className="px-2.5 py-2 rounded-lg hover:bg-slate-800 cursor-pointer flex items-center justify-between text-xs transition border border-transparent hover:border-slate-700"
+                          onMouseEnter={() => setHighlightedItemIndex(idx)}
+                          className={`px-2.5 py-2 rounded-lg cursor-pointer flex items-center justify-between text-xs transition border ${
+                            isHighlighted
+                              ? 'bg-emerald-950/90 border-emerald-500 text-white shadow-md'
+                              : 'hover:bg-slate-800 border-transparent hover:border-slate-700'
+                          }`}
                         >
                           <div>
                             <div className="font-bold text-white flex items-center gap-2">
@@ -1592,7 +1639,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
                 ref={ctnInputRef}
                 type="number"
                 step="any"
-                value={ctn}
+                value={ctn === 0 || ctn === '' ? '' : ctn}
                 onChange={(e) => handleCtnChange(e.target.value === '' ? '' : parseFloat(e.target.value))}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
@@ -1651,7 +1698,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
                 ref={qtyInputRef}
                 type="number"
                 step="any"
-                value={qty}
+                value={qty === 0 || qty === '' ? '' : qty}
                 onChange={(e) => handleQtyChange(e.target.value === '' ? '' : parseFloat(e.target.value))}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
@@ -1659,7 +1706,6 @@ export const SalesView: React.FC<SalesViewProps> = ({
                     rateInputRef.current?.focus();
                   }
                 }}
-                placeholder="0.00"
                 className="w-full rounded-lg px-2 py-1.5 font-mono font-bold text-xs text-right bg-slate-950 border border-emerald-500/80 text-white focus:outline-hidden focus:border-emerald-400"
               />
             </div>
@@ -2140,11 +2186,33 @@ export const SalesView: React.FC<SalesViewProps> = ({
               <input
                 type="number"
                 step="any"
-                value={cashReceived}
+                value={cashReceived === 0 ? '' : cashReceived}
                 onChange={(e) => setCashReceived(e.target.value === '' ? '' : parseFloat(e.target.value))}
                 placeholder="0.00"
                 className="w-28 bg-slate-900 border border-emerald-500 rounded px-2 py-1 text-right font-mono font-bold text-white text-xs focus:outline-hidden"
               />
+            </div>
+
+            {/* Live Balance Breakdown (Opening + Current Bill - Paid = Closing) */}
+            <div className="mt-2 p-2.5 bg-slate-950/80 rounded-lg border border-slate-800 text-[11px] space-y-1 shadow-inner">
+              <div className="flex justify-between text-slate-400">
+                <span>Opening Balance:</span>
+                <span className="font-mono font-bold text-slate-200">{currencySymbol()} {formatAmount(partyBalanceBefore)}</span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Current Bill:</span>
+                <span className="font-mono font-bold text-emerald-400">{currencySymbol()} {formatAmount(computedNetTotal)}</span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Amount Paid:</span>
+                <span className="font-mono font-bold text-sky-400">{currencySymbol()} {formatAmount(numericCashReceived)}</span>
+              </div>
+              <div className="flex justify-between pt-1 border-t border-slate-800 font-bold">
+                <span className="text-amber-400">Closing Balance:</span>
+                <span className={`font-mono ${(partyBalanceBefore + computedNetTotal - numericCashReceived) > 0 ? 'text-amber-300' : 'text-emerald-400'}`}>
+                  {currencySymbol()} {formatAmount(partyBalanceBefore + computedNetTotal - numericCashReceived)}
+                </span>
+              </div>
             </div>
 
             {/* Balance Receivable / Change Given */}

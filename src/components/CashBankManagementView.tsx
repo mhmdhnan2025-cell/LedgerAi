@@ -226,6 +226,55 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
   // Current Selected Entry Account
   const currentEntryAccount = safeGlAccounts.find((a) => a && (a.id === selectedAccountId || a.code === selectedAccountId));
 
+  // Live calculation of remaining balance for currentEntryAccount based on entered amount
+  const liveRemainingInfo = React.useMemo(() => {
+    if (!currentEntryAccount) return null;
+    const isPayment = activeTab === 'cashPayment' || activeTab === 'bankPayment';
+    const isReceipt = activeTab === 'cashReceipt' || activeTab === 'bankReceipt';
+    const numAmt = Number(entryAmount) || 0;
+    const curBal = Number(currentEntryAccount.balance) || 0;
+    const curType = currentEntryAccount.balanceType || (isPayment ? 'CR' : 'DR');
+
+    // Signed balance: For supplier CR is +, DR is -. For customer DR is +, CR is -.
+    let signedBefore = curType === 'CR' ? curBal : -curBal;
+    if (currentEntryAccount.type === 'Customer') {
+      signedBefore = curType === 'DR' ? curBal : -curBal;
+    }
+
+    if (isPayment) {
+      // Payment reduces payable
+      const signedAfter = signedBefore - numAmt;
+      const afterBal = Math.abs(signedAfter);
+      let afterType: 'CR' | 'DR' = signedAfter >= 0 ? 'CR' : 'DR';
+      if (currentEntryAccount.type === 'Customer') {
+        afterType = signedAfter >= 0 ? 'DR' : 'CR';
+      }
+      return {
+        amount: numAmt,
+        beforeFormatted: currentEntryAccount.balanceFormatted,
+        afterFormatted: `${afterBal.toFixed(2)} ${afterType}`,
+        afterBal,
+        afterType,
+      };
+    } else if (isReceipt) {
+      // Receipt reduces receivable
+      const signedAfter = signedBefore - numAmt;
+      const afterBal = Math.abs(signedAfter);
+      let afterType: 'DR' | 'CR' = signedAfter >= 0 ? 'DR' : 'CR';
+      if (currentEntryAccount.type === 'Supplier') {
+        afterType = signedAfter >= 0 ? 'CR' : 'DR';
+      }
+      return {
+        amount: numAmt,
+        beforeFormatted: currentEntryAccount.balanceFormatted,
+        afterFormatted: `${afterBal.toFixed(2)} ${afterType}`,
+        afterBal,
+        afterType,
+      };
+    }
+    return null;
+  }, [currentEntryAccount, activeTab, entryAmount]);
+
   // Grouped and Search-Filtered GL Accounts
   const filteredGlAccounts = safeGlAccounts.filter((a) => {
     if (!accountSearch.trim()) return true;
@@ -1008,11 +1057,18 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                     required
                   />
 
-                  {/* Account Live Balance Display (Under Account Dropdown as shown in Image 1, 3, 5) */}
-                  <div className="pt-1 text-[11px] font-bold flex items-center justify-between">
-                    <span className="text-amber-400">
-                      Balance : {currentEntryAccount ? currentEntryAccount.balanceFormatted : '0.00 DR'}
-                    </span>
+                  {/* Account Live Balance Display (With Dynamic Remaining Balance after Payment/Receipt) */}
+                  <div className="pt-1 text-[11px] font-bold flex flex-wrap items-center justify-between gap-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-amber-400">
+                        Balance : {currentEntryAccount ? currentEntryAccount.balanceFormatted : '0.00 DR'}
+                      </span>
+                      {liveRemainingInfo && liveRemainingInfo.amount > 0 && (
+                        <span className="text-emerald-300 font-mono bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-600/70 text-[10.5px]">
+                          After {activeTab.includes('Payment') ? 'Payment' : 'Receipt'}: {liveRemainingInfo.afterFormatted}
+                        </span>
+                      )}
+                    </div>
                     {currentEntryAccount && (
                       <span className="text-slate-400 font-mono text-[10px]">
                         {currentEntryAccount.type} {currentEntryAccount.code ? `• ${currentEntryAccount.code}` : ''}
@@ -1180,8 +1236,13 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                 {/* STANDARD AMOUNT (Receipts & Payments) */}
                 {activeTab !== 'journalVoucher' && activeTab !== 'cashBook' && (
                   <div className={activeTab.startsWith('bank') ? 'md:col-span-2' : 'md:col-span-2'}>
-                    <label className="block text-slate-400 font-bold mb-1 uppercase tracking-wider text-[10px]">
-                      AMOUNT
+                    <label className="block text-slate-400 font-bold mb-1 uppercase tracking-wider text-[10px] flex items-center justify-between">
+                      <span>AMOUNT</span>
+                      {liveRemainingInfo && liveRemainingInfo.amount > 0 && (
+                        <span className="text-[10px] text-emerald-400 font-mono font-bold">
+                          Rem: {liveRemainingInfo.afterFormatted}
+                        </span>
+                      )}
                     </label>
                     <input
                       ref={amountInputRef}
