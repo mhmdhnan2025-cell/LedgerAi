@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Search, X, Building2, Users, Landmark, Wallet, Receipt } from 'lucide-react';
+import { Search, X, Building2, Users, Landmark, Wallet, Receipt, UserCheck } from 'lucide-react';
 import { GlAccountOption } from '../types';
 
 interface SearchableAccountSelectProps {
@@ -44,10 +44,10 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
   const isPaymentTab = currentTab === 'cashPayment' || currentTab === 'bankPayment';
 
   // Tab-scoped account universe: Receipt panels show only Customers,
-  // Payment panels show only Suppliers. Other tabs show everything.
+  // Payment panels show Suppliers, Employees, and Expense accounts. Other tabs show everything.
   const tabScopedAccounts = useMemo(() => {
     if (isReceiptTab) return safeAccounts.filter((a) => a && a.type === 'Customer');
-    if (isPaymentTab) return safeAccounts.filter((a) => a && a.type === 'Supplier');
+    if (isPaymentTab) return safeAccounts.filter((a) => a && (a.type === 'Supplier' || a.type === 'Employee' || a.type === 'Expense'));
     return safeAccounts;
   }, [safeAccounts, isReceiptTab, isPaymentTab]);
 
@@ -66,7 +66,7 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
       return 'Select or search Customer by name, Sr#, or code...';
     }
     if (currentTab === 'cashPayment' || currentTab === 'bankPayment') {
-      return 'Select or search Supplier by name or code...';
+      return 'Select or search Supplier, Employee, or Expense by name or code...';
     }
     return 'Search account name or code (↑ ↓ to navigate, Enter to select)...';
   }, [placeholder, currentTab]);
@@ -117,9 +117,10 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
         return (a.code || '').localeCompare(b.code || '');
       });
     const supp = filteredAccounts.filter((a) => a && a.type === 'Supplier');
+    const emp = filteredAccounts.filter((a) => a && a.type === 'Employee');
     const bank = filteredAccounts.filter((a) => a && a.type === 'Bank');
     const cash = filteredAccounts.filter((a) => a && a.type === 'Cash');
-    return { exp, cust, supp, bank, cash };
+    return { exp, cust, supp, emp, bank, cash };
   }, [filteredAccounts]);
 
   // Tab categorization flags (defined above, near safeAccounts)
@@ -287,6 +288,70 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
                   {acc.balanceFormatted || `${(acc.balance || 0).toFixed(2)} CR`}
                 </span>
                 <div className="text-[10px] text-slate-500 mt-0.5">Payable Balance</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Reusable render block for Employee rows
+  const renderEmployeeGroup = () => {
+    if (!grouped.emp || grouped.emp.length === 0) return null;
+    return (
+      <div key="group-employees">
+        <div className="px-3.5 py-1.5 bg-slate-950 text-[11px] font-bold text-purple-300 uppercase tracking-wider flex items-center gap-1.5 sticky top-0 border-b border-slate-800/80 z-10 shadow-xs">
+          <UserCheck className="w-3.5 h-3.5 text-purple-400" />
+          <span>Employees &amp; Staff (Salaries / Advances)</span>
+          <span className="ml-auto text-purple-400/80 font-mono text-[10px] font-bold">({grouped.emp.length} staff)</span>
+        </div>
+        {grouped.emp.map((acc) => {
+          const isSelected = acc.id === selectedAccountId;
+          const isHighlighted = acc.id === filteredAccounts[highlightedIndex]?.id;
+          const phoneStr = (acc as any).phone || '';
+          const cityStr = (acc as any).city || '';
+          return (
+            <div
+              key={acc.id}
+              data-acc-id={acc.id}
+              onClick={() => handleSelect(acc)}
+              onMouseEnter={() => {
+                const idx = filteredAccounts.findIndex((a) => a.id === acc.id);
+                if (idx !== -1) setHighlightedIndex(idx);
+              }}
+              className={`px-3.5 py-2.5 flex items-center justify-between gap-3 cursor-pointer transition-colors border-b border-slate-800/40 last:border-b-0 ${
+                isSelected
+                  ? 'bg-purple-950/95 border-l-4 border-l-purple-400 text-purple-200'
+                  : isHighlighted
+                  ? 'bg-purple-900/50 border-l-4 border-l-purple-500 text-white'
+                  : 'hover:bg-slate-800/90 text-slate-200'
+              }`}
+            >
+              <div className="flex-1 min-w-0 pr-2">
+                <div className="text-sm sm:text-base font-extrabold text-white tracking-wide truncate">
+                  {acc.title || ''}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 mt-1 text-xs font-mono text-slate-400">
+                  <span className="text-purple-400 font-bold">{acc.code || ''}</span>
+                  <span className="text-slate-400 truncate">• Staff / Salesman</span>
+                  {cityStr ? <span className="text-slate-400 truncate">• {cityStr}</span> : null}
+                  {phoneStr ? <span className="text-slate-400 font-sans truncate">• Ph: {phoneStr}</span> : null}
+                </div>
+              </div>
+
+              {/* Employee Remaining / Salary Balance */}
+              <div className="shrink-0 text-right">
+                <span
+                  className={`text-xs font-mono font-bold px-2.5 py-1 rounded-md border shadow-xs ${
+                    acc.balanceType === 'CR'
+                      ? 'bg-purple-950/60 border-purple-600/70 text-purple-300'
+                      : 'bg-amber-950/60 border-amber-600/70 text-amber-300'
+                  }`}
+                >
+                  {acc.balanceFormatted || `${(acc.balance || 0).toFixed(2)} CR`}
+                </span>
+                <div className="text-[10px] text-slate-500 mt-0.5">Salary / Balance</div>
               </div>
             </div>
           );
@@ -547,14 +612,21 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
               {/* Receipt Tabs (Cash Receipt / Bank Receipt): Customers ONLY */}
               {isReceiptTab && renderCustomerGroup()}
 
-              {/* Payment Tabs (Cash Payment / Bank Payment): Suppliers ONLY */}
-              {isPaymentTab && renderSupplierGroup()}
+              {/* Payment Tabs (Cash Payment / Bank Payment): Suppliers, Staff, and Expenses */}
+              {isPaymentTab && (
+                <>
+                  {renderSupplierGroup()}
+                  {renderEmployeeGroup()}
+                  {renderExpenseGroup()}
+                </>
+              )}
 
               {/* Other tabs (Cash Book / Journal Voucher): Standard order */}
               {!isReceiptTab && !isPaymentTab && (
                 <>
                   {renderCustomerGroup()}
                   {renderSupplierGroup()}
+                  {renderEmployeeGroup()}
                   {renderExpenseGroup()}
                   {renderBanksAndCashGroup()}
                 </>

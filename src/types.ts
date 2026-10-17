@@ -508,6 +508,10 @@ export interface Employee {
   image?: string;
   regDate: string;            // e.g. "21-09-2026"
   status: 'YES' | 'NO' | 'ACTIVE' | 'INACTIVE';
+  openingBalance?: number;
+  openingBalanceType?: 'DR' | 'CR';
+  balance?: number;
+  totalPaid?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -1144,12 +1148,15 @@ export interface VoucherEntry {
   accountId: string;
   accountCode: string;
   accountTitle: string;
-  accountType?: 'Customer' | 'Supplier' | 'Bank' | 'Cash' | 'Expense' | 'General';
+  accountType?: 'Customer' | 'Supplier' | 'Bank' | 'Cash' | 'Expense' | 'Employee' | 'General';
   chequeNo?: string;
   chequeDate?: string;
   chequeBank?: string;
   narration: string;
   amount: number;
+  discount?: number;
+  discountType?: 'percentage' | 'amount';
+  discountPercent?: number;
   debit?: number;
   credit?: number;
   receipt?: number;
@@ -1400,5 +1407,28 @@ export interface PurchaseReturn {
   createdBy?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface EmployeeLedgerEntry {
+  id: string;
+  date: string;
+  refType: string;
+  refNumber: string;
+  narration: string;
+  debit: number;
+  credit: number;
+  balance: number;
+  balanceType: 'DR' | 'CR';
+}
+
+export interface EmployeeLedgerReport {
+  employee: Employee;
+  openingBalance: number;
+  openingBalanceType: 'DR' | 'CR';
+  entries: EmployeeLedgerEntry[];
+  totalPaid: number;
+  totalSalaryDue: number;
+  closingBalance: number;
+  closingBalanceType: 'DR' | 'CR';
 }
 

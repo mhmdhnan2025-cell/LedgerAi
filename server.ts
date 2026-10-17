@@ -1704,6 +1704,26 @@ app.delete('/api/reports/supplier-ledger/:id', (req, res) => {
 });
 
 // -------------------------------------------------------------
+// EMPLOYEE LEDGER REPORT API
+// -------------------------------------------------------------
+app.get('/api/reports/employee-ledger', (req, res) => {
+  try {
+    const { employeeId, fromDate, toDate } = req.query;
+    if (!employeeId) {
+      return res.status(400).json({ error: 'employeeId is required' });
+    }
+    const report = db.getEmployeeLedgerReport(
+      String(employeeId),
+      fromDate ? String(fromDate) : undefined,
+      toDate ? String(toDate) : undefined
+    );
+    res.json(report);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// -------------------------------------------------------------
 // SALES RETURNS API
 // -------------------------------------------------------------
 app.get('/api/sale-returns', (req, res) => {

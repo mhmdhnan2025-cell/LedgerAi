@@ -69,6 +69,8 @@ import {
   CustomerLedgerReport,
   SupplierLedgerEntry,
   SupplierLedgerReport,
+  EmployeeLedgerEntry,
+  EmployeeLedgerReport,
 } from '../src/types';
 
 export interface DatabaseSchema {
@@ -3900,10 +3902,11 @@ class DatabaseService {
       for (const v of vouchers) {
         for (const e of (v.entries || [])) {
           if (!matches(e.accountId, e.accountCode, e.accountTitle)) continue;
+          const settlement = Number(e.amount || 0) + Number(e.discount || 0);
           if (v.voucherType === 'CR' || v.voucherType === 'BR') {
-            running -= Number(e.amount || 0);
+            running -= settlement;
           } else if (v.voucherType === 'CB') {
-            running -= Number(e.receipt || e.amount || 0);
+            running -= (Number(e.receipt || e.amount || 0) + Number(e.discount || 0));
           } else if (v.voucherType === 'JV') {
             running += (Number(e.debit || 0) - Number(e.credit || 0));
           }
@@ -6684,8 +6687,15 @@ class DatabaseService {
         }
 
         const unitCost = matched ? matched.purchaseCost : (it.rate > 0 ? it.rate * 0.75 : 0);
-        const itemRevenue = it.amount || (it.qty * it.rate);
-        const itemCost = it.qty * unitCost;
+        const prod = matched?.product;
+        const qInCtn = (prod?.qtyInCarton && prod.qtyInCarton > 0) ? prod.qtyInCarton : (it.qtyPerCtn || 1);
+        const ctnCost = (prod?.ctnPurchaseRate && prod.ctnPurchaseRate > 0) ? prod.ctnPurchaseRate : (unitCost * qInCtn);
+        const ctnUnits = Number(it.ctn) || 0;
+        const looseUnits = Number(it.qty) || 0;
+        const itemCost = Number(((ctnUnits * ctnCost) + (looseUnits * unitCost)).toFixed(2));
+        const itemRevenue = ((it as any).baseAmt !== undefined && (it as any).baseAmt > 0)
+          ? Number((it as any).baseAmt)
+          : ((it.amount ? (it.amount - (it.vatAmount || 0)) : ((ctnUnits * (it.ratePerCtn || 0)) + (looseUnits * it.rate))));
 
         if (!itemMap.has(key)) {
           itemMap.set(key, {
@@ -6705,11 +6715,12 @@ class DatabaseService {
         }
 
         const entry = itemMap.get(key)!;
-        entry.qtySold += it.qty;
-        entry.ctnSold += it.ctn;
+        entry.qtySold += looseUnits;
+        entry.ctnSold += ctnUnits;
         entry.totalRevenue += itemRevenue;
         entry.totalCostOfGoods += itemCost;
-        entry.totalSaleRates += it.rate;
+        const effRate = it.ratePerCtn && it.ratePerCtn > 0 ? it.ratePerCtn : it.rate;
+        entry.totalSaleRates += effRate;
         entry.saleRateCounts += 1;
       }
     }
@@ -6717,7 +6728,7 @@ class DatabaseService {
     const perItem: ItemProfitReportItem[] = Array.from(itemMap.values()).map((v) => {
       const grossProfit = Number((v.totalRevenue - v.totalCostOfGoods).toFixed(2));
       const profitMarginPct = v.totalRevenue > 0 ? Number(((grossProfit / v.totalRevenue) * 100).toFixed(1)) : 0;
-      const avgSaleRate = v.saleRateCounts > 0 ? Number((v.totalSaleRates / v.saleRateCounts).toFixed(2)) : 0;
+      const avgSaleRate = v.saleRateCounts > 0 ? Number((v.totalSaleRates / v.saleRateCounts).toFixed(2)) : (v.ctnSold > 0 ? Number((v.totalRevenue / v.ctnSold).toFixed(2)) : 0);
       const currentRemainingStock = v.matchedProduct ? (v.matchedProduct.currentQuantity || 0) : 0;
       const qtyInCarton = v.matchedProduct?.qtyInCarton || 1;
       const currentStockCartons = Number((currentRemainingStock / qtyInCarton).toFixed(1));
@@ -6751,18 +6762,26 @@ class DatabaseService {
     // 2. PER BILL BREAKDOWN
     const perBill: BillProfitReportItem[] = bills.map((bill) => {
       let billCostOfGoods = 0;
+      let billVatTotal = 0;
       for (const it of bill.items) {
         let matched = it.productId ? productCostMap.get(it.productId) : undefined;
         if (!matched && it.itemTitle) {
           matched = productCostMap.get(it.itemTitle.toLowerCase().trim());
         }
         const unitCost = matched ? matched.purchaseCost : (it.rate > 0 ? it.rate * 0.75 : 0);
-        billCostOfGoods += it.qty * unitCost;
+        const prod = matched?.product;
+        const qInCtn = (prod?.qtyInCarton && prod.qtyInCarton > 0) ? prod.qtyInCarton : (it.qtyPerCtn || 1);
+        const ctnCost = (prod?.ctnPurchaseRate && prod.ctnPurchaseRate > 0) ? prod.ctnPurchaseRate : (unitCost * qInCtn);
+        const ctnUnits = Number(it.ctn) || 0;
+        const looseUnits = Number(it.qty) || 0;
+        billCostOfGoods += (ctnUnits * ctnCost) + (looseUnits * unitCost);
+        billVatTotal += Number(it.vatAmount || 0);
       }
 
-      const grossProfit = Number((bill.grossAmount - billCostOfGoods).toFixed(2));
+      const saleRevenueBeforeTax = Number((bill.grossAmount !== undefined ? bill.grossAmount : (bill.netTotal - billVatTotal)).toFixed(2));
+      const grossProfit = Number((saleRevenueBeforeTax - billCostOfGoods).toFixed(2));
       const billDiscount = bill.billDiscountAmount || bill.totalDiscount || 0;
-      const netProfit = Number((bill.netTotal - billCostOfGoods).toFixed(2));
+      const netProfit = grossProfit; // Customer tax is NOT company profit
       const profitMarginPct = bill.netTotal > 0 ? Number(((netProfit / bill.netTotal) * 100).toFixed(1)) : 0;
 
       return {
@@ -6969,11 +6988,19 @@ class DatabaseService {
     const totalCostOfGoods = Number(perBill.reduce((s, b) => s + b.costOfGoods, 0).toFixed(2));
     const totalInputTaxPaid = Number((totalCostOfGoods * 0.05).toFixed(2));
     const totalCostWithTax = Number((totalCostOfGoods + totalInputTaxPaid).toFixed(2));
-    const profitWithoutTax = Number((totalSalesBeforeTax - totalCostOfGoods).toFixed(2));
-    const profitWithTax = Number((totalSalesVolume - totalCostWithTax).toFixed(2));
-    const netVatPayable = Number((totalSalesTaxCollected - totalInputTaxPaid).toFixed(2));
-    const totalGrossProfit = profitWithoutTax;
-    const totalDiscountsGiven = Number(bills.reduce((s, b) => s + (b.totalDiscount || b.billDiscountAmount || 0), 0).toFixed(2));
+
+    // Deduct voucher cash discounts from profit (as requested by user)
+    const normFrom = filters?.fromDate ? this.normalizeDateToYMD(filters.fromDate) : '';
+    const normTo = filters?.toDate ? this.normalizeDateToYMD(filters.toDate) : '';
+    const totalVoucherDiscounts = (this.data.vouchers || [])
+      .filter((v) => v.status === 'POSTED' && (!normFrom || this.normalizeDateToYMD(v.date) >= normFrom) && (!normTo || this.normalizeDateToYMD(v.date) <= normTo))
+      .reduce((sum, v) => sum + (v.entries || []).reduce((esum, e) => esum + (Number(e.discount) || 0), 0), 0);
+
+    const profitWithoutTax = Number((totalSalesBeforeTax - totalCostOfGoods - totalVoucherDiscounts).toFixed(2));
+    const profitWithTax = profitWithoutTax;
+    const netVatPayable = totalSalesTaxCollected;
+    const totalGrossProfit = Number((totalSalesBeforeTax - totalCostOfGoods).toFixed(2));
+    const totalDiscountsGiven = Number((bills.reduce((s, b) => s + (b.totalDiscount || b.billDiscountAmount || 0), 0) + totalVoucherDiscounts).toFixed(2));
     const totalNetProfit = profitWithoutTax;
     const overallMarginPct = totalSalesBeforeTax > 0 ? Number(((profitWithoutTax / totalSalesBeforeTax) * 100).toFixed(1)) : 0;
     const totalQtySold = bills.reduce((s, b) => s + (b.totalQty || 0), 0);
@@ -7697,7 +7724,7 @@ class DatabaseService {
       if (!sr || sr.status === 'CANCELLED') return sum;
       const srAny = sr as any;
       const pt = (srAny.paymentType || srAny.refundType || '').toLowerCase();
-      if (pt === 'cash' || Number(srAny.cashPaid) > 0) {
+      if (sr.isCash || pt === 'cash' || Number(srAny.cashPaid) > 0) {
         return sum + (Number(srAny.cashPaid) || Number(sr.netTotal) || 0);
       }
       return sum;
@@ -7708,7 +7735,7 @@ class DatabaseService {
       if (!pr || pr.status === 'CANCELLED') return sum;
       const prAny = pr as any;
       const pt = (prAny.paymentType || prAny.refundType || '').toLowerCase();
-      if (pt === 'cash' || Number(prAny.cashReceived) > 0) {
+      if (pr.isCash || pt === 'cash' || Number(prAny.cashReceived) > 0) {
         return sum + (Number(prAny.cashReceived) || Number(pr.netTotal) || 0);
       }
       return sum;
@@ -7843,6 +7870,28 @@ class DatabaseService {
         balanceFormatted: `${Math.abs(payable).toFixed(2)} ${isCr ? 'CR' : 'DR'}`,
         city: s.city || '',
         phone: s.mobile || s.telephones || '',
+      });
+    });
+
+    // Employees (Staff & Salesmen)
+    (this.data.employees || []).forEach((emp) => {
+      const rawSalary = Number(emp.salary) || 0;
+      const totalPaid = Number(emp.totalPaid) || 0;
+      const rawBal = emp.balance !== undefined ? Number(emp.balance) : (rawSalary - totalPaid);
+      const isCr = rawBal >= 0;
+      const cleanTitle = (emp.accountTitle || emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Employee').trim();
+      accounts.push({
+        id: emp.id,
+        code: emp.code || emp.salesmanAcc || '0401040000',
+        title: cleanTitle,
+        type: 'Employee' as any,
+        balance: Math.abs(rawBal),
+        balanceType: isCr ? 'CR' : 'DR',
+        balanceFormatted: `${Math.abs(rawBal).toFixed(2)} ${isCr ? 'CR' : 'DR'}`,
+        city: emp.city || '',
+        phone: emp.contactNo || '',
+        salesman: cleanTitle,
+        assignedSalesman: cleanTitle,
       });
     });
 
@@ -8109,11 +8158,13 @@ class DatabaseService {
       const isExpense = e.accountType === 'Expense' || acCode.startsWith('0301') || acId.startsWith('exp-');
       const isBank = e.accountType === 'Bank' || acCode.startsWith('0103') || acId.startsWith('bank-');
       const isCash = e.accountType === 'Cash' || acCode.startsWith('0102') || acId.startsWith('cash-');
+      const isEmployee = e.accountType === 'Employee' || acCode.startsWith('0401') || (this.data.employees || []).some((emp) => emp.id === acId || emp.code === acCode);
       const isSupplier = e.accountType === 'Supplier' || acCode.startsWith('0201') || acId.startsWith('sup-') || acId.startsWith('supp-');
-      const isCustomer = (e.accountType === 'Customer' || (!isExpense && !isBank && !isCash && !isSupplier)) && !isSupplier && !isExpense && !isBank && !isCash;
+      const isCustomer = (e.accountType === 'Customer' || (!isExpense && !isBank && !isCash && !isSupplier && !isEmployee)) && !isSupplier && !isExpense && !isBank && !isCash && !isEmployee;
 
       let cust: Customer | undefined;
       let supp: Supplier | undefined;
+      let emp: Employee | undefined;
 
       if (isCustomer) {
         cust = this.findCustomerByRef(acId, acCode, acTitle);
@@ -8121,6 +8172,10 @@ class DatabaseService {
 
       if (isSupplier) {
         supp = this.findSupplierByRef(acId, acCode, acTitle);
+      }
+
+      if (isEmployee) {
+        emp = (this.data.employees || []).find((em) => em.id === acId || em.code === acCode || em.accountTitle.toLowerCase() === acTitle || em.fullName.toLowerCase() === acTitle);
       }
 
       const cid = getActiveCompanyId();
@@ -8138,8 +8193,9 @@ class DatabaseService {
 
       if (voucher.voucherType === 'BR' || voucher.voucherType === 'CR') {
         // Customer Paying Company (Recovery) -> Account CR -> DR Receivables Decrease
+        const settlementAmt = Number((Number(e.amount || 0) + Number(e.discount || 0)).toFixed(2));
         if (cust) {
-          cust.outstandingBalance = Number(((getCustEffectiveBal(cust)) - factor * e.amount).toFixed(2));
+          cust.outstandingBalance = Number(((getCustEffectiveBal(cust)) - factor * settlementAmt).toFixed(2));
           if (!reverse && e.amount > 0) {
             cust.lastReceiptDate = voucher.date;
             cust.lastReceiptAmount = Number(e.amount);
@@ -8152,11 +8208,18 @@ class DatabaseService {
           postgresService.upsertSupplier(supp, cid).catch(() => {});
         }
       } else if (voucher.voucherType === 'BP' || voucher.voucherType === 'CP') {
-        // Company Paying Supplier / Party -> Account DR -> CR Payables Decrease
+        // Company Paying Supplier / Employee / Party -> Account DR -> CR Payables Decrease
         if (supp) {
           supp.payableToSupplier = Number(((supp.payableToSupplier || 0) - factor * e.amount).toFixed(2));
           supp.balanceOwed = supp.payableToSupplier;
           postgresService.upsertSupplier(supp, cid).catch(() => {});
+        } else if (emp) {
+          const amt = Number(e.amount || e.payment || 0);
+          emp.totalPaid = Number(((emp.totalPaid || 0) + factor * amt).toFixed(2));
+          const curBal = emp.balance !== undefined ? emp.balance : (Number(emp.salary) || 0);
+          emp.balance = Number((curBal - factor * amt).toFixed(2));
+          emp.updatedAt = new Date().toISOString();
+          postgresService.upsertEmployee(emp, cid).catch(() => {});
         } else if (cust) {
           cust.outstandingBalance = Number(((getCustEffectiveBal(cust)) + factor * e.amount).toFixed(2));
           cust.updatedAt = new Date().toISOString();
@@ -8260,6 +8323,9 @@ class DatabaseService {
         chequeBank: e.chequeBank?.trim(),
         narration: e.narration?.trim() || '',
         amount: Number((e.amount || e.receipt || e.payment || e.debit || e.credit || 0).toFixed(2)),
+        discount: typeof e.discount === 'number' ? Number(e.discount.toFixed(2)) : undefined,
+        discountType: e.discountType,
+        discountPercent: typeof e.discountPercent === 'number' ? Number(e.discountPercent) : undefined,
         debit: typeof e.debit === 'number' ? Number(e.debit.toFixed(2)) : undefined,
         credit: typeof e.credit === 'number' ? Number(e.credit.toFixed(2)) : undefined,
         receipt: typeof e.receipt === 'number' ? Number(e.receipt.toFixed(2)) : undefined,
@@ -8290,12 +8356,60 @@ class DatabaseService {
       description: `Posted ${voucherType} Voucher #${voucherNumberFormatted} (JV# ${jvNumber}) for ${currencySymbol()} ${totalAmount.toLocaleString()} by ${userName}`,
     });
 
-    // Sync any Expense line items into this.data.expenses so Daily Master Audit Report & Expenses tab immediately record them!
+    // Sync Expense, Discount Allowed, and Employee Salary line items into this.data.expenses so Daily Profit & Audit Report immediately record them!
     newVoucher.entries.forEach((e, idx) => {
       const isExpense = e.accountType === 'Expense' || e.accountCode.startsWith('0301') || e.accountId.startsWith('exp-');
+      const isEmployee = e.accountType === 'Employee' || e.accountCode.startsWith('0401') || (this.data.employees || []).some((emp) => emp.id === e.accountId || emp.code === e.accountCode);
       const amt = Number((e.amount || e.payment || e.debit || 0).toFixed(2));
+      const disc = Number((e.discount || 0).toFixed(2));
+      const isBank = newVoucher.voucherType === 'BP' || Boolean(newVoucher.bankAccountId);
+
+      // 1. Discount Allowed (Deducts from Daily Profit as requested by user)
+      if (disc > 0) {
+        const discExp: Expense = {
+          id: `exp-disc-${newVoucher.id}-${idx}`,
+          expenseNumber: `EXP-DISC-${newVoucher.voucherNumberFormatted}`,
+          category: 'Discount Allowed' as any,
+          title: `Discount Allowed: ${e.accountTitle}`,
+          amount: disc,
+          date: newVoucher.date,
+          scope: 'business_wide',
+          notes: `Customer Discount on ${newVoucher.voucherType} Voucher #${newVoucher.voucherNumberFormatted} for ${e.accountTitle}`,
+          recordedBy: newVoucher.salesmanTitle || userName,
+          source: 'manual',
+          paymentMethod: isBank ? 'Bank' : 'Cash',
+          voucherId: newVoucher.id,
+          createdAt: newVoucher.createdAt,
+        };
+        if (!this.data.expenses) this.data.expenses = [];
+        this.data.expenses.push(discExp);
+      }
+
+      // 2. Employee Payment (Salary / Advance -> Deducts from Daily Profit)
+      if (isEmployee && amt > 0 && (newVoucher.voucherType === 'CP' || newVoucher.voucherType === 'BP')) {
+        const empExp: Expense = {
+          id: `exp-sal-${newVoucher.id}-${idx}`,
+          expenseNumber: `EXP-SAL-${newVoucher.voucherNumberFormatted}`,
+          category: 'Salary & Staff' as any,
+          title: `Salary / Advance: ${e.accountTitle}`,
+          amount: amt,
+          date: newVoucher.date,
+          scope: 'business_wide',
+          notes: `Payment to staff on ${newVoucher.voucherType} Voucher #${newVoucher.voucherNumberFormatted}`,
+          recordedBy: newVoucher.salesmanTitle || userName,
+          source: 'manual',
+          paymentMethod: isBank ? 'Bank' : 'Cash',
+          bankId: newVoucher.bankAccountId,
+          bankTitle: newVoucher.bankAccountTitle,
+          voucherId: newVoucher.id,
+          createdAt: newVoucher.createdAt,
+        };
+        if (!this.data.expenses) this.data.expenses = [];
+        this.data.expenses.push(empExp);
+      }
+
+      // 3. Normal Expense Accounts
       if (isExpense && amt > 0) {
-        const isBank = newVoucher.voucherType === 'BP' || Boolean(newVoucher.bankAccountId);
         const expCategory = e.accountTitle.includes('(') ? e.accountTitle.split('(')[1].replace(')', '').trim() : 'Operational';
         const newExp: Expense = {
           id: `exp-${newVoucher.id}-${idx}`,
@@ -8822,10 +8936,11 @@ class DatabaseService {
 
       for (const e of (v.entries || [])) {
         if (!isCustomerVoucherEntry(e, v.voucherType)) continue;
+        const settlement = Number(e.amount || 0) + Number(e.discount || 0);
         if (v.voucherType === 'CR' || v.voucherType === 'BR') {
-          calcOpening -= Number(e.amount || 0);
+          calcOpening -= settlement;
         } else if (v.voucherType === 'CB') {
-          calcOpening -= Number(e.receipt || e.amount || 0);
+          calcOpening -= (Number(e.receipt || e.amount || 0) + Number(e.discount || 0));
         } else if (v.voucherType === 'JV') {
           calcOpening += (Number(e.debit || 0) - Number(e.credit || 0));
         }
@@ -8857,7 +8972,7 @@ class DatabaseService {
     const openingBalanceType: 'DR' | 'CR' = openingBalance >= 0 ? 'DR' : 'CR';
 
     // 2. Collect entries between normFrom and normTo
-    const entries: CustomerLedgerEntry[] = [];
+    const entries: (CustomerLedgerEntry & { createdAt?: string })[] = [];
 
     // Sale Bills
     for (const b of (this.data.saleBills || [])) {
@@ -8889,6 +9004,7 @@ class DatabaseService {
         entityType: 'saleBill',
         customerName: b.customerAccountTitle || b.customerName || 'Customer',
         customerAccountTitle: b.customerAccountTitle || b.customerName || 'Customer',
+        createdAt: b.createdAt || `${bDate}T12:00:00.000Z`,
       });
 
       if (b.cashReceived && Number(b.cashReceived) > 0) {
@@ -8907,6 +9023,7 @@ class DatabaseService {
           entityType: 'payment',
           customerName: b.customerAccountTitle || b.customerName || 'Customer',
           customerAccountTitle: b.customerAccountTitle || b.customerName || 'Customer',
+          createdAt: b.createdAt ? `${b.createdAt}_1` : `${bDate}T12:00:01.000Z`,
         });
       }
     }
@@ -8924,41 +9041,49 @@ class DatabaseService {
 
         if (v.voucherType === 'CR' || v.voucherType === 'BR') {
           const amt = Number(e.amount || 0);
-          if (amt <= 0) continue;
+          const disc = Number(e.discount || 0);
+          const settlement = amt + disc;
+          if (settlement <= 0) continue;
+          const discNote = disc > 0 ? ` (Cash: ${currencySymbol()}${amt}, Discount: ${currencySymbol()}${disc})` : '';
           entries.push({
             id: `${v.id}-${e.id}`,
             refType: v.voucherType === 'CR' ? 'CR#' : 'BR#',
             refNumber: v.voucherNumber || v.voucherNumberFormatted,
             date: v.date,
             billNumber: v.poNumber || '',
-            narration: `${partyTag}${e.narration || `${v.voucherType === 'CR' ? 'Cash' : 'Bank'} Received${v.bankAccountTitle ? ' (' + v.bankAccountTitle + ')' : ''}`}`,
+            narration: `${partyTag}${e.narration || `${v.voucherType === 'CR' ? 'Cash' : 'Bank'} Received${v.bankAccountTitle ? ' (' + v.bankAccountTitle + ')' : ''}`}${discNote}`,
             debit: 0,
-            credit: amt,
+            credit: settlement,
             balance: 0,
             balanceType: 'DR',
             entityId: v.id,
             entityType: 'voucher',
             customerName: e.accountTitle || 'Customer',
             customerAccountTitle: e.accountTitle || 'Customer',
+            createdAt: v.createdAt || `${vDate}T12:00:00.000Z`,
           });
         } else if (v.voucherType === 'CB') {
           const rec = Number(e.receipt || e.amount || 0);
-          if (rec <= 0) continue;
+          const disc = Number(e.discount || 0);
+          const settlement = rec + disc;
+          if (settlement <= 0) continue;
+          const discNote = disc > 0 ? ` (Cash: ${currencySymbol()}${rec}, Discount: ${currencySymbol()}${disc})` : '';
           entries.push({
             id: `${v.id}-${e.id}`,
             refType: 'CB#',
             refNumber: v.voucherNumber || v.voucherNumberFormatted,
             date: v.date,
             billNumber: v.poNumber || '',
-            narration: `${partyTag}${e.narration || 'Cash Book Receipt'}`,
+            narration: `${partyTag}${e.narration || 'Cash Book Receipt'}${discNote}`,
             debit: 0,
-            credit: rec,
+            credit: settlement,
             balance: 0,
             balanceType: 'DR',
             entityId: v.id,
             entityType: 'voucher',
             customerName: e.accountTitle || 'Customer',
             customerAccountTitle: e.accountTitle || 'Customer',
+            createdAt: v.createdAt || `${vDate}T12:00:00.000Z`,
           });
         } else if (v.voucherType === 'JV') {
           const dr = Number(e.debit || 0);
@@ -8979,6 +9104,7 @@ class DatabaseService {
             entityType: 'voucher',
             customerName: e.accountTitle || 'Customer',
             customerAccountTitle: e.accountTitle || 'Customer',
+            createdAt: v.createdAt || `${vDate}T12:00:00.000Z`,
           });
         }
       }
@@ -9009,6 +9135,7 @@ class DatabaseService {
         entityType: 'payment',
         customerName: p.restaurantName || (p as any).customerName || 'Customer',
         customerAccountTitle: p.restaurantName || (p as any).customerName || 'Customer',
+        createdAt: (p as any).createdAt || `${pDate}T12:00:00.000Z`,
       });
     }
 
@@ -9040,13 +9167,17 @@ class DatabaseService {
         entityType: 'saleReturn',
         customerName: sr.customerAccountTitle || sr.customerName || 'Customer',
         customerAccountTitle: sr.customerAccountTitle || sr.customerName || 'Customer',
+        createdAt: sr.createdAt || `${srDate}T12:00:00.000Z`,
       });
     }
 
-    // Sort entries by date ascending
+    // Sort entries chronologically: first by date ascending, then by exact creation timestamp
     entries.sort((a, b) => {
-      const cmp = a.date.localeCompare(b.date);
-      if (cmp !== 0) return cmp;
+      const cmpDate = a.date.localeCompare(b.date);
+      if (cmpDate !== 0) return cmpDate;
+      const tA = (a as any).createdAt || '';
+      const tB = (b as any).createdAt || '';
+      if (tA && tB && tA !== tB) return tA.localeCompare(tB);
       return String(a.refNumber).localeCompare(String(b.refNumber));
     });
 
@@ -9341,7 +9472,8 @@ class DatabaseService {
         entityType: 'purchaseBill',
         supplierName: b.supplierAccountTitle || (b as any).supplierName || 'Supplier',
         supplierAccountTitle: b.supplierAccountTitle || (b as any).supplierName || 'Supplier',
-      });
+        createdAt: b.createdAt || `${bDate}T12:00:00.000Z`,
+      } as any);
 
       // Direct payment on purchase bill
       const paid = Number(b.paidAmount) || 0;
@@ -9366,7 +9498,8 @@ class DatabaseService {
             entityType: 'purchaseBill',
             supplierName: b.supplierAccountTitle || (b as any).supplierName || 'Supplier',
             supplierAccountTitle: b.supplierAccountTitle || (b as any).supplierName || 'Supplier',
-          });
+            createdAt: b.createdAt ? `${b.createdAt}_1` : `${bDate}T12:00:01.000Z`,
+          } as any);
         }
       }
     }
@@ -9400,7 +9533,8 @@ class DatabaseService {
             entityType: 'voucher',
             supplierName: e.accountTitle || 'Supplier',
             supplierAccountTitle: e.accountTitle || 'Supplier',
-          });
+            createdAt: v.createdAt || `${vDate}T12:00:00.000Z`,
+          } as any);
         } else if (v.voucherType === 'CB') {
           const paidAmt = Number(e.payment || e.amount || 0);
           if (paidAmt <= 0) continue;
@@ -9419,7 +9553,8 @@ class DatabaseService {
             entityType: 'voucher',
             supplierName: e.accountTitle || 'Supplier',
             supplierAccountTitle: e.accountTitle || 'Supplier',
-          });
+            createdAt: v.createdAt || `${vDate}T12:00:00.000Z`,
+          } as any);
         } else if (v.voucherType === 'JV') {
           const dr = Number(e.debit || 0);
           const cr = Number(e.credit || 0);
@@ -9439,7 +9574,8 @@ class DatabaseService {
             entityType: 'voucher',
             supplierName: e.accountTitle || 'Supplier',
             supplierAccountTitle: e.accountTitle || 'Supplier',
-          });
+            createdAt: v.createdAt || `${vDate}T12:00:00.000Z`,
+          } as any);
         }
       }
     }
@@ -9469,7 +9605,8 @@ class DatabaseService {
         entityType: 'payment',
         supplierName: (p as any).supplierName || p.restaurantName || 'Supplier',
         supplierAccountTitle: (p as any).supplierName || p.restaurantName || 'Supplier',
-      });
+        createdAt: (p as any).createdAt || `${pDate}T12:00:00.000Z`,
+      } as any);
     }
 
     // Purchase Returns
@@ -9500,13 +9637,17 @@ class DatabaseService {
         entityType: 'purchaseReturn',
         supplierName: pr.supplierAccountTitle || pr.supplierName || 'Supplier',
         supplierAccountTitle: pr.supplierAccountTitle || pr.supplierName || 'Supplier',
-      });
+        createdAt: pr.createdAt || `${prDate}T12:00:00.000Z`,
+      } as any);
     }
 
-    // Sort entries by date ascending
+    // Sort entries chronologically: first by date ascending, then by exact creation timestamp
     entries.sort((a, b) => {
-      const cmp = a.date.localeCompare(b.date);
-      if (cmp !== 0) return cmp;
+      const cmpDate = a.date.localeCompare(b.date);
+      if (cmpDate !== 0) return cmpDate;
+      const tA = (a as any).createdAt || '';
+      const tB = (b as any).createdAt || '';
+      if (tA && tB && tA !== tB) return tA.localeCompare(tB);
       return String(a.refNumber).localeCompare(String(b.refNumber));
     });
 
@@ -9545,6 +9686,207 @@ class DatabaseService {
       totalDebit: Number(totalDebit.toFixed(2)),
       totalCredit: Number(totalCredit.toFixed(2)),
       entries,
+    };
+  }
+
+  // =========================================================================
+  // EMPLOYEE GENERAL LEDGER REPORTING (کھاتہ / ملازمین لیجر)
+  // =========================================================================
+  public getEmployeeLedgerReport(
+    employeeId: string,
+    fromDate?: string,
+    toDate?: string
+  ): EmployeeLedgerReport {
+    const isAll = !employeeId || employeeId.trim() === '' || employeeId.trim().toUpperCase() === 'ALL' || employeeId.trim() === '*';
+    const empSearch = (employeeId || '').trim().toLowerCase();
+    const employee = isAll
+      ? undefined
+      : (this.data.employees || []).find(
+          (e) =>
+            e.id?.toLowerCase() === empSearch ||
+            e.code?.toLowerCase() === empSearch ||
+            e.accountTitle?.toLowerCase() === empSearch ||
+            e.fullName?.toLowerCase() === empSearch ||
+            `${e.firstName || ''} ${e.lastName || ''}`.trim().toLowerCase() === empSearch
+        );
+
+    const normFrom = fromDate ? this.normalizeDateToYMD(fromDate) : '2000-01-01';
+    const normTo = toDate ? this.normalizeDateToYMD(toDate) : '2099-12-31';
+
+    const empId = isAll ? 'ALL' : (employee?.id || employeeId);
+    const empTitle = isAll ? 'All Employees Consolidated' : (employee?.accountTitle || employee?.fullName || 'Employee');
+
+    // 1. Opening Balance before normFrom
+    let openingBalance = 0;
+    let openingBalanceType: 'DR' | 'CR' = 'CR';
+    if (!isAll && employee) {
+      const rawOpen = Number(employee.openingBalance) || 0;
+      openingBalanceType = employee.openingBalanceType || 'CR';
+      openingBalance = openingBalanceType === 'DR' ? -Math.abs(rawOpen) : Math.abs(rawOpen);
+    }
+
+    const matchesEmployee = (id?: string, code?: string, title?: string) => {
+      if (isAll) return true;
+      if (!employee) return false;
+      const t = (title || '').trim().toLowerCase();
+      const c = (code || '').trim().toLowerCase();
+      const i = (id || '').trim().toLowerCase();
+      return (
+        i === employee.id.toLowerCase() ||
+        c === employee.code.toLowerCase() ||
+        (employee.salesmanAcc && c === employee.salesmanAcc.toLowerCase()) ||
+        t === employee.accountTitle?.toLowerCase() ||
+        t === employee.fullName?.toLowerCase()
+      );
+    };
+
+    // Vouchers prior to normFrom
+    for (const v of (this.data.vouchers || [])) {
+      if (v.status !== 'POSTED') continue;
+      const vDate = this.normalizeDateToYMD(v.date);
+      if (vDate >= normFrom) continue;
+      for (const e of (v.entries || [])) {
+        if (!matchesEmployee(e.accountId, e.accountCode, e.accountTitle)) continue;
+        const amt = Number(e.amount || e.payment || 0);
+        if (v.voucherType === 'CP' || v.voucherType === 'BP' || v.voucherType === 'CB') {
+          // Payment to employee decreases payable / advances cash (Debit)
+          openingBalance -= amt;
+        } else if (v.voucherType === 'JV') {
+          openingBalance += (Number(e.credit || 0) - Number(e.debit || 0));
+        }
+      }
+    }
+
+    // Direct salary expenses prior to normFrom
+    for (const exp of (this.data.expenses || [])) {
+      if (exp.voucherId) continue;
+      const expDate = this.normalizeDateToYMD(exp.date);
+      if (expDate >= normFrom) continue;
+      if ((exp.category as string) === 'Salary & Staff' || (exp.category as string) === 'Salaries' || (exp.category as string) === 'Staff') {
+        if (matchesEmployee(undefined, undefined, exp.title) || matchesEmployee(undefined, undefined, exp.notes)) {
+          openingBalance -= Number(exp.amount || 0);
+        }
+      }
+    }
+
+    const entries: EmployeeLedgerEntry[] = [];
+
+    // Collect vouchers between normFrom and normTo
+    for (const v of (this.data.vouchers || [])) {
+      if (v.status !== 'POSTED') continue;
+      const vDate = this.normalizeDateToYMD(v.date);
+      if (vDate < normFrom || vDate > normTo) continue;
+
+      for (const e of (v.entries || [])) {
+        if (!matchesEmployee(e.accountId, e.accountCode, e.accountTitle)) continue;
+        const amt = Number(e.amount || e.payment || 0);
+
+        if (v.voucherType === 'CP' || v.voucherType === 'BP') {
+          if (amt <= 0) continue;
+          entries.push({
+            id: `${v.id}-${e.id}`,
+            date: v.date,
+            refType: v.voucherType === 'CP' ? 'CP#' : 'BP#',
+            refNumber: v.voucherNumber || v.voucherNumberFormatted,
+            narration: e.narration || `${v.voucherType === 'CP' ? 'Cash' : 'Bank'} Paid to Staff${v.bankAccountTitle ? ' (' + v.bankAccountTitle + ')' : ''}`,
+            debit: amt,
+            credit: 0,
+            balance: 0,
+            balanceType: 'CR',
+            createdAt: v.createdAt || `${vDate}T12:00:00.000Z`,
+          } as any);
+        } else if (v.voucherType === 'CB') {
+          const p = Number(e.payment || e.amount || 0);
+          if (p <= 0) continue;
+          entries.push({
+            id: `${v.id}-${e.id}`,
+            date: v.date,
+            refType: 'CB#',
+            refNumber: v.voucherNumber || v.voucherNumberFormatted,
+            narration: e.narration || 'Cash Book Staff Payment',
+            debit: p,
+            credit: 0,
+            balance: 0,
+            balanceType: 'CR',
+            createdAt: v.createdAt || `${vDate}T12:00:00.000Z`,
+          } as any);
+        } else if (v.voucherType === 'JV') {
+          const dr = Number(e.debit || 0);
+          const cr = Number(e.credit || 0);
+          if (dr <= 0 && cr <= 0) continue;
+          entries.push({
+            id: `${v.id}-${e.id}`,
+            date: v.date,
+            refType: 'JV#',
+            refNumber: v.jvNumber ? `JV-${v.jvNumber}` : (v.voucherNumberFormatted || ''),
+            narration: e.narration || 'Journal Voucher Staff Adjustment',
+            debit: dr,
+            credit: cr,
+            balance: 0,
+            balanceType: 'CR',
+            createdAt: v.createdAt || `${vDate}T12:00:00.000Z`,
+          } as any);
+        }
+      }
+    }
+
+    // Direct salary expenses
+    for (const exp of (this.data.expenses || [])) {
+      if (exp.voucherId) continue;
+      const expDate = this.normalizeDateToYMD(exp.date);
+      if (expDate < normFrom || expDate > normTo) continue;
+      if ((exp.category as string) === 'Salary & Staff' || (exp.category as string) === 'Salaries' || (exp.category as string) === 'Staff') {
+        if (matchesEmployee(undefined, undefined, exp.title) || matchesEmployee(undefined, undefined, exp.notes)) {
+          entries.push({
+            id: exp.id,
+            date: exp.date,
+            refType: 'EXP#',
+            refNumber: exp.expenseNumber || exp.id,
+            narration: exp.title || exp.notes || 'Staff Salary Payment',
+            debit: Number(exp.amount || 0),
+            credit: 0,
+            balance: 0,
+            balanceType: 'CR',
+            createdAt: exp.createdAt || `${expDate}T12:00:00.000Z`,
+          } as any);
+        }
+      }
+    }
+
+    // Sort entries chronologically: first by date ascending, then by exact creation timestamp
+    entries.sort((a, b) => {
+      const cmpDate = a.date.localeCompare(b.date);
+      if (cmpDate !== 0) return cmpDate;
+      const tA = (a as any).createdAt || '';
+      const tB = (b as any).createdAt || '';
+      if (tA && tB && tA !== tB) return tA.localeCompare(tB);
+      return String(a.refNumber).localeCompare(String(b.refNumber));
+    });
+
+    let running = openingBalance;
+    let totalDebit = 0;
+    let totalCredit = 0;
+
+    for (const ent of entries) {
+      totalDebit += ent.debit;
+      totalCredit += ent.credit;
+      running += (ent.credit - ent.debit);
+      ent.balance = Math.abs(Number(running.toFixed(2)));
+      ent.balanceType = running >= 0 ? 'CR' : 'DR';
+    }
+
+    const closingBalance = Math.abs(Number(running.toFixed(2)));
+    const closingBalanceType: 'CR' | 'DR' = running >= 0 ? 'CR' : 'DR';
+
+    return {
+      employee: employee || ({ id: empId, code: empId, accountTitle: empTitle, fullName: empTitle } as any),
+      openingBalance: Math.abs(Number(openingBalance.toFixed(2))),
+      openingBalanceType: openingBalance >= 0 ? 'CR' : 'DR',
+      entries,
+      totalPaid: Number(totalDebit.toFixed(2)),
+      totalSalaryDue: Number(totalCredit.toFixed(2)),
+      closingBalance,
+      closingBalanceType,
     };
   }
 
@@ -9794,8 +10136,14 @@ class DatabaseService {
     const returnNumberFormatted = data.returnNumberFormatted || returnNumber;
 
     const items: SaleReturnItem[] = (data.items || []).map((it, idx) => {
+      const ctn = Number(it.ctn) || 0;
+      const ratePerCtn = Number(it.ratePerCtn) || 0;
+      const qtyPerCtn = Number(it.qtyPerCtn) || 1;
       const qty = Number(it.qty) || 0;
       const rate = Number(it.rate) || 0;
+      const lineTotal = (it as any).total !== undefined && (it as any).total !== null
+        ? Number((it as any).total)
+        : Number(((ctn * ratePerCtn) + (qty * rate)).toFixed(2));
       return {
         id: it.id || `sri-${Date.now()}-${idx + 1}`,
         productId: it.productId || '',
@@ -9803,16 +10151,19 @@ class DatabaseService {
         sku: it.sku || '',
         category: it.category || '',
         unit: it.unit || 'CTN',
+        ctn,
+        ratePerCtn,
+        qtyPerCtn,
         qty,
         rate,
-        total: Number((qty * rate).toFixed(2)),
+        total: lineTotal,
         reason: it.reason || '',
       };
     });
 
     const netTotal = items.reduce((s, it) => s + it.total, 0);
 
-    // 1. Restore Inventory Stock for returned items
+    // 1. Restore Inventory Stock for returned items (ctn * qtyInCarton + qty)
     for (const it of items) {
       let product = it.productId ? this.data.products.find((p) => p.id === it.productId) : undefined;
       if (!product && it.itemTitle) {
@@ -9823,8 +10174,10 @@ class DatabaseService {
         );
       }
       if (product) {
+        const qtyInCarton = product.qtyInCarton && product.qtyInCarton > 1 ? product.qtyInCarton : 1;
+        const returnedUnits = (Number(it.ctn || 0) * qtyInCarton) + (Number(it.qty) || 0);
         const prevQty = product.currentQuantity || 0;
-        const newQty = Number((prevQty + it.qty).toFixed(2));
+        const newQty = Number((prevQty + returnedUnits).toFixed(2));
         product.currentQuantity = newQty;
         product.totalStock = newQty;
         if (product.qtyInCarton && product.qtyInCarton > 1) {
@@ -9843,10 +10196,10 @@ class DatabaseService {
           productId: product.id,
           productName: product.name,
           type: 'ORDER_FULFILLMENT' as any,
-          quantity: it.qty,
+          quantity: returnedUnits,
           unit: product.unit || 'unit',
           unitCost: product.purchasePrice || 0,
-          totalAmount: Number((it.qty * (product.purchasePrice || 0)).toFixed(2)),
+          totalAmount: Number((returnedUnits * (product.purchasePrice || 0)).toFixed(2)),
           referenceType: 'ORDER',
           referenceId: returnNumber,
           notes: `Returned by customer: Sale Return #${returnNumber}`,
@@ -9924,8 +10277,16 @@ class DatabaseService {
     for (const it of oldReturn.items || []) {
       const prod = this.data.products.find((p) => p.id === it.productId || p.name === it.itemTitle);
       if (prod) {
-        prod.currentQuantity = Math.max(0, Number(((prod.currentQuantity || 0) - it.qty).toFixed(2)));
+        const qtyInCarton = prod.qtyInCarton && prod.qtyInCarton > 1 ? prod.qtyInCarton : 1;
+        const oldUnits = (Number(it.ctn || 0) * qtyInCarton) + (Number(it.qty) || 0);
+        prod.currentQuantity = Math.max(0, Number(((prod.currentQuantity || 0) - oldUnits).toFixed(2)));
         prod.totalStock = prod.currentQuantity;
+        if (prod.qtyInCarton && prod.qtyInCarton > 1) {
+          prod.carton = Math.floor(prod.currentQuantity / prod.qtyInCarton);
+          prod.ctn = prod.carton;
+          prod.extraKg = Number((prod.currentQuantity % prod.qtyInCarton).toFixed(2));
+          prod.pcs = prod.extraKg;
+        }
         prod.stockValue = Number((prod.currentQuantity * (prod.purchasePrice || 0)).toFixed(2));
       }
     }
@@ -9939,8 +10300,14 @@ class DatabaseService {
     }
 
     const items: SaleReturnItem[] = (updates.items || oldReturn.items).map((it, i) => {
+      const ctn = Number(it.ctn) || 0;
+      const ratePerCtn = Number(it.ratePerCtn) || 0;
+      const qtyPerCtn = Number(it.qtyPerCtn) || 1;
       const qty = Number(it.qty) || 0;
       const rate = Number(it.rate) || 0;
+      const lineTotal = (it as any).total !== undefined && (it as any).total !== null
+        ? Number((it as any).total)
+        : Number(((ctn * ratePerCtn) + (qty * rate)).toFixed(2));
       return {
         id: it.id || `sri-${Date.now()}-${i + 1}`,
         productId: it.productId || '',
@@ -9948,9 +10315,12 @@ class DatabaseService {
         sku: it.sku || '',
         category: it.category || '',
         unit: it.unit || 'CTN',
+        ctn,
+        ratePerCtn,
+        qtyPerCtn,
         qty,
         rate,
-        total: Number((qty * rate).toFixed(2)),
+        total: lineTotal,
         reason: it.reason || '',
       };
     });
@@ -9961,8 +10331,16 @@ class DatabaseService {
     for (const it of items) {
       const prod = this.data.products.find((p) => p.id === it.productId || p.name === it.itemTitle);
       if (prod) {
-        prod.currentQuantity = Number(((prod.currentQuantity || 0) + it.qty).toFixed(2));
+        const qtyInCarton = prod.qtyInCarton && prod.qtyInCarton > 1 ? prod.qtyInCarton : 1;
+        const newUnits = (Number(it.ctn || 0) * qtyInCarton) + (Number(it.qty) || 0);
+        prod.currentQuantity = Number(((prod.currentQuantity || 0) + newUnits).toFixed(2));
         prod.totalStock = prod.currentQuantity;
+        if (prod.qtyInCarton && prod.qtyInCarton > 1) {
+          prod.carton = Math.floor(prod.currentQuantity / prod.qtyInCarton);
+          prod.ctn = prod.carton;
+          prod.extraKg = Number((prod.currentQuantity % prod.qtyInCarton).toFixed(2));
+          prod.pcs = prod.extraKg;
+        }
         prod.stockValue = Number((prod.currentQuantity * (prod.purchasePrice || 0)).toFixed(2));
       }
     }
@@ -10015,8 +10393,16 @@ class DatabaseService {
     for (const it of oldReturn.items || []) {
       const prod = this.data.products.find((p) => p.id === it.productId || p.name === it.itemTitle);
       if (prod) {
-        prod.currentQuantity = Math.max(0, Number(((prod.currentQuantity || 0) - it.qty).toFixed(2)));
+        const qtyInCarton = prod.qtyInCarton && prod.qtyInCarton > 1 ? prod.qtyInCarton : 1;
+        const oldUnits = (Number(it.ctn || 0) * qtyInCarton) + (Number(it.qty) || 0);
+        prod.currentQuantity = Math.max(0, Number(((prod.currentQuantity || 0) - oldUnits).toFixed(2)));
         prod.totalStock = prod.currentQuantity;
+        if (prod.qtyInCarton && prod.qtyInCarton > 1) {
+          prod.carton = Math.floor(prod.currentQuantity / prod.qtyInCarton);
+          prod.ctn = prod.carton;
+          prod.extraKg = Number((prod.currentQuantity % prod.qtyInCarton).toFixed(2));
+          prod.pcs = prod.extraKg;
+        }
         prod.stockValue = Number((prod.currentQuantity * (prod.purchasePrice || 0)).toFixed(2));
         prod.updatedAt = new Date().toISOString();
         this.syncProductStockToPostgres(prod);
@@ -10076,8 +10462,14 @@ class DatabaseService {
     const returnNumberFormatted = data.returnNumberFormatted || returnNumber;
 
     const items: PurchaseReturnItem[] = (data.items || []).map((it, idx) => {
+      const ctn = Number(it.ctn) || 0;
+      const ratePerCtn = Number(it.ratePerCtn) || 0;
+      const qtyPerCtn = Number(it.qtyPerCtn) || 1;
       const qty = Number(it.qty) || 0;
       const rate = Number(it.rate) || 0;
+      const lineTotal = (it as any).total !== undefined && (it as any).total !== null
+        ? Number((it as any).total)
+        : Number(((ctn * ratePerCtn) + (qty * rate)).toFixed(2));
       return {
         id: it.id || `pri-${Date.now()}-${idx + 1}`,
         productId: it.productId || '',
@@ -10085,9 +10477,12 @@ class DatabaseService {
         sku: it.sku || '',
         category: it.category || '',
         unit: it.unit || 'CTN',
+        ctn,
+        ratePerCtn,
+        qtyPerCtn,
         qty,
         rate,
-        total: Number((qty * rate).toFixed(2)),
+        total: lineTotal,
         reason: it.reason || '',
       };
     });
@@ -10105,8 +10500,10 @@ class DatabaseService {
         );
       }
       if (product) {
+        const qtyInCarton = product.qtyInCarton && product.qtyInCarton > 1 ? product.qtyInCarton : 1;
+        const returnedUnits = (Number(it.ctn || 0) * qtyInCarton) + (Number(it.qty) || 0);
         const prevQty = product.currentQuantity || 0;
-        const newQty = Math.max(0, Number((prevQty - it.qty).toFixed(2)));
+        const newQty = Math.max(0, Number((prevQty - returnedUnits).toFixed(2)));
         product.currentQuantity = newQty;
         product.totalStock = newQty;
         if (product.qtyInCarton && product.qtyInCarton > 1) {
@@ -10125,10 +10522,10 @@ class DatabaseService {
           productId: product.id,
           productName: product.name,
           type: 'ORDER_FULFILLMENT' as any,
-          quantity: -it.qty,
+          quantity: -returnedUnits,
           unit: product.unit || 'unit',
           unitCost: product.purchasePrice || 0,
-          totalAmount: Number((it.qty * (product.purchasePrice || 0)).toFixed(2)),
+          totalAmount: Number((returnedUnits * (product.purchasePrice || 0)).toFixed(2)),
           referenceType: 'PURCHASE' as any,
           referenceId: returnNumber,
           notes: `Returned to supplier: Purchase Return #${returnNumber}`,
@@ -10206,8 +10603,16 @@ class DatabaseService {
     for (const it of oldReturn.items || []) {
       const prod = this.data.products.find((p) => p.id === it.productId || p.name === it.itemTitle);
       if (prod) {
-        prod.currentQuantity = Number(((prod.currentQuantity || 0) + it.qty).toFixed(2));
+        const qtyInCarton = prod.qtyInCarton && prod.qtyInCarton > 1 ? prod.qtyInCarton : 1;
+        const oldUnits = (Number(it.ctn || 0) * qtyInCarton) + (Number(it.qty) || 0);
+        prod.currentQuantity = Number(((prod.currentQuantity || 0) + oldUnits).toFixed(2));
         prod.totalStock = prod.currentQuantity;
+        if (prod.qtyInCarton && prod.qtyInCarton > 1) {
+          prod.carton = Math.floor(prod.currentQuantity / prod.qtyInCarton);
+          prod.ctn = prod.carton;
+          prod.extraKg = Number((prod.currentQuantity % prod.qtyInCarton).toFixed(2));
+          prod.pcs = prod.extraKg;
+        }
         prod.stockValue = Number((prod.currentQuantity * (prod.purchasePrice || 0)).toFixed(2));
       }
     }
@@ -10222,8 +10627,14 @@ class DatabaseService {
     }
 
     const items: PurchaseReturnItem[] = (updates.items || oldReturn.items).map((it, i) => {
+      const ctn = Number(it.ctn) || 0;
+      const ratePerCtn = Number(it.ratePerCtn) || 0;
+      const qtyPerCtn = Number(it.qtyPerCtn) || 1;
       const qty = Number(it.qty) || 0;
       const rate = Number(it.rate) || 0;
+      const lineTotal = (it as any).total !== undefined && (it as any).total !== null
+        ? Number((it as any).total)
+        : Number(((ctn * ratePerCtn) + (qty * rate)).toFixed(2));
       return {
         id: it.id || `pri-${Date.now()}-${i + 1}`,
         productId: it.productId || '',
@@ -10231,9 +10642,12 @@ class DatabaseService {
         sku: it.sku || '',
         category: it.category || '',
         unit: it.unit || 'CTN',
+        ctn,
+        ratePerCtn,
+        qtyPerCtn,
         qty,
         rate,
-        total: Number((qty * rate).toFixed(2)),
+        total: lineTotal,
         reason: it.reason || '',
       };
     });
@@ -10244,8 +10658,16 @@ class DatabaseService {
     for (const it of items) {
       const prod = this.data.products.find((p) => p.id === it.productId || p.name === it.itemTitle);
       if (prod) {
-        prod.currentQuantity = Math.max(0, Number(((prod.currentQuantity || 0) - it.qty).toFixed(2)));
+        const qtyInCarton = prod.qtyInCarton && prod.qtyInCarton > 1 ? prod.qtyInCarton : 1;
+        const newUnits = (Number(it.ctn || 0) * qtyInCarton) + (Number(it.qty) || 0);
+        prod.currentQuantity = Math.max(0, Number(((prod.currentQuantity || 0) - newUnits).toFixed(2)));
         prod.totalStock = prod.currentQuantity;
+        if (prod.qtyInCarton && prod.qtyInCarton > 1) {
+          prod.carton = Math.floor(prod.currentQuantity / prod.qtyInCarton);
+          prod.ctn = prod.carton;
+          prod.extraKg = Number((prod.currentQuantity % prod.qtyInCarton).toFixed(2));
+          prod.pcs = prod.extraKg;
+        }
         prod.stockValue = Number((prod.currentQuantity * (prod.purchasePrice || 0)).toFixed(2));
       }
     }
@@ -10299,8 +10721,16 @@ class DatabaseService {
     for (const it of oldReturn.items || []) {
       const prod = this.data.products.find((p) => p.id === it.productId || p.name === it.itemTitle);
       if (prod) {
-        prod.currentQuantity = Number(((prod.currentQuantity || 0) + it.qty).toFixed(2));
+        const qtyInCarton = prod.qtyInCarton && prod.qtyInCarton > 1 ? prod.qtyInCarton : 1;
+        const oldUnits = (Number(it.ctn || 0) * qtyInCarton) + (Number(it.qty) || 0);
+        prod.currentQuantity = Number(((prod.currentQuantity || 0) + oldUnits).toFixed(2));
         prod.totalStock = prod.currentQuantity;
+        if (prod.qtyInCarton && prod.qtyInCarton > 1) {
+          prod.carton = Math.floor(prod.currentQuantity / prod.qtyInCarton);
+          prod.ctn = prod.carton;
+          prod.extraKg = Number((prod.currentQuantity % prod.qtyInCarton).toFixed(2));
+          prod.pcs = prod.extraKg;
+        }
         prod.stockValue = Number((prod.currentQuantity * (prod.purchasePrice || 0)).toFixed(2));
         prod.updatedAt = new Date().toISOString();
         this.syncProductStockToPostgres(prod);

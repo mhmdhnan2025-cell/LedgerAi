@@ -23,8 +23,11 @@ import {
   Filter,
   Check,
   AlertTriangle,
+  BookOpen,
+  Printer,
+  ExternalLink,
 } from 'lucide-react';
-import { Employee } from '../types';
+import { Employee, EmployeeLedgerReport } from '../types';
 import { api } from '../services/api';
 
 interface EmployeeManagementViewProps {
@@ -83,13 +86,42 @@ export const EmployeeManagementView: React.FC<EmployeeManagementViewProps> = ({
   const [city, setCity] = useState('Lahore');
   const [bankTitle, setBankTitle] = useState('');
   const [bankAccount, setBankAccount] = useState('');
+  const [openingBalance, setOpeningBalance] = useState<number | ''>(0);
+  const [openingBalanceType, setOpeningBalanceType] = useState<'CR' | 'DR'>('CR');
   const [status, setStatus] = useState<'YES' | 'NO'>('YES');
+
+  // Employee Ledger Modal State
+  const [activeLedgerEmployee, setActiveLedgerEmployee] = useState<Employee | null>(null);
+  const [ledgerReport, setLedgerReport] = useState<EmployeeLedgerReport | null>(null);
+  const [isLedgerLoading, setIsLedgerLoading] = useState(false);
+  const [ledgerFromDate, setLedgerFromDate] = useState('');
+  const [ledgerToDate, setLedgerToDate] = useState(() => new Date().toISOString().split('T')[0]);
 
   // Notification / Feedback State
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  const loadEmployeeLedger = async (empId: string, from?: string, to?: string) => {
+    setIsLedgerLoading(true);
+    try {
+      const rep = await api.getEmployeeLedger(empId, from, to);
+      setLedgerReport(rep);
+    } catch (err: any) {
+      console.warn('Failed to load employee ledger:', err.message);
+    } finally {
+      setIsLedgerLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeLedgerEmployee) {
+      loadEmployeeLedger(activeLedgerEmployee.id, ledgerFromDate, ledgerToDate);
+    } else {
+      setLedgerReport(null);
+    }
+  }, [activeLedgerEmployee]);
 
   // Directly fetch employees from API to ensure data is always present even if parent state was initially empty
   const fetchEmployeesData = async () => {
@@ -140,6 +172,8 @@ export const EmployeeManagementView: React.FC<EmployeeManagementViewProps> = ({
     setCity('Lahore');
     setBankTitle('');
     setBankAccount('');
+    setOpeningBalance(0);
+    setOpeningBalanceType('CR');
     setStatus('YES');
     setFeedback(null);
   };
@@ -170,6 +204,8 @@ export const EmployeeManagementView: React.FC<EmployeeManagementViewProps> = ({
     setCity(emp.city || 'Lahore');
     setBankTitle(emp.bankTitle || '');
     setBankAccount(emp.bankAccount || '');
+    setOpeningBalance(emp.openingBalance !== undefined ? emp.openingBalance : 0);
+    setOpeningBalanceType(emp.openingBalanceType || 'CR');
     setStatus(emp.status === 'NO' ? 'NO' : 'YES');
     setFeedback(null);
     setViewMode('edit');
@@ -224,6 +260,8 @@ export const EmployeeManagementView: React.FC<EmployeeManagementViewProps> = ({
       city: city.trim(),
       bankTitle: bankTitle.trim(),
       bankAccount: bankAccount.trim(),
+      openingBalance: Number(openingBalance) || 0,
+      openingBalanceType,
       regDate,
       status,
     };
@@ -501,14 +539,16 @@ export const EmployeeManagementView: React.FC<EmployeeManagementViewProps> = ({
                     <th className="py-3 px-3.5">Contact No.</th>
                     <th className="py-3 px-3.5 text-center">Salary Type</th>
                     <th className="py-3 px-3.5 text-right font-mono">Salary</th>
+                    <th className="py-3 px-3.5 text-right font-mono text-amber-300">Opening Bal</th>
+                    <th className="py-3 px-3.5 text-right font-mono text-emerald-400">Balance</th>
                     <th className="py-3 px-3.5 text-center">Status</th>
-                    <th className="py-3 px-3.5 text-center w-24">Action</th>
+                    <th className="py-3 px-3.5 text-center w-36">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/80 font-medium">
                   {filteredEmployees.length === 0 ? (
                     <tr>
-                      <td colSpan={11} className="py-12 text-center text-slate-500">
+                      <td colSpan={13} className="py-12 text-center text-slate-500">
                         <Users className="w-8 h-8 mx-auto text-slate-600 mb-2" />
                         <p className="text-sm font-semibold text-slate-400">No employees found.</p>
                         <p className="text-xs text-slate-500 mt-0.5">
@@ -583,6 +623,22 @@ export const EmployeeManagementView: React.FC<EmployeeManagementViewProps> = ({
                             })}
                           </td>
 
+                          {/* OPENING BAL */}
+                          <td className="py-3 px-3.5 text-right font-mono text-xs text-amber-300 whitespace-nowrap">
+                            {Number(emp.openingBalance || 0).toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })} {emp.openingBalanceType || 'CR'}
+                          </td>
+
+                          {/* CURRENT BAL */}
+                          <td className="py-3 px-3.5 text-right font-mono text-xs font-bold text-emerald-400 whitespace-nowrap">
+                            {Number(emp.balance ?? emp.openingBalance ?? 0).toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </td>
+
                           {/* STATUS */}
                           <td className="py-3 px-3.5 text-center">
                             <span
@@ -617,6 +673,14 @@ export const EmployeeManagementView: React.FC<EmployeeManagementViewProps> = ({
                               </div>
                             ) : (
                               <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  onClick={() => setActiveLedgerEmployee(emp)}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-[11px] font-bold transition cursor-pointer"
+                                  title="View Employee Ledger & Payment History"
+                                >
+                                  <BookOpen className="w-3 h-3 text-blue-400" />
+                                  <span>Ledger</span>
+                                </button>
                                 <button
                                   id={`btn-edit-emp-${emp.id}`}
                                   onClick={() => handleOpenEditForm(emp)}
@@ -657,7 +721,7 @@ export const EmployeeManagementView: React.FC<EmployeeManagementViewProps> = ({
                         maximumFractionDigits: 2,
                       })}
                     </td>
-                    <td colSpan={2} className="py-3 px-3.5 text-right text-xs text-slate-500">
+                    <td colSpan={4} className="py-3 px-3.5 text-right text-xs text-slate-400">
                       {filteredEmployees.length} Staff
                     </td>
                   </tr>
@@ -749,8 +813,8 @@ export const EmployeeManagementView: React.FC<EmployeeManagementViewProps> = ({
             </div>
 
             {/* Role, Designation, and Salary Structure */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-              <div>
+            <div className="grid grid-cols-1 sm:grid-cols-6 gap-4">
+              <div className="sm:col-span-2">
                 <label className="block text-xs font-bold text-slate-300 mb-1 flex items-center gap-1">
                   <Briefcase className="w-3.5 h-3.5 text-indigo-400" />
                   Designation
@@ -807,19 +871,32 @@ export const EmployeeManagementView: React.FC<EmployeeManagementViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">
-                  Commission Amount
+                <label className="block text-xs font-bold text-amber-300 mb-1">
+                  Opening Balance
                 </label>
                 <input
-                  id="input-emp-commission"
+                  id="input-emp-opening-balance"
                   type="number"
-                  min="0"
                   step="0.01"
-                  value={commissionAmount}
-                  onChange={(e) => setCommissionAmount(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                  placeholder="e.g., 0.00"
-                  className="w-full bg-slate-800/90 border border-slate-700 font-mono rounded-lg px-3 py-2 text-xs sm:text-sm text-white outline-none focus:border-indigo-500"
+                  value={openingBalance}
+                  onChange={(e) => setOpeningBalance(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                  placeholder="0.00"
+                  className="w-full bg-slate-800/90 border border-amber-600/50 font-mono rounded-lg px-3 py-2 text-xs sm:text-sm text-white outline-none focus:border-indigo-500"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-amber-300 mb-1">
+                  Balance Type
+                </label>
+                <select
+                  value={openingBalanceType}
+                  onChange={(e) => setOpeningBalanceType(e.target.value as 'CR' | 'DR')}
+                  className="w-full bg-slate-800/90 border border-amber-600/50 rounded-lg px-3 py-2 text-xs sm:text-sm text-white outline-none focus:border-indigo-500"
+                >
+                  <option value="CR">CR (Salary Due)</option>
+                  <option value="DR">DR (Advance / Udhaar)</option>
+                </select>
               </div>
             </div>
 
@@ -1061,6 +1138,223 @@ export const EmployeeManagementView: React.FC<EmployeeManagementViewProps> = ({
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* EMPLOYEE LEDGER STATEMENT MODAL */}
+      {activeLedgerEmployee && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-5xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="px-5 py-3.5 bg-slate-950 text-white flex items-center justify-between border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <BookOpen className="w-5 h-5 text-indigo-400 shrink-0" />
+                <div>
+                  <h3 className="text-sm font-bold tracking-wide flex items-center gap-2">
+                    Employee Ledger &amp; Statement: <span className="text-indigo-300 font-extrabold">{activeLedgerEmployee.accountTitle || activeLedgerEmployee.fullName}</span>
+                    {isLedgerLoading && (
+                      <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded border border-indigo-400/30 animate-pulse">
+                        Loading...
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Code: <strong className="font-mono text-slate-200">{activeLedgerEmployee.code}</strong> • Designation: <strong className="text-slate-200">{activeLedgerEmployee.designation || 'Staff'}</strong> • Salary: <strong className="font-mono text-emerald-400">{currencySymbol()} {Number(activeLedgerEmployee.salary || 0).toLocaleString()}</strong>
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition cursor-pointer"
+                  title="Print this ledger"
+                >
+                  <Printer className="w-3.5 h-3.5 text-indigo-300" />
+                  <span>Print</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveLedgerEmployee(null)}
+                  className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Date Filters & Quick Presets */}
+            <div className="p-3 bg-slate-950/60 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-slate-400 font-bold text-[11px]">Period:</span>
+                <input
+                  type="date"
+                  value={ledgerFromDate}
+                  onChange={(e) => setLedgerFromDate(e.target.value)}
+                  className="bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-xs text-white"
+                />
+                <span className="text-slate-500">to</span>
+                <input
+                  type="date"
+                  value={ledgerToDate}
+                  onChange={(e) => setLedgerToDate(e.target.value)}
+                  className="bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-xs text-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => loadEmployeeLedger(activeLedgerEmployee.id, ledgerFromDate, ledgerToDate)}
+                  className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-bold transition cursor-pointer"
+                >
+                  Apply
+                </button>
+                {(ledgerFromDate || ledgerToDate !== new Date().toISOString().split('T')[0]) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLedgerFromDate('');
+                      const today = new Date().toISOString().split('T')[0];
+                      setLedgerToDate(today);
+                      loadEmployeeLedger(activeLedgerEmployee.id, '', today);
+                    }}
+                    className="text-[11px] text-rose-400 hover:underline cursor-pointer"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+
+              {/* KPI Quick Summary */}
+              {ledgerReport && (
+                <div className="flex items-center gap-3 text-xs font-mono">
+                  <div className="px-2 py-1 rounded bg-slate-800 border border-slate-700">
+                    <span className="text-[10px] text-slate-400 block font-sans">Opening Balance:</span>
+                    <strong className="text-amber-300">{currencySymbol()} {ledgerReport.openingBalance.toLocaleString()} {ledgerReport.openingBalanceType}</strong>
+                  </div>
+                  <div className="px-2 py-1 rounded bg-slate-800 border border-slate-700">
+                    <span className="text-[10px] text-slate-400 block font-sans">Total Paid (Debit):</span>
+                    <strong className="text-rose-400">{currencySymbol()} {ledgerReport.totalPaid.toLocaleString()}</strong>
+                  </div>
+                  <div className="px-2 py-1 rounded bg-slate-800 border border-slate-700">
+                    <span className="text-[10px] text-slate-400 block font-sans">Salary Due (Credit):</span>
+                    <strong className="text-emerald-400">{currencySymbol()} {ledgerReport.totalSalaryDue.toLocaleString()}</strong>
+                  </div>
+                  <div className="px-2.5 py-1 rounded bg-indigo-950/80 border border-indigo-700/60">
+                    <span className="text-[10px] text-indigo-300 block font-sans font-bold">Closing Balance:</span>
+                    <strong className="text-white text-sm">{currencySymbol()} {ledgerReport.closingBalance.toLocaleString()} {ledgerReport.closingBalanceType}</strong>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Ledger Transactions Table */}
+            <div className="overflow-y-auto flex-1 p-4">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-950 text-slate-400 font-bold uppercase tracking-wider text-[11px] border-b border-slate-800">
+                    <th className="py-2.5 px-3 text-center w-10">#</th>
+                    <th className="py-2.5 px-3 text-center w-24">DATE</th>
+                    <th className="py-2.5 px-3 text-center w-16">REF</th>
+                    <th className="py-2.5 px-3 text-center w-20">REF#</th>
+                    <th className="py-2.5 px-3">PARTICULARS / NARRATION</th>
+                    <th className="py-2.5 px-3 text-right w-28 text-rose-400 font-mono">DEBIT (PAID)</th>
+                    <th className="py-2.5 px-3 text-right w-28 text-emerald-400 font-mono">CREDIT (DUE)</th>
+                    <th className="py-2.5 px-3 text-right w-32 text-indigo-300 font-mono">BALANCE</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800 font-mono text-xs">
+                  {/* Row 0: Opening Balance */}
+                  {ledgerReport && (
+                    <tr className="bg-amber-950/20 font-bold text-slate-200">
+                      <td className="py-2 px-3 text-center text-slate-500">0</td>
+                      <td className="py-2 px-3 text-center text-slate-400 font-sans">—</td>
+                      <td className="py-2 px-3 text-center">
+                        <span className="px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-300 border border-amber-700/50 text-[10px] font-black">
+                          OB
+                        </span>
+                      </td>
+                      <td className="py-2 px-3 text-center text-slate-500">—</td>
+                      <td className="py-2 px-3 font-sans font-bold text-slate-200">
+                        Opening Balance (Ledger B/F)
+                      </td>
+                      <td className="py-2 px-3 text-right text-slate-500">—</td>
+                      <td className="py-2 px-3 text-right text-slate-500">—</td>
+                      <td className="py-2 px-3 text-right font-black text-amber-300">
+                        {currencySymbol()} {ledgerReport.openingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })} {ledgerReport.openingBalanceType}
+                      </td>
+                    </tr>
+                  )}
+
+                  {/* Transaction Entries */}
+                  {!ledgerReport || ledgerReport.entries.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-8 text-center text-slate-500 font-sans text-xs">
+                        {isLedgerLoading ? 'Loading ledger transactions...' : 'No transaction records found for this employee in the selected period.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    ledgerReport.entries.map((entry, idx) => (
+                      <tr key={entry.id || idx} className="hover:bg-slate-800/40 transition-colors">
+                        <td className="py-2 px-3 text-center text-slate-500">{idx + 1}</td>
+                        <td className="py-2 px-3 text-center text-slate-300 font-sans">{entry.date}</td>
+                        <td className="py-2 px-3 text-center">
+                          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-black ${
+                            entry.refType === 'CP#' || entry.refType === 'BP#' || entry.refType === 'CB#'
+                              ? 'bg-rose-950 text-rose-300 border border-rose-800'
+                              : 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                          }`}>
+                            {entry.refType}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3 text-center text-slate-300 font-bold">{entry.refNumber || '—'}</td>
+                        <td className="py-2 px-3 font-sans text-slate-200">{entry.narration}</td>
+                        <td className="py-2 px-3 text-right text-rose-400 font-bold">
+                          {entry.debit > 0 ? `${currencySymbol()} ${entry.debit.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '—'}
+                        </td>
+                        <td className="py-2 px-3 text-right text-emerald-400 font-bold">
+                          {entry.credit > 0 ? `${currencySymbol()} ${entry.credit.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '—'}
+                        </td>
+                        <td className="py-2 px-3 text-right font-black text-white">
+                          {currencySymbol()} {entry.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })} {entry.balanceType}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+                {ledgerReport && (
+                  <tfoot>
+                    <tr className="bg-slate-950 font-bold border-t-2 border-slate-700 text-xs text-white">
+                      <td colSpan={5} className="py-3 px-3 text-right uppercase tracking-wider font-extrabold text-slate-400">
+                        Net Activity / Closing Balance:
+                      </td>
+                      <td className="py-3 px-3 text-right font-black text-rose-400 font-mono">
+                        {currencySymbol()} {ledgerReport.totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-3 px-3 text-right font-black text-emerald-400 font-mono">
+                        {currencySymbol()} {ledgerReport.totalSalaryDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-3 px-3 text-right font-black text-indigo-300 font-mono text-sm">
+                        {currencySymbol()} {ledgerReport.closingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })} {ledgerReport.closingBalanceType}
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-5 py-3 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-xs">
+              <span className="text-slate-500">
+                Total Transactions: <strong className="text-white font-bold">{ledgerReport?.entries.length || 0}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={() => setActiveLedgerEmployee(null)}
+                className="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-md font-semibold transition cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

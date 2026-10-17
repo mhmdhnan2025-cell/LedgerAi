@@ -13,7 +13,7 @@ import {
   X,
   ExternalLink,
 } from 'lucide-react';
-import { Customer, SaleBill, CompanyProfile, Voucher, SaleReturn } from '../types';
+import { Customer, SaleBill, CompanyProfile, Voucher, SaleReturn, CustomerLedgerReport } from '../types';
 import { api } from '../services/api';
 import { exportToCsv } from '../utils/exportCsv';
 
@@ -125,6 +125,26 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
 
   // Quick Customer Ledger Drawer/Modal State
   const [activeLedgerCustomerId, setActiveLedgerCustomerId] = useState<string | null>(null);
+  const [serverLedgerReport, setServerLedgerReport] = useState<CustomerLedgerReport | null>(null);
+  const [isLoadingServerLedger, setIsLoadingServerLedger] = useState(false);
+
+  useEffect(() => {
+    if (!activeLedgerCustomerId) {
+      setServerLedgerReport(null);
+      return;
+    }
+    setIsLoadingServerLedger(true);
+    api.getCustomerLedger(activeLedgerCustomerId)
+      .then((rep) => {
+        setServerLedgerReport(rep);
+      })
+      .catch((err) => {
+        console.warn('Failed to load server ledger for customer:', err);
+      })
+      .finally(() => {
+        setIsLoadingServerLedger(false);
+      });
+  }, [activeLedgerCustomerId]);
 
   // Selected row for highlight (soft yellow row highlight matching reference Image 2)
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
@@ -761,6 +781,45 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
       closingBalanceType: running >= 0 ? 'DR' : 'CR',
     };
   }, [activeLedgerCustomerId, deDupedCustomers, salesBills, vouchers, cashRecoveredItems, saleReturns, resolveCustId]);
+
+  const effectiveLedgerData = useMemo(() => {
+    if (serverLedgerReport) {
+      const c = deDupedCustomers.find((cust) => cust.id === serverLedgerReport.customerId) || ({
+        id: serverLedgerReport.customerId,
+        accountTitle: serverLedgerReport.accountTitle,
+        name: serverLedgerReport.customerName,
+        code: serverLedgerReport.customerCode,
+        accountCode: serverLedgerReport.customerCode,
+        mobile: serverLedgerReport.phone || '',
+        city: serverLedgerReport.address || '',
+        assignedSalesman: serverLedgerReport.salesman || '',
+      } as any);
+
+      return {
+        customer: c,
+        openingBalance: serverLedgerReport.openingBalance,
+        openingBalanceType: serverLedgerReport.openingBalanceType,
+        totalDebit: serverLedgerReport.totalDebit,
+        totalCredit: serverLedgerReport.totalCredit,
+        closingBalance: serverLedgerReport.closingBalance,
+        closingBalanceType: serverLedgerReport.closingBalanceType,
+        entries: serverLedgerReport.entries.map((e, index) => ({
+          id: e.id || `entry-${index}`,
+          sNo: index + 1,
+          date: e.date,
+          refType: e.refType,
+          refNumber: String(e.refNumber || '—'),
+          billNumber: e.billNumber || '',
+          narration: e.narration,
+          debit: e.debit,
+          credit: e.credit,
+          balance: e.balance,
+          balanceType: e.balanceType,
+        })),
+      };
+    }
+    return activeCustomerLedgerData;
+  }, [serverLedgerReport, activeCustomerLedgerData, deDupedCustomers]);
 
   // Filtered Rows based on the user's active filter criteria
   const filteredRows = useMemo(() => {
@@ -1444,7 +1503,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
       {/* ------------------------------------------------------------- */}
       {/* COMPLETE CUSTOMER LEDGER STATEMENT MODAL                     */}
       {/* ------------------------------------------------------------- */}
-      {activeCustomerLedgerData && (
+      {effectiveLedgerData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-xs overflow-y-auto print-hide">
           <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-300 dark:border-slate-700 w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden">
             {/* Modal Header */}
@@ -1464,7 +1523,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
                 {onNavigateTab && (
                   <button
                     onClick={() => {
-                      sessionStorage.setItem('erp_selected_customer_ledger_id', activeCustomerLedgerData.customer.id);
+                      sessionStorage.setItem('erp_selected_customer_ledger_id', effectiveLedgerData.customer.id);
                       setActiveLedgerCustomerId(null);
                       onNavigateTab('customerLedger');
                     }}
@@ -1497,27 +1556,27 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
               <div>
                 <span className="text-slate-500 dark:text-slate-400 font-medium block">Customer Title:</span>
                 <span className="font-bold text-slate-900 dark:text-white text-sm capitalize">
-                  {activeCustomerLedgerData.customer.accountTitle || activeCustomerLedgerData.customer.name}
+                  {effectiveLedgerData.customer.accountTitle || effectiveLedgerData.customer.name}
                 </span>
               </div>
               <div>
                 <span className="text-slate-500 dark:text-slate-400 font-medium block">Account Code:</span>
                 <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
-                  {activeCustomerLedgerData.customer.code || activeCustomerLedgerData.customer.accountCode || '—'}
-                  {activeCustomerLedgerData.customer.manualCode ? ` (M: ${activeCustomerLedgerData.customer.manualCode})` : ''}
+                  {effectiveLedgerData.customer.code || effectiveLedgerData.customer.accountCode || '—'}
+                  {effectiveLedgerData.customer.manualCode ? ` (M: ${effectiveLedgerData.customer.manualCode})` : ''}
                 </span>
               </div>
               <div>
                 <span className="text-slate-500 dark:text-slate-400 font-medium block">Contact &amp; Area:</span>
                 <span className="font-semibold text-slate-800 dark:text-slate-200">
-                  {activeCustomerLedgerData.customer.mobile || 'No Mobile'}
-                  {activeCustomerLedgerData.customer.city ? ` • ${activeCustomerLedgerData.customer.city}` : ''}
+                  {effectiveLedgerData.customer.mobile || 'No Mobile'}
+                  {effectiveLedgerData.customer.city ? ` • ${effectiveLedgerData.customer.city}` : ''}
                 </span>
               </div>
               <div>
                 <span className="text-slate-500 dark:text-slate-400 font-medium block">Assigned Salesman:</span>
                 <span className="font-bold text-blue-600 dark:text-blue-400">
-                  {activeCustomerLedgerData.customer.assignedSalesman || (activeCustomerLedgerData.customer as any).salesman || 'None'}
+                  {effectiveLedgerData.customer.assignedSalesman || (effectiveLedgerData.customer as any).salesman || 'None'}
                 </span>
               </div>
             </div>
@@ -1554,19 +1613,19 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
                     <td className="py-2 px-3 text-right text-slate-400">—</td>
                     <td className="py-2 px-3 text-right text-slate-400">—</td>
                     <td className="py-2 px-3 text-right font-black text-slate-900 dark:text-white">
-                      {formatAmount(activeCustomerLedgerData.openingBalance)} {activeCustomerLedgerData.openingBalanceType}
+                      {formatAmount(effectiveLedgerData.openingBalance)} {effectiveLedgerData.openingBalanceType}
                     </td>
                   </tr>
 
                   {/* Transaction Rows */}
-                  {activeCustomerLedgerData.entries.length === 0 ? (
+                  {effectiveLedgerData.entries.length === 0 ? (
                     <tr>
                       <td colSpan={9} className="py-8 text-center text-slate-500 dark:text-slate-400 font-sans text-xs">
                         No transactions recorded for this customer yet. Balance remains at opening balance.
                       </td>
                     </tr>
                   ) : (
-                    activeCustomerLedgerData.entries.map((entry) => (
+                    effectiveLedgerData.entries.map((entry) => (
                       <tr
                         key={entry.id}
                         className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
@@ -1620,13 +1679,13 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
                       Total Activity / Current Closing Balance:
                     </td>
                     <td className="py-2.5 px-3 text-right font-black text-slate-900 dark:text-white">
-                      {formatAmount(activeCustomerLedgerData.totalDebit)}
+                      {formatAmount(effectiveLedgerData.totalDebit)}
                     </td>
                     <td className="py-2.5 px-3 text-right font-black text-emerald-600 dark:text-emerald-400">
-                      {formatAmount(activeCustomerLedgerData.totalCredit)}
+                      {formatAmount(effectiveLedgerData.totalCredit)}
                     </td>
                     <td className="py-2.5 px-3 text-right font-black text-blue-600 dark:text-blue-400">
-                      {formatAmount(activeCustomerLedgerData.closingBalance)} {activeCustomerLedgerData.closingBalanceType}
+                      {formatAmount(effectiveLedgerData.closingBalance)} {effectiveLedgerData.closingBalanceType}
                     </td>
                   </tr>
                 </tfoot>
@@ -1636,7 +1695,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
             {/* Modal Footer */}
             <div className="px-5 py-3 bg-slate-100 dark:bg-slate-950/80 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
               <span className="text-slate-500 dark:text-slate-400">
-                Total Transactions: <strong className="text-slate-900 dark:text-white font-bold">{activeCustomerLedgerData.entries.length}</strong>
+                Total Transactions: <strong className="text-slate-900 dark:text-white font-bold">{effectiveLedgerData.entries.length}</strong>
               </span>
               <button
                 type="button"

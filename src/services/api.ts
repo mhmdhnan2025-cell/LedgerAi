@@ -38,6 +38,7 @@ import {
   PurchaseReturn,
   CustomerLedgerReport,
   SupplierLedgerReport,
+  EmployeeLedgerReport,
 } from '../types';
 import { OfflineStorageService } from './offlineStorage';
 import { setCurrency } from '../utils/currency';
@@ -1821,6 +1822,10 @@ export const api = {
     return res.json();
   },
 
+  async getCustomerLedger(customerId: string, fromDate?: string, toDate?: string): Promise<CustomerLedgerReport> {
+    return this.getCustomerLedgerReport({ customerId, fromDate, toDate });
+  },
+
   async deleteCashRecoveredItem(id: string): Promise<{ success: boolean; message?: string }> {
     const res = await fetch(`/api/reports/cash-recovered/${encodeURIComponent(id)}`, {
       method: 'DELETE',
@@ -1898,6 +1903,25 @@ export const api = {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to delete supplier ledger entry');
+    }
+    return res.json();
+  },
+
+  // Employee General Ledger
+  async getEmployeeLedger(
+    employeeId: string,
+    fromDate?: string,
+    toDate?: string
+  ): Promise<EmployeeLedgerReport> {
+    const query = new URLSearchParams();
+    query.set('employeeId', employeeId);
+    if (fromDate) query.set('fromDate', fromDate);
+    if (toDate) query.set('toDate', toDate);
+
+    const res = await fetch(`/api/reports/employee-ledger?${query.toString()}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to generate employee general ledger report');
     }
     return res.json();
   },

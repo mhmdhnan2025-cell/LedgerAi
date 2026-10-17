@@ -106,6 +106,8 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
   const [chequeBank, setChequeBank] = useState('');
   const [narration, setNarration] = useState('');
   const [entryAmount, setEntryAmount] = useState('');
+  const [entryDiscount, setEntryDiscount] = useState('');
+  const [discountType, setDiscountType] = useState<'amount' | 'percentage'>('amount');
   const [entryDebit, setEntryDebit] = useState('');
   const [entryCredit, setEntryCredit] = useState('');
   const [entryReceipt, setEntryReceipt] = useState('');
@@ -226,7 +228,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
   // Current Selected Entry Account
   const currentEntryAccount = safeGlAccounts.find((a) => a && (a.id === selectedAccountId || a.code === selectedAccountId));
 
-  // Live calculation of remaining balance for currentEntryAccount based on entered amount
+  // Live calculation of remaining balance for currentEntryAccount based on entered amount and discount
   const liveRemainingInfo = React.useMemo(() => {
     if (!currentEntryAccount) return null;
     const isPayment = activeTab === 'cashPayment' || activeTab === 'bankPayment';
@@ -251,14 +253,26 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
       }
       return {
         amount: numAmt,
+        discount: 0,
+        totalSettlement: numAmt,
         beforeFormatted: currentEntryAccount.balanceFormatted,
         afterFormatted: `${afterBal.toFixed(2)} ${afterType}`,
         afterBal,
         afterType,
       };
     } else if (isReceipt) {
-      // Receipt reduces receivable
-      const signedAfter = signedBefore - numAmt;
+      // Receipt reduces receivable (Cash Received + Discount Allowed)
+      const rawDisc = Number(entryDiscount) || 0;
+      let calcDisc = 0;
+      if (rawDisc > 0) {
+        if (discountType === 'percentage') {
+          calcDisc = Number(((curBal * rawDisc) / 100).toFixed(2));
+        } else {
+          calcDisc = rawDisc;
+        }
+      }
+      const totalSettlement = numAmt + calcDisc;
+      const signedAfter = signedBefore - totalSettlement;
       const afterBal = Math.abs(signedAfter);
       let afterType: 'DR' | 'CR' = signedAfter >= 0 ? 'DR' : 'CR';
       if (currentEntryAccount.type === 'Supplier') {
@@ -266,6 +280,8 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
       }
       return {
         amount: numAmt,
+        discount: calcDisc,
+        totalSettlement,
         beforeFormatted: currentEntryAccount.balanceFormatted,
         afterFormatted: `${afterBal.toFixed(2)} ${afterType}`,
         afterBal,
@@ -273,7 +289,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
       };
     }
     return null;
-  }, [currentEntryAccount, activeTab, entryAmount]);
+  }, [currentEntryAccount, activeTab, entryAmount, entryDiscount, discountType]);
 
   // Grouped and Search-Filtered GL Accounts
   const filteredGlAccounts = safeGlAccounts.filter((a) => {
@@ -295,6 +311,8 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
     setChequeNo('');
     setChequeBank('');
     setEntryAmount('');
+    setEntryDiscount('');
+    setDiscountType('amount');
     setEntryDebit('');
     setEntryCredit('');
     setEntryReceipt('');
@@ -327,6 +345,22 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
     let rcpt = parseFloat(entryReceipt) || 0;
     let pymt = parseFloat(entryPayment) || 0;
 
+    let disc = 0;
+    let discPct: number | undefined;
+    const isReceipt = activeTab === 'cashReceipt' || activeTab === 'bankReceipt';
+    if (isReceipt && entryDiscount) {
+      const rawDisc = parseFloat(entryDiscount) || 0;
+      if (rawDisc > 0) {
+        if (discountType === 'percentage') {
+          discPct = rawDisc;
+          const curBal = Number(currentEntryAccount.balance) || 0;
+          disc = Number(((curBal * rawDisc) / 100).toFixed(2));
+        } else {
+          disc = rawDisc;
+        }
+      }
+    }
+
     if (activeTab === 'journalVoucher') {
       if (dr <= 0 && cr <= 0) {
         setFeedback({ type: 'error', text: 'Please enter Debit or Credit amount.' });
@@ -340,8 +374,8 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
       }
       amt = rcpt > 0 ? rcpt : pymt;
     } else {
-      if (amt <= 0) {
-        setFeedback({ type: 'error', text: 'Please enter a valid Amount.' });
+      if (amt <= 0 && disc <= 0) {
+        setFeedback({ type: 'error', text: 'Please enter a valid Amount or Discount.' });
         return;
       }
     }
@@ -357,6 +391,9 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
       chequeBank: chequeBank.trim() || undefined,
       narration: narration.trim() || (activeTab.includes('Payment') ? 'Paid' : 'Received'),
       amount: amt,
+      discount: disc > 0 ? disc : undefined,
+      discountType: disc > 0 ? discountType : undefined,
+      discountPercent: discPct,
       debit: dr > 0 ? dr : undefined,
       credit: cr > 0 ? cr : undefined,
       receipt: rcpt > 0 ? rcpt : undefined,
@@ -377,6 +414,8 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
     setChequeNo('');
     setChequeBank('');
     setEntryAmount('');
+    setEntryDiscount('');
+    setDiscountType('amount');
     setEntryDebit('');
     setEntryCredit('');
     setEntryReceipt('');
@@ -397,6 +436,8 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
     setChequeDate(item.chequeDate || getTodayFormatted());
     setChequeBank(item.chequeBank || '');
     setEntryAmount(String(item.amount || ''));
+    setEntryDiscount(item.discount !== undefined ? String(item.discount) : '');
+    setDiscountType(item.discountType || 'amount');
     setEntryDebit(String(item.debit || ''));
     setEntryCredit(String(item.credit || ''));
     setEntryReceipt(String(item.receipt || ''));
@@ -1235,10 +1276,10 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
 
                 {/* STANDARD AMOUNT (Receipts & Payments) */}
                 {activeTab !== 'journalVoucher' && activeTab !== 'cashBook' && (
-                  <div className={activeTab.startsWith('bank') ? 'md:col-span-2' : 'md:col-span-2'}>
+                  <div className={activeTab.startsWith('bank') ? 'md:col-span-2' : (activeTab === 'cashReceipt' ? 'md:col-span-2' : 'md:col-span-2')}>
                     <label className="block text-slate-400 font-bold mb-1 uppercase tracking-wider text-[10px] flex items-center justify-between">
-                      <span>AMOUNT</span>
-                      {liveRemainingInfo && liveRemainingInfo.amount > 0 && (
+                      <span>{activeTab.includes('Receipt') ? 'CASH/BANK RECEIVED' : 'AMOUNT'}</span>
+                      {liveRemainingInfo && (liveRemainingInfo.amount > 0 || (liveRemainingInfo.discount || 0) > 0) && (
                         <span className="text-[10px] text-emerald-400 font-mono font-bold">
                           Rem: {liveRemainingInfo.afterFormatted}
                         </span>
@@ -1248,7 +1289,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                       ref={amountInputRef}
                       type="number"
                       step="0.01"
-                      required
+                      required={!entryDiscount || Number(entryDiscount) <= 0}
                       value={entryAmount}
                       onChange={(e) => setEntryAmount(e.target.value)}
                       onKeyDown={(e) => {
@@ -1260,6 +1301,68 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                       placeholder="0.00"
                       className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-white font-bold outline-none focus:border-sky-500"
                     />
+                  </div>
+                )}
+
+                {/* DISCOUNT FIELD (For Customer Receipts: CR & BR) */}
+                {(activeTab === 'cashReceipt' || activeTab === 'bankReceipt') && (
+                  <div className="md:col-span-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-amber-400 font-bold uppercase tracking-wider text-[10px] flex items-center gap-1">
+                        <span>DISCOUNT ALLOWED</span>
+                      </label>
+                      <div className="flex items-center gap-0.5 bg-slate-900 border border-slate-700 rounded p-0.5 text-[9px] font-bold">
+                        <button
+                          type="button"
+                          onClick={() => setDiscountType('amount')}
+                          className={`px-1.5 py-0.5 rounded transition ${
+                            discountType === 'amount'
+                              ? 'bg-amber-500 text-slate-950 font-black'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                          title="Fixed discount amount"
+                        >
+                          {currencySymbol()}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDiscountType('percentage')}
+                          className={`px-1.5 py-0.5 rounded transition ${
+                            discountType === 'percentage'
+                              ? 'bg-amber-500 text-slate-950 font-black'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                          title="Discount percentage based on customer balance"
+                        >
+                          %
+                        </button>
+                      </div>
+                    </div>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0"
+                      value={entryDiscount}
+                      onChange={(e) => setEntryDiscount(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddOrUpdateEntry(e as any);
+                        }
+                      }}
+                      placeholder={discountType === 'percentage' ? 'e.g. 10%' : '0.00'}
+                      className="w-full bg-slate-900 border border-amber-600/50 rounded px-2 py-1.5 text-amber-300 font-bold outline-none focus:border-amber-400 text-xs"
+                    />
+                    {discountType === 'percentage' && Number(entryDiscount) > 0 && currentEntryAccount && (
+                      <div className="text-[10px] text-amber-300 font-mono mt-0.5 truncate">
+                        = {currencySymbol()} {((Number(currentEntryAccount.balance || 0) * Number(entryDiscount)) / 100).toFixed(2)} (Deducted from profit)
+                      </div>
+                    )}
+                    {discountType === 'amount' && Number(entryDiscount) > 0 && (
+                      <div className="text-[10px] text-amber-400 font-mono mt-0.5 truncate">
+                        Deducts {currencySymbol()} {Number(entryDiscount).toFixed(2)} from daily profit
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1302,6 +1405,12 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                           <th className="px-3 py-2.5 text-right">RECEIPT</th>
                           <th className="px-3 py-2.5 text-right">PAYMENT</th>
                         </>
+                      ) : activeTab === 'cashReceipt' || activeTab === 'bankReceipt' ? (
+                        <>
+                          <th className="px-3 py-2.5 text-right">AMOUNT (PAID)</th>
+                          <th className="px-3 py-2.5 text-right text-amber-400">DISCOUNT</th>
+                          <th className="px-3 py-2.5 text-right text-sky-400">TOTAL SETTLED</th>
+                        </>
                       ) : (
                         <th className="px-3 py-2.5 text-right">AMOUNT</th>
                       )}
@@ -1312,14 +1421,18 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                     {entries.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={activeTab.startsWith('bank') ? 9 : activeTab === 'journalVoucher' || activeTab === 'cashBook' ? 7 : 6}
+                          colSpan={activeTab.startsWith('bank') ? 11 : activeTab === 'journalVoucher' || activeTab === 'cashBook' ? 7 : (activeTab === 'cashReceipt' ? 8 : 6)}
                           className="px-3 py-8 text-center text-slate-500 italic"
                         >
                           No entries added yet. Select an account, fill details, and click "Enter".
                         </td>
                       </tr>
                     ) : (
-                      entries.map((item, idx) => (
+                      entries.map((item, idx) => {
+                        const itemAmt = Number(item.amount || 0);
+                        const itemDisc = Number(item.discount || 0);
+                        const itemSettled = itemAmt + itemDisc;
+                        return (
                         <tr key={item.id} className="hover:bg-slate-800/40 transition">
                           <td className="px-2.5 py-2 text-center font-mono font-bold text-sky-400">{idx + 1}</td>
                           <td className="px-3 py-2 font-mono text-sky-400">{item.accountCode}</td>
@@ -1350,6 +1463,18 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                                 {item.payment ? Number(item.payment || 0).toFixed(2) : '-'}
                               </td>
                             </>
+                          ) : activeTab === 'cashReceipt' || activeTab === 'bankReceipt' ? (
+                            <>
+                              <td className="px-3 py-2 text-right font-bold text-emerald-400">
+                                {itemAmt.toFixed(2)}
+                              </td>
+                              <td className="px-3 py-2 text-right font-bold text-amber-400 font-mono">
+                                {itemDisc > 0 ? `${itemDisc.toFixed(2)}${item.discountPercent ? ` (${item.discountPercent}%)` : ''}` : '-'}
+                              </td>
+                              <td className="px-3 py-2 text-right font-black text-sky-300 font-mono">
+                                {itemSettled.toFixed(2)}
+                              </td>
+                            </>
                           ) : (
                             <td className="px-3 py-2 text-right font-bold text-emerald-400">
                               {Number(item.amount || 0).toFixed(2)}
@@ -1376,7 +1501,8 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                             </div>
                           </td>
                         </tr>
-                      ))
+                        );
+                      })
                     )}
                   </tbody>
                 </table>

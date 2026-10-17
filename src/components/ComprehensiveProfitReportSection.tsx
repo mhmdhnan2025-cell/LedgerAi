@@ -795,46 +795,46 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
       {/* ------------------------------------------------------------- */}
       {/* 1. Primary Financial Margins & Dual Profit Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {/* Profit Without Tax */}
-        <div className="bg-gradient-to-br from-emerald-950/60 via-slate-900 to-slate-900 border-2 border-emerald-500/60 rounded-xl p-3.5 shadow-sm">
+        {/* Net Realized Business Profit */}
+        <div className="bg-gradient-to-br from-emerald-950/70 via-slate-900 to-slate-900 border-2 border-emerald-500/70 rounded-xl p-3.5 shadow-md">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-emerald-300 uppercase tracking-wide">
-              Profit Without Taxes
+              Net Realized Profit
             </span>
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800 font-mono font-bold">
-              Pre-Tax
+              Business Profit
             </span>
           </div>
           <div className="text-lg sm:text-xl font-black font-mono text-emerald-400 mt-1 flex items-center gap-1">
-            <span>{currencySymbol()} {(summary.profitWithoutTax ?? summary.totalGrossProfit).toLocaleString()}</span>
+            <span>{currencySymbol()} {summary.totalGrossProfit.toLocaleString()}</span>
             <ArrowUpRight className="w-5 h-5 text-emerald-400" />
           </div>
           <div className="text-[11px] text-slate-300 mt-1 font-mono">
-            Sales excl. tax ({currencySymbol()} {(summary.totalSalesBeforeTax ?? summary.totalSalesVolume).toLocaleString()}) - Cost ({currencySymbol()} {summary.totalCostOfGoods.toLocaleString()})
+            Sale excl. VAT ({currencySymbol()} {(summary.totalSalesBeforeTax ?? summary.totalSalesVolume).toLocaleString()}) - COGS with tax ({currencySymbol()} {(summary.totalCostWithTax ?? summary.totalCostOfGoods).toLocaleString()})
           </div>
-          <div className="text-[10px] text-emerald-400/80 mt-0.5 font-semibold">
-            Margin: {summary.overallMarginPct}% on base revenue
+          <div className="text-[10px] text-emerald-400/90 mt-0.5 font-semibold">
+            Margin: {summary.overallMarginPct}% • Sold: {summary.totalCtnSold || 0} CTN + {summary.totalQtySold || 0} QTY
           </div>
         </div>
 
-        {/* Profit With Tax Effect */}
-        <div className="bg-gradient-to-br from-teal-950/50 via-slate-900 to-slate-900 border border-teal-500/50 rounded-xl p-3.5 shadow-sm">
+        {/* Customer VAT Collected (Separated from Profit) */}
+        <div className="bg-gradient-to-br from-cyan-950/60 via-slate-900 to-slate-900 border border-cyan-500/50 rounded-xl p-3.5 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-teal-300 uppercase tracking-wide">
-              Profit With Added Taxes
+            <span className="text-[11px] font-bold text-cyan-300 uppercase tracking-wide">
+              Customer VAT Collected
             </span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-teal-950 text-teal-300 border border-teal-800 font-mono font-bold">
-              Tax Incl.
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-800 font-mono font-bold">
+              Non-Profit Liability
             </span>
           </div>
-          <div className="text-lg sm:text-xl font-black font-mono text-teal-300 mt-1">
-            {currencySymbol()} {(summary.profitWithTax ?? summary.totalGrossProfit).toLocaleString()}
+          <div className="text-lg sm:text-xl font-black font-mono text-cyan-300 mt-1">
+            {currencySymbol()} {(summary.totalSalesTaxCollected ?? 0).toLocaleString()}
           </div>
           <div className="text-[11px] text-slate-300 mt-1 font-mono">
-            Total Invoiced ({currencySymbol()} {summary.totalSalesVolume.toLocaleString()}) - Total Cost with VAT ({currencySymbol()} {(summary.totalCostWithTax ?? summary.totalCostOfGoods).toLocaleString()})
+            5% Output Tax collected on customer bills (Kept separate from profit)
           </div>
-          <div className="text-[10px] text-slate-400 mt-0.5">
-            After factoring input purchase VAT & output bill VAT
+          <div className="text-[10px] text-cyan-400/80 mt-0.5">
+            Net VAT Payable to FTA: {currencySymbol()} {(summary.netVatPayable ?? 0).toLocaleString()}
           </div>
         </div>
 

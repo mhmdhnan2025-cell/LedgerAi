@@ -86,25 +86,41 @@ export function currencySymbolOf(currency: string): string {
 // COST OF GOODS (identical deterministic engine as Profit Report)
 // -------------------------------------------------------------
 function buildCostLookup(products: Product[]) {
-  const map = new Map<string, number>();
+  const map = new Map<string, { unitCost: number; ctnCost: number; qtyInCarton: number }>();
   for (const p of products) {
-    const cost = p.purchasePrice || p.averagePurchaseCost || p.lastPurchasePrice || (p.sellingPrice ? p.sellingPrice * 0.75 : 0) || 0;
-    if (p.id) map.set(p.id, cost);
-    if (p.name) map.set(p.name.toLowerCase().trim(), cost);
-    if (p.itemTitle) map.set(p.itemTitle.toLowerCase().trim(), cost);
-    if (p.mcode) map.set(p.mcode.toLowerCase().trim(), cost);
-    if (p.sku) map.set(p.sku.toLowerCase().trim(), cost);
+    const unitCost = p.purchasePrice || p.averagePurchaseCost || p.lastPurchasePrice || (p.sellingPrice ? p.sellingPrice * 0.75 : 0) || 0;
+    const qtyInCarton = p.qtyInCarton && p.qtyInCarton > 1 ? p.qtyInCarton : 1;
+    const ctnCost = (p.ctnPurchaseRate && p.ctnPurchaseRate > 0) ? p.ctnPurchaseRate : ((p as any).ctnPrice || (unitCost * qtyInCarton));
+    const obj = { unitCost, ctnCost, qtyInCarton };
+    if (p.id) map.set(p.id, obj);
+    if (p.name) map.set(p.name.toLowerCase().trim(), obj);
+    if (p.itemTitle) map.set(p.itemTitle.toLowerCase().trim(), obj);
+    if (p.mcode) map.set(p.mcode.toLowerCase().trim(), obj);
+    if (p.sku) map.set(p.sku.toLowerCase().trim(), obj);
   }
   return {
-    costOf(items: { productId?: string; itemTitle?: string; mcode?: string; qty: number; rate: number }[]): number {
+    costOf(items: { productId?: string; itemTitle?: string; mcode?: string; qty: number; rate: number; ctn?: number; ratePerCtn?: number }[]): number {
       let total = 0;
       for (const it of items) {
-        let unitCost: number | undefined;
-        if (it.productId) unitCost = map.get(it.productId);
-        if (unitCost === undefined && it.itemTitle) unitCost = map.get(it.itemTitle.toLowerCase().trim());
-        if (unitCost === undefined && it.mcode) unitCost = map.get(it.mcode.toLowerCase().trim());
-        if (unitCost === undefined) unitCost = it.rate > 0 ? it.rate * 0.75 : 0;
-        total += (Number(it.qty) || 0) * unitCost;
+        let entry: { unitCost: number; ctnCost: number; qtyInCarton: number } | undefined;
+        if (it.productId) entry = map.get(it.productId);
+        if (entry === undefined && it.itemTitle) entry = map.get(it.itemTitle.toLowerCase().trim());
+        if (entry === undefined && it.mcode) entry = map.get(it.mcode.toLowerCase().trim());
+
+        const unitCost = entry ? entry.unitCost : (it.rate > 0 ? it.rate * 0.75 : 0);
+        const qtyInCarton = entry ? entry.qtyInCarton : 1;
+        const ctnCost = entry ? entry.ctnCost : (unitCost * qtyInCarton);
+
+        const ctn = Number(it.ctn) || 0;
+        const qty = Number(it.qty) || 0;
+
+        if (ctn > 0 && qty === 0) {
+          total += ctn * ctnCost;
+        } else if (ctn > 0 && qty > 0) {
+          total += (ctn * ctnCost) + (qty * unitCost);
+        } else {
+          total += qty * unitCost;
+        }
       }
       return total;
     },
@@ -149,7 +165,9 @@ function cashMovementOn(ctx: LedgerContext, date: string): { cashIn: number; cas
   }
   for (const payment of ctx.payments) {
     if (db.normalizeDateToYMD(payment.paymentDate) !== date) continue;
-    if ((payment.paymentMethod || 'Cash') === 'Cash') cashIn += Number(payment.amount) || 0;
+    if ((payment.paymentMethod || 'Cash') !== 'Cash') continue;
+    if (payment.orderId && ctx.saleBills.some((b) => (b.id === payment.orderId || b.billNumber === payment.orderNumber) && Number(b.cashReceived) > 0)) continue;
+    cashIn += Number(payment.amount) || 0;
   }
   for (const v of (ctx.vouchers || [])) {
     if (v.status !== 'POSTED') continue;
@@ -168,6 +186,12 @@ function cashMovementOn(ctx: LedgerContext, date: string): { cashIn: number; cas
 
   for (const bill of ctx.purchaseBills) {
     if (db.normalizeDateToYMD(bill.date) !== date) continue;
+    const hasVoucher = (ctx.vouchers || []).some(
+      (v) => (v.status === 'POSTED' && v.voucherType === 'CP') &&
+             (((v as any).referenceNumber && (v as any).referenceNumber === bill.billNumber) ||
+              (v.entries || []).some((e) => e.narration?.includes(bill.billNumber)))
+    );
+    if (hasVoucher) continue;
     const paidCash = bill.isCash ? (Number(bill.paidAmount) || Number(bill.netTotal) || 0) : (Number(bill.paidAmount) || 0);
     cashOut += paidCash;
   }
