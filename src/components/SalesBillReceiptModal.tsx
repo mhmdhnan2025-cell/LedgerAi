@@ -242,6 +242,7 @@ export const SalesBillReceiptModal: React.FC<SalesBillReceiptModalProps> = ({
 
   const totalInWords = amountInWords(netTotal, cur);
   const isThermal = printFormat === 'thermal';
+  const logoPx = Math.min(Math.max(Number(companyProfile?.logoSize) || 56, 24), 200);
   const twoCol = isThermal ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2';
   const headerGrid = isThermal ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-[1fr_auto_1fr]';
 
@@ -564,10 +565,10 @@ Thank you for your business!`;
               {/* Center — logo, TAX INVOICE badge, TRN */}
               <div className={`flex flex-col items-center gap-1 ${isThermal ? 'w-full mt-2' : ''}`}>
                 {companyProfile?.logo ? (
-                  <img src={companyProfile.logo} alt="" className="w-14 h-14 object-contain" />
+                  <img src={companyProfile.logo} alt="" className="object-contain" style={{ width: logoPx, height: logoPx }} />
                 ) : (
-                  <div className="w-14 h-14 rounded-full border-2 border-[#0f7b3f] flex items-center justify-center">
-                    <span className="text-[#0f7b3f] font-black text-lg tracking-tight">{companyInitials}</span>
+                  <div className="rounded-full border-2 border-[#0f7b3f] flex items-center justify-center" style={{ width: logoPx, height: logoPx }}>
+                    <span className="text-[#0f7b3f] font-black tracking-tight" style={{ fontSize: Math.max(12, Math.round(logoPx * 0.34)) }}>{companyInitials}</span>
                   </div>
                 )}
                 <div className="text-[#0f7b3f] font-black text-[12.5px] uppercase tracking-wide leading-tight text-center">

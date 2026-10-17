@@ -14,6 +14,8 @@ import {
   X,
   Edit3,
   Landmark,
+  Image as ImageIcon,
+  Upload,
 } from 'lucide-react';
 import { CompanyProfile } from '../types';
 
@@ -74,6 +76,8 @@ export const CompanyRegistrationModal: React.FC<CompanyRegistrationModalProps> =
   const [iban, setIban] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [logo, setLogo] = useState('');
+  const [logoSize, setLogoSize] = useState(56);
 
   useEffect(() => {
     if (initialCompany) {
@@ -95,6 +99,8 @@ export const CompanyRegistrationModal: React.FC<CompanyRegistrationModalProps> =
       setBankName(initialCompany.bankName || '');
       setBankAccountNo(initialCompany.bankAccountNo || '');
       setIban(initialCompany.iban || '');
+      setLogo(initialCompany.logo || '');
+      setLogoSize(Number(initialCompany.logoSize) || 56);
     } else {
       // Default placeholder values for smooth start
       setName('');
@@ -115,6 +121,8 @@ export const CompanyRegistrationModal: React.FC<CompanyRegistrationModalProps> =
       setBankName('');
       setBankAccountNo('');
       setIban('');
+      setLogo('');
+      setLogoSize(56);
     }
     setError(null);
   }, [initialCompany, isOpen]);
@@ -132,6 +140,19 @@ export const CompanyRegistrationModal: React.FC<CompanyRegistrationModalProps> =
     setTagline('Commercial Restaurant Supplies & Bulk Grain Distributor');
     setNtn('NTN-8942103-7');
     setError(null);
+  };
+
+  const handleLogoFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setError('Logo file 2MB se chota hona chahiye.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setLogo(String(reader.result || ''));
+    reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -182,6 +203,8 @@ export const CompanyRegistrationModal: React.FC<CompanyRegistrationModalProps> =
           bankName: bankName.trim(),
           bankAccountNo: bankAccountNo.trim(),
           iban: iban.trim(),
+          logo,
+          logoSize: Number(logoSize) || 56,
         }),
       });
 
@@ -340,6 +363,64 @@ export const CompanyRegistrationModal: React.FC<CompanyRegistrationModalProps> =
                 onChange={(e) => setPhone(e.target.value)}
                 className="w-full bg-slate-800/90 border border-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 outline-none transition"
               />
+            </div>
+          </div>
+
+          {/* Company Logo + Size (Sales Bill Print) */}
+          <div className="p-3.5 bg-slate-800/40 border border-slate-700/70 rounded-xl space-y-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 flex items-center gap-1">
+                  <ImageIcon className="w-3.5 h-3.5 text-amber-400" />
+                  Company Logo (Sales Bill Print)
+                </label>
+                <p className="text-[11px] text-slate-500 mt-0.5">Yeh logo sales bill par company name ke upar print hoga.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <input id="input-company-logo-file" type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleLogoFile} />
+                <button
+                  type="button"
+                  onClick={() => document.getElementById('input-company-logo-file')?.click()}
+                  className="text-xs font-semibold bg-amber-600/90 hover:bg-amber-500 text-white px-3 py-1.5 rounded-lg transition flex items-center gap-1.5"
+                >
+                  <Upload className="w-3.5 h-3.5" /> {logo ? 'Change Logo' : 'Upload Logo (.jpeg)'}
+                </button>
+                {logo && (
+                  <button
+                    type="button"
+                    onClick={() => setLogo('')}
+                    className="text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-red-300 border border-slate-700 px-3 py-1.5 rounded-lg transition"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="w-20 h-20 rounded-lg bg-white border border-slate-600 flex items-center justify-center overflow-hidden p-1 shrink-0">
+                {logo ? (
+                  <img src={logo} alt="Company logo preview" className="object-contain" style={{ width: Math.min(logoSize, 76), height: Math.min(logoSize, 76) }} />
+                ) : (
+                  <span className="text-3xl font-black text-slate-400">{(name || 'C').trim().charAt(0).toUpperCase()}</span>
+                )}
+              </div>
+              <div className="flex-1 min-w-[200px] space-y-1">
+                <div className="flex items-center justify-between text-xs text-slate-400">
+                  <span className="font-semibold">Bill Logo Size</span>
+                  <span className="font-bold text-amber-300">{logoSize}px</span>
+                </div>
+                <input
+                  id="input-company-logo-size"
+                  type="range"
+                  min={24}
+                  max={140}
+                  step={2}
+                  value={logoSize}
+                  onChange={(e) => setLogoSize(Number(e.target.value))}
+                  className="w-full accent-amber-500"
+                />
+                <p className="text-[10px] text-slate-500">Sales bill par logo ka size (24px se 140px tak adjust karein).</p>
+              </div>
             </div>
           </div>
 

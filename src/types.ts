@@ -467,6 +467,7 @@ export interface CompanyProfile {
   bankAccountNo?: string;     // Account number printed under "Bank Details for Payment"
   iban?: string;              // IBAN printed under "Bank Details for Payment"
   logo?: string;              // Company Logo (base64 data URL or image path)
+  logoSize?: number;          // Company logo size in pixels on printed sales bills (default 56)
   currency: string;           // Default "PKR" (Symbol "Rs.")
   isRegistered: boolean;      // true once company registration is complete
   registeredAt: string;       // ISO date timestamp

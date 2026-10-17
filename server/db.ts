@@ -1361,6 +1361,9 @@ class DatabaseService {
       description: `Company profile for "${updated.name}" updated by ${user}.`,
     });
     this.persist();
+    postgresService.upsertCompanyProfile(updated, getActiveCompanyId()).catch((err) =>
+      console.warn('[PostgreSQL upsertCompanyProfile error]:', err.message)
+    );
     return updated;
   }
 
