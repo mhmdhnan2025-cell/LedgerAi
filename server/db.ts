@@ -2529,6 +2529,7 @@ class DatabaseService {
       tenantData.auditLogs.pop();
     }
     this.persist(tenantData, cid);
+    postgresService.insertAuditLog(log, cid).catch(() => {});
     return log;
   }
 
@@ -3023,6 +3024,7 @@ class DatabaseService {
     const newTx: InventoryTransaction = { id, ...tx };
     this.data.inventoryTransactions.unshift(newTx);
     this.persist();
+    postgresService.insertInventoryTransaction(newTx, getActiveCompanyId()).catch(() => {});
     return newTx;
   }
 
@@ -3837,7 +3839,97 @@ class DatabaseService {
       r.averageOrderValue = restOrders.length > 0 ? Math.round(restPurchases / restOrders.length) : 0;
     });
 
+    this.recalculateAllCustomerBalances();
     this.recalculateAllSupplierBalances();
+  }
+
+  // AUTHORITATIVELY SYNCHRONIZE ALL CUSTOMER BALANCES DYNAMICALLY
+  public recalculateAllCustomerBalances(): void {
+    const customers = this.data.customers || [];
+    const bills = (this.data.saleBills || []).filter((b) => b.status !== 'Cancelled');
+    const vouchers = (this.data.vouchers || []).filter((v) => v.status === 'POSTED');
+    const returns = (this.data.saleReturns || []).filter((sr) => sr.status !== 'CANCELLED');
+    const payments = (this.data.payments || []).filter((p) => !(p as any).isDeleted && p.status !== 'Cancelled' && (p as any).status !== 'DELETED');
+
+    for (const c of customers) {
+      const rawOpen = Number(c.openingBalance) || 0;
+      const openType = c.openingBalanceType || 'DR';
+      let running = openType === 'CR' ? -Math.abs(rawOpen) : Math.abs(rawOpen);
+
+      const cId = (c.id || '').trim().toLowerCase();
+      const cBaseId = cId ? cId.replace(/_comp[_-].*$/, '') : '';
+      const cCode = (c.code || c.accountCode || c.manualCode || '').trim().toLowerCase();
+      const cTitle = (c.accountTitle || c.name || '').trim().toLowerCase();
+      const cleanTitle = cTitle ? cTitle.replace(/[^a-z0-9]/g, '') : '';
+
+      const matches = (id?: string, code?: string, title?: string) => {
+        const idLower = (id || '').trim().toLowerCase();
+        const baseId = idLower ? idLower.replace(/_comp[_-].*$/, '') : '';
+        const codeLower = (code || '').trim().toLowerCase();
+        const titleLower = (title || '').trim().toLowerCase();
+        const cleanT = titleLower ? titleLower.replace(/[^a-z0-9]/g, '') : '';
+
+        if (cId && idLower && (cId === idLower || cBaseId === baseId || cId === baseId || cBaseId === idLower)) return true;
+        if (cCode && codeLower && cCode === codeLower && !['0101040000', '0101', '0201010000', '0201'].includes(cCode)) return true;
+        if (cTitle && titleLower && (cTitle === titleLower || (cleanTitle && cleanT && cleanTitle === cleanT))) return true;
+        return false;
+      };
+
+      // 1. Sale Bills (Debit: Increases receivable; cashReceived decreases receivable)
+      let totalSales = 0;
+      let lastBillNum = c.lastBillNumber;
+      let lastBillDt = c.lastBillDate;
+      let lastBillAmt = c.lastBillAmount;
+
+      for (const b of bills) {
+        if (!matches(b.customerId, (b as any).customerCode, b.customerAccountTitle)) continue;
+        const net = Number(b.netTotal || b.totalAmount || 0);
+        totalSales += net;
+        const cashRec = Number(b.cashReceived) || 0;
+        const balRec = b.balanceReceivable !== undefined ? Number(b.balanceReceivable) : Math.max(0, net - cashRec);
+        running += balRec;
+
+        if (!lastBillDt || (b.date && b.date >= lastBillDt)) {
+          lastBillDt = b.date;
+          lastBillNum = b.billNumber;
+          lastBillAmt = net;
+        }
+      }
+
+      // 2. Vouchers (CR / BR / JV)
+      for (const v of vouchers) {
+        for (const e of (v.entries || [])) {
+          if (!matches(e.accountId, e.accountCode, e.accountTitle)) continue;
+          if (v.voucherType === 'CR' || v.voucherType === 'BR') {
+            running -= Number(e.amount || 0);
+          } else if (v.voucherType === 'CB') {
+            running -= Number(e.receipt || e.amount || 0);
+          } else if (v.voucherType === 'JV') {
+            running += (Number(e.debit || 0) - Number(e.credit || 0));
+          }
+        }
+      }
+
+      // 3. Sales Returns (Credit: Decreases receivable)
+      for (const sr of returns) {
+        if (!matches(sr.customerId, sr.customerCode, sr.customerAccountTitle)) continue;
+        running -= Number(sr.netTotal || sr.totalAmount || 0);
+      }
+
+      // 4. Standalone Direct Payments (Credit: Decreases receivable, skip if created from sale bill's cashReceived)
+      for (const p of payments) {
+        if (p.orderId && bills.some((sb) => sb.id === p.orderId && Number(sb.cashReceived) > 0)) continue;
+        if (!matches(p.restaurantId || (p as any).customerId, (p as any).customerCode, p.restaurantName || (p as any).customerName)) continue;
+        running -= Number(p.amount || 0);
+      }
+
+      c.outstandingBalance = Number(running.toFixed(2));
+      c.openingBalanceType = running >= 0 ? 'DR' : 'CR';
+      c.totalSales = Number(totalSales.toFixed(2));
+      if (lastBillNum) c.lastBillNumber = lastBillNum;
+      if (lastBillDt) c.lastBillDate = lastBillDt;
+      if (lastBillAmt !== undefined) c.lastBillAmount = lastBillAmt;
+    }
   }
 
   // AUTHORITATIVELY SYNCHRONIZE ALL SUPPLIER BALANCES
@@ -3913,9 +4005,10 @@ class DatabaseService {
         running -= Number(pr.netTotal || pr.totalAmount || 0);
       }
 
-      // 4. Direct Payments
+      // 4. Standalone Direct Payments (skip if created from purchase bill's paidAmount)
       for (const p of payments) {
-        if (!matches((p as any).supplierId || p.restaurantId)) continue;
+        if (p.orderId && bills.some((pb) => (pb.id === p.orderId || pb.billNumber === p.orderNumber) && Number(pb.paidAmount) > 0)) continue;
+        if (!matches((p as any).supplierId || p.restaurantId, (p as any).supplierCode, p.restaurantName || (p as any).supplierName)) continue;
         running -= Number(p.amount || 0);
       }
 
@@ -4622,6 +4715,31 @@ class DatabaseService {
 
     this.data.purchaseBills.unshift(newBill);
 
+    if (paidAmount > 0) {
+      const paymentRecord: Payment = {
+        id: `pay-pb-${newBill.id}`,
+        paymentNumber: `PAY-PB-${billNumber}`,
+        restaurantId: newBill.supplierId,
+        restaurantName: newBill.supplierAccountTitle,
+        orderId: newBill.id,
+        orderNumber: newBill.billNumber,
+        amount: paidAmount,
+        paymentDate: normalizedBillDate,
+        date: normalizedBillDate,
+        paymentMethod: isCash ? 'Cash' : (((billData as any).paymentMethod as any) || 'Cash'),
+        notes: `Payment to supplier at bill creation for Purchase Bill #${billNumber}`,
+        recordedBy: user.name || 'Admin',
+        source: 'manual',
+        createdAt: new Date().toISOString(),
+      };
+      this.data.payments.unshift(paymentRecord);
+      postgresService.upsertPayment(paymentRecord, getActiveCompanyId()).catch((err) => {
+        console.warn('[PostgreSQL upsertPayment on PurchaseBill Error]:', err.message);
+      });
+    }
+
+    this.recalculateAllLedgers();
+
     this.logAudit({
       userId: user.id,
       userName: user.name,
@@ -4634,6 +4752,9 @@ class DatabaseService {
     });
 
     this.persist();
+    postgresService.upsertPurchaseBill(newBill, getActiveCompanyId()).catch((err) => {
+      console.warn('[PostgreSQL upsertPurchaseBill on create Error]:', err.message);
+    });
     return newBill;
   }
 
@@ -4732,6 +4853,15 @@ class DatabaseService {
     }
 
     this.data.purchaseBills.splice(idx, 1);
+
+    // Clean up associated payment records
+    const relatedPayments = (this.data.payments || []).filter(
+      (p) => p.orderId === bill.id || p.orderNumber === bill.billNumber || p.id === `pay-pb-${bill.id}`
+    );
+    for (const rp of relatedPayments) {
+      this.data.payments = this.data.payments.filter((p) => p.id !== rp.id);
+      postgresService.deletePayment(rp.id, getActiveCompanyId()).catch(() => {});
+    }
 
     // Clean up associated inventory transactions
     if (this.data.inventoryTransactions) {
@@ -4883,6 +5013,41 @@ class DatabaseService {
 
     this.data.purchaseBills[idx] = newBill;
 
+    // Update associated payment record
+    const existingPaymentIdx = (this.data.payments || []).findIndex(
+      (p) => p.orderId === newBill.id || p.orderNumber === newBill.billNumber || p.id === `pay-pb-${newBill.id}`
+    );
+    if (paidAmount > 0) {
+      const paymentRecord: Payment = {
+        id: existingPaymentIdx !== -1 ? this.data.payments[existingPaymentIdx].id : `pay-pb-${newBill.id}`,
+        paymentNumber: `PAY-PB-${newBill.billNumber}`,
+        restaurantId: newBill.supplierId,
+        restaurantName: newBill.supplierAccountTitle,
+        orderId: newBill.id,
+        orderNumber: newBill.billNumber,
+        amount: paidAmount,
+        paymentDate: newBill.date,
+        date: newBill.date,
+        paymentMethod: ((newBill as any).paymentMethod as any) || 'Cash',
+        notes: `Payment updated for Purchase Bill #${newBill.billNumber}`,
+        recordedBy: user.name || 'Admin',
+        source: 'manual',
+        createdAt: existingPaymentIdx !== -1 ? this.data.payments[existingPaymentIdx].createdAt : new Date().toISOString(),
+      };
+      if (existingPaymentIdx !== -1) {
+        this.data.payments[existingPaymentIdx] = paymentRecord;
+      } else {
+        this.data.payments.unshift(paymentRecord);
+      }
+      postgresService.upsertPayment(paymentRecord, getActiveCompanyId()).catch(() => {});
+    } else if (existingPaymentIdx !== -1) {
+      const pId = this.data.payments[existingPaymentIdx].id;
+      this.data.payments.splice(existingPaymentIdx, 1);
+      postgresService.deletePayment(pId, getActiveCompanyId()).catch(() => {});
+    }
+
+    this.recalculateAllLedgers();
+
     this.logAudit({
       userId: user.id,
       userName: user.name,
@@ -4895,6 +5060,9 @@ class DatabaseService {
     });
 
     this.persist();
+    postgresService.upsertPurchaseBill(newBill, getActiveCompanyId()).catch((err) => {
+      console.warn('[PostgreSQL upsertPurchaseBill on update Error]:', err.message);
+    });
     return newBill;
   }
 
@@ -6055,6 +6223,31 @@ class DatabaseService {
 
     this.data.saleBills.unshift(newSaleBill);
 
+    if (cashReceived > 0) {
+      const paymentRecord: Payment = {
+        id: `pay-sb-${newSaleBill.id}`,
+        paymentNumber: `PAY-SB-${billNumber}`,
+        restaurantId: newSaleBill.customerId,
+        restaurantName: newSaleBill.customerAccountTitle,
+        orderId: newSaleBill.id,
+        orderNumber: newSaleBill.billNumber,
+        amount: cashReceived,
+        paymentDate: billDate,
+        date: billDate,
+        paymentMethod: ((billData as any).paymentMethod as any) || 'Cash',
+        notes: `Payment received at bill creation for Sale Bill #${billNumber}`,
+        recordedBy: user.name || 'Admin',
+        source: 'manual',
+        createdAt: new Date().toISOString(),
+      };
+      this.data.payments.unshift(paymentRecord);
+      postgresService.upsertPayment(paymentRecord, getActiveCompanyId()).catch((err) => {
+        console.warn('[PostgreSQL upsertPayment on SaleBill Error]:', err.message);
+      });
+    }
+
+    this.recalculateAllLedgers();
+
     this.logAudit({
       userId: user.id,
       userName: user.name,
@@ -6142,6 +6335,15 @@ class DatabaseService {
     }
 
     this.data.saleBills.splice(idx, 1);
+
+    // Clean up associated payment records
+    const relatedPayments = (this.data.payments || []).filter(
+      (p) => p.orderId === bill.id || p.orderNumber === bill.billNumber || p.id === `pay-sb-${bill.id}`
+    );
+    for (const rp of relatedPayments) {
+      this.data.payments = this.data.payments.filter((p) => p.id !== rp.id);
+      postgresService.deletePayment(rp.id, getActiveCompanyId()).catch(() => {});
+    }
 
     // Clean up associated inventory transactions
     if (this.data.inventoryTransactions) {
@@ -6328,6 +6530,41 @@ class DatabaseService {
     }
 
     this.data.saleBills[idx] = newBill;
+
+    // Update associated payment record
+    const existingPaymentIdx = (this.data.payments || []).findIndex(
+      (p) => p.orderId === newBill.id || p.orderNumber === newBill.billNumber || p.id === `pay-sb-${newBill.id}`
+    );
+    if (cashReceived > 0) {
+      const paymentRecord: Payment = {
+        id: existingPaymentIdx !== -1 ? this.data.payments[existingPaymentIdx].id : `pay-sb-${newBill.id}`,
+        paymentNumber: `PAY-SB-${newBill.billNumber}`,
+        restaurantId: newBill.customerId,
+        restaurantName: newBill.customerAccountTitle,
+        orderId: newBill.id,
+        orderNumber: newBill.billNumber,
+        amount: cashReceived,
+        paymentDate: newBill.date,
+        date: newBill.date,
+        paymentMethod: (newBill as any).paymentMethod || 'Cash',
+        notes: `Payment updated for Sale Bill #${newBill.billNumber}`,
+        recordedBy: user.name || 'Admin',
+        source: 'manual',
+        createdAt: existingPaymentIdx !== -1 ? this.data.payments[existingPaymentIdx].createdAt : new Date().toISOString(),
+      };
+      if (existingPaymentIdx !== -1) {
+        this.data.payments[existingPaymentIdx] = paymentRecord;
+      } else {
+        this.data.payments.unshift(paymentRecord);
+      }
+      postgresService.upsertPayment(paymentRecord, getActiveCompanyId()).catch(() => {});
+    } else if (existingPaymentIdx !== -1) {
+      const pId = this.data.payments[existingPaymentIdx].id;
+      this.data.payments.splice(existingPaymentIdx, 1);
+      postgresService.deletePayment(pId, getActiveCompanyId()).catch(() => {});
+    }
+
+    this.recalculateAllLedgers();
 
     this.logAudit({
       userId: user.id,
@@ -8597,8 +8834,10 @@ class DatabaseService {
 
     // Subtract payments table prior to fromDate
     for (const p of (this.data.payments || [])) {
+      if ((p as any).isDeleted || p.status === 'Cancelled' || (p as any).status === 'DELETED') continue;
       const pDate = this.normalizeDateToYMD(p.paymentDate || p.createdAt || '');
       if (pDate >= normFrom) continue;
+      if (p.orderId && (this.data.saleBills || []).some((sb) => (sb.id === p.orderId || sb.billNumber === p.orderNumber) && Number(sb.cashReceived) > 0)) continue;
       if (matchesCustomer(p.restaurantId || (p as any).customerId, (p as any).customerCode, p.restaurantName || (p as any).customerName)) {
         calcOpening -= Number(p.amount || 0);
       }
@@ -8748,6 +8987,7 @@ class DatabaseService {
     // Direct Customer Payments in payments table
     for (const p of (this.data.payments || [])) {
       if ((p as any).isDeleted || p.status === 'Cancelled' || (p as any).status === 'DELETED') continue;
+      if (p.orderId && (this.data.saleBills || []).some((sb) => (sb.id === p.orderId || sb.billNumber === p.orderNumber) && Number(sb.cashReceived) > 0)) continue;
       if (!matchesCustomer(p.restaurantId || (p as any).customerId)) continue;
       const pDate = this.normalizeDateToYMD(p.paymentDate || p.date || (p as any).createdAt || '');
       if (pDate < normFrom || pDate > normTo) continue;
@@ -9049,6 +9289,7 @@ class DatabaseService {
       if ((p as any).isDeleted || p.status === 'Cancelled' || (p as any).status === 'DELETED') continue;
       const pDate = this.normalizeDateToYMD(p.paymentDate || p.date || (p as any).createdAt || '');
       if (pDate >= normFrom) continue;
+      if (p.orderId && (this.data.purchaseBills || []).some((pb) => (pb.id === p.orderId || pb.billNumber === p.orderNumber) && Number(pb.paidAmount) > 0)) continue;
       if (matchesSupplier((p as any).supplierId || p.restaurantId)) {
         calcOpening -= Number(p.amount || 0);
       }
@@ -9206,6 +9447,7 @@ class DatabaseService {
     // Direct Payments in payments table
     for (const p of (this.data.payments || [])) {
       if ((p as any).isDeleted || p.status === 'Cancelled' || (p as any).status === 'DELETED') continue;
+      if (p.orderId && (this.data.purchaseBills || []).some((pb) => (pb.id === p.orderId || pb.billNumber === p.orderNumber) && Number(pb.paidAmount) > 0)) continue;
       if (!matchesSupplier((p as any).supplierId || p.restaurantId)) continue;
       const pDate = this.normalizeDateToYMD(p.paymentDate || p.date || (p as any).createdAt || '');
       if (pDate < normFrom || pDate > normTo) continue;
