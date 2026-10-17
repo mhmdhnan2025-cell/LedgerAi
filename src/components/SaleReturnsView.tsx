@@ -115,9 +115,10 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
   }, [combinedAccounts, accountSearchQuery]);
 
   const filteredProducts = useMemo(() => {
-    if (!itemSearchQuery.trim()) return products;
+    const active = products.filter((p) => p.status !== false);
+    if (!itemSearchQuery.trim()) return active;
     const q = itemSearchQuery.toLowerCase().trim();
-    return products.filter((p) => p.name.toLowerCase().includes(q) || (p.code && p.code.toLowerCase().includes(q)) || (p.sku && p.sku.toLowerCase().includes(q)));
+    return active.filter((p) => p.name.toLowerCase().includes(q) || (p.code && p.code.toLowerCase().includes(q)) || (p.sku && p.sku.toLowerCase().includes(q)));
   }, [products, itemSearchQuery]);
 
   // Load returns and customers

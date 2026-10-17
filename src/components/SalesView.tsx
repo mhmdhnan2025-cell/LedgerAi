@@ -1002,7 +1002,8 @@ export const SalesView: React.FC<SalesViewProps> = ({
   }, [customers, customerSearchQuery]);
 
   // Filtered products for line item dropdown
-  const filteredProducts = products.filter(
+  const activeProducts = products.filter((p) => p.status !== false);
+  const filteredProducts = activeProducts.filter(
     (p) =>
       p.name.toLowerCase().includes(itemSearchQuery.toLowerCase()) ||
       (p.code && p.code.toLowerCase().includes(itemSearchQuery.toLowerCase())) ||

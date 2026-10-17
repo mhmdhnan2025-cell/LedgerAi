@@ -59,6 +59,8 @@ export const PurchaseReturnModal: React.FC<PurchaseReturnModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const selectableProducts = products.filter((p) => p.status !== false);
+
   useEffect(() => {
     if (initialReturn) {
       setReturnNumber(initialReturn.returnNumberFormatted || initialReturn.returnNumber);
@@ -75,7 +77,7 @@ export const PurchaseReturnModal: React.FC<PurchaseReturnModalProps> = ({
       setOriginalBillNumber('');
       setReason('Damaged goods / Return to supplier');
       setIsCash(false);
-      const defaultProd = products[0];
+      const defaultProd = selectableProducts[0];
       const qInCtn = defaultProd?.quantityInCarton || (defaultProd as any)?.qtyInCarton || 1;
       const rate = defaultProd?.purchasePrice || 0;
       const ratePerCtn = (defaultProd as any)?.ctnPurchaseRate || (rate * qInCtn);
@@ -101,7 +103,7 @@ export const PurchaseReturnModal: React.FC<PurchaseReturnModalProps> = ({
   if (!isOpen) return null;
 
   const handleAddItem = () => {
-    const defaultProd = products[0];
+    const defaultProd = selectableProducts[0];
     const qInCtn = defaultProd?.quantityInCarton || (defaultProd as any)?.qtyInCarton || 1;
     const rate = defaultProd?.purchasePrice || 0;
     const ratePerCtn = (defaultProd as any)?.ctnPurchaseRate || (rate * qInCtn);
@@ -455,7 +457,7 @@ export const PurchaseReturnModal: React.FC<PurchaseReturnModalProps> = ({
                           className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-hidden focus:ring-1 focus:ring-purple-500"
                         >
                           <option value="">Select product...</option>
-                          {products.map((p) => (
+                          {selectableProducts.map((p) => (
                             <option key={p.id} value={p.id}>
                               {p.sku ? `[${p.sku}] ` : ''}{p.name || p.itemTitle} (1 CTN = {p.quantityInCarton || (p as any).qtyInCarton || 1})
                             </option>

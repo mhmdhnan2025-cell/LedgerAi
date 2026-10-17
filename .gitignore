@@ -10,3 +10,4 @@ data/
 data/pgdata/
 data/settings.json
 data/*.json
+.railway/

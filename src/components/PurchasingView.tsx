@@ -916,7 +916,8 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
   };
 
   // Filtered item list for searchable dropdown (Image 2)
-  const filteredProducts = products.filter((p) => {
+  const activeProducts = products.filter((p) => p.status !== false);
+  const filteredProducts = activeProducts.filter((p) => {
     if (!itemSearchQuery.trim()) return true;
     const q = itemSearchQuery.toLowerCase();
     return p.name.toLowerCase().includes(q) || (p.sku && p.sku.toLowerCase().includes(q));

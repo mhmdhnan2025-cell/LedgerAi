@@ -2,6 +2,7 @@ import { currencySymbol } from './currency';
 import fs from 'fs';
 import path from 'path';
 import { postgresService, PostgresStatus } from './postgres';
+import { runZafrOneTimeStockImport } from './seeds/zafr_one_time_import';
 import { findProductByBilingualName, areBilingualSynonyms } from './bilingualMatcher';
 import {
   getActiveCompanyId,
@@ -787,6 +788,10 @@ class DatabaseService {
         for (const c of dbCompanies) {
           this.companies.set(c.id, c);
         }
+
+        // 1b. One-time ZAHRAT AL FAJR stock import (runs before tenant merge so the
+        // loaded company data already includes the imported products)
+        await runZafrOneTimeStockImport((id) => this.companies.has(id));
 
         // 2. Load users
         const dbUsers = await postgresService.getAllUsers();
