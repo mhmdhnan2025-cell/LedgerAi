@@ -321,12 +321,22 @@ export const AiLedgerAuditReportSection: React.FC<AiLedgerAuditReportSectionProp
               <span className="text-base font-black font-mono text-amber-400">
                 {report.currencySymbol} {fmt(report.khataCard.receivable)}
               </span>
+              {(report.khataCard.customerAdvance || 0) > 0 && (
+                <span className="text-[10px] text-cyan-400 font-mono block mt-0.5">
+                  Adv: {report.currencySymbol} {fmt(report.khataCard.customerAdvance || 0)}
+                </span>
+              )}
             </div>
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
               <span className="text-[10px] text-slate-400 font-bold uppercase block">Supplier Payable</span>
               <span className="text-base font-black font-mono text-rose-400">
                 {report.currencySymbol} {fmt(report.khataCard.payable)}
               </span>
+              {(report.khataCard.supplierAdvance || 0) > 0 && (
+                <span className="text-[10px] text-cyan-400 font-mono block mt-0.5">
+                  Adv: {report.currencySymbol} {fmt(report.khataCard.supplierAdvance || 0)}
+                </span>
+              )}
             </div>
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
               <span className="text-[10px] text-slate-400 font-bold uppercase block flex items-center gap-1.5">

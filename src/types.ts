@@ -283,6 +283,7 @@ export interface Supplier {
   payableType?: 'CR' | 'DR';    // CR or DR (default CR)
   openingBalance?: number;      // Initial ledger opening balance
   openingBalanceType?: 'CR' | 'DR'; // Initial opening balance type (default CR)
+  syncOpeningBalance?: boolean; // openingBalance field carries the CURRENT balance (server back-solves opening)
   documents?: { id: string; name: string; date: string; url?: string; size?: string }[];
   categories?: string[];
   totalPurchases?: number;
@@ -724,6 +725,7 @@ export interface Customer {
   outstandingBalance: number;   // Current balance receivable
   openingBalance?: number;      // Initial ledger opening balance
   openingBalanceType?: 'DR' | 'CR'; // Initial opening balance type (default DR)
+  syncOpeningBalance?: boolean; // openingBalance field carries the CURRENT balance (server back-solves opening)
   creditLimit?: number;
   totalSales?: number;
   createdAt: string;
@@ -1085,7 +1087,13 @@ export interface AiLedgerAuditReport {
     purchaseReturnsCount?: number;
   };
   returnsSummary?: AiLedgerAuditReturnsSummary;
-  khataCard: { receivable: number; payable: number; netBalance: number };
+  khataCard: {
+    receivable: number;
+    payable: number;
+    netBalance: number;
+    customerAdvance?: number;
+    supplierAdvance?: number;
+  };
   stockCard: {
     unitLabel: string;
     openingUnits: number;

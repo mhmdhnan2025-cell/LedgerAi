@@ -667,6 +667,35 @@ class DatabaseService {
             if (!Array.isArray(parsed.suppliers)) {
               parsed.suppliers = [];
             }
+            // Auto-heal / sync authoritative 152 customers & 40 suppliers if dataset contains outdated counts
+            const custSeedFile = path.join(process.cwd(), 'server', 'seeds', 'seed_152_customers.json');
+            const distCustSeed = path.join(process.cwd(), 'dist', 'seeds', 'seed_152_customers.json');
+            const custPath = fs.existsSync(custSeedFile) ? custSeedFile : (fs.existsSync(distCustSeed) ? distCustSeed : null);
+
+            const supSeedFile = path.join(process.cwd(), 'server', 'seeds', 'seed_40_suppliers.json');
+            const distSupSeed = path.join(process.cwd(), 'dist', 'seeds', 'seed_40_suppliers.json');
+            const supPath = fs.existsSync(supSeedFile) ? supSeedFile : (fs.existsSync(distSupSeed) ? distSupSeed : null);
+
+            if (parsed.customers.length !== 152) {
+              if (this._defaultData && this._defaultData.customers?.length === 152) {
+                console.log(`[DB] Syncing verified 152 customers for tenant ${cid}`);
+                parsed.customers = JSON.parse(JSON.stringify(this._defaultData.customers));
+              } else if (custPath) {
+                console.log(`[DB] Syncing verified 152 customers from seed for tenant ${cid}`);
+                parsed.customers = JSON.parse(fs.readFileSync(custPath, 'utf8'));
+              }
+              try { fs.writeFileSync(tenantFile, JSON.stringify(parsed, null, 2), 'utf-8'); } catch {}
+            }
+            if (parsed.suppliers.length !== 40) {
+              if (this._defaultData && this._defaultData.suppliers?.length === 40) {
+                console.log(`[DB] Syncing verified 40 suppliers for tenant ${cid}`);
+                parsed.suppliers = JSON.parse(JSON.stringify(this._defaultData.suppliers));
+              } else if (supPath) {
+                console.log(`[DB] Syncing verified 40 suppliers from seed for tenant ${cid}`);
+                parsed.suppliers = JSON.parse(fs.readFileSync(supPath, 'utf8'));
+              }
+              try { fs.writeFileSync(tenantFile, JSON.stringify(parsed, null, 2), 'utf-8'); } catch {}
+            }
             if (!Array.isArray(parsed.banks) || parsed.banks.length === 0) {
               parsed.banks = [...DEFAULT_SEED_BANKS];
             }
@@ -1081,11 +1110,21 @@ class DatabaseService {
           if (!Array.isArray(parsed.employees) || parsed.employees.length === 0) {
             parsed.employees = [...DEFAULT_SEED_EMPLOYEES];
           }
-          if (!Array.isArray(parsed.suppliers)) {
-            parsed.suppliers = [];
+          const custSeedFile = path.join(process.cwd(), 'server', 'seeds', 'seed_152_customers.json');
+          const distCustSeed = path.join(process.cwd(), 'dist', 'seeds', 'seed_152_customers.json');
+          const custPath = fs.existsSync(custSeedFile) ? custSeedFile : (fs.existsSync(distCustSeed) ? distCustSeed : null);
+
+          const supSeedFile = path.join(process.cwd(), 'server', 'seeds', 'seed_40_suppliers.json');
+          const distSupSeed = path.join(process.cwd(), 'dist', 'seeds', 'seed_40_suppliers.json');
+          const supPath = fs.existsSync(supSeedFile) ? supSeedFile : (fs.existsSync(distSupSeed) ? distSupSeed : null);
+
+          if (!Array.isArray(parsed.suppliers) || (parsed.suppliers.length !== 40 && supPath)) {
+            if (supPath) parsed.suppliers = JSON.parse(fs.readFileSync(supPath, 'utf8'));
+            else if (!Array.isArray(parsed.suppliers)) parsed.suppliers = [];
           }
-          if (!Array.isArray(parsed.customers)) {
-            parsed.customers = [];
+          if (!Array.isArray(parsed.customers) || (parsed.customers.length !== 152 && custPath)) {
+            if (custPath) parsed.customers = JSON.parse(fs.readFileSync(custPath, 'utf8'));
+            else if (!Array.isArray(parsed.customers)) parsed.customers = [];
           }
           if (!Array.isArray(parsed.restaurants)) {
             parsed.restaurants = [];
@@ -2311,15 +2350,31 @@ class DatabaseService {
     }
 
     const prev = list[idx];
+    // Settings carries the CURRENT payable in the opening-balance field;
+    // syncOpeningBalance back-solves the real opening (current - transactions).
+    const syncToCurrentBalance = (updates as any).syncOpeningBalance === true;
+    delete (updates as any).syncOpeningBalance;
     const title = updates.title !== undefined ? updates.title.trim() : (updates.name !== undefined ? updates.name.trim() : prev.title);
     const accountTitle = updates.accountTitle !== undefined ? updates.accountTitle.trim() : (title || prev.accountTitle);
     const payableAmount = updates.payableToSupplier !== undefined
       ? Number(updates.payableToSupplier)
       : (updates.balanceOwed !== undefined ? Number(updates.balanceOwed) : (updates.openingBalance !== undefined ? Number(updates.openingBalance) : prev.payableToSupplier));
-    const openBal = updates.openingBalance !== undefined
+    let openBal = updates.openingBalance !== undefined
       ? Number(updates.openingBalance)
       : (updates.payableToSupplier !== undefined ? payableAmount : (prev.openingBalance !== undefined ? prev.openingBalance : payableAmount));
-    const openBalType = updates.openingBalanceType || updates.payableType || prev.openingBalanceType || prev.payableType || 'CR';
+    let openBalType = updates.openingBalanceType || updates.payableType || prev.openingBalanceType || prev.payableType || 'CR';
+
+    if (syncToCurrentBalance && !isNaN(payableAmount)) {
+      const desiredType = updates.payableType || updates.openingBalanceType || prev.payableType || 'CR';
+      const desiredSigned = desiredType === 'DR' ? -Math.abs(payableAmount) : Math.abs(payableAmount);
+      const curOpen = Number(prev.openingBalance) || 0;
+      const curSignedOpen = (prev.openingBalanceType || prev.payableType || 'CR') === 'DR' ? -Math.abs(curOpen) : Math.abs(curOpen);
+      const curSignedPayable = (prev.payableType || 'CR') === 'DR' ? -Math.abs(Number(prev.payableToSupplier) || 0) : Math.abs(Number(prev.payableToSupplier) || 0);
+      const txEffect = curSignedPayable - curSignedOpen;
+      const neededSigned = Number((desiredSigned - txEffect).toFixed(2));
+      openBal = Math.abs(neededSigned);
+      openBalType = neededSigned < 0 ? 'DR' : 'CR';
+    }
 
     const updated: Supplier = {
       ...prev,
@@ -3935,11 +3990,16 @@ class DatabaseService {
       }
 
       c.outstandingBalance = Number(running.toFixed(2));
-      c.openingBalanceType = running >= 0 ? 'DR' : 'CR';
       c.totalSales = Number(totalSales.toFixed(2));
       if (lastBillNum) c.lastBillNumber = lastBillNum;
       if (lastBillDt) c.lastBillDate = lastBillDt;
       if (lastBillAmt !== undefined) c.lastBillAmount = lastBillAmt;
+
+      // When balance reaches 0 (settled), reset openingBalance to 0 so it never restarts from old opening
+      if (Math.abs(c.outstandingBalance) < 0.005) {
+        c.outstandingBalance = 0;
+        c.openingBalance = 0;
+      }
     }
   }
 
@@ -4027,6 +4087,13 @@ class DatabaseService {
       s.balanceOwed = s.payableToSupplier;
       s.payableType = running >= 0 ? 'CR' : 'DR';
       s.totalPurchases = Number(totalPurch.toFixed(2));
+
+      // When payable reaches 0 (settled), reset openingBalance to 0 so it never restarts from old opening
+      if (s.payableToSupplier < 0.005) {
+        s.payableToSupplier = 0;
+        s.balanceOwed = 0;
+        s.openingBalance = 0;
+      }
     }
   }
 
@@ -5494,13 +5561,28 @@ class DatabaseService {
     }
 
     const current = this.data.customers[idx];
-    const openingBal = updates.openingBalance !== undefined
+    // Settings' "Opening Balance" field now carries the CURRENT ledger balance.
+    // syncOpeningBalance tells us to back-solve the real opening so that
+    // (opening + all transactions) still equals the entered value - no double count.
+    const syncToCurrentBalance = (updates as any).syncOpeningBalance === true;
+    delete (updates as any).syncOpeningBalance;
+
+    let openingBal = updates.openingBalance !== undefined
       ? Number(updates.openingBalance)
       : (current.openingBalance !== undefined ? current.openingBalance : 0);
-    const openingType: 'DR' | 'CR' = (updates.openingBalanceType as any) || current.openingBalanceType || 'DR';
+    let openingType: 'DR' | 'CR' = (updates.openingBalanceType as any) || current.openingBalanceType || 'DR';
 
     let newOutstanding = current.outstandingBalance;
-    if (updates.outstandingBalance !== undefined) {
+    if (syncToCurrentBalance) {
+      const desiredSigned = openingType === 'CR' ? -Math.abs(openingBal) : Math.abs(openingBal);
+      const curOpen = Number(current.openingBalance) || 0;
+      const curSignedOpen = (current.openingBalanceType || 'DR') === 'CR' ? -Math.abs(curOpen) : Math.abs(curOpen);
+      const txEffect = (Number(current.outstandingBalance) || 0) - curSignedOpen;
+      const neededSigned = Number((desiredSigned - txEffect).toFixed(2));
+      openingBal = Math.abs(neededSigned);
+      openingType = neededSigned < 0 ? 'CR' : 'DR';
+      newOutstanding = desiredSigned;
+    } else if (updates.outstandingBalance !== undefined) {
       newOutstanding = Number(updates.outstandingBalance);
     } else if (updates.openingBalance !== undefined) {
       newOutstanding = openingType === 'CR' ? -Math.abs(openingBal) : Math.abs(openingBal);
@@ -6786,10 +6868,15 @@ class DatabaseService {
         billVatTotal += Number(it.vatAmount || 0);
       }
 
-      const saleRevenueBeforeTax = Number((bill.grossAmount !== undefined ? bill.grossAmount : (bill.netTotal - billVatTotal)).toFixed(2));
+      const billDiscountAmount = Number(bill.billDiscountAmount) || 0;
+      // grossAmount is AFTER item discounts but BEFORE the bill-level discount;
+      // normalize the fallback the same way so the bill discount is subtracted exactly once.
+      const saleRevenueBeforeTax = Number((bill.grossAmount !== undefined
+        ? bill.grossAmount
+        : (bill.netTotal - billVatTotal + billDiscountAmount)).toFixed(2));
       const grossProfit = Number((saleRevenueBeforeTax - billCostOfGoods).toFixed(2));
-      const billDiscount = bill.billDiscountAmount || bill.totalDiscount || 0;
-      const netProfit = grossProfit; // Customer tax is NOT company profit
+      const billDiscount = billDiscountAmount || Number(bill.totalDiscount) || 0;
+      const netProfit = Number((grossProfit - billDiscountAmount).toFixed(2)); // bill discount is given away - NOT company profit
       const profitMarginPct = bill.netTotal > 0 ? Number(((netProfit / bill.netTotal) * 100).toFixed(1)) : 0;
 
       return {

@@ -98,7 +98,37 @@ export const PurchaseReturnModal: React.FC<PurchaseReturnModalProps> = ({
         },
       ]);
     }
-  }, [initialReturn, isOpen, suppliers, products]);
+  }, [initialReturn, isOpen]);
+
+  // Late-arriving dropdown data: fill ONLY untouched defaults - never wipe
+  // the pre-filled edit data or whatever the user already typed.
+  useEffect(() => {
+    if (!isOpen || initialReturn) return;
+    if (!selectedSupplierId && suppliers[0]) setSelectedSupplierId(suppliers[0].id);
+    setItems((prev) => {
+      if (prev.length !== 1 || prev[0].productId || selectableProducts.length === 0) return prev;
+      const defaultProd = selectableProducts[0];
+      const qInCtn = defaultProd?.quantityInCarton || (defaultProd as any)?.qtyInCarton || 1;
+      const rate = defaultProd?.purchasePrice || 0;
+      const ratePerCtn = (defaultProd as any)?.ctnPurchaseRate || (rate * qInCtn);
+      return [
+        {
+          id: `pri-${Date.now()}-1`,
+          productId: defaultProd?.id || '',
+          itemTitle: defaultProd?.name || defaultProd?.itemTitle || '',
+          sku: defaultProd?.sku || '',
+          unit: (defaultProd?.packageType as any) || 'CTN',
+          ctn: 1,
+          qty: 0,
+          qtyPerCtn: qInCtn,
+          ratePerCtn,
+          rate,
+          total: ratePerCtn,
+          reason: '',
+        },
+      ];
+    });
+  }, [isOpen, initialReturn, suppliers, products]);
 
   if (!isOpen) return null;
 

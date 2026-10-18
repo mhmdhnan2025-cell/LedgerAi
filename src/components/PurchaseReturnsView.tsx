@@ -256,20 +256,24 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
     setRowQtyPerCtn(String(ctnUnits));
     setRowRate(String(cost));
     setRowRatePerCtn(String(Number((cost * ctnUnits).toFixed(2))));
-    setRowQty('1');
-    setRowCtn(ctnUnits > 1 ? '1' : '0');
+    if (ctnUnits > 1) {
+      setRowCtn('1');
+      setRowQty('0');
+    } else {
+      setRowCtn('0');
+      setRowQty('1');
+    }
     setRowDisc('0');
     setRowVatPct('0');
   };
 
-  // Recalculate QTY when CTN changes
+  // CTN change does NOT overwrite loose QTY - both can be entered independently
   const handleCtnChange = (val: string) => {
     setRowCtn(val);
-    const c = parseFloat(val) || 0;
-    const qPerCtn = parseFloat(rowQtyPerCtn) || 1;
-    if (c > 0 && qPerCtn > 0) {
-      setRowQty(String(Number((c * qPerCtn).toFixed(2))));
-    }
+  };
+
+  const handleQtyChange = (val: string) => {
+    setRowQty(val);
   };
 
   // Recalculate Rate per CTN when Rate changes
@@ -282,22 +286,35 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
     }
   };
 
-  // Line item computed values
-  const qVal = parseFloat(rowQty) || 0;
+  const handleRatePerCtnChange = (val: string) => {
+    setRowRatePerCtn(val);
+    const rc = parseFloat(val) || 0;
+    const qPerCtn = parseFloat(rowQtyPerCtn) || 1;
+    if (qPerCtn > 0) {
+      setRowRate(String(Number((rc / qPerCtn).toFixed(2))));
+    }
+  };
+
+  // Line item computed values: independent CTN + loose QTY
+  const ctnVal = parseFloat(rowCtn) || 0;
+  const qPerCtnVal = parseFloat(rowQtyPerCtn) || 1;
+  const looseQtyVal = parseFloat(rowQty) || 0;
+  const totalUnits = (ctnVal * qPerCtnVal) + looseQtyVal;
   const rVal = parseFloat(rowRate) || 0;
+  const ratePerCtnVal = parseFloat(rowRatePerCtn) || (rVal * qPerCtnVal);
   const dVal = parseFloat(rowDisc) || 0;
   const vatPctVal = parseFloat(rowVatPct) || 0;
-  const lineBase = Math.max(0, qVal * rVal - dVal);
+  const lineBase = Math.max(0, (ctnVal * ratePerCtnVal) + (looseQtyVal * rVal) - dVal);
   const lineVat = Number(((lineBase * vatPctVal) / 100).toFixed(2));
   const lineTotal = Number((lineBase + lineVat).toFixed(2));
 
-  // Live remaining stock preview: Current Stock minus Return Qty
+  // Live remaining stock preview: Current Stock minus Return Units (preserves decimals like 10.5)
   const liveStockPreview = useMemo(() => {
     if (!selectedProduct) return '---';
     const curr = Number(selectedProduct.currentQuantity) || 0;
-    const rem = Math.max(0, curr - qVal);
-    return rem.toFixed(0);
-  }, [selectedProduct, qVal]);
+    const rem = Math.max(0, curr - totalUnits);
+    return Number(rem.toFixed(2)).toString();
+  }, [selectedProduct, totalUnits]);
 
   // Add line item to grid
   const handleAddLineItem = () => {
@@ -305,8 +322,8 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
       alert('Please select an item first.');
       return;
     }
-    if (qVal <= 0) {
-      alert('Please enter a valid quantity.');
+    if (totalUnits <= 0) {
+      alert('Please enter valid CTN or QTY to return.');
       return;
     }
 
@@ -317,10 +334,10 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
       sku: selectedProduct.sku || selectedProduct.code || '',
       category: selectedProduct.category || 'General',
       unit: selectedProduct.unit || 'CTN',
-      ctn: parseFloat(rowCtn) || 0,
-      ratePerCtn: parseFloat(rowRatePerCtn) || 0,
-      qtyPerCtn: parseFloat(rowQtyPerCtn) || 1,
-      qty: qVal,
+      ctn: ctnVal,
+      ratePerCtn: ratePerCtnVal,
+      qtyPerCtn: qPerCtnVal,
+      qty: looseQtyVal,
       rate: rVal,
       disc: dVal,
       vatPct: vatPctVal,
@@ -356,11 +373,11 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
     const prod = products.find((p) => p.id === it.productId || p.name === it.itemTitle);
     if (prod) setSelectedProduct(prod);
     setItemSearchQuery(it.itemTitle);
-    setRowCtn(String(it.ctn || '0'));
-    setRowRatePerCtn(String(it.ratePerCtn || '0'));
-    setRowQtyPerCtn(String(it.qtyPerCtn || '1'));
-    setRowQty(String(it.qty));
-    setRowRate(String(it.rate));
+    setRowCtn(String(it.ctn ?? 0));
+    setRowRatePerCtn(String(it.ratePerCtn ?? 0));
+    setRowQtyPerCtn(String(it.qtyPerCtn || 1));
+    setRowQty(String(it.qty ?? 0));
+    setRowRate(String(it.rate ?? 0));
     setRowDisc(String(it.disc || '0'));
     setRowVatPct(String(it.vatPct || '0'));
     setEditingItemIdx(idx);
@@ -394,7 +411,11 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
     setIsLoading(true);
     setFeedback(null);
     try {
+      // On edit: start from the ORIGINAL record so every field the form does
+      // not expose (reason, original bill, creator, status, notes...) survives.
+      const original = editingReturnId ? returnList.find((r) => r.id === editingReturnId) : undefined;
       const payload: Partial<PurchaseReturn> = {
+        ...(original || {}),
         returnNumber: billNumber.trim(),
         returnNumberFormatted: `PR-${billNumber.trim()}`,
         date: returnDateYMD,
@@ -409,8 +430,9 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
         taxPercent: taxPctVal,
         taxAmount: taxAmtVal,
         netTotal: finalAmount,
-        reason: 'Goods returned to supplier',
-        status: 'COMPLETED',
+        ...(original
+          ? {}
+          : { reason: 'Goods returned to supplier', status: 'COMPLETED' }),
       };
 
       let saved: PurchaseReturn;
@@ -472,6 +494,18 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
     setOverallDiscount(String(ret.discount || '0'));
     setIncomeTaxPct(String(ret.taxPercent || '0'));
     setIncomeTaxAmt(String(ret.taxAmount || '0'));
+    // clear any half-entered row from the previous form session so the
+    // form shows ONLY the original return's details
+    setSelectedProduct(null);
+    setItemSearchQuery('');
+    setRowCtn('');
+    setRowRatePerCtn('');
+    setRowQtyPerCtn('');
+    setRowQty('');
+    setRowRate('');
+    setRowDisc('');
+    setRowVatPct('0');
+    setEditingItemIdx(null);
     setViewMode('form');
   };
 
@@ -866,7 +900,7 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
                                     <span className="text-[10px] text-slate-400 font-mono">Code: {p.code || p.sku || 'N/A'}</span>
                                   </div>
                                   <span className="text-[11px] font-mono font-bold text-emerald-700 shrink-0 ml-2 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                                    Stock: {p.currentQuantity || 0}
+                                    Stock: {Number(p.currentQuantity || 0).toFixed(2).replace(/\.?0+$/, '')}
                                   </span>
                                 </div>
                               );
@@ -896,7 +930,7 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
                       min="0"
                       step="0.01"
                       value={rowRatePerCtn}
-                      onChange={(e) => setRowRatePerCtn(e.target.value)}
+                      onChange={(e) => handleRatePerCtnChange(e.target.value)}
                       className="w-full bg-white px-1 py-1 text-right font-mono text-xs outline-none focus:bg-blue-50/40"
                     />
                   </td>
@@ -918,7 +952,7 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
                       min="0"
                       step="0.01"
                       value={rowQty}
-                      onChange={(e) => setRowQty(e.target.value)}
+                      onChange={(e) => handleQtyChange(e.target.value)}
                       className="w-full bg-white px-1 py-1 text-center font-mono font-bold text-xs outline-none focus:bg-blue-50/40"
                     />
                   </td>
@@ -977,7 +1011,7 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
                   <td className="p-0 border-r border-slate-300 bg-[#e9ecef]">
                     <div
                       className="w-full px-1 py-1 text-center font-mono font-bold text-xs text-slate-700"
-                      title={selectedProduct ? `Current Stock: ${selectedProduct.currentQuantity || 0} - Return Qty: ${qVal}` : 'Select item to preview live stock'}
+                      title={selectedProduct ? `Current Stock: ${selectedProduct.currentQuantity || 0} - Return Qty: ${totalUnits}` : 'Select item to preview live stock'}
                     >
                       {liveStockPreview}
                     </div>

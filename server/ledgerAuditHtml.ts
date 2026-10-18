@@ -298,6 +298,12 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
       [
         { label: 'Receivable (Customer Udhaar):', value: `${sym} ${num(data.khataCard.receivable)}`, color: '#b45309' },
         { label: 'Payable (Suppliers Due):', value: `${sym} ${num(data.khataCard.payable)}`, color: '#dc2626' },
+        ...(data.khataCard.customerAdvance && data.khataCard.customerAdvance > 0
+          ? [{ label: 'Customer Advances (CR):', value: `${sym} ${num(data.khataCard.customerAdvance)}`, color: '#0284c7' }]
+          : []),
+        ...(data.khataCard.supplierAdvance && data.khataCard.supplierAdvance > 0
+          ? [{ label: 'Supplier Advance Paid (DR):', value: `${sym} ${num(data.khataCard.supplierAdvance)}`, color: '#0284c7' }]
+          : []),
         {
           label: 'Net Khata Balance (+/-):',
           value: `${data.khataCard.netBalance >= 0 ? '+' : '\u2212'}${sym} ${num(

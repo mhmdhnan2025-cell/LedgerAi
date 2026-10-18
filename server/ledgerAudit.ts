@@ -329,7 +329,7 @@ function customerBalanceAsOf(
       }
     }
   }
-  return Math.max(0, balance - (recoveries.get(customer.id) || 0));
+  return balance - (recoveries.get(customer.id) || 0);
 }
 
 function receivableAsOf(
@@ -339,13 +339,19 @@ function receivableAsOf(
   recoveries: Map<string, number>,
   vouchers: Voucher[] = [],
   saleReturns: SaleReturn[] = []
-): number {
+): { total: number; customerAdvance: number } {
   let total = 0;
+  let customerAdvance = 0;
   const known = new Set<string>();
 
   for (const customer of customers) {
     known.add(customer.id);
-    total += customerBalanceAsOf(customer, saleBills, date, recoveries, vouchers, saleReturns);
+    const bal = customerBalanceAsOf(customer, saleBills, date, recoveries, vouchers, saleReturns);
+    if (bal > 0) {
+      total += bal;
+    } else if (bal < 0) {
+      customerAdvance += Math.abs(bal);
+    }
   }
 
   // Credit portions booked against customers no longer in the master list
@@ -355,7 +361,7 @@ function receivableAsOf(
     total += saleCreditAdded(bill);
   }
 
-  return total;
+  return { total, customerAdvance };
 }
 
 function payableAsOf(
@@ -364,9 +370,10 @@ function payableAsOf(
   date: string,
   vouchers: Voucher[] = [],
   purchaseReturns: PurchaseReturn[] = []
-): number {
+): { total: number; supplierAdvance: number } {
   const supplierIds = new Set(suppliers.map((s) => s.id));
   let total = 0;
+  let supplierAdvance = 0;
 
   for (const supplier of suppliers) {
     let payable = Number(supplier.payableToSupplier) || 0;
@@ -396,7 +403,11 @@ function payableAsOf(
         }
       }
     }
-    total += Math.max(0, payable);
+    if (payable > 0) {
+      total += payable;
+    } else if (payable < 0) {
+      supplierAdvance += Math.abs(payable);
+    }
   }
 
   // Purchase bills booked against a supplier missing from the master list
@@ -406,7 +417,7 @@ function payableAsOf(
     total += Math.max(0, Number(bill.remainingBalance) || 0);
   }
 
-  return total;
+  return { total, supplierAdvance };
 }
 
 // -------------------------------------------------------------
@@ -663,7 +674,9 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     // 3. KHATA BALANCE (Receivable / Payable / Net)
     // -------------------------------------------------------------
     const recoveries = recoveriesMap(allSaleBills, auditDate);
-    const customerReceivable = receivableAsOf(customers, allSaleBills, auditDate, recoveries, vouchers, saleReturns);
+    const recResult = receivableAsOf(customers, allSaleBills, auditDate, recoveries, vouchers, saleReturns);
+    const customerReceivable = recResult.total;
+    const customerAdvance = recResult.customerAdvance;
 
     let restaurantReceivable = 0;
     for (const r of restaurants) {
@@ -675,7 +688,9 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     }
 
     const receivable = customerReceivable + restaurantReceivable;
-    const payable = payableAsOf(suppliers, purchaseBills, auditDate, vouchers, purchaseReturns);
+    const payResult = payableAsOf(suppliers, purchaseBills, auditDate, vouchers, purchaseReturns);
+    const payable = payResult.total;
+    const supplierAdvance = payResult.supplierAdvance;
     const netKhataBalance = receivable - payable;
 
     // -------------------------------------------------------------
@@ -997,12 +1012,12 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     ];
 
     // -------------------------------------------------------------
-    // 8. FIX EXPENSE (month to date) & TOTAL BUSINESS WORTH
+    // 8. FIX EXPENSE / SETUP (-) & TOTAL BUSINESS WORTH
+    //    Expenses are NOT auto-added here and NOT auto-cut from the worth
+    //    (business worth = stock + receivable - payable only).
     // -------------------------------------------------------------
-    const fixExpense = expenses
-      .filter((e) => uptoDate(e.date) && inMonth(e.date))
-      .reduce((s, e) => s + (Number(e.amount) || 0), 0);
-    const totalBusinessWorth = warehouseStockValue + receivable - payable - fixExpense;
+    const fixExpense = 0;
+    const totalBusinessWorth = warehouseStockValue + receivable - payable;
 
     // -------------------------------------------------------------
     // COMPANY PROFILE (from Company Registration / Settings)
@@ -1088,7 +1103,13 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
         purchaseReturnsCashTotal,
         purchaseReturnsCreditTotal,
       },
-      khataCard: { receivable, payable, netBalance: netKhataBalance },
+      khataCard: {
+        receivable,
+        payable,
+        netBalance: netKhataBalance,
+        customerAdvance,
+        supplierAdvance,
+      },
       stockCard: { unitLabel: stockBadge, openingUnits, stockIn, stockOut, closingUnits },
       salesmanKhata,
       salesmanProfit,

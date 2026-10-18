@@ -248,25 +248,29 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
     setSelectedProduct(prod);
     setItemSearchQuery(prod.name);
     setIsItemDropdownOpen(false);
-    const salePrice = Number((prod as any).price) || Number((prod as any).salePrice) || Number(prod.purchasePrice) || 0;
+    const salePrice = Number((prod as any).sellingPrice) || Number((prod as any).salePrice) || Number((prod as any).price) || Number(prod.purchasePrice) || 0;
     const ctnUnits = Number(prod.qtyInCarton) || Number((prod as any).quantityInCarton) || 1;
     setRowQtyPerCtn(String(ctnUnits));
     setRowRate(String(salePrice));
     setRowRatePerCtn(String(Number((salePrice * ctnUnits).toFixed(2))));
-    setRowQty('1');
-    setRowCtn(ctnUnits > 1 ? '1' : '0');
+    if (ctnUnits > 1) {
+      setRowCtn('1');
+      setRowQty('0');
+    } else {
+      setRowCtn('0');
+      setRowQty('1');
+    }
     setRowDiscRs('0');
     setRowVatPct('5');
   };
 
-  // Recalculate QTY when CTN changes
+  // CTN change does NOT overwrite loose QTY - both can be entered independently
   const handleCtnChange = (val: string) => {
     setRowCtn(val);
-    const c = parseFloat(val) || 0;
-    const qPerCtn = parseFloat(rowQtyPerCtn) || 1;
-    if (c > 0 && qPerCtn > 0) {
-      setRowQty(String(Number((c * qPerCtn).toFixed(2))));
-    }
+  };
+
+  const handleQtyChange = (val: string) => {
+    setRowQty(val);
   };
 
   // Recalculate Rate per CTN when Rate changes
@@ -279,22 +283,35 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
     }
   };
 
-  // Line item computed values
-  const qVal = parseFloat(rowQty) || 0;
+  const handleRatePerCtnChange = (val: string) => {
+    setRowRatePerCtn(val);
+    const rc = parseFloat(val) || 0;
+    const qPerCtn = parseFloat(rowQtyPerCtn) || 1;
+    if (qPerCtn > 0) {
+      setRowRate(String(Number((rc / qPerCtn).toFixed(2))));
+    }
+  };
+
+  // Line item computed values: independent CTN + loose QTY
+  const ctnVal = parseFloat(rowCtn) || 0;
+  const qPerCtnVal = parseFloat(rowQtyPerCtn) || 1;
+  const looseQtyVal = parseFloat(rowQty) || 0;
+  const totalUnits = (ctnVal * qPerCtnVal) + looseQtyVal;
   const rVal = parseFloat(rowRate) || 0;
+  const ratePerCtnVal = parseFloat(rowRatePerCtn) || (rVal * qPerCtnVal);
   const dVal = parseFloat(rowDiscRs) || 0;
   const vatPctVal = parseFloat(rowVatPct) || 0;
-  const lineBase = Math.max(0, qVal * rVal - dVal);
+  const lineBase = Math.max(0, (ctnVal * ratePerCtnVal) + (looseQtyVal * rVal) - dVal);
   const lineVat = Number(((lineBase * vatPctVal) / 100).toFixed(2));
   const lineTotal = Number((lineBase + lineVat).toFixed(2));
 
-  // Live stock preview: Current Stock PLUS returned quantity (items returned back into stock)
+  // Live stock preview: Current Stock PLUS returned units (preserves decimals like 10.5)
   const liveStockPreview = useMemo(() => {
     if (!selectedProduct) return '---';
     const curr = Number(selectedProduct.currentQuantity) || 0;
-    const rem = curr + qVal;
-    return rem.toFixed(0);
-  }, [selectedProduct, qVal]);
+    const rem = curr + totalUnits;
+    return Number(rem.toFixed(2)).toString();
+  }, [selectedProduct, totalUnits]);
 
   // Add line item to grid
   const handleAddLineItem = () => {
@@ -302,8 +319,8 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
       alert('Please select an item first.');
       return;
     }
-    if (qVal <= 0) {
-      alert('Please enter a valid quantity.');
+    if (totalUnits <= 0) {
+      alert('Please enter valid CTN or QTY to return.');
       return;
     }
 
@@ -314,10 +331,10 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
       sku: selectedProduct.sku || selectedProduct.code || '',
       category: selectedProduct.category || 'General',
       unit: selectedProduct.unit || 'CTN',
-      ctn: parseFloat(rowCtn) || 0,
-      ratePerCtn: parseFloat(rowRatePerCtn) || 0,
-      qtyPerCtn: parseFloat(rowQtyPerCtn) || 1,
-      qty: qVal,
+      ctn: ctnVal,
+      ratePerCtn: ratePerCtnVal,
+      qtyPerCtn: qPerCtnVal,
+      qty: looseQtyVal,
       rate: rVal,
       disc: dVal,
       vatPct: vatPctVal,
@@ -353,11 +370,11 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
     const prod = products.find((p) => p.id === it.productId || p.name === it.itemTitle);
     if (prod) setSelectedProduct(prod);
     setItemSearchQuery(it.itemTitle);
-    setRowCtn(String(it.ctn || '0'));
-    setRowRatePerCtn(String(it.ratePerCtn || '0'));
-    setRowQtyPerCtn(String(it.qtyPerCtn || '1'));
-    setRowQty(String(it.qty));
-    setRowRate(String(it.rate));
+    setRowCtn(String(it.ctn ?? 0));
+    setRowRatePerCtn(String(it.ratePerCtn ?? 0));
+    setRowQtyPerCtn(String(it.qtyPerCtn || 1));
+    setRowQty(String(it.qty ?? 0));
+    setRowRate(String(it.rate ?? 0));
     setRowDiscRs(String(it.disc || '0'));
     setRowVatPct(String(it.vatPct ?? '5'));
     setEditingItemIdx(idx);
@@ -389,7 +406,11 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
     setIsLoading(true);
     setFeedback(null);
     try {
+      // On edit: start from the ORIGINAL record so every field the form does
+      // not expose (reason, original bill, creator, status, notes...) survives.
+      const original = editingReturnId ? returnList.find((r) => r.id === editingReturnId) : undefined;
       const payload: Partial<SaleReturn> = {
+        ...(original || {}),
         returnNumber: billNumber.trim(),
         returnNumberFormatted: `SR-${billNumber.trim()}`,
         date: returnDateYMD,
@@ -403,9 +424,9 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
         discount: discVal,
         taxAmount: totalVat,
         netTotal: finalAmount,
-        reason: 'Customer return',
-        status: 'COMPLETED',
-        createdBy: currentUser?.name || 'Staff',
+        ...(original
+          ? {}
+          : { reason: 'Customer return', status: 'COMPLETED', createdBy: currentUser?.name || 'Staff' }),
       };
 
       let saved: SaleReturn;
@@ -463,6 +484,18 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
     setIsCashTransaction(Boolean(ret.isCash));
     setItems(ret.items || []);
     setOverallDiscount(String(ret.discount || '0'));
+    // clear any half-entered row from the previous form session so the
+    // form shows ONLY the original return's details
+    setSelectedProduct(null);
+    setItemSearchQuery('');
+    setRowCtn('');
+    setRowRatePerCtn('');
+    setRowQtyPerCtn('');
+    setRowQty('');
+    setRowRate('');
+    setRowDiscRs('');
+    setRowVatPct('5');
+    setEditingItemIdx(null);
     setViewMode('form');
   };
 
@@ -857,7 +890,7 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
                                     <span className="text-[10px] text-slate-400 font-mono">Code: {p.code || p.sku || 'N/A'}</span>
                                   </div>
                                   <span className="text-[11px] font-mono font-bold text-emerald-700 shrink-0 ml-2 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                                    Stock: {p.currentQuantity || 0}
+                                    Stock: {Number(p.currentQuantity || 0).toFixed(2).replace(/\.?0+$/, '')}
                                   </span>
                                 </div>
                               );
@@ -887,7 +920,7 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
                       min="0"
                       step="0.01"
                       value={rowRatePerCtn}
-                      onChange={(e) => setRowRatePerCtn(e.target.value)}
+                      onChange={(e) => handleRatePerCtnChange(e.target.value)}
                       className="w-full bg-white px-1 py-1 text-right font-mono text-xs outline-none focus:bg-blue-50/40"
                     />
                   </td>
@@ -909,7 +942,7 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
                       min="0"
                       step="0.01"
                       value={rowQty}
-                      onChange={(e) => setRowQty(e.target.value)}
+                      onChange={(e) => handleQtyChange(e.target.value)}
                       className="w-full bg-white px-1 py-1 text-center font-mono font-bold text-xs outline-none focus:bg-blue-50/40"
                     />
                   </td>
@@ -968,7 +1001,7 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
                   <td className="p-0 border-r border-slate-300 bg-[#e9ecef]">
                     <div
                       className="w-full px-1 py-1 text-center font-mono font-bold text-xs text-slate-700"
-                      title={selectedProduct ? `Current Stock: ${selectedProduct.currentQuantity || 0} + Return Qty: ${qVal}` : 'Select item to preview live stock'}
+                      title={selectedProduct ? `Current Stock: ${selectedProduct.currentQuantity || 0} + Return Qty: ${totalUnits}` : 'Select item to preview live stock'}
                     >
                       {liveStockPreview}
                     </div>

@@ -312,10 +312,19 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
       notes: cust.notes || '',
       status: cust.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
       outstandingBalance: cust.outstandingBalance !== undefined ? cust.outstandingBalance : 0,
-      openingBalance: cust.openingBalance !== undefined && cust.openingBalance !== null
-        ? Math.abs(Number(cust.openingBalance))
-        : (cust.outstandingBalance !== undefined ? Math.abs(Number(cust.outstandingBalance)) : 0),
-      openingBalanceType: cust.openingBalanceType || ((cust.outstandingBalance || 0) < 0 ? 'CR' : 'DR'),
+      // Show the CURRENT ledger balance here so the field always mirrors the
+      // receivable report (shows 0 once the party settles). Server back-solves
+      // the real opening on save via syncOpeningBalance - no double count.
+      openingBalance: cust.outstandingBalance !== undefined && cust.outstandingBalance !== null
+        ? Math.abs(Number(cust.outstandingBalance))
+        : (cust.openingBalance !== undefined && cust.openingBalance !== null
+            ? Math.abs(Number(cust.openingBalance))
+            : 0),
+      openingBalanceType: (
+        cust.outstandingBalance !== undefined && cust.outstandingBalance !== null
+          ? Number(cust.outstandingBalance)
+          : ((cust.openingBalanceType === 'CR' ? -1 : 1) * Math.abs(Number(cust.openingBalance) || 0))
+      ) < 0 ? 'CR' : 'DR',
       creditLimit: cust.creditLimit || 30000,
     });
     setViewMode('details');
@@ -347,6 +356,8 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
         openingBalance: openBal,
         openingBalanceType: openType,
         outstandingBalance: outBal,
+        // On edit: field holds the CURRENT balance -> server recalculates opening
+        ...(editingCustomerId ? { syncOpeningBalance: true } : {}),
       };
 
       if (editingCustomerId) {

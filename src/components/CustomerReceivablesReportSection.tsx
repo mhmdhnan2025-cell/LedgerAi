@@ -403,12 +403,13 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
 
       (v.entries || []).forEach((e, idx) => {
         let amt = 0;
+        const discountAmt = Number(e.discount) || 0;
         if (v.voucherType === 'CB') {
-          amt = Number(e.receipt) || Number(e.amount) || 0;
+          amt = (Number(e.receipt) || Number(e.amount) || 0) + discountAmt;
         } else if (v.voucherType === 'JV') {
           amt = Number(e.credit) || 0;
         } else {
-          amt = Number(e.amount) || 0;
+          amt = (Number(e.amount) || 0) + discountAmt;
         }
         if (amt <= 0) return;
 
@@ -682,10 +683,11 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
 
         let debit = 0;
         let credit = 0;
+        const discountAmt = Number(e.discount) || 0;
         if (v.voucherType === 'CR' || v.voucherType === 'BR') {
-          credit = Number(e.amount) || 0;
+          credit = (Number(e.amount) || 0) + discountAmt;
         } else if (v.voucherType === 'CB') {
-          credit = Number(e.receipt) || Number(e.amount) || 0;
+          credit = (Number(e.receipt) || Number(e.amount) || 0) + discountAmt;
         } else if (v.voucherType === 'JV') {
           debit = Number(e.debit) || 0;
           credit = Number(e.credit) || 0;

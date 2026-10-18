@@ -220,10 +220,10 @@ export const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({
     setAddress(sup.address || '');
     setCnic(sup.cnic || '');
     setIsActive(sup.status === 'ACTIVE');
-    const initPayable = sup.payableToSupplier !== undefined && sup.payableToSupplier !== 0
-      ? sup.payableToSupplier
-      : (sup.openingBalance !== undefined && sup.openingBalance !== 0
-          ? sup.openingBalance
+    const initPayable = sup.payableToSupplier !== undefined && sup.payableToSupplier !== null
+      ? Number(sup.payableToSupplier)
+      : (sup.openingBalance !== undefined && sup.openingBalance !== null
+          ? Number(sup.openingBalance)
           : (sup.balanceOwed || 0));
     setPayableToSupplier(initPayable);
     setPayableType(sup.payableType || sup.openingBalanceType || 'CR');
@@ -313,7 +313,7 @@ export const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({
 
     try {
       if (editingSupplierId) {
-        const res = await api.updateSupplier(editingSupplierId, payload);
+        const res = await api.updateSupplier(editingSupplierId, { ...payload, syncOpeningBalance: true });
         const updatedList = suppliersList.map((s) => (s.id === editingSupplierId ? res.supplier : s));
         setSuppliersList(updatedList);
         if (onSuppliersChange) onSuppliersChange(updatedList);

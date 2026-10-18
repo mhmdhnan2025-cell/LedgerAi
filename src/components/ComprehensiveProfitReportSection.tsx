@@ -806,11 +806,11 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
             </span>
           </div>
           <div className="text-lg sm:text-xl font-black font-mono text-emerald-400 mt-1 flex items-center gap-1">
-            <span>{currencySymbol()} {summary.totalGrossProfit.toLocaleString()}</span>
+            <span>{currencySymbol()} {(summary.totalNetProfit ?? summary.totalGrossProfit).toLocaleString()}</span>
             <ArrowUpRight className="w-5 h-5 text-emerald-400" />
           </div>
           <div className="text-[11px] text-slate-300 mt-1 font-mono">
-            Sale excl. VAT ({currencySymbol()} {(summary.totalSalesBeforeTax ?? summary.totalSalesVolume).toLocaleString()}) - COGS with tax ({currencySymbol()} {(summary.totalCostWithTax ?? summary.totalCostOfGoods).toLocaleString()})
+            Sale excl. VAT ({currencySymbol()} {(summary.totalSalesBeforeTax ?? summary.totalSalesVolume).toLocaleString()}) - COGS ({currencySymbol()} {(summary.totalCostOfGoods || 0).toLocaleString()}){(summary.totalDiscountsGiven || 0) > 0 ? ` - Discounts (${currencySymbol()} ${(summary.totalDiscountsGiven || 0).toLocaleString()})` : ''}
           </div>
           <div className="text-[10px] text-emerald-400/90 mt-0.5 font-semibold">
             Margin: {summary.overallMarginPct}% • Sold: {summary.totalCtnSold || 0} CTN + {summary.totalQtySold || 0} QTY
