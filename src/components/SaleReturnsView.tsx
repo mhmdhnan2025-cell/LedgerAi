@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import {
   Calendar as CalendarIcon,
   Search,
@@ -76,6 +76,8 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
   const [highlightedAccountIdx, setHighlightedAccountIdx] = useState(0);
   const accountDropdownRef = useRef<HTMLDivElement>(null);
   const accountInputRef = useRef<HTMLInputElement>(null);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
+  const [accountDropdownStyle, setAccountDropdownStyle] = useState<React.CSSProperties>({});
 
   // Line item entry row (Image 3)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -84,6 +86,8 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
   const [highlightedItemIdx, setHighlightedItemIdx] = useState(0);
   const itemInputRef = useRef<HTMLInputElement>(null);
   const itemDropdownRef = useRef<HTMLDivElement>(null);
+  const itemMenuRef = useRef<HTMLDivElement>(null);
+  const [itemDropdownStyle, setItemDropdownStyle] = useState<React.CSSProperties>({});
 
   const [rowCtn, setRowCtn] = useState('');
   const [rowRatePerCtn, setRowRatePerCtn] = useState('');
@@ -171,13 +175,56 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
     fetchAll();
   }, []);
 
+  // Dynamic position updater for fixed dropdowns (escapes table overflow-x-auto clipping)
+  useLayoutEffect(() => {
+    const updatePositions = () => {
+      if (isItemDropdownOpen && itemInputRef.current) {
+        const rect = itemInputRef.current.getBoundingClientRect();
+        setItemDropdownStyle({
+          position: 'fixed',
+          top: rect.bottom + 2,
+          left: Math.max(10, Math.min(window.innerWidth - 380, rect.left)),
+          width: Math.max(340, rect.width * 1.5),
+          zIndex: 99999,
+        });
+      }
+      if (isAccountDropdownOpen && accountInputRef.current) {
+        const rect = accountInputRef.current.getBoundingClientRect();
+        setAccountDropdownStyle({
+          position: 'fixed',
+          top: rect.bottom + 2,
+          left: Math.max(10, Math.min(window.innerWidth - 380, rect.left)),
+          width: Math.max(340, rect.width),
+          zIndex: 99999,
+        });
+      }
+    };
+
+    updatePositions();
+    window.addEventListener('scroll', updatePositions, true);
+    window.addEventListener('resize', updatePositions);
+    return () => {
+      window.removeEventListener('scroll', updatePositions, true);
+      window.removeEventListener('resize', updatePositions);
+    };
+  }, [isItemDropdownOpen, isAccountDropdownOpen]);
+
   // Close dropdowns on outside click
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (accountDropdownRef.current && !accountDropdownRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        accountDropdownRef.current &&
+        !accountDropdownRef.current.contains(target) &&
+        !accountMenuRef.current?.contains(target)
+      ) {
         setIsAccountDropdownOpen(false);
       }
-      if (itemDropdownRef.current && !itemDropdownRef.current.contains(e.target as Node)) {
+      if (
+        itemDropdownRef.current &&
+        !itemDropdownRef.current.contains(target) &&
+        !itemMenuRef.current?.contains(target)
+      ) {
         setIsItemDropdownOpen(false);
       }
     };
@@ -574,16 +621,44 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
                       setIsAccountDropdownOpen(true);
                       const foundIdx = filteredAccounts.findIndex((a) => a.id === selectedAccount?.id);
                       setHighlightedAccountIdx(foundIdx >= 0 ? foundIdx : 0);
+                      if (accountInputRef.current) {
+                        const rect = accountInputRef.current.getBoundingClientRect();
+                        setAccountDropdownStyle({
+                          position: 'fixed',
+                          top: rect.bottom + 2,
+                          left: Math.max(10, Math.min(window.innerWidth - 380, rect.left)),
+                          width: Math.max(340, rect.width),
+                          zIndex: 99999,
+                        });
+                      }
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'ArrowDown') {
                         e.preventDefault();
                         setIsAccountDropdownOpen(true);
-                        setHighlightedAccountIdx((prev) => Math.min(prev + 1, Math.max(0, filteredAccounts.length - 1)));
+                        setHighlightedAccountIdx((prev) => {
+                          const next = Math.min(prev + 1, Math.max(0, filteredAccounts.length - 1));
+                          const target = filteredAccounts[next];
+                          if (target) {
+                            setTimeout(() => {
+                              accountMenuRef.current?.querySelector(`[data-acc-id="${target.id}"]`)?.scrollIntoView({ block: 'nearest' });
+                            }, 10);
+                          }
+                          return next;
+                        });
                       } else if (e.key === 'ArrowUp') {
                         e.preventDefault();
                         setIsAccountDropdownOpen(true);
-                        setHighlightedAccountIdx((prev) => Math.max(prev - 1, 0));
+                        setHighlightedAccountIdx((prev) => {
+                          const next = Math.max(prev - 1, 0);
+                          const target = filteredAccounts[next];
+                          if (target) {
+                            setTimeout(() => {
+                              accountMenuRef.current?.querySelector(`[data-acc-id="${target.id}"]`)?.scrollIntoView({ block: 'nearest' });
+                            }, 10);
+                          }
+                          return next;
+                        });
                       } else if (e.key === 'Enter') {
                         e.preventDefault();
                         if (filteredAccounts.length > 0 && highlightedAccountIdx >= 0 && highlightedAccountIdx < filteredAccounts.length) {
@@ -598,11 +673,15 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
                   />
                   <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-2 top-1.5 pointer-events-none" />
 
-                  {/* Dropdown menu */}
+                  {/* Dropdown menu (Fixed positioning floating over everything) */}
                   {isAccountDropdownOpen && (
-                    <div className="absolute z-50 left-0 right-0 mt-0.5 max-h-56 overflow-y-auto bg-white border border-slate-300 rounded-sm shadow-lg divide-y divide-slate-100 text-xs">
+                    <div
+                      ref={accountMenuRef}
+                      style={accountDropdownStyle}
+                      className="bg-white border border-slate-300 rounded-sm shadow-2xl max-h-72 overflow-y-auto divide-y divide-slate-100 text-xs"
+                    >
                       {filteredAccounts.length === 0 ? (
-                        <div className="p-2 text-slate-500 text-center">No account found.</div>
+                        <div className="p-2.5 text-slate-500 text-center font-medium">No account found.</div>
                       ) : (
                         filteredAccounts.map((acc, idx) => {
                           const isHighlighted = idx === highlightedAccountIdx;
@@ -610,6 +689,7 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
                           return (
                             <div
                               key={acc.id}
+                              data-acc-id={acc.id}
                               onClick={() => handleSelectAccount(acc)}
                               onMouseEnter={() => setHighlightedAccountIdx(idx)}
                               className={`px-3 py-1.5 cursor-pointer flex items-center justify-between ${
@@ -621,10 +701,12 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
                               }`}
                             >
                               <div className="flex items-center gap-2 truncate">
-                                <span className="font-mono text-[11px] text-slate-500">{acc.code}</span>
+                                <span className="font-mono text-[11px] text-slate-500 font-semibold">{acc.code}</span>
                                 <span className="truncate">{acc.title}</span>
                               </div>
-                              <span className="text-[10px] text-slate-400 uppercase">{acc.type}</span>
+                              <span className="text-[10px] text-slate-400 uppercase font-mono px-1.5 py-0.5 rounded bg-slate-100">
+                                {acc.type}
+                              </span>
                             </div>
                           );
                         })
@@ -691,16 +773,44 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
                           setIsItemDropdownOpen(true);
                           const foundIdx = filteredProducts.findIndex((p) => p.id === selectedProduct?.id);
                           setHighlightedItemIdx(foundIdx >= 0 ? foundIdx : 0);
+                          if (itemInputRef.current) {
+                            const rect = itemInputRef.current.getBoundingClientRect();
+                            setItemDropdownStyle({
+                              position: 'fixed',
+                              top: rect.bottom + 2,
+                              left: Math.max(10, Math.min(window.innerWidth - 380, rect.left)),
+                              width: Math.max(340, rect.width * 1.5),
+                              zIndex: 99999,
+                            });
+                          }
                         }}
                         onKeyDown={(e) => {
                           if (e.key === 'ArrowDown') {
                             e.preventDefault();
                             setIsItemDropdownOpen(true);
-                            setHighlightedItemIdx((prev) => Math.min(prev + 1, Math.max(0, filteredProducts.length - 1)));
+                            setHighlightedItemIdx((prev) => {
+                              const next = Math.min(prev + 1, Math.max(0, filteredProducts.length - 1));
+                              const target = filteredProducts[next];
+                              if (target) {
+                                setTimeout(() => {
+                                  itemMenuRef.current?.querySelector(`[data-prod-id="${target.id}"]`)?.scrollIntoView({ block: 'nearest' });
+                                }, 10);
+                              }
+                              return next;
+                            });
                           } else if (e.key === 'ArrowUp') {
                             e.preventDefault();
                             setIsItemDropdownOpen(true);
-                            setHighlightedItemIdx((prev) => Math.max(prev - 1, 0));
+                            setHighlightedItemIdx((prev) => {
+                              const next = Math.max(prev - 1, 0);
+                              const target = filteredProducts[next];
+                              if (target) {
+                                setTimeout(() => {
+                                  itemMenuRef.current?.querySelector(`[data-prod-id="${target.id}"]`)?.scrollIntoView({ block: 'nearest' });
+                                }, 10);
+                              }
+                              return next;
+                            });
                           } else if (e.key === 'Enter') {
                             e.preventDefault();
                             if (filteredProducts.length > 0 && highlightedItemIdx >= 0 && highlightedItemIdx < filteredProducts.length) {
@@ -715,10 +825,15 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
                       />
                       <ChevronDown className="w-3 h-3 text-slate-400 absolute right-1.5 top-2 pointer-events-none" />
 
+                      {/* Floating Item Dropdown (Fixed above table boundaries, no clipping!) */}
                       {isItemDropdownOpen && (
-                        <div className="absolute z-50 left-0 w-80 mt-0.5 max-h-56 overflow-y-auto bg-white border border-slate-300 rounded-sm shadow-xl divide-y divide-slate-100 text-xs">
+                        <div
+                          ref={itemMenuRef}
+                          style={itemDropdownStyle}
+                          className="bg-white border border-slate-300 rounded shadow-2xl max-h-72 overflow-y-auto divide-y divide-slate-100 text-xs"
+                        >
                           {filteredProducts.length === 0 ? (
-                            <div className="p-2 text-slate-500 text-center">No item found.</div>
+                            <div className="p-2.5 text-slate-500 text-center font-medium">No item found.</div>
                           ) : (
                             filteredProducts.map((p, idx) => {
                               const isHighlighted = idx === highlightedItemIdx;
@@ -726,9 +841,10 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
                               return (
                                 <div
                                   key={p.id}
+                                  data-prod-id={p.id}
                                   onClick={() => handleSelectProduct(p)}
                                   onMouseEnter={() => setHighlightedItemIdx(idx)}
-                                  className={`px-3 py-1.5 cursor-pointer flex items-center justify-between ${
+                                  className={`px-3 py-2 cursor-pointer flex items-center justify-between transition ${
                                     isHighlighted
                                       ? 'bg-blue-50 text-blue-900 font-semibold'
                                       : isSelected
@@ -736,11 +852,11 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
                                       : 'text-slate-700 hover:bg-slate-50'
                                   }`}
                                 >
-                                  <div className="flex flex-col truncate">
-                                    <span className="truncate">{p.name}</span>
+                                  <div className="flex flex-col truncate pr-2">
+                                    <span className="truncate text-xs font-semibold text-slate-900">{p.name}</span>
                                     <span className="text-[10px] text-slate-400 font-mono">Code: {p.code || p.sku || 'N/A'}</span>
                                   </div>
-                                  <span className="text-[11px] font-mono font-bold text-emerald-600 shrink-0 ml-2">
+                                  <span className="text-[11px] font-mono font-bold text-emerald-700 shrink-0 ml-2 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                                     Stock: {p.currentQuantity || 0}
                                   </span>
                                 </div>
