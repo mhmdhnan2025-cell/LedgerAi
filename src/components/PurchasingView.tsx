@@ -1001,7 +1001,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
           )}
           <button
             type="button"
-            onClick={() => setIsPurchaseReturnModalOpen(true)}
+            onClick={() => onNavigateTab ? onNavigateTab('purchasing-return') : setIsPurchaseReturnModalOpen(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-white rounded-lg border border-amber-500/40 text-xs font-bold transition shadow-sm cursor-pointer"
             title="Record Purchase Return to Supplier"
           >

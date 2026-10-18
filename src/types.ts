@@ -1356,6 +1356,8 @@ export interface SaleReturn {
   isCash?: boolean;
   items: SaleReturnItem[];
   discount?: number;
+  taxPercent?: number;
+  taxAmount?: number;
   totalAmount: number;
   netTotal: number;
   reason?: string;

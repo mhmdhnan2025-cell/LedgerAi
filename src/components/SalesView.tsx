@@ -1047,7 +1047,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => setIsSaleReturnModalOpen(true)}
+              onClick={() => onNavigateTab ? onNavigateTab('sales-return') : setIsSaleReturnModalOpen(true)}
               className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-semibold rounded-lg border border-amber-500/30 transition flex items-center gap-1.5 cursor-pointer shadow-sm"
               title="Record Sales Return from Customer"
             >

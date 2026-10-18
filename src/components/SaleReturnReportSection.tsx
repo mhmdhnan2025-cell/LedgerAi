@@ -144,8 +144,12 @@ export const SaleReturnReportSection: React.FC<SaleReturnReportSectionProps> = (
         <div className="flex items-center gap-2">
           <button
             onClick={() => {
-              setEditingReturn(null);
-              setIsModalOpen(true);
+              if (onNavigateTab) {
+                onNavigateTab('sales-return');
+              } else {
+                setEditingReturn(null);
+                setIsModalOpen(true);
+              }
             }}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold transition shadow-sm cursor-pointer"
           >

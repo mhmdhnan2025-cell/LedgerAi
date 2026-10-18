@@ -30,6 +30,26 @@ interface PurchaseReturnsViewProps {
   onNavigateTab?: (tab: string) => void;
 }
 
+// Convert YYYY-MM-DD to DD-MM-YYYY for display
+const formatToDMY = (ymd: string): string => {
+  if (!ymd) return '';
+  const parts = ymd.split('-');
+  if (parts.length === 3 && parts[0].length === 4) {
+    return `${parts[2]}-${parts[1]}-${parts[0]}`;
+  }
+  return ymd;
+};
+
+// Convert DD-MM-YYYY back to YYYY-MM-DD for storage
+const formatToYMD = (dmy: string): string => {
+  if (!dmy) return new Date().toISOString().split('T')[0];
+  const parts = dmy.split('-');
+  if (parts.length === 3 && parts[2].length === 4) {
+    return `${parts[2]}-${parts[1]}-${parts[0]}`;
+  }
+  return dmy;
+};
+
 export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
   suppliers = [],
   products = [],
@@ -39,7 +59,7 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
   onRefreshData,
   onNavigateTab,
 }) => {
-  // View mode: 'form' (Image 1) or 'list' (Image 2)
+  // View mode: 'form' (matching Image 2) or 'list'
   const [viewMode, setViewMode] = useState<'form' | 'list'>('form');
   const [isSearchFilterOpen, setIsSearchFilterOpen] = useState(false);
 
@@ -48,9 +68,9 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Form State (Image 1)
+  // Form State (Exact Match Image 2)
   const [editingReturnId, setEditingReturnId] = useState<string | null>(null);
-  const [returnDate, setReturnDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [returnDateYMD, setReturnDateYMD] = useState(() => new Date().toISOString().split('T')[0]);
   const [billNumber, setBillNumber] = useState('12');
   const [selectedAccount, setSelectedAccount] = useState<{ id: string; code: string; title: string; type: string } | null>(null);
   const [isCashTransaction, setIsCashTransaction] = useState(false);
@@ -60,7 +80,7 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
   const accountDropdownRef = useRef<HTMLDivElement>(null);
   const accountInputRef = useRef<HTMLInputElement>(null);
 
-  // Line item entry row (Image 1)
+  // Line item entry row (Image 2)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [itemSearchQuery, setItemSearchQuery] = useState('');
   const [isItemDropdownOpen, setIsItemDropdownOpen] = useState(false);
@@ -80,12 +100,12 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
   // Added items grid
   const [items, setItems] = useState<PurchaseReturnItem[]>([]);
 
-  // Summary fields (bottom right in Image 1)
+  // Summary fields (bottom right in Image 2)
   const [overallDiscount, setOverallDiscount] = useState('0');
   const [incomeTaxPct, setIncomeTaxPct] = useState('0');
   const [incomeTaxAmt, setIncomeTaxAmt] = useState('0');
 
-  // List view filters (Image 2)
+  // List view filters
   const [filterSupplier, setFilterSupplier] = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
@@ -107,7 +127,7 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
         list.push({
           id: s.id,
           code: s.code || '0401010100',
-          title: s.accountTitle || s.title || 'Supplier',
+          title: s.accountTitle || s.title || s.name || 'Supplier',
           type: 'Supplier',
         });
       }
@@ -141,7 +161,7 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
         const max = numbers.length > 0 ? Math.max(...numbers) : 0;
         setBillNumber(String(max + 1));
       } else {
-        setBillNumber('1');
+        setBillNumber('12');
       }
     } catch (err: any) {
       console.error('Failed to load purchase returns:', err);
@@ -171,7 +191,7 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
   // Handle select account
   const handleSelectAccount = (acc: { id: string; code: string; title: string; type: string }) => {
     setSelectedAccount(acc);
-    setAccountSearchQuery(`${acc.title} (${acc.code})`);
+    setAccountSearchQuery(`${acc.title}`);
     setIsAccountDropdownOpen(false);
     if (acc.type === 'Cash') {
       setIsCashTransaction(true);
@@ -185,7 +205,7 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
     setItemSearchQuery(prod.name);
     setIsItemDropdownOpen(false);
     const cost = Number(prod.purchasePrice) || 0;
-    const ctnUnits = Number(prod.qtyInCarton) || 1;
+    const ctnUnits = Number(prod.qtyInCarton) || Number((prod as any).quantityInCarton) || 1;
     setRowQtyPerCtn(String(ctnUnits));
     setRowRate(String(cost));
     setRowRatePerCtn(String(Number((cost * ctnUnits).toFixed(2))));
@@ -223,6 +243,14 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
   const lineBase = Math.max(0, qVal * rVal - dVal);
   const lineVat = Number(((lineBase * vatPctVal) / 100).toFixed(2));
   const lineTotal = Number((lineBase + lineVat).toFixed(2));
+
+  // Live remaining stock preview: Current Stock minus Return Qty
+  const liveStockPreview = useMemo(() => {
+    if (!selectedProduct) return '---';
+    const curr = Number(selectedProduct.currentQuantity) || 0;
+    const rem = Math.max(0, curr - qVal);
+    return rem.toFixed(0);
+  }, [selectedProduct, qVal]);
 
   // Add line item to grid
   const handleAddLineItem = () => {
@@ -322,7 +350,7 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
       const payload: Partial<PurchaseReturn> = {
         returnNumber: billNumber.trim(),
         returnNumberFormatted: `PR-${billNumber.trim()}`,
-        date: returnDate,
+        date: returnDateYMD,
         supplierId: selectedAccount.id,
         supplierName: selectedAccount.title,
         supplierAccountTitle: selectedAccount.title,
@@ -360,7 +388,7 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
 
   const handleResetForm = () => {
     setEditingReturnId(null);
-    setReturnDate(new Date().toISOString().split('T')[0]);
+    setReturnDateYMD(new Date().toISOString().split('T')[0]);
     setSelectedAccount(null);
     setAccountSearchQuery('');
     setIsCashTransaction(false);
@@ -370,16 +398,24 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
     setOverallDiscount('0');
     setIncomeTaxPct('0');
     setIncomeTaxAmt('0');
+    setRowCtn('');
+    setRowRatePerCtn('');
+    setRowQtyPerCtn('');
+    setRowQty('');
+    setRowRate('');
+    setRowDisc('');
+    setRowVatPct('0');
+    setEditingItemIdx(null);
   };
 
   const handleEditReturn = (ret: PurchaseReturn) => {
     setEditingReturnId(ret.id);
     setBillNumber(ret.returnNumber);
-    setReturnDate(ret.date);
+    setReturnDateYMD(ret.date);
     const acc = combinedAccounts.find((a) => a.id === ret.supplierId || a.code === ret.supplierCode);
     if (acc) {
       setSelectedAccount(acc);
-      setAccountSearchQuery(`${acc.title} (${acc.code})`);
+      setAccountSearchQuery(acc.title);
     } else {
       setSelectedAccount({ id: ret.supplierId, code: ret.supplierCode || '', title: ret.supplierAccountTitle, type: 'Supplier' });
       setAccountSearchQuery(ret.supplierAccountTitle);
@@ -409,7 +445,7 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
     }
   };
 
-  // Filtered list for Image 2
+  // Filtered list for list mode
   const filteredList = useMemo(() => {
     return returnList.filter((r) => {
       if (filterSupplier && r.supplierId !== filterSupplier && r.supplierCode !== filterSupplier && !r.supplierAccountTitle?.toLowerCase().includes(filterSupplier.toLowerCase())) {
@@ -425,30 +461,24 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
   const paginatedList = filteredList.slice((listPage - 1) * pageSize, listPage * pageSize);
 
   return (
-    <div className="space-y-4">
-      {/* Top Header Card matching Image 1 & 2 */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl px-5 py-3.5 shadow-sm flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
-            <RotateCcw className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-base font-black text-white tracking-wide">
-              {viewMode === 'form' ? 'Purchase Return' : `Purchase Return List - ${filteredList.length} Records`}
-            </h1>
-            <p className="text-[11px] text-slate-400">
-              {viewMode === 'form' ? 'Record items returned to supplier and adjust warehouse stock & payables' : 'Browse, search, edit, and print purchase return vouchers'}
-            </p>
-          </div>
-        </div>
+    <div className="bg-white border border-slate-300 rounded-sm shadow-sm text-slate-800 font-sans text-xs">
+      {/* ------------------------------------------------------------------ */}
+      {/* TOP BAR matching Image 2: "Purchase Return" on left,               */}
+      {/* [List] [Search] [Return] buttons on right                         */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="bg-[#f8f9fa] border-b border-slate-300 px-4 py-2 flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-sm font-semibold text-slate-800 tracking-tight">
+          Purchase Return
+        </h1>
 
-        {/* Top Right Action Buttons matching Image 1 & 2: List | Search | Return */}
-        <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
+        <div className="flex items-center gap-1.5 text-xs">
           <button
             type="button"
             onClick={() => setViewMode('list')}
-            className={`px-3 py-1.5 rounded-md font-bold transition cursor-pointer ${
-              viewMode === 'list' ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+            className={`px-4 py-0.5 rounded-sm transition cursor-pointer border text-xs ${
+              viewMode === 'list'
+                ? 'bg-white text-slate-900 border-slate-400 font-bold shadow-2xs'
+                : 'bg-[#eaeaea] text-slate-700 border-slate-300 hover:bg-[#dfdfdf]'
             }`}
           >
             List
@@ -459,12 +489,13 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
               if (viewMode === 'form') setViewMode('list');
               setIsSearchFilterOpen((prev) => !prev);
             }}
-            className={`px-3 py-1.5 rounded-md font-bold transition cursor-pointer flex items-center gap-1 ${
-              isSearchFilterOpen ? 'bg-slate-800 text-sky-400 border border-sky-500/30' : 'text-slate-400 hover:text-white'
+            className={`px-4 py-0.5 rounded-sm transition cursor-pointer border text-xs ${
+              isSearchFilterOpen
+                ? 'bg-white text-slate-900 border-slate-400 font-bold shadow-2xs'
+                : 'bg-[#eaeaea] text-slate-700 border-slate-300 hover:bg-[#dfdfdf]'
             }`}
           >
-            <Search className="w-3.5 h-3.5" />
-            <span>Search</span>
+            Search
           </button>
           <button
             type="button"
@@ -472,8 +503,10 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
               handleResetForm();
               setViewMode('form');
             }}
-            className={`px-3 py-1.5 rounded-md font-bold transition cursor-pointer ${
-              viewMode === 'form' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+            className={`px-4 py-0.5 rounded-sm transition cursor-pointer border text-xs ${
+              viewMode === 'form'
+                ? 'bg-white text-slate-900 border-slate-400 font-bold shadow-2xs'
+                : 'bg-[#eaeaea] text-slate-700 border-slate-300 hover:bg-[#dfdfdf]'
             }`}
           >
             {editingReturnId ? 'Edit Return' : 'Return'}
@@ -484,595 +517,532 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
       {/* Notifications */}
       {feedback && (
         <div
-          className={`p-3 rounded-lg text-xs flex items-center justify-between border ${
+          className={`p-2.5 mx-4 mt-3 rounded text-xs flex items-center justify-between border ${
             feedback.type === 'success'
-              ? 'bg-emerald-950/80 border-emerald-700 text-emerald-200'
-              : 'bg-rose-950/80 border-rose-700 text-rose-200'
+              ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+              : 'bg-rose-50 border-rose-300 text-rose-800'
           }`}
         >
           <div className="flex items-center gap-2">
-            {feedback.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <AlertCircle className="w-4 h-4 text-rose-400" />}
-            <span>{feedback.text}</span>
+            {feedback.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <AlertCircle className="w-4 h-4 text-rose-600" />}
+            <span className="font-medium">{feedback.text}</span>
           </div>
-          <button onClick={() => setFeedback(null)} className="text-slate-400 hover:text-white">
+          <button onClick={() => setFeedback(null)} className="text-slate-400 hover:text-slate-700">
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
 
       {/* ------------------------------------------------------------------ */}
-      {/* MODE 1: ENTRY FORM (Exact Match Image 1)                           */}
+      {/* MODE 1: ENTRY FORM (Exact Match Image 2)                           */}
       {/* ------------------------------------------------------------------ */}
       {viewMode === 'form' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-md space-y-4">
-          {/* Header row: Date | Bill# | Account | Cash Transaction checkbox */}
-          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
-            {/* Date */}
-            <div className="sm:col-span-2">
-              <label className="block text-[11px] font-bold text-slate-400 mb-1">Date</label>
-              <div className="relative">
-                <input
-                  type="date"
-                  value={returnDate}
-                  onChange={(e) => setReturnDate(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-sky-500 font-mono"
-                />
+        <div className="p-4 space-y-3">
+          {/* Top Form Fields: Date | Bill# & Account | Cash Transaction */}
+          <div className="space-y-2">
+            {/* Row 1: Date & Bill# */}
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-slate-700 font-normal w-12 text-right">Date</label>
+                <div className="relative flex items-center">
+                  <input
+                    type="date"
+                    value={returnDateYMD}
+                    onChange={(e) => setReturnDateYMD(e.target.value)}
+                    className="bg-white border border-slate-300 rounded-sm px-2 py-0.5 text-xs text-slate-800 outline-none focus:border-blue-500 font-sans"
+                  />
+                </div>
               </div>
-            </div>
 
-            {/* Bill# */}
-            <div className="sm:col-span-2">
-              <label className="block text-[11px] font-bold text-slate-400 mb-1">Bill#</label>
-              <input
-                type="text"
-                value={billNumber}
-                onChange={(e) => setBillNumber(e.target.value)}
-                placeholder="Bill#"
-                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:border-sky-500 font-mono font-bold"
-              />
-            </div>
-
-            {/* Account dropdown (Searchable with ArrowDown/Up and Auto-Scroll) */}
-            <div className="sm:col-span-6 relative" ref={accountDropdownRef}>
-              <label className="block text-[11px] font-bold text-slate-400 mb-1">Account</label>
-              <div className="relative">
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-slate-700 font-normal">Bill#</label>
                 <input
-                  ref={accountInputRef}
                   type="text"
-                  value={accountSearchQuery}
-                  onChange={(e) => {
-                    setAccountSearchQuery(e.target.value);
-                    setIsAccountDropdownOpen(true);
-                    setHighlightedAccountIdx(0);
-                  }}
-                  onFocus={() => {
-                    setIsAccountDropdownOpen(true);
-                    const foundIdx = filteredAccounts.findIndex((a) => a.id === selectedAccount?.id);
-                    setHighlightedAccountIdx(foundIdx >= 0 ? foundIdx : 0);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'ArrowDown') {
-                      e.preventDefault();
-                      setIsAccountDropdownOpen(true);
-                      setHighlightedAccountIdx((prev) => {
-                        const next = Math.min(prev + 1, Math.max(0, filteredAccounts.length - 1));
-                        const target = filteredAccounts[next];
-                        if (target) {
-                          setTimeout(() => {
-                            accountDropdownRef.current?.querySelector(`[data-acc-id="${target.id}"]`)?.scrollIntoView({ block: 'nearest' });
-                          }, 10);
-                        }
-                        return next;
-                      });
-                    } else if (e.key === 'ArrowUp') {
-                      e.preventDefault();
-                      setIsAccountDropdownOpen(true);
-                      setHighlightedAccountIdx((prev) => {
-                        const next = Math.max(prev - 1, 0);
-                        const target = filteredAccounts[next];
-                        if (target) {
-                          setTimeout(() => {
-                            accountDropdownRef.current?.querySelector(`[data-acc-id="${target.id}"]`)?.scrollIntoView({ block: 'nearest' });
-                          }, 10);
-                        }
-                        return next;
-                      });
-                    } else if (e.key === 'Enter') {
-                      e.preventDefault();
-                      if (filteredAccounts.length > 0 && highlightedAccountIdx >= 0 && highlightedAccountIdx < filteredAccounts.length) {
-                        handleSelectAccount(filteredAccounts[highlightedAccountIdx]);
-                      }
-                    } else if (e.key === 'Escape') {
-                      setIsAccountDropdownOpen(false);
-                    }
-                  }}
-                  placeholder="Select Account (e.g. Cash In Hand, Supplier...)"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:border-sky-500 font-medium"
+                  value={billNumber}
+                  onChange={(e) => setBillNumber(e.target.value)}
+                  className="bg-[#f1f3f5] border border-slate-300 rounded-sm px-2 py-0.5 text-xs font-bold text-slate-800 w-24 text-center outline-none focus:border-blue-500"
                 />
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5 pointer-events-none" />
               </div>
+            </div>
 
-              {/* Floating accounts dropdown */}
-              {isAccountDropdownOpen && (
-                <div className="absolute z-50 left-0 right-0 mt-1 max-h-60 overflow-y-auto bg-slate-950 border border-slate-700 rounded-xl shadow-2xl divide-y divide-slate-800 text-xs">
-                  {filteredAccounts.length === 0 ? (
-                    <div className="p-3 text-slate-400 text-center">No account found.</div>
-                  ) : (
-                    filteredAccounts.map((acc, idx) => {
-                      const isHighlighted = idx === highlightedAccountIdx;
-                      const isSelected = selectedAccount?.id === acc.id;
-                      return (
-                        <div
-                          key={acc.id}
-                          data-acc-id={acc.id}
-                          onClick={() => handleSelectAccount(acc)}
-                          onMouseEnter={() => setHighlightedAccountIdx(idx)}
-                          className={`px-3 py-2 cursor-pointer flex items-center justify-between transition ${
-                            isHighlighted
-                              ? 'dropdown-active-cursor'
-                              : isSelected
-                              ? 'dropdown-selected-item'
-                              : 'text-slate-300 hover:bg-slate-800/60'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 overflow-hidden">
-                            {isHighlighted && <span className="text-amber-300 font-black text-xs select-none">▶</span>}
-                            <span className={`font-mono text-[11px] ${isHighlighted ? 'text-code-highlight font-bold' : 'text-sky-400'}`}>
-                              {acc.code}
-                            </span>
-                            <span className={`truncate ${isHighlighted ? 'font-bold text-white' : ''}`}>{acc.title}</span>
-                          </div>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono border ${
-                            isHighlighted
-                              ? 'text-type-highlight font-bold'
-                              : 'bg-slate-800 text-slate-400 border-slate-700'
-                          }`}>
-                            {acc.type}
-                          </span>
-                        </div>
-                      );
-                    })
+            {/* Row 2: Account & Cash Transaction */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 relative" ref={accountDropdownRef}>
+                <label className="text-xs text-slate-700 font-normal w-12 text-right">Account</label>
+                <div className="relative">
+                  <input
+                    ref={accountInputRef}
+                    type="text"
+                    value={accountSearchQuery}
+                    onChange={(e) => {
+                      setAccountSearchQuery(e.target.value);
+                      setIsAccountDropdownOpen(true);
+                      setHighlightedAccountIdx(0);
+                    }}
+                    onFocus={() => {
+                      setIsAccountDropdownOpen(true);
+                      const foundIdx = filteredAccounts.findIndex((a) => a.id === selectedAccount?.id);
+                      setHighlightedAccountIdx(foundIdx >= 0 ? foundIdx : 0);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        setIsAccountDropdownOpen(true);
+                        setHighlightedAccountIdx((prev) => Math.min(prev + 1, Math.max(0, filteredAccounts.length - 1)));
+                      } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        setIsAccountDropdownOpen(true);
+                        setHighlightedAccountIdx((prev) => Math.max(prev - 1, 0));
+                      } else if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (filteredAccounts.length > 0 && highlightedAccountIdx >= 0 && highlightedAccountIdx < filteredAccounts.length) {
+                          handleSelectAccount(filteredAccounts[highlightedAccountIdx]);
+                        }
+                      } else if (e.key === 'Escape') {
+                        setIsAccountDropdownOpen(false);
+                      }
+                    }}
+                    placeholder="Nothing selected"
+                    className="w-72 sm:w-80 bg-white border border-slate-300 rounded-sm px-2 py-0.5 text-xs text-slate-800 outline-none focus:border-blue-500 cursor-pointer"
+                  />
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-2 top-1.5 pointer-events-none" />
+
+                  {/* Dropdown menu */}
+                  {isAccountDropdownOpen && (
+                    <div className="absolute z-50 left-0 right-0 mt-0.5 max-h-56 overflow-y-auto bg-white border border-slate-300 rounded-sm shadow-lg divide-y divide-slate-100 text-xs">
+                      {filteredAccounts.length === 0 ? (
+                        <div className="p-2 text-slate-500 text-center">No account found.</div>
+                      ) : (
+                        filteredAccounts.map((acc, idx) => {
+                          const isHighlighted = idx === highlightedAccountIdx;
+                          const isSelected = selectedAccount?.id === acc.id;
+                          return (
+                            <div
+                              key={acc.id}
+                              onClick={() => handleSelectAccount(acc)}
+                              onMouseEnter={() => setHighlightedAccountIdx(idx)}
+                              className={`px-3 py-1.5 cursor-pointer flex items-center justify-between ${
+                                isHighlighted
+                                  ? 'bg-blue-50 text-blue-900 font-semibold'
+                                  : isSelected
+                                  ? 'bg-slate-100 text-slate-900'
+                                  : 'text-slate-700 hover:bg-slate-50'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 truncate">
+                                <span className="font-mono text-[11px] text-slate-500">{acc.code}</span>
+                                <span className="truncate">{acc.title}</span>
+                              </div>
+                              <span className="text-[10px] text-slate-400 uppercase">{acc.type}</span>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
+              </div>
 
-            {/* Cash Transaction Checkbox */}
-            <div className="sm:col-span-2 flex items-center pt-5">
-              <label className="flex items-center gap-2 text-xs font-semibold text-slate-300 cursor-pointer hover:text-white">
+              <div className="flex items-center gap-1.5">
                 <input
                   type="checkbox"
+                  id="cash-trans-pr"
                   checked={isCashTransaction}
                   onChange={(e) => setIsCashTransaction(e.target.checked)}
-                  className="rounded border-slate-700 text-sky-500 focus:ring-0 w-4 h-4 accent-sky-500"
+                  className="rounded border-slate-300 text-blue-600 focus:ring-0 w-3.5 h-3.5 accent-blue-600"
                 />
-                <span>Cash Transaction</span>
-              </label>
-            </div>
-          </div>
-
-          {/* Line Item Entry Row matching Image 1: ITEM | CTN | RATE/CTN | QTY/CTN | QTY | RATE | DISC | VAT% | VAT AMT | TOTAL AMT | STOCK | ACTION Enter */}
-          <div className="border border-slate-800 bg-slate-950/70 p-3 rounded-xl space-y-2">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1">
-              <span>Item Row Entry</span>
-              <span className="text-slate-500 font-normal">(Fill row and press Enter or Enter button)</span>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-12 gap-2 text-xs items-end">
-              {/* ITEM */}
-              <div className="col-span-2 sm:col-span-3 relative" ref={itemDropdownRef}>
-                <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase">ITEM</label>
-                <input
-                  ref={itemInputRef}
-                  type="text"
-                  value={itemSearchQuery}
-                  onChange={(e) => {
-                    setItemSearchQuery(e.target.value);
-                    setIsItemDropdownOpen(true);
-                    setHighlightedItemIdx(0);
-                  }}
-                  onFocus={() => {
-                    setIsItemDropdownOpen(true);
-                    const foundIdx = filteredProducts.findIndex((p) => p.id === selectedProduct?.id);
-                    setHighlightedItemIdx(foundIdx >= 0 ? foundIdx : 0);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'ArrowDown') {
-                      e.preventDefault();
-                      setIsItemDropdownOpen(true);
-                      setHighlightedItemIdx((prev) => {
-                        const next = Math.min(prev + 1, Math.max(0, filteredProducts.length - 1));
-                        const target = filteredProducts[next];
-                        if (target) {
-                          setTimeout(() => {
-                            itemDropdownRef.current?.querySelector(`[data-prod-id="${target.id}"]`)?.scrollIntoView({ block: 'nearest' });
-                          }, 10);
-                        }
-                        return next;
-                      });
-                    } else if (e.key === 'ArrowUp') {
-                      e.preventDefault();
-                      setIsItemDropdownOpen(true);
-                      setHighlightedItemIdx((prev) => {
-                        const next = Math.max(prev - 1, 0);
-                        const target = filteredProducts[next];
-                        if (target) {
-                          setTimeout(() => {
-                            itemDropdownRef.current?.querySelector(`[data-prod-id="${target.id}"]`)?.scrollIntoView({ block: 'nearest' });
-                          }, 10);
-                        }
-                        return next;
-                      });
-                    } else if (e.key === 'Enter') {
-                      e.preventDefault();
-                      if (filteredProducts.length > 0 && highlightedItemIdx >= 0 && highlightedItemIdx < filteredProducts.length) {
-                        handleSelectProduct(filteredProducts[highlightedItemIdx]);
-                      }
-                    } else if (e.key === 'Escape') {
-                      setIsItemDropdownOpen(false);
-                    }
-                  }}
-                  placeholder="Nothing selected"
-                  className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white outline-none focus:border-sky-500 font-medium"
-                />
-
-                {/* Floating item dropdown */}
-                {isItemDropdownOpen && (
-                  <div className="absolute z-50 left-0 right-0 mt-1 max-h-60 overflow-y-auto bg-slate-950 border border-slate-700 rounded-xl shadow-2xl divide-y divide-slate-800 text-xs">
-                    {filteredProducts.length === 0 ? (
-                      <div className="p-3 text-slate-400 text-center">No item found.</div>
-                    ) : (
-                      filteredProducts.map((p, idx) => {
-                        const isHighlighted = idx === highlightedItemIdx;
-                        const isSelected = selectedProduct?.id === p.id;
-                        return (
-                          <div
-                            key={p.id}
-                            data-prod-id={p.id}
-                            onClick={() => handleSelectProduct(p)}
-                            onMouseEnter={() => setHighlightedItemIdx(idx)}
-                            className={`px-3 py-2 cursor-pointer flex items-center justify-between transition ${
-                              isHighlighted
-                                ? 'dropdown-active-cursor'
-                                : isSelected
-                                ? 'dropdown-selected-item'
-                                : 'text-slate-300 hover:bg-slate-800/60'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              {isHighlighted && <span className="text-amber-300 font-black text-xs select-none">▶</span>}
-                              <div className="flex flex-col min-w-0">
-                                <span className={`truncate font-semibold ${isHighlighted ? 'font-bold text-white' : 'text-white'}`}>{p.name}</span>
-                                <span className={`text-[10px] font-mono ${isHighlighted ? 'text-code-highlight' : 'text-slate-400'}`}>
-                                  Code: {p.code || p.sku || 'N/A'}
-                                </span>
-                              </div>
-                            </div>
-                            <span className={`text-[11px] font-mono font-bold ml-2 shrink-0 px-2 py-0.5 rounded ${
-                              isHighlighted ? 'text-stock-highlight' : 'text-emerald-400'
-                            }`}>
-                              Stock: {p.currentQuantity || 0} {p.unit || ''}
-                            </span>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* CTN */}
-              <div className="col-span-1">
-                <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase">CTN</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={rowCtn}
-                  onChange={(e) => handleCtnChange(e.target.value)}
-                  placeholder="0"
-                  className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-xs text-white text-center outline-none focus:border-sky-500 font-mono"
-                />
-              </div>
-
-              {/* RATE/CTN */}
-              <div className="col-span-1">
-                <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase">RATE/CTN</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={rowRatePerCtn}
-                  onChange={(e) => setRowRatePerCtn(e.target.value)}
-                  placeholder="0.00"
-                  className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-xs text-white text-right outline-none focus:border-sky-500 font-mono"
-                />
-              </div>
-
-              {/* QTY/CTN */}
-              <div className="col-span-1">
-                <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase">QTY/CTN</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={rowQtyPerCtn}
-                  onChange={(e) => setRowQtyPerCtn(e.target.value)}
-                  placeholder="1"
-                  className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-xs text-white text-center outline-none focus:border-sky-500 font-mono"
-                />
-              </div>
-
-              {/* QTY */}
-              <div className="col-span-1">
-                <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase">QTY</label>
-                <input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={rowQty}
-                  onChange={(e) => setRowQty(e.target.value)}
-                  placeholder="1"
-                  className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-xs text-white text-center font-bold outline-none focus:border-sky-500 font-mono"
-                />
-              </div>
-
-              {/* RATE */}
-              <div className="col-span-1">
-                <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase">RATE</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={rowRate}
-                  onChange={(e) => handleRateChange(e.target.value)}
-                  placeholder="0.00"
-                  className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-xs text-white text-right font-bold outline-none focus:border-sky-500 font-mono"
-                />
-              </div>
-
-              {/* DISC */}
-              <div className="col-span-1">
-                <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase">DISC</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={rowDisc}
-                  onChange={(e) => setRowDisc(e.target.value)}
-                  placeholder="0"
-                  className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-xs text-white text-right outline-none focus:border-sky-500 font-mono"
-                />
-              </div>
-
-              {/* VAT% */}
-              <div className="col-span-1">
-                <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase">VAT%</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={rowVatPct}
-                  onChange={(e) => setRowVatPct(e.target.value)}
-                  placeholder="0"
-                  className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-xs text-white text-center outline-none focus:border-sky-500 font-mono"
-                />
-              </div>
-
-              {/* TOTAL AMT */}
-              <div className="col-span-1">
-                <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase">TOTAL AMT</label>
-                <div className="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-emerald-400 text-right font-mono font-bold">
-                  {lineTotal.toFixed(2)}
-                </div>
-              </div>
-
-              {/* STOCK (Live Stock Preview) */}
-              <div className="col-span-1">
-                <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase" title="Current Stock / Live After Return">
-                  STOCK
+                <label htmlFor="cash-trans-pr" className="text-xs text-slate-700 font-normal cursor-pointer select-none">
+                  Cash Transaction
                 </label>
-                <div
-                  className="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-sky-400 text-center font-mono font-bold"
-                  title={selectedProduct ? `Current Stock: ${selectedProduct.currentQuantity || 0} | Live after return: ${Math.max(0, (selectedProduct.currentQuantity || 0) - (parseFloat(rowQty) || 0)).toFixed(2)}` : 'No item selected'}
-                >
-                  {selectedProduct ? `${selectedProduct.currentQuantity || 0} (-${parseFloat(rowQty) || 0})` : '0'}
-                </div>
-              </div>
-
-              {/* ACTION Enter Button */}
-              <div className="col-span-1">
-                <button
-                  type="button"
-                  onClick={handleAddLineItem}
-                  className="w-full bg-sky-600 hover:bg-sky-500 text-white font-black py-1.5 px-3 rounded text-xs transition cursor-pointer shadow flex items-center justify-center"
-                >
-                  {editingItemIdx !== null ? 'Update' : 'Enter'}
-                </button>
               </div>
             </div>
           </div>
 
-          {/* Added items table */}
-          <div className="border border-slate-800 rounded-xl overflow-hidden">
-            <table className="w-full text-xs text-left text-slate-200">
-              <thead className="bg-slate-800 text-slate-300 font-bold uppercase tracking-wider text-[11px] border-b border-slate-700">
-                <tr>
-                  <th className="py-2.5 px-3">SR#</th>
-                  <th className="py-2.5 px-3">ITEM</th>
-                  <th className="py-2.5 px-3 text-center">CTN</th>
-                  <th className="py-2.5 px-3 text-right">RATE/CTN</th>
-                  <th className="py-2.5 px-3 text-center">QTY/CTN</th>
-                  <th className="py-2.5 px-3 text-center">QTY</th>
-                  <th className="py-2.5 px-3 text-right">RATE</th>
-                  <th className="py-2.5 px-3 text-right">DISC</th>
-                  <th className="py-2.5 px-3 text-center">VAT%</th>
-                  <th className="py-2.5 px-3 text-right">VAT AMT</th>
-                  <th className="py-2.5 px-3 text-right">TOTAL AMT</th>
-                  <th className="py-2.5 px-3 text-center">ACTION</th>
+          {/* ------------------------------------------------------------------ */}
+          {/* THE GRID TABLE (Exact Match Image 2)                               */}
+          {/* Headers: ITEM | CTN | RATE/CTN | QTY/CTN | QTY | RATE | DISC |    */}
+          {/*          VAT@ | VAT AMT | TOTAL AMT | STOCK | ACTION (Enter)      */}
+          {/* ------------------------------------------------------------------ */}
+          <div className="overflow-x-auto border border-slate-300">
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="bg-[#f8f9fa] border-b border-slate-300 text-slate-800 font-bold uppercase text-[11px] text-center">
+                  <th className="py-1 px-2 border-r border-slate-300 w-48 text-center">ITEM</th>
+                  <th className="py-1 px-1 border-r border-slate-300 w-16 text-center">CTN</th>
+                  <th className="py-1 px-1 border-r border-slate-300 w-20 text-center">RATE/CTN</th>
+                  <th className="py-1 px-1 border-r border-slate-300 w-16 text-center">QTY/CTN</th>
+                  <th className="py-1 px-1 border-r border-slate-300 w-16 text-center">QTY</th>
+                  <th className="py-1 px-1 border-r border-slate-300 w-20 text-center">RATE</th>
+                  <th className="py-1 px-1 border-r border-slate-300 w-16 text-center">DISC</th>
+                  <th className="py-1 px-1 border-r border-slate-300 w-14 text-center">VAT@</th>
+                  <th className="py-1 px-1 border-r border-slate-300 w-20 text-center">VAT AMT</th>
+                  <th className="py-1 px-1 border-r border-slate-300 w-24 text-center">TOTAL AMT</th>
+                  <th className="py-1 px-1 border-r border-slate-300 w-16 text-center">STOCK</th>
+                  <th className="py-1 px-2 text-center w-20">ACTION</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800 bg-slate-950 font-medium">
-                {items.length === 0 ? (
-                  <tr>
-                    <td colSpan={12} className="py-8 text-center text-slate-500">
-                      No items added to return yet. Fill the row above and press Enter.
+              <tbody>
+                {/* Row 1: INPUT ROW matching Image 2 */}
+                <tr className="bg-white border-b border-slate-300">
+                  {/* ITEM */}
+                  <td className="p-0 border-r border-slate-300 relative" ref={itemDropdownRef}>
+                    <div className="relative">
+                      <input
+                        ref={itemInputRef}
+                        type="text"
+                        value={itemSearchQuery}
+                        onChange={(e) => {
+                          setItemSearchQuery(e.target.value);
+                          setIsItemDropdownOpen(true);
+                          setHighlightedItemIdx(0);
+                        }}
+                        onFocus={() => {
+                          setIsItemDropdownOpen(true);
+                          const foundIdx = filteredProducts.findIndex((p) => p.id === selectedProduct?.id);
+                          setHighlightedItemIdx(foundIdx >= 0 ? foundIdx : 0);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            setIsItemDropdownOpen(true);
+                            setHighlightedItemIdx((prev) => Math.min(prev + 1, Math.max(0, filteredProducts.length - 1)));
+                          } else if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            setIsItemDropdownOpen(true);
+                            setHighlightedItemIdx((prev) => Math.max(prev - 1, 0));
+                          } else if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (filteredProducts.length > 0 && highlightedItemIdx >= 0 && highlightedItemIdx < filteredProducts.length) {
+                              handleSelectProduct(filteredProducts[highlightedItemIdx]);
+                            }
+                          } else if (e.key === 'Escape') {
+                            setIsItemDropdownOpen(false);
+                          }
+                        }}
+                        placeholder="Nothing selected"
+                        className="w-full bg-transparent px-2 py-1 text-xs text-slate-800 outline-none pr-5 truncate cursor-pointer font-sans"
+                      />
+                      <ChevronDown className="w-3 h-3 text-slate-400 absolute right-1.5 top-2 pointer-events-none" />
+
+                      {isItemDropdownOpen && (
+                        <div className="absolute z-50 left-0 w-80 mt-0.5 max-h-56 overflow-y-auto bg-white border border-slate-300 rounded-sm shadow-xl divide-y divide-slate-100 text-xs">
+                          {filteredProducts.length === 0 ? (
+                            <div className="p-2 text-slate-500 text-center">No item found.</div>
+                          ) : (
+                            filteredProducts.map((p, idx) => {
+                              const isHighlighted = idx === highlightedItemIdx;
+                              const isSelected = selectedProduct?.id === p.id;
+                              return (
+                                <div
+                                  key={p.id}
+                                  onClick={() => handleSelectProduct(p)}
+                                  onMouseEnter={() => setHighlightedItemIdx(idx)}
+                                  className={`px-3 py-1.5 cursor-pointer flex items-center justify-between ${
+                                    isHighlighted
+                                      ? 'bg-blue-50 text-blue-900 font-semibold'
+                                      : isSelected
+                                      ? 'bg-slate-100 text-slate-900'
+                                      : 'text-slate-700 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  <div className="flex flex-col truncate">
+                                    <span className="truncate">{p.name}</span>
+                                    <span className="text-[10px] text-slate-400 font-mono">Code: {p.code || p.sku || 'N/A'}</span>
+                                  </div>
+                                  <span className="text-[11px] font-mono font-bold text-emerald-600 shrink-0 ml-2">
+                                    Stock: {p.currentQuantity || 0}
+                                  </span>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* CTN */}
+                  <td className="p-0 border-r border-slate-300">
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={rowCtn}
+                      onChange={(e) => handleCtnChange(e.target.value)}
+                      className="w-full bg-white px-1 py-1 text-center font-mono text-xs outline-none focus:bg-blue-50/40"
+                    />
+                  </td>
+
+                  {/* RATE/CTN */}
+                  <td className="p-0 border-r border-slate-300">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={rowRatePerCtn}
+                      onChange={(e) => setRowRatePerCtn(e.target.value)}
+                      className="w-full bg-white px-1 py-1 text-right font-mono text-xs outline-none focus:bg-blue-50/40"
+                    />
+                  </td>
+
+                  {/* QTY/CTN (Readonly Gray) */}
+                  <td className="p-0 border-r border-slate-300 bg-[#e9ecef]">
+                    <input
+                      type="text"
+                      readOnly
+                      value={rowQtyPerCtn}
+                      className="w-full bg-transparent px-1 py-1 text-center font-mono text-xs text-slate-600 select-none cursor-default"
+                    />
+                  </td>
+
+                  {/* QTY */}
+                  <td className="p-0 border-r border-slate-300">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={rowQty}
+                      onChange={(e) => setRowQty(e.target.value)}
+                      className="w-full bg-white px-1 py-1 text-center font-mono font-bold text-xs outline-none focus:bg-blue-50/40"
+                    />
+                  </td>
+
+                  {/* RATE */}
+                  <td className="p-0 border-r border-slate-300">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={rowRate}
+                      onChange={(e) => handleRateChange(e.target.value)}
+                      className="w-full bg-white px-1 py-1 text-right font-mono font-bold text-xs outline-none focus:bg-blue-50/40"
+                    />
+                  </td>
+
+                  {/* DISC */}
+                  <td className="p-0 border-r border-slate-300">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={rowDisc}
+                      onChange={(e) => setRowDisc(e.target.value)}
+                      className="w-full bg-white px-1 py-1 text-right font-mono text-xs outline-none focus:bg-blue-50/40"
+                    />
+                  </td>
+
+                  {/* VAT@ */}
+                  <td className="p-0 border-r border-slate-300">
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={rowVatPct}
+                      onChange={(e) => setRowVatPct(e.target.value)}
+                      className="w-full bg-white px-1 py-1 text-center font-mono text-xs outline-none focus:bg-blue-50/40"
+                    />
+                  </td>
+
+                  {/* VAT AMT (Readonly Gray) */}
+                  <td className="p-0 border-r border-slate-300 bg-[#e9ecef]">
+                    <div className="w-full px-1 py-1 text-right font-mono text-xs text-slate-600">
+                      {lineVat > 0 ? lineVat.toFixed(2) : '0'}
+                    </div>
+                  </td>
+
+                  {/* TOTAL AMT (Readonly Gray) */}
+                  <td className="p-0 border-r border-slate-300 bg-[#e9ecef]">
+                    <div className="w-full px-1 py-1 text-right font-mono font-bold text-xs text-slate-800">
+                      {lineTotal > 0 ? lineTotal.toFixed(2) : '0'}
+                    </div>
+                  </td>
+
+                  {/* STOCK (Readonly Gray Live Remaining Stock Preview) */}
+                  <td className="p-0 border-r border-slate-300 bg-[#e9ecef]">
+                    <div
+                      className="w-full px-1 py-1 text-center font-mono font-bold text-xs text-slate-700"
+                      title={selectedProduct ? `Current Stock: ${selectedProduct.currentQuantity || 0} - Return Qty: ${qVal}` : 'Select item to preview live stock'}
+                    >
+                      {liveStockPreview}
+                    </div>
+                  </td>
+
+                  {/* ACTION: Enter button */}
+                  <td className="p-1 text-center">
+                    <button
+                      type="button"
+                      onClick={handleAddLineItem}
+                      className="w-full bg-[#007bff] hover:bg-[#0069d9] active:bg-[#005cbf] text-white font-medium py-0.5 px-2 rounded-xs text-xs transition cursor-pointer shadow-2xs"
+                    >
+                      {editingItemIdx !== null ? 'Update' : 'Enter'}
+                    </button>
+                  </td>
+                </tr>
+
+                {/* Added Items Rows */}
+                {items.map((it, idx) => (
+                  <tr key={it.id} className="bg-white hover:bg-slate-50 border-b border-slate-200 text-slate-700">
+                    <td className="py-1 px-2 border-r border-slate-300 truncate font-medium text-slate-900">
+                      {it.itemTitle}
+                    </td>
+                    <td className="py-1 px-1 border-r border-slate-300 text-center font-mono">{it.ctn || 0}</td>
+                    <td className="py-1 px-1 border-r border-slate-300 text-right font-mono">{Number(it.ratePerCtn || 0).toFixed(2)}</td>
+                    <td className="py-1 px-1 border-r border-slate-300 text-center font-mono bg-[#f8f9fa] text-slate-500">{it.qtyPerCtn || 1}</td>
+                    <td className="py-1 px-1 border-r border-slate-300 text-center font-mono font-bold text-blue-700">{it.qty}</td>
+                    <td className="py-1 px-1 border-r border-slate-300 text-right font-mono">{Number(it.rate).toFixed(2)}</td>
+                    <td className="py-1 px-1 border-r border-slate-300 text-right font-mono">{Number(it.disc || 0).toFixed(2)}</td>
+                    <td className="py-1 px-1 border-r border-slate-300 text-center font-mono">{it.vatPct || 0}%</td>
+                    <td className="py-1 px-1 border-r border-slate-300 text-right font-mono bg-[#f8f9fa]">{Number(it.vatAmt || 0).toFixed(2)}</td>
+                    <td className="py-1 px-1 border-r border-slate-300 text-right font-mono font-bold text-slate-900 bg-[#f8f9fa]">{Number(it.total).toFixed(2)}</td>
+                    <td className="py-1 px-1 border-r border-slate-300 text-center font-mono bg-[#f8f9fa] text-slate-600">
+                      {Math.max(0, (Number(it.stock) || 0) - (Number(it.qty) || 0)).toFixed(0)}
+                    </td>
+                    <td className="py-0.5 px-1 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleEditRow(idx)}
+                          className="p-0.5 text-blue-600 hover:text-blue-800 cursor-pointer"
+                          title="Edit"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteRow(idx)}
+                          className="p-0.5 text-rose-600 hover:text-rose-800 cursor-pointer"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
-                ) : (
-                  items.map((it, idx) => (
-                    <tr key={it.id} className="hover:bg-slate-900/60 transition">
-                      <td className="py-2 px-3 text-slate-400 font-mono">{idx + 1}</td>
-                      <td className="py-2 px-3 font-semibold text-white">{it.itemTitle}</td>
-                      <td className="py-2 px-3 text-center font-mono">{it.ctn || 0}</td>
-                      <td className="py-2 px-3 text-right font-mono">{Number(it.ratePerCtn || 0).toFixed(2)}</td>
-                      <td className="py-2 px-3 text-center font-mono">{it.qtyPerCtn || 1}</td>
-                      <td className="py-2 px-3 text-center font-mono font-bold text-sky-400">{it.qty}</td>
-                      <td className="py-2 px-3 text-right font-mono">{Number(it.rate).toFixed(2)}</td>
-                      <td className="py-2 px-3 text-right font-mono">{Number(it.disc || 0).toFixed(2)}</td>
-                      <td className="py-2 px-3 text-center font-mono">{it.vatPct || 0}%</td>
-                      <td className="py-2 px-3 text-right font-mono">{Number(it.vatAmt || 0).toFixed(2)}</td>
-                      <td className="py-2 px-3 text-right font-mono font-bold text-emerald-400">{Number(it.total).toFixed(2)}</td>
-                      <td className="py-2 px-3 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleEditRow(idx)}
-                            className="p-1 rounded text-sky-400 hover:bg-sky-500/10 transition"
-                            title="Edit Item"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteRow(idx)}
-                            className="p-1 rounded text-rose-400 hover:bg-rose-500/10 transition"
-                            title="Delete Item"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
+                ))}
+
+                {/* Total Row (Exact Match Image 2 with dashes) */}
+                <tr className="bg-[#f8f9fa] font-bold text-slate-800 text-center border-t border-slate-300">
+                  <td className="py-1 px-2 border-r border-slate-300 text-center">Total</td>
+                  <td className="py-1 px-1 border-r border-slate-300 font-mono">{totalCtn > 0 ? totalCtn : ''}</td>
+                  <td className="py-1 px-1 border-r border-slate-300 text-slate-400">---</td>
+                  <td className="py-1 px-1 border-r border-slate-300 text-slate-400">---</td>
+                  <td className="py-1 px-1 border-r border-slate-300 font-mono">{totalQty > 0 ? totalQty.toFixed(2) : ''}</td>
+                  <td className="py-1 px-1 border-r border-slate-300 text-slate-400">---</td>
+                  <td className="py-1 px-1 border-r border-slate-300 font-mono">{discVal > 0 ? discVal.toFixed(2) : ''}</td>
+                  <td className="py-1 px-1 border-r border-slate-300 text-slate-400">---</td>
+                  <td className="py-1 px-1 border-r border-slate-300 text-right font-mono">{totalVat > 0 ? totalVat.toFixed(2) : '0'}</td>
+                  <td className="py-1 px-1 border-r border-slate-300 text-right font-mono font-bold text-slate-900">{totalGross > 0 ? totalGross.toFixed(2) : '0'}</td>
+                  <td className="py-1 px-1 border-r border-slate-300 text-slate-400">---</td>
+                  <td className="py-1 px-1 text-slate-400">---</td>
+                </tr>
               </tbody>
-              {items.length > 0 && (
-                <tfoot className="bg-slate-900 border-t-2 border-slate-700 font-bold text-slate-200">
-                  <tr>
-                    <td colSpan={2} className="py-2.5 px-3 uppercase text-slate-400">Total</td>
-                    <td className="py-2.5 px-3 text-center font-mono">{totalCtn}</td>
-                    <td colSpan={2} />
-                    <td className="py-2.5 px-3 text-center font-mono text-sky-400">{totalQty}</td>
-                    <td colSpan={3} />
-                    <td className="py-2.5 px-3 text-right font-mono text-slate-300">{totalVat.toFixed(2)}</td>
-                    <td className="py-2.5 px-3 text-right font-mono text-emerald-400 font-black">{totalGross.toFixed(2)}</td>
-                    <td />
-                  </tr>
-                </tfoot>
-              )}
             </table>
           </div>
 
-          {/* Bottom Right Summary Form matching Image 1 */}
-          <div className="flex flex-col sm:flex-row items-end justify-end gap-6 pt-3">
-            <div className="w-full sm:w-80 space-y-2 text-xs">
-              <div className="flex items-center justify-between gap-3">
-                <span className="font-bold text-slate-400">Discount:</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={overallDiscount}
-                  onChange={(e) => setOverallDiscount(e.target.value)}
-                  placeholder="0.00"
-                  className="w-36 bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-right text-white font-mono font-bold outline-none focus:border-sky-500"
-                />
-              </div>
+          {/* ------------------------------------------------------------------ */}
+          {/* BOTTOM RIGHT SUMMARY (Exact Match Image 2)                         */}
+          {/* Discount | Final Amount | Income Tax Percent | Income Tax Amount  */}
+          {/* [Save] [New Form]                                                  */}
+          {/* ------------------------------------------------------------------ */}
+          <div className="flex flex-col items-end gap-1.5 pt-2">
+            {/* Discount */}
+            <div className="flex items-center gap-3">
+              <label className="text-xs text-slate-700 font-normal w-32 text-right">Discount</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={overallDiscount}
+                onChange={(e) => setOverallDiscount(e.target.value)}
+                className="w-32 bg-white border border-slate-300 rounded-sm px-2 py-0.5 text-right font-mono text-xs text-slate-800 outline-none focus:border-blue-500"
+              />
+            </div>
 
-              <div className="flex items-center justify-between gap-3">
-                <span className="font-bold text-slate-400">Final Amount:</span>
-                <div className="w-36 bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-right text-emerald-400 font-mono font-black text-sm">
-                  {currencySymbol()} {finalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </div>
+            {/* Final Amount (Readonly Gray) */}
+            <div className="flex items-center gap-3">
+              <label className="text-xs text-slate-700 font-normal w-32 text-right">Final Amount</label>
+              <div className="w-32 bg-[#e9ecef] border border-slate-300 rounded-sm px-2 py-0.5 text-right font-mono font-bold text-xs text-slate-800">
+                {finalAmount.toFixed(2)}
               </div>
+            </div>
 
-              <div className="flex items-center justify-between gap-3">
-                <span className="font-bold text-slate-400">Income Tax Percent:</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={incomeTaxPct}
-                  onChange={(e) => setIncomeTaxPct(e.target.value)}
-                  placeholder="0.00"
-                  className="w-36 bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-right text-white font-mono outline-none focus:border-sky-500"
-                />
-              </div>
+            {/* Income Tax Percent */}
+            <div className="flex items-center gap-3">
+              <label className="text-xs text-slate-700 font-normal w-32 text-right">Income Tax Percent</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={incomeTaxPct}
+                onChange={(e) => setIncomeTaxPct(e.target.value)}
+                className="w-32 bg-white border border-slate-300 rounded-sm px-2 py-0.5 text-right font-mono text-xs text-slate-800 outline-none focus:border-blue-500"
+              />
+            </div>
 
-              <div className="flex items-center justify-between gap-3">
-                <span className="font-bold text-slate-400">Income Tax Amount:</span>
-                <div className="w-36 bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-right text-slate-300 font-mono">
-                  {taxAmtVal.toFixed(2)}
-                </div>
+            {/* Income Tax Amount (Readonly Gray) */}
+            <div className="flex items-center gap-3">
+              <label className="text-xs text-slate-700 font-normal w-32 text-right">Income Tax Amount</label>
+              <div className="w-32 bg-[#e9ecef] border border-slate-300 rounded-sm px-2 py-0.5 text-right font-mono text-xs text-slate-700">
+                {taxAmtVal.toFixed(2)}
               </div>
+            </div>
 
-              {/* Save & New Form Buttons */}
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={handleSaveReturn}
-                  disabled={isLoading}
-                  className="px-5 py-2 bg-sky-600 hover:bg-sky-500 active:bg-sky-700 disabled:opacity-50 text-white font-bold rounded-lg transition cursor-pointer shadow text-xs"
-                >
-                  {isLoading ? 'Saving...' : 'Save'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleResetForm}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-lg transition cursor-pointer border border-slate-700 text-xs"
-                >
-                  New Form
-                </button>
-              </div>
+            {/* Action Buttons: Save & New Form (Exact Match Image 2: blue pills) */}
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={handleSaveReturn}
+                disabled={isLoading}
+                className="bg-[#007bff] hover:bg-[#0069d9] active:bg-[#005cbf] disabled:opacity-50 text-white font-medium text-xs px-3.5 py-1 rounded-sm shadow-2xs cursor-pointer transition"
+              >
+                {isLoading ? 'Saving...' : 'Save'}
+              </button>
+              <button
+                type="button"
+                onClick={handleResetForm}
+                className="bg-[#007bff] hover:bg-[#0069d9] active:bg-[#005cbf] text-white font-medium text-xs px-3.5 py-1 rounded-sm shadow-2xs cursor-pointer transition"
+              >
+                New Form
+              </button>
             </div>
           </div>
         </div>
       )}
 
       {/* ------------------------------------------------------------------ */}
-      {/* MODE 2: LIST VIEW (Exact Match Image 2)                            */}
+      {/* MODE 2: LIST VIEW                                                  */}
       {/* ------------------------------------------------------------------ */}
       {viewMode === 'list' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-md space-y-4">
+        <div className="p-4 space-y-3">
           {/* Optional search filters bar toggled by "Search" */}
           {isSearchFilterOpen && (
-            <div className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs items-end">
+            <div className="p-3 bg-[#f8f9fa] border border-slate-300 rounded-sm grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs items-end">
               <div>
-                <label className="block text-slate-400 font-bold mb-1">Filter Account / Supplier</label>
+                <label className="block text-slate-700 font-bold mb-1">Filter Supplier / Account</label>
                 <input
                   type="text"
                   value={filterSupplier}
                   onChange={(e) => setFilterSupplier(e.target.value)}
                   placeholder="Supplier name or code..."
-                  className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white outline-none focus:border-sky-500"
+                  className="w-full bg-white border border-slate-300 rounded-sm px-2 py-1 text-slate-800 outline-none focus:border-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-slate-400 font-bold mb-1">Date From</label>
+                <label className="block text-slate-700 font-bold mb-1">Date From</label>
                 <input
                   type="date"
                   value={filterDateFrom}
                   onChange={(e) => setFilterDateFrom(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white outline-none focus:border-sky-500"
+                  className="w-full bg-white border border-slate-300 rounded-sm px-2 py-1 text-slate-800 outline-none focus:border-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-slate-400 font-bold mb-1">Date To</label>
+                <label className="block text-slate-700 font-bold mb-1">Date To</label>
                 <input
                   type="date"
                   value={filterDateTo}
                   onChange={(e) => setFilterDateTo(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white outline-none focus:border-sky-500"
+                  className="w-full bg-white border border-slate-300 rounded-sm px-2 py-1 text-slate-800 outline-none focus:border-blue-500"
                 />
               </div>
               <div className="flex items-center gap-2">
@@ -1083,7 +1053,7 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
                     setFilterDateFrom('');
                     setFilterDateTo('');
                   }}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded font-bold transition"
+                  className="px-3 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-sm font-semibold transition"
                 >
                   Clear Filters
                 </button>
@@ -1091,23 +1061,23 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
             </div>
           )}
 
-          {/* Table matching Image 2: SR# | BILL# | DATE | ACCOUNT | ITEMS | CARTONS | QUANTITY | AMOUNT | ACTION */}
-          <div className="border border-slate-800 rounded-xl overflow-hidden">
-            <table className="w-full text-xs text-left text-slate-200">
-              <thead className="bg-slate-800 text-slate-300 font-bold uppercase tracking-wider text-[11px] border-b border-slate-700">
-                <tr>
-                  <th className="py-2.5 px-3">SR#</th>
-                  <th className="py-2.5 px-3 font-mono">BILL#</th>
-                  <th className="py-2.5 px-3">DATE</th>
-                  <th className="py-2.5 px-3">ACCOUNT</th>
-                  <th className="py-2.5 px-3">ITEMS</th>
-                  <th className="py-2.5 px-3 text-center">CARTONS</th>
-                  <th className="py-2.5 px-3 text-center">QUANTITY</th>
-                  <th className="py-2.5 px-3 text-right">AMOUNT</th>
-                  <th className="py-2.5 px-3 text-center">ACTION</th>
+          {/* Table: SR# | BILL# | DATE | ACCOUNT | ITEMS | CARTONS | QUANTITY | AMOUNT | ACTION */}
+          <div className="overflow-x-auto border border-slate-300">
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="bg-[#f8f9fa] border-b border-slate-300 text-slate-800 font-bold uppercase text-[11px] text-center">
+                  <th className="py-1 px-2 border-r border-slate-300 w-12 text-center">SR#</th>
+                  <th className="py-1 px-2 border-r border-slate-300 w-20 text-center font-mono">BILL#</th>
+                  <th className="py-1 px-2 border-r border-slate-300 w-24 text-center">DATE</th>
+                  <th className="py-1 px-2 border-r border-slate-300 text-left">ACCOUNT</th>
+                  <th className="py-1 px-2 border-r border-slate-300 text-left">ITEMS</th>
+                  <th className="py-1 px-2 border-r border-slate-300 w-16 text-center">CARTONS</th>
+                  <th className="py-1 px-2 border-r border-slate-300 w-20 text-center">QUANTITY</th>
+                  <th className="py-1 px-2 border-r border-slate-300 w-28 text-right">AMOUNT</th>
+                  <th className="py-1 px-2 text-center w-24">ACTION</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800 bg-slate-950 font-medium">
+              <tbody>
                 {paginatedList.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="py-8 text-center text-slate-500">
@@ -1122,39 +1092,38 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
                     const totalQuantity = (ret.items || []).reduce((s, it) => s + (Number(it.qty) || 0), 0);
 
                     return (
-                      <tr key={ret.id} className="hover:bg-slate-900/60 transition">
-                        <td className="py-2.5 px-3 font-mono text-slate-400">{srNum}</td>
-                        <td className="py-2.5 px-3 font-mono font-bold text-sky-400">{ret.returnNumber}</td>
-                        <td className="py-2.5 px-3 font-mono text-slate-300">{ret.date}</td>
-                        <td className="py-2.5 px-3 font-semibold text-white">
+                      <tr key={ret.id} className="bg-white hover:bg-slate-50 border-b border-slate-200 text-slate-700">
+                        <td className="py-1 px-2 border-r border-slate-300 text-center font-mono">{srNum}</td>
+                        <td className="py-1 px-2 border-r border-slate-300 text-center font-mono font-bold text-blue-700">{ret.returnNumber}</td>
+                        <td className="py-1 px-2 border-r border-slate-300 text-center font-mono">{formatToDMY(ret.date)}</td>
+                        <td className="py-1 px-2 border-r border-slate-300 font-semibold text-slate-900">
                           <div>{ret.supplierAccountTitle || ret.supplierName}</div>
-                          {ret.isCash && <span className="text-[10px] text-amber-400 font-bold">(Cash)</span>}
+                          {ret.isCash && <span className="text-[10px] text-amber-600 font-bold">(Cash)</span>}
                         </td>
-                        <td className="py-2.5 px-3 text-slate-300 max-w-xs truncate" title={itemsDesc}>
+                        <td className="py-1 px-2 border-r border-slate-300 max-w-xs truncate text-slate-600" title={itemsDesc}>
                           {itemsDesc || '-'}
                         </td>
-                        <td className="py-2.5 px-3 text-center font-mono">{totalCartons}</td>
-                        <td className="py-2.5 px-3 text-center font-mono font-bold text-sky-300">
+                        <td className="py-1 px-2 border-r border-slate-300 text-center font-mono">{totalCartons}</td>
+                        <td className="py-1 px-2 border-r border-slate-300 text-center font-mono font-bold text-slate-800">
                           {totalQuantity.toFixed(2)}
                         </td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-400">
+                        <td className="py-1 px-2 border-r border-slate-300 text-right font-mono font-bold text-slate-900">
                           {currencySymbol()} {Number(ret.netTotal || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </td>
-                        <td className="py-2.5 px-3 text-center">
+                        <td className="py-1 px-2 text-center">
                           <div className="flex items-center justify-center gap-1">
                             <button
                               type="button"
                               onClick={() => setViewingReturn(ret)}
-                              className="px-2 py-1 bg-sky-600 hover:bg-sky-500 text-white rounded text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
+                              className="px-1.5 py-0.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded text-[11px] font-semibold border border-blue-200 transition cursor-pointer"
                               title="View and Print"
                             >
-                              <Eye className="w-3 h-3" />
-                              <span>View</span>
+                              View
                             </button>
                             <button
                               type="button"
                               onClick={() => handleEditReturn(ret)}
-                              className="p-1 rounded text-slate-300 hover:text-sky-400 hover:bg-sky-500/10 transition cursor-pointer"
+                              className="p-1 text-slate-600 hover:text-blue-700 cursor-pointer"
                               title="Edit Return"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
@@ -1162,7 +1131,7 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
                             <button
                               type="button"
                               onClick={() => handleDeleteReturn(ret)}
-                              className="p-1 rounded text-slate-300 hover:text-rose-400 hover:bg-rose-500/10 transition cursor-pointer"
+                              className="p-1 text-slate-600 hover:text-rose-700 cursor-pointer"
                               title="Delete Return"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -1177,9 +1146,9 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
             </table>
           </div>
 
-          {/* Pagination matching Image 2: 1 2 Next Last */}
+          {/* Pagination: 1 2 Next Last */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-1.5 pt-2 text-xs font-bold text-slate-400">
+            <div className="flex items-center justify-center gap-1 pt-2 text-xs font-semibold text-slate-600">
               {Array.from({ length: totalPages }).map((_, i) => {
                 const pageNum = i + 1;
                 return (
@@ -1187,8 +1156,8 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
                     key={pageNum}
                     type="button"
                     onClick={() => setListPage(pageNum)}
-                    className={`px-2.5 py-1 rounded transition ${
-                      listPage === pageNum ? 'bg-sky-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                    className={`px-2 py-0.5 rounded border transition cursor-pointer ${
+                      listPage === pageNum ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
                     }`}
                   >
                     {pageNum}
@@ -1199,7 +1168,7 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setListPage((p) => p + 1)}
-                  className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+                  className="px-2 py-0.5 rounded bg-white text-slate-700 border border-slate-300 hover:bg-slate-100 transition cursor-pointer"
                 >
                   Next
                 </button>
@@ -1207,7 +1176,7 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
               <button
                 type="button"
                 onClick={() => setListPage(totalPages)}
-                className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+                className="px-2 py-0.5 rounded bg-white text-slate-700 border border-slate-300 hover:bg-slate-100 transition cursor-pointer"
               >
                 Last
               </button>
@@ -1218,18 +1187,18 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
 
       {/* View & Print Modal */}
       {viewingReturn && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
-            <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-950/60">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white border border-slate-300 rounded-sm w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
+            <div className="flex items-center justify-between p-3 border-b border-slate-200 bg-[#f8f9fa]">
               <div className="flex items-center gap-2">
-                <RotateCcw className="w-4 h-4 text-amber-400" />
-                <h3 className="font-bold text-white text-sm">Purchase Return Voucher #{viewingReturn.returnNumberFormatted}</h3>
+                <RotateCcw className="w-4 h-4 text-amber-600" />
+                <h3 className="font-bold text-slate-800 text-sm">Purchase Return Voucher #{viewingReturn.returnNumberFormatted}</h3>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="px-3 py-1 bg-sky-600 hover:bg-sky-500 text-white rounded text-xs font-bold transition flex items-center gap-1"
+                  className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold transition flex items-center gap-1 cursor-pointer"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>Print Slip</span>
@@ -1237,48 +1206,48 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setViewingReturn(null)}
-                  className="text-slate-400 hover:text-white"
+                  className="text-slate-400 hover:text-slate-700 cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
-            <div className="p-5 overflow-y-auto space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-4 bg-slate-950 p-4 rounded-xl border border-slate-800">
+            <div className="p-4 overflow-y-auto space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded border border-slate-200">
                 <div>
-                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Supplier / Account</span>
-                  <span className="font-bold text-white text-sm">{viewingReturn.supplierAccountTitle}</span>
-                  <span className="text-slate-400 block font-mono text-[11px]">{viewingReturn.supplierCode}</span>
+                  <span className="text-slate-500 block text-[10px] uppercase font-bold">Supplier / Account</span>
+                  <span className="font-bold text-slate-800 text-sm">{viewingReturn.supplierAccountTitle}</span>
+                  <span className="text-slate-500 block font-mono text-[11px]">{viewingReturn.supplierCode}</span>
                 </div>
                 <div className="text-right">
-                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Date</span>
-                  <span className="font-mono text-white font-bold">{viewingReturn.date}</span>
-                  <span className="text-emerald-400 block font-bold text-sm mt-1">
+                  <span className="text-slate-500 block text-[10px] uppercase font-bold">Date</span>
+                  <span className="font-mono text-slate-800 font-bold">{formatToDMY(viewingReturn.date)}</span>
+                  <span className="text-emerald-700 block font-bold text-sm mt-1">
                     {currencySymbol()} {Number(viewingReturn.netTotal).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </span>
                 </div>
               </div>
 
-              <div className="border border-slate-800 rounded-xl overflow-hidden">
-                <table className="w-full text-xs text-left text-slate-200">
-                  <thead className="bg-slate-800 text-slate-300 font-bold uppercase text-[10px]">
+              <div className="border border-slate-300 rounded overflow-hidden">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-[#f8f9fa] text-slate-700 font-bold uppercase text-[10px] border-b border-slate-200">
                     <tr>
-                      <th className="p-2">Item</th>
-                      <th className="p-2 text-center">CTN</th>
-                      <th className="p-2 text-center">Qty</th>
-                      <th className="p-2 text-right">Rate</th>
-                      <th className="p-2 text-right">Total</th>
+                      <th className="p-1.5">Item</th>
+                      <th className="p-1.5 text-center">CTN</th>
+                      <th className="p-1.5 text-center">Qty</th>
+                      <th className="p-1.5 text-right">Rate</th>
+                      <th className="p-1.5 text-right">Total</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800 bg-slate-950 font-medium">
+                  <tbody className="divide-y divide-slate-100 font-medium">
                     {(viewingReturn.items || []).map((it, idx) => (
-                      <tr key={idx}>
-                        <td className="p-2 font-semibold text-white">{it.itemTitle}</td>
-                        <td className="p-2 text-center font-mono">{it.ctn || 0}</td>
-                        <td className="p-2 text-center font-mono text-sky-400 font-bold">{it.qty}</td>
-                        <td className="p-2 text-right font-mono">{Number(it.rate).toFixed(2)}</td>
-                        <td className="p-2 text-right font-mono text-emerald-400 font-bold">{Number(it.total).toFixed(2)}</td>
+                      <tr key={idx} className="hover:bg-slate-50">
+                        <td className="p-1.5 font-semibold text-slate-800">{it.itemTitle}</td>
+                        <td className="p-1.5 text-center font-mono">{it.ctn || 0}</td>
+                        <td className="p-1.5 text-center font-mono text-blue-700 font-bold">{it.qty}</td>
+                        <td className="p-1.5 text-right font-mono">{Number(it.rate).toFixed(2)}</td>
+                        <td className="p-1.5 text-right font-mono text-slate-900 font-bold">{Number(it.total).toFixed(2)}</td>
                       </tr>
                     ))}
                   </tbody>
