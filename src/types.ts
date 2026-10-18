@@ -288,6 +288,19 @@ export interface Supplier {
   totalPurchases?: number;
   balanceOwed?: number;         // same as payableToSupplier
   productsSuppliedCount?: number;
+  srNo?: number;                // Party Payables Report serial (payable.pdf)
+  sNo?: number;
+  pdfOrder?: number;
+  pdfTitle?: string;            // title exactly as printed (column is ~20 chars wide)
+  lastBillNumber?: string;
+  lastBillDate?: string;
+  lastBillAmount?: number;
+  lastPaymentDate?: string;
+  lastPaymentAmount?: number;
+  postDatedPayments?: number;
+  postDatedReceipts?: number;
+  adjustedLedgerBalance?: number;
+  adjustedLedgerBalanceType?: 'CR' | 'DR';
   createdAt: string;
   updatedAt?: string;
 }

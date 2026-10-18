@@ -35,6 +35,7 @@ import { SalesReportSection } from './SalesReportSection';
 import { ComprehensiveProfitReportSection } from './ComprehensiveProfitReportSection';
 import { StockHistoryLedgerSection } from './StockHistoryLedgerSection';
 import { CustomerReceivablesReportSection } from './CustomerReceivablesReportSection';
+import { SupplierPayablesReportSection } from './SupplierPayablesReportSection';
 import { AiLedgerAuditReportSection } from './AiLedgerAuditReportSection';
 import { PurchaseBillVoucherModal } from './PurchaseBillVoucherModal';
 import { CashRecoveredReportSection } from './CashRecoveredReportSection';
@@ -70,12 +71,12 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 }) => {
   // Breadcrumb / Report sub-tabs
   const [activeReportTab, setActiveReportTab] = useState<
-    'purchases' | 'sales' | 'partyReceivables' | 'profit' | 'stockHistory' | 'aiLedgerAudit' | 'cashRecovered' | 'cashPaid' | 'customerLedger' | 'supplierLedger' | 'saleReturns' | 'purchaseReturns'
+    'purchases' | 'sales' | 'partyReceivables' | 'supplierPayables' | 'profit' | 'stockHistory' | 'aiLedgerAudit' | 'cashRecovered' | 'cashPaid' | 'customerLedger' | 'supplierLedger' | 'saleReturns' | 'purchaseReturns'
   >(() => {
     try {
       if (typeof window !== 'undefined') {
         const saved = sessionStorage.getItem('erp_active_report_tab');
-        if (saved && ['purchases', 'sales', 'partyReceivables', 'profit', 'stockHistory', 'aiLedgerAudit', 'cashRecovered', 'cashPaid', 'customerLedger', 'supplierLedger', 'saleReturns', 'purchaseReturns'].includes(saved)) {
+        if (saved && ['purchases', 'sales', 'partyReceivables', 'supplierPayables', 'profit', 'stockHistory', 'aiLedgerAudit', 'cashRecovered', 'cashPaid', 'customerLedger', 'supplierLedger', 'saleReturns', 'purchaseReturns'].includes(saved)) {
           return saved as any;
         }
       }
@@ -462,6 +463,17 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               <span>Party Receivable Report</span>
             </button>
             <button
+              onClick={() => setActiveReportTab('supplierPayables')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                activeReportTab === 'supplierPayables'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Building2 className="w-3.5 h-3.5 text-purple-300" />
+              <span>Party Payable Report</span>
+            </button>
+            <button
               onClick={() => setActiveReportTab('customerLedger')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                 activeReportTab === 'customerLedger'
@@ -697,6 +709,15 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           <CustomerReceivablesReportSection
             companyProfile={companyProfile}
             customers={customers}
+            onRefreshData={onRefreshData}
+            onNavigateTab={onNavigateTab}
+          />
+        </ErrorBoundary>
+      ) : activeReportTab === 'supplierPayables' ? (
+        <ErrorBoundary fallbackTitle="Party Payable Report">
+          <SupplierPayablesReportSection
+            companyProfile={companyProfile}
+            suppliers={suppliers}
             onRefreshData={onRefreshData}
             onNavigateTab={onNavigateTab}
           />
