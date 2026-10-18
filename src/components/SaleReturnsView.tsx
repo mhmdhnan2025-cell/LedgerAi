@@ -857,6 +857,19 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
                 </div>
               </div>
 
+              {/* STOCK (Live Stock Preview) */}
+              <div className="col-span-1">
+                <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase" title="Current Stock / Live After Return">
+                  STOCK
+                </label>
+                <div
+                  className="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-sky-400 text-center font-mono font-bold"
+                  title={selectedProduct ? `Current Stock: ${selectedProduct.currentQuantity || 0} | Live after return: ${((selectedProduct.currentQuantity || 0) + (parseFloat(rowQty) || 0)).toFixed(2)}` : 'No item selected'}
+                >
+                  {selectedProduct ? `${selectedProduct.currentQuantity || 0} (+${parseFloat(rowQty) || 0})` : '0'}
+                </div>
+              </div>
+
               {/* ACTION Enter Button */}
               <div className="col-span-1">
                 <button
@@ -885,13 +898,14 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
                   <th className="py-2.5 px-3 text-center">VAT%</th>
                   <th className="py-2.5 px-3 text-right">VAT/AMT</th>
                   <th className="py-2.5 px-3 text-right">AMOUNT</th>
+                  <th className="py-2.5 px-3 text-center">STOCK</th>
                   <th className="py-2.5 px-3 text-center">ACTION</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800 bg-slate-950 font-medium">
                 {items.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="py-8 text-center text-slate-500">
+                    <td colSpan={12} className="py-8 text-center text-slate-500">
                       No items added yet. Fill row above and press Enter.
                     </td>
                   </tr>
@@ -908,6 +922,7 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
                       <td className="py-2 px-3 text-center font-mono">{it.vatPct || 0}%</td>
                       <td className="py-2 px-3 text-right font-mono text-slate-300">{Number(it.vatAmt || 0).toFixed(2)}</td>
                       <td className="py-2 px-3 text-right font-mono font-bold text-emerald-400">{Number(it.total).toFixed(2)}</td>
+                      <td className="py-2 px-3 text-center font-mono font-bold text-sky-300">{it.stock || 0}</td>
                       <td className="py-2 px-3 text-center">
                         <div className="flex items-center justify-center gap-1.5">
                           <button
@@ -943,6 +958,7 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
                     <td className="py-2.5 px-3 text-right font-mono text-slate-300">{totalVat.toFixed(2)}</td>
                     <td className="py-2.5 px-3 text-right font-mono text-emerald-400 font-black">{totalGross.toFixed(2)}</td>
                     <td />
+                    <td />
                   </tr>
                 </tfoot>
               )}
@@ -972,7 +988,7 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
                 </div>
               </div>
 
-              {/* Save Button */}
+              {/* Action Buttons: Save | New Form */}
               <div className="flex items-center justify-end gap-2 pt-2">
                 <button
                   type="button"
@@ -981,6 +997,13 @@ export const SaleReturnsView: React.FC<SaleReturnsViewProps> = ({
                   className="px-6 py-2 bg-sky-600 hover:bg-sky-500 active:bg-sky-700 disabled:opacity-50 text-white font-bold rounded-lg transition cursor-pointer shadow text-xs"
                 >
                   {isLoading ? 'Saving...' : 'Save'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetForm}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-slate-200 font-bold rounded-lg transition cursor-pointer border border-slate-700 text-xs"
+                >
+                  New Form
                 </button>
               </div>
             </div>

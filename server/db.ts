@@ -8311,7 +8311,7 @@ class DatabaseService {
       jvNumber,
       voucherNumber,
       voucherNumberFormatted,
-      date: data.date || new Date().toISOString().split('T')[0],
+      date: data.date ? this.normalizeDateToYMD(data.date) : new Date().toISOString().split('T')[0],
       poNumber: data.poNumber?.trim() || '',
       bankAccountId: data.bankAccountId,
       bankAccountTitle: data.bankAccountTitle,
@@ -8467,6 +8467,7 @@ class DatabaseService {
     const updatedVoucher: Voucher = {
       ...oldVoucher,
       ...updates,
+      date: updates.date ? this.normalizeDateToYMD(updates.date) : oldVoucher.date,
       totalAmount: Number(totalAmount.toFixed(2)),
       updatedAt: new Date().toISOString(),
     };
@@ -8520,9 +8521,15 @@ class DatabaseService {
       description: `Deleted Voucher #${voucher.voucherNumberFormatted} (JV# ${voucher.jvNumber}) by ${userName}. Reverted ledger balances.`,
     });
 
-    // Clean up any synced expenses
+    // Clean up any synced expenses (including discount allowed and salaries)
     if (this.data.expenses) {
-      this.data.expenses = this.data.expenses.filter((e) => e.voucherId !== voucher.id && !e.id.startsWith(`exp-${voucher.id}`));
+      this.data.expenses = this.data.expenses.filter((e) =>
+        e.voucherId !== voucher.id &&
+        !e.id.startsWith(`exp-${voucher.id}`) &&
+        !e.id.startsWith(`exp-disc-${voucher.id}`) &&
+        !e.id.startsWith(`exp-sal-${voucher.id}`) &&
+        !e.id.startsWith(`exp-vch-${voucher.id}`)
+      );
     }
 
     this.recalculateAllLedgers();
@@ -9179,13 +9186,37 @@ class DatabaseService {
       });
     }
 
-    // Sort entries chronologically: first by date ascending, then by exact creation timestamp
+    const custTypePriority = (refType: string) => {
+      if (refType.startsWith('OB')) return 0;
+      if (refType.startsWith('SV')) return 10;
+      if (refType.startsWith('SR')) return 20;
+      return 30; // CR, BR, CB, JV, PAY
+    };
+
+    // Sort entries chronologically: first by normalized date ascending, then by exact creation timestamp
     entries.sort((a, b) => {
-      const cmpDate = a.date.localeCompare(b.date);
+      const dateA = this.normalizeDateToYMD(a.date);
+      const dateB = this.normalizeDateToYMD(b.date);
+      const cmpDate = dateA.localeCompare(dateB);
       if (cmpDate !== 0) return cmpDate;
-      const tA = (a as any).createdAt || '';
-      const tB = (b as any).createdAt || '';
-      if (tA && tB && tA !== tB) return tA.localeCompare(tB);
+
+      // Same day: compare exact creation timestamps if present
+      const tA = (a as any).createdAt ? new Date((a as any).createdAt).getTime() : 0;
+      const tB = (b as any).createdAt ? new Date((b as any).createdAt).getTime() : 0;
+      if (tA && tB && tA !== tB) {
+        return tA - tB;
+      }
+
+      // If timestamps tied or missing, prioritize Sales Bills first, then Returns, then Receipts/Payments
+      const pA = custTypePriority(a.refType || '');
+      const pB = custTypePriority(b.refType || '');
+      if (pA !== pB) return pA - pB;
+
+      const numA = parseInt(String(a.refNumber).replace(/\D/g, ''), 10);
+      const numB = parseInt(String(b.refNumber).replace(/\D/g, ''), 10);
+      if (!isNaN(numA) && !isNaN(numB) && numA !== numB) {
+        return numA - numB;
+      }
       return String(a.refNumber).localeCompare(String(b.refNumber));
     });
 
@@ -9649,13 +9680,35 @@ class DatabaseService {
       } as any);
     }
 
-    // Sort entries chronologically: first by date ascending, then by exact creation timestamp
+    const suppTypePriority = (refType: string) => {
+      if (refType.startsWith('OB')) return 0;
+      if (refType.startsWith('PB')) return 10;
+      if (refType.startsWith('PR')) return 20;
+      return 30; // CP, BP, CB, JV, PAY
+    };
+
+    // Sort entries chronologically: first by normalized date ascending, then by exact creation timestamp
     entries.sort((a, b) => {
-      const cmpDate = a.date.localeCompare(b.date);
+      const dateA = this.normalizeDateToYMD(a.date);
+      const dateB = this.normalizeDateToYMD(b.date);
+      const cmpDate = dateA.localeCompare(dateB);
       if (cmpDate !== 0) return cmpDate;
-      const tA = (a as any).createdAt || '';
-      const tB = (b as any).createdAt || '';
-      if (tA && tB && tA !== tB) return tA.localeCompare(tB);
+
+      const tA = (a as any).createdAt ? new Date((a as any).createdAt).getTime() : 0;
+      const tB = (b as any).createdAt ? new Date((b as any).createdAt).getTime() : 0;
+      if (tA && tB && tA !== tB) {
+        return tA - tB;
+      }
+
+      const pA = suppTypePriority(a.refType || '');
+      const pB = suppTypePriority(b.refType || '');
+      if (pA !== pB) return pA - pB;
+
+      const numA = parseInt(String(a.refNumber).replace(/\D/g, ''), 10);
+      const numB = parseInt(String(b.refNumber).replace(/\D/g, ''), 10);
+      if (!isNaN(numA) && !isNaN(numB) && numA !== numB) {
+        return numA - numB;
+      }
       return String(a.refNumber).localeCompare(String(b.refNumber));
     });
 
@@ -9861,13 +9914,34 @@ class DatabaseService {
       }
     }
 
-    // Sort entries chronologically: first by date ascending, then by exact creation timestamp
+    const empTypePriority = (refType: string) => {
+      if (refType.startsWith('OB')) return 0;
+      if (refType.startsWith('EXP')) return 10;
+      return 20; // CP, BP, CB, JV
+    };
+
+    // Sort entries chronologically: first by normalized date ascending, then by exact creation timestamp
     entries.sort((a, b) => {
-      const cmpDate = a.date.localeCompare(b.date);
+      const dateA = this.normalizeDateToYMD(a.date);
+      const dateB = this.normalizeDateToYMD(b.date);
+      const cmpDate = dateA.localeCompare(dateB);
       if (cmpDate !== 0) return cmpDate;
-      const tA = (a as any).createdAt || '';
-      const tB = (b as any).createdAt || '';
-      if (tA && tB && tA !== tB) return tA.localeCompare(tB);
+
+      const tA = (a as any).createdAt ? new Date((a as any).createdAt).getTime() : 0;
+      const tB = (b as any).createdAt ? new Date((b as any).createdAt).getTime() : 0;
+      if (tA && tB && tA !== tB) {
+        return tA - tB;
+      }
+
+      const pA = empTypePriority(a.refType || '');
+      const pB = empTypePriority(b.refType || '');
+      if (pA !== pB) return pA - pB;
+
+      const numA = parseInt(String(a.refNumber).replace(/\D/g, ''), 10);
+      const numB = parseInt(String(b.refNumber).replace(/\D/g, ''), 10);
+      if (!isNaN(numA) && !isNaN(numB) && numA !== numB) {
+        return numA - numB;
+      }
       return String(a.refNumber).localeCompare(String(b.refNumber));
     });
 
@@ -10169,7 +10243,11 @@ class DatabaseService {
       };
     });
 
-    const netTotal = items.reduce((s, it) => s + it.total, 0);
+    const totalGross = items.reduce((s, it) => s + it.total, 0);
+    const discount = Number(data.discount) || 0;
+    const netTotal = data.netTotal !== undefined && data.netTotal !== null
+      ? Number(data.netTotal)
+      : Math.max(0, Number((totalGross - discount).toFixed(2)));
 
     // 1. Restore Inventory Stock for returned items (ctn * qtyInCarton + qty)
     for (const it of items) {
@@ -10211,7 +10289,7 @@ class DatabaseService {
           referenceType: 'ORDER',
           referenceId: returnNumber,
           notes: `Returned by customer: Sale Return #${returnNumber}`,
-          date: data.date || new Date().toISOString().split('T')[0],
+          date: data.date ? this.normalizeDateToYMD(data.date) : new Date().toISOString().split('T')[0],
           performedBy: userName,
         };
         this.data.inventoryTransactions.push(tx);
@@ -10236,7 +10314,7 @@ class DatabaseService {
       companyId: getActiveCompanyId(),
       returnNumber,
       returnNumberFormatted,
-      date: data.date || new Date().toISOString().split('T')[0],
+      date: data.date ? this.normalizeDateToYMD(data.date) : new Date().toISOString().split('T')[0],
       customerId: data.customerId || '',
       customerName: data.customerName || data.customerAccountTitle || 'Customer',
       customerAccountTitle: data.customerAccountTitle || data.customerName || 'Customer',
@@ -10244,9 +10322,9 @@ class DatabaseService {
       originalBillNumber: data.originalBillNumber || '',
       salesmanName: data.salesmanName || '',
       isCash,
-      discount: Number(data.discount) || 0,
+      discount,
       items,
-      totalAmount: netTotal,
+      totalAmount: totalGross,
       netTotal,
       reason: data.reason || 'Customer Return',
       status: 'COMPLETED',
@@ -10333,7 +10411,11 @@ class DatabaseService {
       };
     });
 
-    const netTotal = items.reduce((s, it) => s + it.total, 0);
+    const totalGross = items.reduce((s, it) => s + it.total, 0);
+    const discount = updates.discount !== undefined ? Number(updates.discount) : (Number(oldReturn.discount) || 0);
+    const netTotal = updates.netTotal !== undefined && updates.netTotal !== null
+      ? Number(updates.netTotal)
+      : Math.max(0, Number((totalGross - discount).toFixed(2)));
 
     // Apply new stock restoration
     for (const it of items) {
@@ -10365,8 +10447,10 @@ class DatabaseService {
     const updatedReturn: SaleReturn = {
       ...oldReturn,
       ...updates,
+      date: updates.date ? this.normalizeDateToYMD(updates.date) : oldReturn.date,
       items,
-      totalAmount: netTotal,
+      totalAmount: totalGross,
+      discount,
       netTotal,
       updatedAt: new Date().toISOString(),
     };
@@ -10495,7 +10579,13 @@ class DatabaseService {
       };
     });
 
-    const netTotal = items.reduce((s, it) => s + it.total, 0);
+    const totalGross = items.reduce((s, it) => s + it.total, 0);
+    const discount = Number(data.discount) || 0;
+    const taxPercent = Number(data.taxPercent) || 0;
+    const taxAmount = Number(data.taxAmount) || 0;
+    const netTotal = data.netTotal !== undefined && data.netTotal !== null
+      ? Number(data.netTotal)
+      : Math.max(0, Number((totalGross - discount + taxAmount).toFixed(2)));
 
     // 1. Deduct Inventory Stock (goods returned back to supplier)
     for (const it of items) {
@@ -10537,7 +10627,7 @@ class DatabaseService {
           referenceType: 'PURCHASE' as any,
           referenceId: returnNumber,
           notes: `Returned to supplier: Purchase Return #${returnNumber}`,
-          date: data.date || new Date().toISOString().split('T')[0],
+          date: data.date ? this.normalizeDateToYMD(data.date) : new Date().toISOString().split('T')[0],
           performedBy: userName,
         };
         this.data.inventoryTransactions.push(tx);
@@ -10561,18 +10651,18 @@ class DatabaseService {
       companyId: getActiveCompanyId(),
       returnNumber,
       returnNumberFormatted,
-      date: data.date || new Date().toISOString().split('T')[0],
+      date: data.date ? this.normalizeDateToYMD(data.date) : new Date().toISOString().split('T')[0],
       supplierId: data.supplierId || '',
       supplierName: data.supplierName || data.supplierAccountTitle || 'Supplier',
       supplierAccountTitle: data.supplierAccountTitle || data.supplierName || 'Supplier',
       supplierCode: data.supplierCode || '',
       originalBillNumber: data.originalBillNumber || '',
       isCash,
-      discount: Number(data.discount) || 0,
-      taxPercent: Number(data.taxPercent) || 0,
-      taxAmount: Number(data.taxAmount) || 0,
+      discount,
+      taxPercent,
+      taxAmount,
       items,
-      totalAmount: netTotal,
+      totalAmount: totalGross,
       netTotal,
       reason: data.reason || 'Supplier Return',
       status: 'COMPLETED',
@@ -10660,7 +10750,13 @@ class DatabaseService {
       };
     });
 
-    const netTotal = items.reduce((s, it) => s + it.total, 0);
+    const totalGross = items.reduce((s, it) => s + it.total, 0);
+    const discount = updates.discount !== undefined ? Number(updates.discount) : (Number(oldReturn.discount) || 0);
+    const taxPercent = updates.taxPercent !== undefined ? Number(updates.taxPercent) : (Number(oldReturn.taxPercent) || 0);
+    const taxAmount = updates.taxAmount !== undefined ? Number(updates.taxAmount) : (Number(oldReturn.taxAmount) || 0);
+    const netTotal = updates.netTotal !== undefined && updates.netTotal !== null
+      ? Number(updates.netTotal)
+      : Math.max(0, Number((totalGross - discount + taxAmount).toFixed(2)));
 
     // Apply new stock deduction
     for (const it of items) {
@@ -10693,8 +10789,12 @@ class DatabaseService {
     const updatedReturn: PurchaseReturn = {
       ...oldReturn,
       ...updates,
+      date: updates.date ? this.normalizeDateToYMD(updates.date) : oldReturn.date,
       items,
-      totalAmount: netTotal,
+      totalAmount: totalGross,
+      discount,
+      taxPercent,
+      taxAmount,
       netTotal,
       updatedAt: new Date().toISOString(),
     };

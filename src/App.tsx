@@ -89,8 +89,39 @@ export default function App() {
   const [usersList, setUsersList] = useState<User[]>([]);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
+  const [connectionWarning, setConnectionWarning] = useState<string | null>(null);
 
-  // Theme selection state (Creamish White is default as requested)
+  // Real-time network and database connection listener
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOffline(false);
+      setConnectionWarning(null);
+    };
+    const handleOffline = () => {
+      setIsOffline(true);
+      setConnectionWarning('Internet connection is offline. Data cannot be saved to the database until connection is restored.');
+    };
+    const handleNetworkStatus = (e: any) => {
+      const { isOnline, error } = e.detail || {};
+      if (isOnline) {
+        setIsOffline(false);
+        setConnectionWarning(null);
+      } else {
+        setIsOffline(true);
+        setConnectionWarning(error || 'Database connection lost. Transactions cannot be saved right now.');
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('erp:network-status', handleNetworkStatus);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('erp:network-status', handleNetworkStatus);
+    };
+  }, []);
   const [currentTheme, setCurrentTheme] = useState<AppTheme>(() => {
     try {
       if (typeof window !== 'undefined' && window.location.search) {
@@ -525,6 +556,37 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
+      {/* Real-Time Database / Network Disconnection Warning Banner */}
+      {connectionWarning && (
+        <div className="sticky top-0 z-[100] bg-rose-600 border-b-2 border-rose-800 text-white font-bold px-4 py-2.5 text-xs sm:text-sm flex flex-wrap items-center justify-between gap-3 shadow-2xl animate-pulse">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="w-5 h-5 shrink-0 text-white" />
+            <div>
+              <span className="font-black uppercase tracking-wider bg-rose-900 px-2 py-0.5 rounded text-[10px] mr-2 text-rose-100">
+                ⚠️ Connection Alert
+              </span>
+              <span>{connectionWarning}</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={async () => {
+              const ok = await api.checkHealth();
+              if (ok) {
+                setConnectionWarning(null);
+                setIsOffline(false);
+                loadBusinessData(true);
+              } else {
+                alert('Database server is still unreachable. Please verify network and try again.');
+              }
+            }}
+            className="px-3.5 py-1 bg-white hover:bg-rose-50 text-rose-800 font-black rounded-lg transition cursor-pointer shadow text-xs shrink-0"
+          >
+            Retry Connection
+          </button>
+        </div>
+      )}
+
       {/* Top Global Navigation Bar */}
       <Navbar
         currentTab={currentTab}

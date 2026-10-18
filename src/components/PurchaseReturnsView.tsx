@@ -866,11 +866,16 @@ export const PurchaseReturnsView: React.FC<PurchaseReturnsViewProps> = ({
                 </div>
               </div>
 
-              {/* STOCK */}
+              {/* STOCK (Live Stock Preview) */}
               <div className="col-span-1">
-                <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase">STOCK</label>
-                <div className="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-sky-400 text-center font-mono">
-                  {selectedProduct?.currentQuantity || 0}
+                <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase" title="Current Stock / Live After Return">
+                  STOCK
+                </label>
+                <div
+                  className="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-sky-400 text-center font-mono font-bold"
+                  title={selectedProduct ? `Current Stock: ${selectedProduct.currentQuantity || 0} | Live after return: ${Math.max(0, (selectedProduct.currentQuantity || 0) - (parseFloat(rowQty) || 0)).toFixed(2)}` : 'No item selected'}
+                >
+                  {selectedProduct ? `${selectedProduct.currentQuantity || 0} (-${parseFloat(rowQty) || 0})` : '0'}
                 </div>
               </div>
 

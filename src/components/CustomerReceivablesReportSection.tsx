@@ -701,7 +701,8 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
           narration: e.narration || `${v.voucherType} Voucher Payment/Recovery`,
           debit,
           credit,
-        });
+          createdAt: v.createdAt,
+        } as any);
       });
     });
 
@@ -742,14 +743,36 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
         narration: `Sale Return #${sr.returnNumber} (${sr.reason || 'Returned Items'})`,
         debit: 0,
         credit: Number(sr.netTotal || sr.totalAmount || 0),
-      });
+        createdAt: sr.createdAt,
+      } as any);
     });
 
-    // Sort chronologically ascending
+    const custTypePriority = (refType: string) => {
+      if (refType.startsWith('OB')) return 0;
+      if (refType.startsWith('SV')) return 10;
+      if (refType.startsWith('SR')) return 20;
+      return 30; // CR, BR, CB, JV
+    };
+
+    // Sort chronologically ascending: normalized date, timestamp, priority, numeric ref
     lines.sort((a, b) => {
       const da = normalizeToYMD(a.date);
       const db = normalizeToYMD(b.date);
       if (da !== db) return da.localeCompare(db);
+
+      const tA = (a as any).createdAt ? new Date((a as any).createdAt).getTime() : 0;
+      const tB = (b as any).createdAt ? new Date((b as any).createdAt).getTime() : 0;
+      if (tA && tB && tA !== tB) return tA - tB;
+
+      const pA = custTypePriority(a.refType || '');
+      const pB = custTypePriority(b.refType || '');
+      if (pA !== pB) return pA - pB;
+
+      const numA = parseInt(String(a.refNumber).replace(/\D/g, ''), 10);
+      const numB = parseInt(String(b.refNumber).replace(/\D/g, ''), 10);
+      if (!isNaN(numA) && !isNaN(numB) && numA !== numB) {
+        return numA - numB;
+      }
       return a.refNumber.localeCompare(b.refNumber);
     });
 

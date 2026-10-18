@@ -138,7 +138,8 @@ if (typeof window !== 'undefined' && window.fetch) {
       url = (input as any).url;
     }
 
-    if (url.startsWith('/api/') || url.includes('/api/')) {
+    const isApi = url.startsWith('/api/') || url.includes('/api/');
+    if (isApi) {
       const token = authStorage.getToken();
       const companyId = authStorage.getCompanyId();
       init = init || {};
@@ -151,11 +152,47 @@ if (typeof window !== 'undefined' && window.fetch) {
       }
       init.headers = headers;
     }
-    return originalFetch(input, init);
+
+    try {
+      const response = await originalFetch(input, init);
+      if (isApi && !url.includes('/api/health')) {
+        if (response.status >= 500) {
+          window.dispatchEvent(
+            new CustomEvent('erp:network-status', {
+              detail: { isOnline: false, error: `Database Server Error (HTTP ${response.status})` },
+            })
+          );
+        } else {
+          window.dispatchEvent(
+            new CustomEvent('erp:network-status', {
+              detail: { isOnline: true },
+            })
+          );
+        }
+      }
+      return response;
+    } catch (err: any) {
+      if (isApi) {
+        window.dispatchEvent(
+          new CustomEvent('erp:network-status', {
+            detail: { isOnline: false, error: err?.message || 'Network / Database Connection Lost' },
+          })
+        );
+      }
+      throw err;
+    }
   };
 }
 
 export const api = {
+  async checkHealth(): Promise<boolean> {
+    try {
+      const res = await fetch('/api/health');
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
   async fetchAll(): Promise<FullDatabaseSnapshot> {
     try {
       const res = await fetch('/api/db/all');
