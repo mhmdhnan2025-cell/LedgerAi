@@ -2928,6 +2928,93 @@ class PostgresService {
       return false;
     }
   }
+
+  // Monthly archive purge: safely clean transactional data for a specific yearMonth while leaving master records untouched
+  public async purgeMonthlyData(companyId = 'comp_default_01', yearMonth: string): Promise<void> {
+    if (!this.pool) return;
+    const cid = companyId || 'comp_default_01';
+    const [y, m] = (yearMonth || '').split('-');
+    if (!y || !m) return;
+
+    const isoPrefix = `${yearMonth}%`;
+    const dmyPattern = `%-${m}-${y}%`;
+    const slashPattern = `%/${m}/${y}%`;
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      await client.query(
+        `DELETE FROM sale_bills 
+         WHERE (company_id = $1 OR company_id IS NULL)
+           AND (bill_date LIKE $2 OR bill_date LIKE $3 OR bill_date LIKE $4 
+                OR data->>'date' LIKE $2 OR data->>'date' LIKE $3 OR data->>'date' LIKE $4 
+                OR data->>'createdAt' LIKE $2)`,
+        [cid, isoPrefix, dmyPattern, slashPattern]
+      );
+
+      await client.query(
+        `DELETE FROM purchase_bills 
+         WHERE (company_id = $1 OR company_id IS NULL)
+           AND (bill_date LIKE $2 OR bill_date LIKE $3 OR bill_date LIKE $4 
+                OR data->>'billDate' LIKE $2 OR data->>'billDate' LIKE $3 OR data->>'billDate' LIKE $4 
+                OR data->>'date' LIKE $2 OR data->>'date' LIKE $3 OR data->>'date' LIKE $4 
+                OR data->>'createdAt' LIKE $2)`,
+        [cid, isoPrefix, dmyPattern, slashPattern]
+      );
+
+      await client.query(
+        `DELETE FROM vouchers 
+         WHERE (company_id = $1 OR company_id IS NULL)
+           AND (date LIKE $2 OR date LIKE $3 OR date LIKE $4 
+                OR data->>'date' LIKE $2 OR data->>'date' LIKE $3 OR data->>'date' LIKE $4 
+                OR data->>'createdAt' LIKE $2)`,
+        [cid, isoPrefix, dmyPattern, slashPattern]
+      );
+
+      await client.query(
+        `DELETE FROM sale_returns 
+         WHERE (company_id = $1 OR company_id IS NULL)
+           AND (date LIKE $2 OR date LIKE $3 OR date LIKE $4 
+                OR data->>'date' LIKE $2 OR data->>'date' LIKE $3 OR data->>'date' LIKE $4 
+                OR data->>'createdAt' LIKE $2)`,
+        [cid, isoPrefix, dmyPattern, slashPattern]
+      );
+
+      await client.query(
+        `DELETE FROM purchase_returns 
+         WHERE (company_id = $1 OR company_id IS NULL)
+           AND (date LIKE $2 OR date LIKE $3 OR date LIKE $4 
+                OR data->>'date' LIKE $2 OR data->>'date' LIKE $3 OR data->>'date' LIKE $4 
+                OR data->>'createdAt' LIKE $2)`,
+        [cid, isoPrefix, dmyPattern, slashPattern]
+      );
+
+      await client.query(
+        `DELETE FROM expenses 
+         WHERE (company_id = $1 OR company_id IS NULL)
+           AND (date LIKE $2 OR date LIKE $3 OR date LIKE $4 
+                OR data->>'date' LIKE $2 OR data->>'date' LIKE $3 OR data->>'date' LIKE $4 
+                OR data->>'createdAt' LIKE $2)`,
+        [cid, isoPrefix, dmyPattern, slashPattern]
+      );
+
+      await client.query(
+        `DELETE FROM audit_logs 
+         WHERE (company_id = $1 OR company_id IS NULL)
+           AND (timestamp LIKE $2)`,
+        [cid, isoPrefix]
+      );
+
+      await client.query('COMMIT');
+    } catch (err: any) {
+      await client.query('ROLLBACK');
+      console.warn(`[PostgreSQL purgeMonthlyData error for ${yearMonth}]:`, err?.message || err);
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
 }
 
 export const postgresService = new PostgresService();

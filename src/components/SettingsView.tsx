@@ -37,6 +37,7 @@ import {
   Globe,
   Copy,
   Type,
+  Calendar,
 } from 'lucide-react';
 import { CompanyProfile, Employee, Product, Supplier, User } from '../types';
 import { CURRENCY_OPTIONS } from '../utils/currency';
@@ -47,6 +48,7 @@ import { CustomerManagementView } from './CustomerManagementView';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import { CashBankManagementView } from './CashBankManagementView';
 import { ExpenseAccountsManagementView } from './ExpenseAccountsManagementView';
+import { MonthlyDatabaseManagement } from './MonthlyDatabaseManagement';
 import { ErrorBoundary } from './ErrorBoundary';
 import { api } from '../services/api';
 
@@ -177,6 +179,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [dbActionMsg, setDbActionMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [copiedLan, setCopiedLan] = useState(false);
+  const [dbSubTab, setDbSubTab] = useState<'monthly' | 'postgres'>('monthly');
 
   const loadDatabaseStatus = async () => {
     try {
@@ -767,7 +770,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <span>/</span>
             <span className="text-cyan-400 font-bold flex items-center gap-1.5">
               <Database className="w-3.5 h-3.5" />
-              PostgreSQL Database &amp; Multi-Device Sync
+              Database &amp; Storage Control
             </span>
           </div>
 
@@ -789,14 +792,52 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         </div>
 
-        {/* Database Status Hero Card */}
-        <div
-          className={`border rounded-2xl p-5 sm:p-6 shadow-sm transition-all ${
-            isConnected
-              ? 'bg-emerald-500/10 dark:bg-emerald-950/40 border-emerald-500/40'
-              : 'bg-amber-500/10 dark:bg-amber-950/30 border-amber-500/40'
-          }`}
-        >
+        {/* Sub-Tab Navigation Switcher */}
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-2">
+          <button
+            onClick={() => setDbSubTab('monthly')}
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-2 ${
+              dbSubTab === 'monthly'
+                ? 'bg-purple-600 text-white shadow-md'
+                : 'bg-slate-900 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800'
+            }`}
+          >
+            <Calendar className="w-3.5 h-3.5 text-purple-300" />
+            <span>Monthly Archives &amp; Storage Purge (ماہانہ ریکارڈز و سٹوریج)</span>
+          </button>
+
+          <button
+            onClick={() => setDbSubTab('postgres')}
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-2 ${
+              dbSubTab === 'postgres'
+                ? 'bg-cyan-600 text-white shadow-md'
+                : 'bg-slate-900 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800'
+            }`}
+          >
+            <Database className="w-3.5 h-3.5 text-cyan-300" />
+            <span>PostgreSQL Sync &amp; Multi-Device (ڈیٹا بیس کنکشن)</span>
+          </button>
+        </div>
+
+        {/* Tab 1: Monthly Archives & Safe Storage Purge */}
+        {dbSubTab === 'monthly' && (
+          <MonthlyDatabaseManagement
+            companyProfile={companyProfile}
+            onRefreshData={onRefreshData}
+          />
+        )}
+
+        {/* Tab 2: PostgreSQL Database & Multi-Device Sync */}
+        {dbSubTab === 'postgres' && (
+          <div className="space-y-5 animate-in fade-in duration-150">
+            {/* Database Status Hero Card */}
+            <div
+              className={`border rounded-2xl p-5 sm:p-6 shadow-sm transition-all ${
+                isConnected
+                  ? 'bg-emerald-500/10 dark:bg-emerald-950/40 border-emerald-500/40'
+                  : 'bg-amber-500/10 dark:bg-amber-950/30 border-amber-500/40'
+              }`}
+            >
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
             <div className="flex items-center gap-3.5">
               <div
@@ -1054,8 +1095,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </form>
         </div>
       </div>
-    );
-  }
+    )}
+  </div>
+);
+}
 
   if (activeSection === 'customers') {
     return (

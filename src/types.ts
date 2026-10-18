@@ -1456,3 +1456,53 @@ export interface EmployeeLedgerReport {
   closingBalanceType: 'DR' | 'CR';
 }
 
+export interface MonthDataSummary {
+  yearMonth: string; // 'YYYY-MM'
+  year: number;
+  month: number;
+  monthName: string;
+  isProtected: boolean;
+  protectionReason?: string;
+  counts: {
+    saleBills: number;
+    saleBillsTotal: number;
+    purchaseBills: number;
+    purchaseBillsTotal: number;
+    vouchers: number;
+    vouchersTotal: number;
+    saleReturns: number;
+    saleReturnsTotal: number;
+    purchaseReturns: number;
+    purchaseReturnsTotal: number;
+    expenses: number;
+    expensesTotal: number;
+    orders: number;
+    payments: number;
+    auditLogs: number;
+    totalRecords: number;
+  };
+  storageBytesEst: number;
+  deletable: boolean;
+}
+
+export interface YearMonthlyData {
+  year: number;
+  totalRecords: number;
+  months: MonthDataSummary[];
+}
+
+export interface MonthlyBreakdownResponse {
+  success: boolean;
+  currentDate: string;
+  protectedMonths: string[];
+  summary: {
+    totalRecords: number;
+    totalMonthsWithData: number;
+    activeProtectedMonthsCount: number;
+    deletableMonthsCount: number;
+    databaseSizeEst: string;
+  };
+  years: YearMonthlyData[];
+}
+
+

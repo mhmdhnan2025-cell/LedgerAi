@@ -38,6 +38,7 @@ import {
   PurchaseReturn,
   CustomerLedgerReport,
   SupplierLedgerReport,
+  MonthlyBreakdownResponse,
   EmployeeLedgerReport,
 } from '../types';
 import { OfflineStorageService } from './offlineStorage';
@@ -1656,6 +1657,55 @@ export const api = {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to pull from PostgreSQL');
     return data;
+  },
+
+  // -----------------------------------------------------------
+  // MONTHLY DATABASE ARCHIVES & STORAGE PURGE
+  // -----------------------------------------------------------
+  async getMonthlyDataBreakdown(): Promise<MonthlyBreakdownResponse> {
+    const res = await fetch('/api/database/monthly-data');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to fetch monthly database breakdown');
+    }
+    return res.json();
+  },
+
+  async purgeMonthlyData(yearMonth: string, adminPassword: string): Promise<{
+    success: boolean;
+    purgedMonth: string;
+    deletedCounts: any;
+    freedBytesEst: number;
+    message: string;
+  }> {
+    const res = await fetch('/api/database/monthly-data/purge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ yearMonth, adminPassword }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'Failed to purge monthly data');
+    }
+    return data;
+  },
+
+  downloadMonthlyBackup(yearMonth: string): void {
+    const link = document.createElement('a');
+    link.href = `/api/database/monthly-data/export?month=${encodeURIComponent(yearMonth)}`;
+    link.setAttribute('download', `ERP_Backup_${yearMonth}.json`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  },
+
+  downloadLast3MonthsBackup(): void {
+    const link = document.createElement('a');
+    link.href = `/api/database/monthly-data/export-last-3-months`;
+    link.setAttribute('download', `ERP_Backup_Last_3_Months.json`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   },
 
   // -----------------------------------------------------------

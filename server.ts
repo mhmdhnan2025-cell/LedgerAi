@@ -646,6 +646,75 @@ app.post('/api/backup/import', (req, res) => {
   }
 });
 
+// -------------------------------------------------------------
+// MONTHLY DATABASE ARCHIVES & STORAGE PURGE API
+// -------------------------------------------------------------
+app.get('/api/database/monthly-data', (req, res) => {
+  try {
+    const companyId = (req as any).companyId || (req.headers['x-company-id'] as string) || 'comp_default_01';
+    const breakdown = db.getMonthlyDataBreakdown(companyId);
+    res.json(breakdown);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/database/monthly-data/purge', async (req, res) => {
+  try {
+    const companyId = (req as any).companyId || (req.headers['x-company-id'] as string) || 'comp_default_01';
+    const { yearMonth, adminPassword } = req.body;
+
+    if (!yearMonth || typeof yearMonth !== 'string') {
+      return res.status(400).json({ error: 'Year and Month (YYYY-MM) are required.' });
+    }
+
+    if (!adminPassword || typeof adminPassword !== 'string') {
+      return res.status(400).json({ error: 'Company Admin Password is required to delete archived data.' });
+    }
+
+    // 1. Verify Company Admin Password
+    const isPasswordValid = await db.verifyCompanyAdminPassword(companyId, adminPassword.trim());
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: 'Ghalat Admin Password! Data delete karne ki ijazat nahi hai.' });
+    }
+
+    // 2. Perform the purge (strictly protected against last 3 months)
+    const result = await db.purgeMonthlyData(companyId, yearMonth.trim(), (req as any).user);
+    res.json(result);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.get('/api/database/monthly-data/export', (req, res) => {
+  try {
+    const companyId = (req as any).companyId || (req.headers['x-company-id'] as string) || 'comp_default_01';
+    const month = (req.query.month as string) || '';
+    if (!month) {
+      return res.status(400).json({ error: 'Month parameter is required (e.g. ?month=2026-07).' });
+    }
+
+    const backup = db.exportMonthlyBackup(companyId, month);
+    res.setHeader('Content-Disposition', `attachment; filename="ERP_Backup_${month}_${Date.now()}.json"`);
+    res.setHeader('Content-Type', 'application/json');
+    res.json(backup);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/database/monthly-data/export-last-3-months', (req, res) => {
+  try {
+    const companyId = (req as any).companyId || (req.headers['x-company-id'] as string) || 'comp_default_01';
+    const backup = db.exportLast3MonthsBackup(companyId);
+    res.setHeader('Content-Disposition', `attachment; filename="ERP_Backup_Last_3_Months_${Date.now()}.json"`);
+    res.setHeader('Content-Type', 'application/json');
+    res.json(backup);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // SQLite endpoints removed as requested by user
 
 // -------------------------------------------------------------
