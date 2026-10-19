@@ -651,7 +651,7 @@ app.post('/api/backup/import', (req, res) => {
 // -------------------------------------------------------------
 app.get('/api/database/monthly-data', (req, res) => {
   try {
-    const companyId = (req as any).companyId || (req.headers['x-company-id'] as string) || 'comp_default_01';
+    const companyId = (req as any).companyId || (req.headers['x-company-id'] as string) || (req.query.companyId as string) || (req as any).user?.companyId || db.getQamarCompanyId();
     const breakdown = db.getMonthlyDataBreakdown(companyId);
     res.json(breakdown);
   } catch (err: any) {
@@ -661,7 +661,7 @@ app.get('/api/database/monthly-data', (req, res) => {
 
 app.post('/api/database/monthly-data/purge', async (req, res) => {
   try {
-    const companyId = (req as any).companyId || (req.headers['x-company-id'] as string) || 'comp_default_01';
+    const companyId = (req as any).companyId || (req.headers['x-company-id'] as string) || (req.body.companyId as string) || (req as any).user?.companyId || db.getQamarCompanyId();
     const { yearMonth, adminPassword } = req.body;
 
     if (!yearMonth || typeof yearMonth !== 'string') {
@@ -688,7 +688,7 @@ app.post('/api/database/monthly-data/purge', async (req, res) => {
 
 app.get('/api/database/monthly-data/export', (req, res) => {
   try {
-    const companyId = (req as any).companyId || (req.headers['x-company-id'] as string) || 'comp_default_01';
+    const companyId = (req as any).companyId || (req.headers['x-company-id'] as string) || (req.query.companyId as string) || (req as any).user?.companyId || db.getQamarCompanyId();
     const month = (req.query.month as string) || '';
     if (!month) {
       return res.status(400).json({ error: 'Month parameter is required (e.g. ?month=2026-07).' });
@@ -705,7 +705,7 @@ app.get('/api/database/monthly-data/export', (req, res) => {
 
 app.get('/api/database/monthly-data/export-last-3-months', (req, res) => {
   try {
-    const companyId = (req as any).companyId || (req.headers['x-company-id'] as string) || 'comp_default_01';
+    const companyId = (req as any).companyId || (req.headers['x-company-id'] as string) || (req.query.companyId as string) || (req as any).user?.companyId || db.getQamarCompanyId();
     const backup = db.exportLast3MonthsBackup(companyId);
     res.setHeader('Content-Disposition', `attachment; filename="ERP_Backup_Last_3_Months_${Date.now()}.json"`);
     res.setHeader('Content-Type', 'application/json');

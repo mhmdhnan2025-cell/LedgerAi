@@ -1690,22 +1690,54 @@ export const api = {
     return data;
   },
 
-  downloadMonthlyBackup(yearMonth: string): void {
-    const link = document.createElement('a');
-    link.href = `/api/database/monthly-data/export?month=${encodeURIComponent(yearMonth)}`;
-    link.setAttribute('download', `ERP_Backup_${yearMonth}.json`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  async downloadMonthlyBackup(yearMonth: string): Promise<void> {
+    try {
+      const cid = authStorage.getCompanyId() || '';
+      const res = await this.authedFetch(`/api/database/monthly-data/export?month=${encodeURIComponent(yearMonth)}${cid ? `&companyId=${encodeURIComponent(cid)}` : ''}`);
+      if (!res.ok) throw new Error(`Status ${res.status}`);
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `ERP_Backup_${yearMonth}.json`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch {
+      // Direct navigation fallback
+      const link = document.createElement('a');
+      link.href = `/api/database/monthly-data/export?month=${encodeURIComponent(yearMonth)}`;
+      link.setAttribute('download', `ERP_Backup_${yearMonth}.json`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   },
 
-  downloadLast3MonthsBackup(): void {
-    const link = document.createElement('a');
-    link.href = `/api/database/monthly-data/export-last-3-months`;
-    link.setAttribute('download', `ERP_Backup_Last_3_Months.json`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  async downloadLast3MonthsBackup(): Promise<void> {
+    try {
+      const cid = authStorage.getCompanyId() || '';
+      const res = await this.authedFetch(`/api/database/monthly-data/export-last-3-months${cid ? `?companyId=${encodeURIComponent(cid)}` : ''}`);
+      if (!res.ok) throw new Error(`Status ${res.status}`);
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `ERP_Backup_Last_3_Months.json`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch {
+      // Direct navigation fallback
+      const link = document.createElement('a');
+      link.href = `/api/database/monthly-data/export-last-3-months`;
+      link.setAttribute('download', `ERP_Backup_Last_3_Months.json`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   },
 
   // -----------------------------------------------------------
