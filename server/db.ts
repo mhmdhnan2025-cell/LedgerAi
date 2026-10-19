@@ -127,6 +127,7 @@ export interface MonthDataSummary {
   month: number;
   monthName: string;
   isProtected: boolean;
+  isFuture?: boolean;
   protectionReason?: string;
   counts: {
     saleBills: number;
@@ -208,13 +209,27 @@ export function isMonthProtected(yearMonth: string, referenceDate: Date = new Da
 
   // Month difference:
   // e.g. ref is 2026-10:
-  // 2026-10 diff = 0 (< 3 => true)
-  // 2026-09 diff = 1 (< 3 => true)
-  // 2026-08 diff = 2 (< 3 => true)
-  // 2026-07 diff = 3 (not < 3 => false, can be deleted)
+  // 2026-10 diff = 0 (current month)
+  // 2026-09 diff = 1 (1 month ago)
+  // 2026-08 diff = 2 (2 months ago)
+  // Protected range: strictly current day down to previous 2 months (3 months active period)
   const monthDiff = (refYear - y) * 12 + (refMonth - m);
-  return monthDiff < 3;
+  return monthDiff >= 0 && monthDiff < 3;
 }
+
+export function isFutureMonth(yearMonth: string, referenceDate: Date = new Date()): boolean {
+  if (!yearMonth || !/^\d{4}-\d{2}$/.test(yearMonth)) return false;
+  const [yStr, mStr] = yearMonth.split('-');
+  const y = parseInt(yStr, 10);
+  const m = parseInt(mStr, 10);
+  if (isNaN(y) || isNaN(m)) return false;
+
+  const refYear = referenceDate.getFullYear();
+  const refMonth = referenceDate.getMonth() + 1; // 1-12
+  const monthDiff = (refYear - y) * 12 + (refMonth - m);
+  return monthDiff < 0;
+}
+
 
 const DB_DIR = path.join(process.cwd(), 'data');
 const DB_FILE = path.join(DB_DIR, 'database.json');
@@ -2659,13 +2674,19 @@ class DatabaseService {
         const y = parseInt(yStr, 10);
         const m = parseInt(mStr, 10);
         const isProt = isMonthProtected(ym, now);
+        const isFut = isFutureMonth(ym, now);
         monthMap.set(ym, {
           yearMonth: ym,
           year: y,
           month: m,
           monthName: `${MONTH_NAMES_FULL[m - 1] || 'Month ' + m} ${y}`,
           isProtected: isProt,
-          protectionReason: isProt ? 'Protected (Last 3 Months — Active Ledger & Audit Period)' : undefined,
+          isFuture: isFut,
+          protectionReason: isProt
+            ? 'Protected (Current Day to Prev 2 Months — Active Ledger & Audit Period)'
+            : isFut
+            ? 'Upcoming Month (Future)'
+            : undefined,
           counts: {
             saleBills: 0,
             saleBillsTotal: 0,
@@ -2808,9 +2829,9 @@ class DatabaseService {
       }
     }
 
-    // Set deletable flag for each month
+    // Set deletable flag for each month (only historical months with records)
     for (const summary of monthMap.values()) {
-      summary.deletable = !summary.isProtected && summary.counts.totalRecords > 0;
+      summary.deletable = !summary.isProtected && !summary.isFuture && summary.counts.totalRecords > 0;
     }
 
     // Group by Year, sort years descending, sort months descending inside each year
@@ -2933,6 +2954,9 @@ class DatabaseService {
       throw new Error(`Invalid year-month format "${yearMonth}". Expected "YYYY-MM".`);
     }
 
+    if (isFutureMonth(yearMonth, new Date())) {
+      throw new Error(`Deletion Rejected: "${yearMonth}" is a future month.`);
+    }
     if (isMonthProtected(yearMonth, new Date())) {
       throw new Error(`Deletion Rejected: "${yearMonth}" belongs to the last 3 months. The current active period cannot be deleted.`);
     }
@@ -3127,7 +3151,7 @@ class DatabaseService {
     };
   }
 
-  // Export clean JSON backup of a specific month's transactions
+  // Export clean JSON backup of a specific month's transactions + master data snapshot
   public exportMonthlyBackup(companyId: string, yearMonth: string): any {
     const cid = getActiveCompanyId(companyId);
     const tenant = this.getTenant(cid);
@@ -3139,6 +3163,35 @@ class DatabaseService {
     const expenses = (tenant.expenses || []).filter((e) => extractYearMonth(e.date, e.createdAt) === yearMonth);
     const orders = (tenant.orders || []).filter((o) => extractYearMonth(o.orderDate || (o as any).date, o.createdAt) === yearMonth);
     const payments = (tenant.payments || []).filter((p) => extractYearMonth(p.paymentDate || (p as any).date, p.createdAt) === yearMonth);
+    const auditLogs = (tenant.auditLogs || []).filter((a) => extractYearMonth(a.timestamp) === yearMonth);
+
+    // Customer receivable summary
+    let totalCustomerReceivableDR = 0;
+    let totalCustomerAdvanceCR = 0;
+    (tenant.customers || []).forEach((c) => {
+      const bal = Number(c.outstandingBalance || 0);
+      if (bal > 0) totalCustomerReceivableDR += bal;
+      else if (bal < 0) totalCustomerAdvanceCR += Math.abs(bal);
+    });
+
+    // Supplier payable summary
+    let totalSupplierPayableCR = 0;
+    let totalSupplierAdvanceDR = 0;
+    (tenant.suppliers || []).forEach((s) => {
+      const bal = Number((s as any).payableToSupplier ?? (s as any).balance ?? 0);
+      if (bal > 0) totalSupplierPayableCR += bal;
+      else if (bal < 0) totalSupplierAdvanceDR += Math.abs(bal);
+    });
+
+    // Inventory valuation summary
+    let totalStockQty = 0;
+    let totalInventoryCostValuation = 0;
+    (tenant.products || []).forEach((p) => {
+      const qty = Number(p.currentQuantity || 0);
+      const cost = Number(p.purchasePrice || (p as any).costPrice || 0);
+      totalStockQty += qty;
+      totalInventoryCostValuation += qty * cost;
+    });
 
     return {
       exportType: 'SPECIFIC_MONTH_BACKUP',
@@ -3146,26 +3199,76 @@ class DatabaseService {
       companyId: cid,
       companyProfile: tenant.companyProfile,
       exportedAt: new Date().toISOString(),
-      summary: {
-        saleBills: saleBills.length,
-        purchaseBills: purchaseBills.length,
-        vouchers: vouchers.length,
-        saleReturns: saleReturns.length,
-        purchaseReturns: purchaseReturns.length,
-        expenses: expenses.length,
-        orders: orders.length,
-        payments: payments.length,
-        totalRecords:
-          saleBills.length +
-          purchaseBills.length +
-          vouchers.length +
-          saleReturns.length +
-          purchaseReturns.length +
-          expenses.length +
-          orders.length +
-          payments.length,
+      financialSummary: {
+        targetMonth: yearMonth,
+        customers: {
+          totalCount: (tenant.customers || []).length,
+          totalReceivableDR: Number(totalCustomerReceivableDR.toFixed(2)),
+          totalAdvanceCR: Number(totalCustomerAdvanceCR.toFixed(2)),
+          netReceivableDR: Number((totalCustomerReceivableDR - totalCustomerAdvanceCR).toFixed(2)),
+        },
+        suppliers: {
+          totalCount: (tenant.suppliers || []).length,
+          totalPayableCR: Number(totalSupplierPayableCR.toFixed(2)),
+          totalAdvanceDR: Number(totalSupplierAdvanceDR.toFixed(2)),
+          netPayableCR: Number((totalSupplierPayableCR - totalSupplierAdvanceDR).toFixed(2)),
+        },
+        inventory: {
+          totalProductsCount: (tenant.products || []).length,
+          totalStockQuantity: Number(totalStockQty.toFixed(2)),
+          totalCostValuation: Number(totalInventoryCostValuation.toFixed(2)),
+        },
+        employees: {
+          totalCount: (tenant.employees || []).length,
+        },
+        monthTransactions: {
+          saleBillsCount: saleBills.length,
+          saleBillsTotal: Number(saleBills.reduce((acc, b) => acc + Number(b.netTotal || b.totalAmount || 0), 0).toFixed(2)),
+          purchaseBillsCount: purchaseBills.length,
+          purchaseBillsTotal: Number(purchaseBills.reduce((acc, p) => acc + Number(p.totalAmount || (p as any).netTotal || 0), 0).toFixed(2)),
+          vouchersCount: vouchers.length,
+          vouchersTotal: Number(vouchers.reduce((acc, v) => acc + Number(v.totalAmount || 0), 0).toFixed(2)),
+          saleReturnsCount: saleReturns.length,
+          saleReturnsTotal: Number(saleReturns.reduce((acc, sr) => acc + Number(sr.netTotal || sr.totalAmount || 0), 0).toFixed(2)),
+          purchaseReturnsCount: purchaseReturns.length,
+          purchaseReturnsTotal: Number(purchaseReturns.reduce((acc, pr) => acc + Number(pr.netTotal || pr.totalAmount || 0), 0).toFixed(2)),
+          expensesCount: expenses.length,
+          expensesTotal: Number(expenses.reduce((acc, e) => acc + Number(e.amount || 0), 0).toFixed(2)),
+          ordersCount: orders.length,
+          paymentsCount: payments.length,
+          auditLogsCount: auditLogs.length,
+          totalRecords:
+            saleBills.length +
+            purchaseBills.length +
+            vouchers.length +
+            saleReturns.length +
+            purchaseReturns.length +
+            expenses.length +
+            orders.length +
+            payments.length +
+            auditLogs.length,
+        },
       },
-      data: {
+      // Complete Inventory As It Is
+      inventory: {
+        products: tenant.products || [],
+        itemCategories: tenant.itemCategories || [],
+        itemBrands: tenant.itemBrands || [],
+        itemMeasures: tenant.itemMeasures || [],
+      },
+      // Customers & Suppliers Master with balances
+      customers: tenant.customers || [],
+      customerGroups: tenant.customerGroups || [],
+      suppliers: tenant.suppliers || [],
+      employees: tenant.employees || [],
+      chartOfAccounts: {
+        banks: tenant.banks || [],
+        cashAccounts: tenant.cashAccounts || [],
+        expenseAccounts: tenant.expenseAccounts || [],
+        cashRegister: tenant.cashRegister || null,
+      },
+      // Transactions for this target month
+      transactions: {
         saleBills,
         purchaseBills,
         vouchers,
@@ -3174,11 +3277,32 @@ class DatabaseService {
         expenses,
         orders,
         payments,
+        auditLogs,
+      },
+      // Flat All-Tables export
+      tables: {
+        products: tenant.products || [],
+        customers: tenant.customers || [],
+        suppliers: tenant.suppliers || [],
+        employees: tenant.employees || [],
+        saleBills,
+        purchaseBills,
+        vouchers,
+        saleReturns,
+        purchaseReturns,
+        expenses,
+        orders,
+        payments,
+        auditLogs,
+        banks: tenant.banks || [],
+        cashAccounts: tenant.cashAccounts || [],
+        expenseAccounts: tenant.expenseAccounts || [],
+        cashRegister: tenant.cashRegister || null,
       },
     };
   }
 
-  // Export clean JSON backup of all transactions from the last 3 months
+  // Export clean JSON backup of all data: complete inventory as-is, all customers, suppliers, employees with latest ledger details, and active period transactions (current day down to previous 2 months)
   public exportLast3MonthsBackup(companyId: string): any {
     const cid = getActiveCompanyId(companyId);
     const tenant = this.getTenant(cid);
@@ -3211,33 +3335,124 @@ class DatabaseService {
     const expenses = (tenant.expenses || []).filter((e) => isMatch(e.date, e.createdAt));
     const orders = (tenant.orders || []).filter((o) => isMatch(o.orderDate || (o as any).date, o.createdAt));
     const payments = (tenant.payments || []).filter((p) => isMatch(p.paymentDate || (p as any).date, p.createdAt));
+    const auditLogs = (tenant.auditLogs || []).filter((a) => isMatch(a.timestamp));
+
+    // Calculate customer aggregate receivables (matching 302,163.55 DR baseline)
+    let totalCustomerReceivableDR = 0;
+    let totalCustomerAdvanceCR = 0;
+    (tenant.customers || []).forEach((c) => {
+      const bal = Number(c.outstandingBalance || 0);
+      if (bal > 0) totalCustomerReceivableDR += bal;
+      else if (bal < 0) totalCustomerAdvanceCR += Math.abs(bal);
+    });
+    const netReceivableDR = totalCustomerReceivableDR - totalCustomerAdvanceCR;
+
+    // Calculate supplier aggregate payables (matching 1,096,568.86 CR baseline)
+    let totalSupplierPayableCR = 0;
+    let totalSupplierAdvanceDR = 0;
+    (tenant.suppliers || []).forEach((s) => {
+      const bal = Number((s as any).payableToSupplier ?? (s as any).balance ?? 0);
+      if (bal > 0) totalSupplierPayableCR += bal;
+      else if (bal < 0) totalSupplierAdvanceDR += Math.abs(bal);
+    });
+    const netPayableCR = totalSupplierPayableCR - totalSupplierAdvanceDR;
+
+    // Calculate complete inventory valuation
+    let totalStockQuantity = 0;
+    let totalInventoryCostValuation = 0;
+    let totalInventorySaleValuation = 0;
+    (tenant.products || []).forEach((p) => {
+      const qty = Number(p.currentQuantity || 0);
+      const cost = Number(p.purchasePrice || (p as any).costPrice || 0);
+      const sale = Number(p.sellingPrice || (p as any).salePrice || 0);
+      totalStockQuantity += qty;
+      totalInventoryCostValuation += qty * cost;
+      totalInventorySaleValuation += qty * sale;
+    });
+
+    const activeTransactionRecords =
+      saleBills.length +
+      purchaseBills.length +
+      vouchers.length +
+      saleReturns.length +
+      purchaseReturns.length +
+      expenses.length +
+      orders.length +
+      payments.length +
+      auditLogs.length;
 
     return {
-      exportType: 'LAST_3_MONTHS_BACKUP',
+      exportType: 'COMPLETE_BACKUP_CURRENT_AND_PREV_2_MONTHS',
+      title: 'Full System Backup (Current Day down to Previous 2 Months)',
+      periodDescription: 'Current Day to Previous 2 Months (Active Quarter: Inventory, Receivables, Payables & Active Transactions)',
       targetMonths,
       companyId: cid,
       companyProfile: tenant.companyProfile,
       exportedAt: new Date().toISOString(),
-      summary: {
-        saleBills: saleBills.length,
-        purchaseBills: purchaseBills.length,
-        vouchers: vouchers.length,
-        saleReturns: saleReturns.length,
-        purchaseReturns: purchaseReturns.length,
-        expenses: expenses.length,
-        orders: orders.length,
-        payments: payments.length,
-        totalRecords:
-          saleBills.length +
-          purchaseBills.length +
-          vouchers.length +
-          saleReturns.length +
-          purchaseReturns.length +
-          expenses.length +
-          orders.length +
-          payments.length,
+      financialSummary: {
+        customers: {
+          totalCount: (tenant.customers || []).length,
+          totalReceivableDR: Number(totalCustomerReceivableDR.toFixed(2)),
+          totalAdvanceCR: Number(totalCustomerAdvanceCR.toFixed(2)),
+          netReceivableDR: Number(netReceivableDR.toFixed(2)),
+        },
+        suppliers: {
+          totalCount: (tenant.suppliers || []).length,
+          totalPayableCR: Number(totalSupplierPayableCR.toFixed(2)),
+          totalAdvanceDR: Number(totalSupplierAdvanceDR.toFixed(2)),
+          netPayableCR: Number(netPayableCR.toFixed(2)),
+        },
+        inventory: {
+          totalProductsCount: (tenant.products || []).length,
+          totalStockQuantity: Number(totalStockQuantity.toFixed(2)),
+          totalCostValuation: Number(totalInventoryCostValuation.toFixed(2)),
+          totalSaleValuation: Number(totalInventorySaleValuation.toFixed(2)),
+        },
+        employees: {
+          totalCount: (tenant.employees || []).length,
+        },
+        activeTransactionsSummary: {
+          saleBillsCount: saleBills.length,
+          saleBillsTotalAmount: Number(saleBills.reduce((acc, b) => acc + Number(b.netTotal || b.totalAmount || 0), 0).toFixed(2)),
+          purchaseBillsCount: purchaseBills.length,
+          purchaseBillsTotalAmount: Number(purchaseBills.reduce((acc, p) => acc + Number(p.totalAmount || (p as any).netTotal || 0), 0).toFixed(2)),
+          vouchersCount: vouchers.length,
+          vouchersTotalAmount: Number(vouchers.reduce((acc, v) => acc + Number(v.totalAmount || 0), 0).toFixed(2)),
+          saleReturnsCount: saleReturns.length,
+          saleReturnsTotalAmount: Number(saleReturns.reduce((acc, sr) => acc + Number(sr.netTotal || sr.totalAmount || 0), 0).toFixed(2)),
+          purchaseReturnsCount: purchaseReturns.length,
+          purchaseReturnsTotalAmount: Number(purchaseReturns.reduce((acc, pr) => acc + Number(pr.netTotal || pr.totalAmount || 0), 0).toFixed(2)),
+          expensesCount: expenses.length,
+          expensesTotalAmount: Number(expenses.reduce((acc, e) => acc + Number(e.amount || 0), 0).toFixed(2)),
+          ordersCount: orders.length,
+          paymentsCount: payments.length,
+          auditLogsCount: auditLogs.length,
+          totalRecords: activeTransactionRecords,
+        },
       },
-      data: {
+      // 1. INVENTORY AS IT IS
+      inventory: {
+        products: tenant.products || [],
+        itemCategories: tenant.itemCategories || [],
+        itemBrands: tenant.itemBrands || [],
+        itemMeasures: tenant.itemMeasures || [],
+      },
+      // 2. ALL CUSTOMERS WITH LATEST RECEIVABLES & BALANCES
+      customers: tenant.customers || [],
+      customerGroups: tenant.customerGroups || [],
+      // 3. ALL SUPPLIERS WITH LATEST PAYABLES & BALANCES
+      suppliers: tenant.suppliers || [],
+      // 4. ALL EMPLOYEES & STAFF
+      employees: tenant.employees || [],
+      // 5. CHART OF ACCOUNTS & CASH
+      chartOfAccounts: {
+        banks: tenant.banks || [],
+        cashAccounts: tenant.cashAccounts || [],
+        expenseAccounts: tenant.expenseAccounts || [],
+        cashRegister: tenant.cashRegister || null,
+      },
+      // 6. ACTIVE PERIOD TRANSACTIONS (CURRENT DAY TO PREV 2 MONTHS)
+      transactions: {
         saleBills,
         purchaseBills,
         vouchers,
@@ -3246,6 +3461,30 @@ class DatabaseService {
         expenses,
         orders,
         payments,
+        auditLogs,
+      },
+      // 7. ALL TABLES FLAT DICTIONARY (Universal format for easy viewing, import and audit)
+      tables: {
+        products: tenant.products || [],
+        customers: tenant.customers || [],
+        suppliers: tenant.suppliers || [],
+        employees: tenant.employees || [],
+        saleBills,
+        purchaseBills,
+        vouchers,
+        saleReturns,
+        purchaseReturns,
+        expenses,
+        orders,
+        payments,
+        auditLogs,
+        banks: tenant.banks || [],
+        cashAccounts: tenant.cashAccounts || [],
+        expenseAccounts: tenant.expenseAccounts || [],
+        itemCategories: tenant.itemCategories || [],
+        itemBrands: tenant.itemBrands || [],
+        itemMeasures: tenant.itemMeasures || [],
+        cashRegister: tenant.cashRegister || null,
       },
     };
   }

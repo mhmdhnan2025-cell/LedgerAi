@@ -1462,6 +1462,7 @@ export interface MonthDataSummary {
   month: number;
   monthName: string;
   isProtected: boolean;
+  isFuture?: boolean;
   protectionReason?: string;
   counts: {
     saleBills: number;

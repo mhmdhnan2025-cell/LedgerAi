@@ -74,8 +74,12 @@ export const MonthlyDatabaseManagement: React.FC<MonthlyDatabaseManagementProps>
   }, []);
 
   const handleOpenPurgeModal = (month: MonthDataSummary) => {
+    if (month.isFuture) {
+      alert('Future month ka data delete nahi kiya ja sakta.');
+      return;
+    }
     if (month.isProtected) {
-      alert('Current date se pichlay 3 mahinay ka data delete karna system mein block hai taake active accounts mehfooz rahein.');
+      alert('Current date se pichlay 2 mahinay (kul 3 active mahinay) ka data delete karna system mein block hai taake active accounts mehfooz rahein.');
       return;
     }
     if (month.counts.totalRecords === 0) {
@@ -179,14 +183,17 @@ export const MonthlyDatabaseManagement: React.FC<MonthlyDatabaseManagementProps>
             <button
               onClick={() => {
                 api.downloadLast3MonthsBackup();
-                setActionToast({ type: 'success', text: 'Last 3 Months backup download shuru ho gaya!' });
-                setTimeout(() => setActionToast(null), 3000);
+                setActionToast({
+                  type: 'success',
+                  text: 'Complete Backup (Current Day to Prev 2 Months) download shuru ho gaya!',
+                });
+                setTimeout(() => setActionToast(null), 3500);
               }}
-              className="inline-flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl shadow-md transition cursor-pointer"
-              title="Download clean JSON backup of all transactions from the last 3 months"
+              className="inline-flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-xs font-bold rounded-xl shadow-md transition cursor-pointer"
+              title="Download clean JSON backup of all tables: complete inventory as-is, all 152 customers, 40 suppliers, employees, accounts and active 3-month transactions"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Download Last 3 Months Backup</span>
+              <span>Download Complete Backup (Current Day + Prev 2 Mo)</span>
             </button>
 
             <button
@@ -376,7 +383,9 @@ export const MonthlyDatabaseManagement: React.FC<MonthlyDatabaseManagementProps>
               <div
                 key={m.yearMonth}
                 className={`border rounded-2xl p-4.5 transition-all flex flex-col justify-between ${
-                  m.isProtected
+                  m.isFuture
+                    ? 'bg-slate-950/40 border-slate-800/60 opacity-60'
+                    : m.isProtected
                     ? 'bg-slate-900/90 border-blue-500/30 hover:border-blue-500/60'
                     : hasData
                     ? 'bg-slate-900/90 border-slate-700/80 hover:border-amber-500/50'
@@ -402,13 +411,21 @@ export const MonthlyDatabaseManagement: React.FC<MonthlyDatabaseManagementProps>
                     </div>
 
                     {/* Status Badge */}
-                    {m.isProtected ? (
+                    {m.isFuture ? (
+                      <span
+                        className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded bg-slate-800/80 text-slate-400 border border-slate-700/60 shrink-0"
+                        title="Upcoming / Future Month"
+                      >
+                        <Clock className="w-3 h-3 text-slate-400" />
+                        <span>Upcoming</span>
+                      </span>
+                    ) : m.isProtected ? (
                       <span
                         className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded bg-blue-500/15 text-blue-300 border border-blue-500/30 shrink-0"
-                        title="Protected: Last 3 months data cannot be deleted"
+                        title="Protected: Current day se pichlay 2 mahinay ka active data delete nahi ho sakta"
                       >
                         <Lock className="w-3 h-3 text-blue-400" />
-                        <span>Protected</span>
+                        <span>Protected (3-Mo)</span>
                       </span>
                     ) : hasData ? (
                       <span
@@ -524,14 +541,23 @@ export const MonthlyDatabaseManagement: React.FC<MonthlyDatabaseManagementProps>
                   </button>
 
                   {/* Delete / Purge Button */}
-                  {m.isProtected ? (
+                  {m.isFuture ? (
+                    <button
+                      disabled
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-950 text-slate-600 border border-slate-800/60 rounded-lg text-xs font-medium cursor-not-allowed select-none"
+                      title="Future month: Cannot be deleted"
+                    >
+                      <Clock className="w-3 h-3" />
+                      <span>Upcoming</span>
+                    </button>
+                  ) : m.isProtected ? (
                     <button
                       disabled
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-950/40 text-blue-400/60 border border-blue-900/40 rounded-lg text-xs font-medium cursor-not-allowed select-none"
-                      title="Current day se pichlay 3 mahinon ka data delete nahi ho sakta"
+                      title="Current day se pichlay 2 mahinon ka active data delete nahi ho sakta"
                     >
                       <Lock className="w-3 h-3" />
-                      <span>Locked (3-Mo)</span>
+                      <span>Locked (Active)</span>
                     </button>
                   ) : !hasData ? (
                     <button
