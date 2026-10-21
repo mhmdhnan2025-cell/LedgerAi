@@ -1,4 +1,4 @@
-"""Robust parser for recievable.pdf (Party Receivable) and payable.pdf (Party Payables).
+"""Robust parser for reciveballe.pdf (Party Receivable) and payable.pdf (Party Payables).
 
 Column bands come from the PDF's own vertical grid lines (recievable) or from the
 header layout (payable). Numeric/date cells are attached to the NEAREST S.NO
@@ -111,7 +111,7 @@ def split_title_cell(line_texts):
         title_parts.append(t)
 
     real = [p for p in phone_parts if not NULL_LINE.match(p)]
-    phone_parts = real if real else phone_parts
+    phone_parts = real
 
     return salesman, " ".join(title_parts), " ".join(phone_parts)
 
@@ -200,7 +200,7 @@ REC_COLS = list(
 )
 
 
-def parse_recievable(path=f"{ROOT}\\recievable.pdf"):
+def parse_recievable(path=f"{ROOT}\\reciveballe.pdf"):
     doc = pymupdf.open(path)
     rows = []
     for page in doc:
@@ -439,9 +439,9 @@ def crosscheck_suppliers(pay):
 
 if __name__ == "__main__":
     rec = parse_recievable()
-    expect = 302163.55
+    expect = 320582.12
     snos = [r["sNo"] for r in rec]
-    missing = [i for i in range(1, 153) if i not in snos]
+    missing = [i for i in range(1, 159) if i not in snos]
     empty = [r["sNo"] for r in rec if not r["title"].strip()]
     net = signed(rec)
     bad_rec = sanity(rec)
@@ -461,14 +461,14 @@ if __name__ == "__main__":
     pnet = signed(pay)
     padj = signed(pay, "adjustedLedgerBalance", "adjustedLedgerBalanceType")
     pcr = round(-pnet, 2)
-    pmiss = [i for i in range(1, 41) if i not in [r["sNo"] for r in pay]]
+    pmiss = [i for i in range(1, 42) if i not in [r["sNo"] for r in pay]]
     pempty = [r["sNo"] for r in pay if not r["title"].strip()]
     bad_pay = sanity(pay)
     print(f"[payable] rows={len(pay)} missing={pmiss} empty_titles={pempty}")
     print(f"[payable] sanity_fail={bad_pay}")
-    print(f"[payable] CR total(ledger)={pcr} CR total(adjusted)={round(-padj, 2)} expected=1096568.86")
+    print(f"[payable] CR total(ledger)={pcr} CR total(adjusted)={round(-padj, 2)} expected=1190110.17")
     sup_map, sup_problems = crosscheck_suppliers(pay)
-    print(f"[payable] supplier_match={len(sup_map)}/40 problems={sup_problems}")
+    print(f"[payable] supplier_match={len(sup_map)}/41 problems={sup_problems}")
     if not pmiss and not pempty and not bad_pay:
         out = []
         for r in pay:
@@ -483,15 +483,15 @@ if __name__ == "__main__":
         print("wrote payables_pdf_final.json")
 
     ok = (
-        len(rec) == 152
+        len(rec) == 158
         and not missing
         and not empty
         and not bad_rec
         and abs(net - expect) < 0.005
-        and len(pay) == 40
+        and len(pay) == 41
         and not pmiss
         and not bad_pay
-        and (abs(pcr - 1096568.86) < 0.005 or abs(-padj - 1096568.86) < 0.005)
+        and (abs(pcr - 1190110.17) < 0.005 or abs(-padj - 1190110.17) < 0.005)
     )
     print("ALL CHECKS PASSED" if ok else "CHECKS FAILED")
     sys.exit(0 if ok else 1)

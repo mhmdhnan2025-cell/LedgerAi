@@ -4,7 +4,7 @@ const { Pool } = require('pg');
 
 const COMPANY = 'comp-muocj00t-j3co';
 const ROOT = path.join(__dirname, '..');
-const CSV_PATH = path.join(ROOT, 'StockInventry.csv');
+const CSV_PATH = path.join(ROOT, 'items-report.csv');
 const JSON_PATH = path.join(ROOT, 'data', `database_${COMPANY}.json`);
 
 const envText = fs.readFileSync(path.join(ROOT, '.env'), 'utf8');
@@ -128,8 +128,8 @@ function buildFromCsv() {
 
 async function main() {
   const { products, txs } = buildFromCsv();
-  if (products.length !== 366) {
-    console.error(`ABORT: expected 366 rows, parsed ${products.length}`);
+  if (products.length !== 367) {
+    console.error(`ABORT: expected 367 rows, parsed ${products.length}`);
     process.exit(1);
   }
 
@@ -195,7 +195,7 @@ async function main() {
 
     const samples = await client.query(
       `SELECT id, name, purchase_price, sale_price, current_quantity, data->>'packageType' AS pkg, data->>'measure' AS measure, data->>'mcode' AS mcode
-       FROM products WHERE company_id = $1 AND id IN ('prod-zaf-0001','prod-zaf-0002','prod-zaf-0016','prod-zaf-0022','prod-zaf-0366') ORDER BY id`,
+       FROM products WHERE company_id = $1 AND id IN ('prod-zaf-0001','prod-zaf-0002','prod-zaf-0016','prod-zaf-0022','prod-zaf-0366','prod-zaf-0367') ORDER BY id`,
       [COMPANY]
     );
     for (const s of samples.rows) console.log('SAMPLE:', JSON.stringify(s));

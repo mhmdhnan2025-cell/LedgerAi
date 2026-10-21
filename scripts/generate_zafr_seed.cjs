@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
-const CSV_PATH = path.join(ROOT, 'StockInventry.csv');
+const CSV_PATH = path.join(ROOT, 'items-report.csv');
 const OUT_PATH = path.join(ROOT, 'server', 'seeds', 'zafr_stock_data.ts');
 
 function categorize(name) {
@@ -44,8 +44,8 @@ for (const line of lines.slice(1)) {
   rows.push({ sr, name, category: categorize(name), pRate, sRate, disc, stock: Math.max(0, tStock) });
 }
 
-if (rows.length !== 366) {
-  console.error(`ABORT: expected 366 rows, parsed ${rows.length}`);
+if (rows.length !== 367) {
+  console.error(`ABORT: expected 367 rows, parsed ${rows.length}`);
   process.exit(1);
 }
 

@@ -224,10 +224,10 @@ function verify() {
   const order = withBal.map((s) => s.srNo).sort((a, b) => a - b).join(',');
   const expectOrder = payables.map((p) => p.sNo).join(',');
   console.log('--- VERIFY ---');
-  console.log(`suppliers: ${all.length} (with balance: ${withBal.length}, expect 40)`);
-  console.log(`payable total: ${total.toFixed(2)} (expect 1096568.86)`);
+  console.log(`suppliers: ${all.length} (with balance: ${withBal.length}, expect 41)`);
+  console.log(`payable total: ${total.toFixed(2)} (expect 1190110.17)`);
   console.log(`report order srNo matches PDF: ${order === expectOrder}`);
-  const ok = withBal.length === 40 && Math.abs(total - 1096568.86) < 0.005 && order === expectOrder;
+  const ok = withBal.length === 41 && Math.abs(total - 1190110.17) < 0.005 && order === expectOrder;
   console.log(ok ? 'ALL CHECKS PASSED' : 'CHECKS FAILED');
   return ok;
 }

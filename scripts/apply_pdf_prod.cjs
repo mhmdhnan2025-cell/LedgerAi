@@ -1,8 +1,11 @@
 /**
- * Seed Railway production (non-destructive):
- *   - customers: 152 receivable parties (PDF) -> PUT existing, POST the missing ones
- *   - suppliers: 40 payable parties (PDF)     -> PUT existing, POST the missing one
- * Never deletes anything.
+ * Seed Railway production with the CURRENT local data (non-destructive records,
+ * but production ends up matching the new PDFs exactly):
+ *   - customers: 158 receivable parties -> PUT existing, POST missing,
+ *                then zero any stale prod balance not in the new list
+ *   - suppliers: 41 payable parties    -> PUT existing, POST missing,
+ *                then zero any stale prod payable not in the new list
+ *   - products:  367 items (Single, totalStock) -> PUT existing, POST missing
  *
  *   node scripts/apply_pdf_prod.cjs          (apply)
  *   node scripts/apply_pdf_prod.cjs --dry    (plan only)
@@ -19,9 +22,12 @@ const ROOT = path.join(__dirname, '..');
 const db = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'database_comp-muocj00t-j3co.json'), 'utf8'));
 const localCustomers = (db.customers || []).filter((c) => Math.abs(Number(c.outstandingBalance) || 0) > 0.001);
 const localSuppliers = (db.suppliers || []).filter((s) => Number(s.payableToSupplier) > 0.001);
-console.log(`local: ${localCustomers.length} customers with balance, ${localSuppliers.length} suppliers with payable`);
-if (localCustomers.length !== 152 || localSuppliers.length !== 40) {
-  console.error('ABORT: local seed data is not 152/40 - run the local seed scripts first.');
+const localProducts = db.products || [];
+console.log(
+  `local: ${localCustomers.length} customers with balance, ${localSuppliers.length} suppliers with payable, ${localProducts.length} products`
+);
+if (localCustomers.length !== 158 || localSuppliers.length !== 41 || localProducts.length !== 367) {
+  console.error('ABORT: local seed data is not 158/41/367 - run the local seed scripts first.');
   process.exit(1);
 }
 
@@ -111,10 +117,18 @@ function supplierUpdates(s) {
   };
 }
 
+function productUpdates(p) {
+  const { id, companyId, createdAt, updatedAt, ...rest } = p;
+  return rest;
+}
+
 async function main() {
   const prodCustomers = await getJson(`${BASE}/api/customers`);
   const prodSuppliers = await getJson(`${BASE}/api/suppliers`);
-  console.log(`production: ${prodCustomers.length} customers, ${prodSuppliers.length} suppliers`);
+  const prodProducts = await getJson(`${BASE}/api/products`);
+  console.log(
+    `production: ${prodCustomers.length} customers, ${prodSuppliers.length} suppliers, ${prodProducts.length} products`
+  );
 
   const custByIdCode = new Map();
   const custByTitle = new Map();
@@ -127,6 +141,7 @@ async function main() {
   prodSuppliers.forEach((s) => {
     if (s.code && !supByCode.has(s.code)) supByCode.set(s.code, s);
   });
+  const prodById = new Map(prodProducts.map((p) => [p.id, p]));
 
   const custPlan = localCustomers.map((c) => {
     const target = custByIdCode.get(c.code) || custByTitle.get(norm(c.accountTitle)) || null;
@@ -136,15 +151,32 @@ async function main() {
     const target = supByCode.get(s.code) || null;
     return { s, target };
   });
+  const prodPlan = localProducts.map((p) => ({ p, target: prodById.get(p.id) || null }));
 
   const custUpd = custPlan.filter((p) => p.target);
   const custNew = custPlan.filter((p) => !p.target);
   const supUpd = supPlan.filter((p) => p.target);
   const supNew = supPlan.filter((p) => !p.target);
-  console.log(`customers: update ${custUpd.length}, create ${custNew.length}`);
+  const prodUpd = prodPlan.filter((p) => p.target);
+  const prodNew = prodPlan.filter((p) => !p.target);
+
+  const custTargetIds = new Set(custUpd.map((p) => p.target.id));
+  const staleCust = prodCustomers.filter(
+    (c) => Math.abs(Number(c.outstandingBalance) || 0) > 0.001 && !custTargetIds.has(c.id)
+  );
+  const supTargetIds = new Set(supUpd.map((p) => p.target.id));
+  const staleSup = prodSuppliers.filter(
+    (s) => Number(s.payableToSupplier) > 0.001 && !supTargetIds.has(s.id)
+  );
+
+  console.log(`customers: update ${custUpd.length}, create ${custNew.length}, zero-stale ${staleCust.length}`);
   custNew.forEach((p) => console.log(`   + CREATE customer ${p.c.srNo} "${p.c.accountTitle}"`));
-  console.log(`suppliers: update ${supUpd.length}, create ${supNew.length}`);
+  staleCust.forEach((c) => console.log(`   - ZERO stale customer "${c.accountTitle}" (bal ${c.outstandingBalance})`));
+  console.log(`suppliers: update ${supUpd.length}, create ${supNew.length}, zero-stale ${staleSup.length}`);
   supNew.forEach((p) => console.log(`   + CREATE supplier ${p.s.srNo} "${p.s.title}"`));
+  staleSup.forEach((s) => console.log(`   - ZERO stale supplier "${s.title}" (payable ${s.payableToSupplier})`));
+  console.log(`products: update ${prodUpd.length}, create ${prodNew.length}`);
+  prodNew.forEach((p) => console.log(`   + CREATE product ${p.p.sku} "${p.p.name}"`));
 
   if (DRY) {
     console.log('DRY RUN - no changes made.');
@@ -174,6 +206,18 @@ async function main() {
       console.log(`   FAIL customer ${c.srNo} "${c.accountTitle}" -> ${res.status} ${JSON.stringify(res.json).slice(0, 160)}`);
     }
   }
+  for (const c of staleCust) {
+    const res = await send('PUT', `${BASE}/api/customers/${encodeURIComponent(c.id)}`, {
+      updates: { outstandingBalance: 0, openingBalance: 0, openingBalanceType: 'DR' },
+      source: 'pdf-receivables-import',
+      user: { id: 'admin', name: 'Admin', role: 'Admin' },
+    });
+    if (res.status >= 200 && res.status < 300) ok++;
+    else {
+      fail++;
+      console.log(`   FAIL zero customer "${c.accountTitle}" -> ${res.status}`);
+    }
+  }
   console.log(`customers done: ${ok} ok, ${fail} failed`);
 
   ok = 0;
@@ -200,11 +244,51 @@ async function main() {
       console.log(`   FAIL supplier ${s.srNo} "${s.title}" -> ${res.status} ${JSON.stringify(res.json).slice(0, 160)}`);
     }
   }
+  for (const s of staleSup) {
+    const res = await send('PUT', `${BASE}/api/suppliers/${encodeURIComponent(s.id)}`, {
+      payableToSupplier: 0,
+      balanceOwed: 0,
+      openingBalance: 0,
+      source: 'pdf-payables-import',
+      userName: 'Admin',
+    });
+    if (res.status >= 200 && res.status < 300) ok++;
+    else {
+      fail++;
+      console.log(`   FAIL zero supplier "${s.title}" -> ${res.status}`);
+    }
+  }
   console.log(`suppliers done: ${ok} ok, ${fail} failed`);
+
+  ok = 0;
+  fail = 0;
+  for (const { p, target } of prodPlan) {
+    let res;
+    if (target) {
+      res = await send('PUT', `${BASE}/api/products/${encodeURIComponent(target.id)}`, {
+        updates: productUpdates(p),
+        source: 'stock-import',
+        user: { id: 'admin', name: 'Admin', role: 'Admin' },
+      });
+    } else {
+      res = await send('POST', `${BASE}/api/products`, {
+        product: productUpdates(p),
+        source: 'stock-import',
+        user: { id: 'admin', name: 'Admin', role: 'Admin' },
+      });
+    }
+    if (res.status >= 200 && res.status < 300) ok++;
+    else {
+      fail++;
+      if (fail <= 10) console.log(`   FAIL product ${p.sku} "${p.name}" -> ${res.status} ${JSON.stringify(res.json).slice(0, 160)}`);
+    }
+  }
+  console.log(`products done: ${ok} ok, ${fail} failed`);
 
   // ---- verification ----
   const afterC = await getJson(`${BASE}/api/customers`);
   const afterS = await getJson(`${BASE}/api/suppliers`);
+  const afterP = await getJson(`${BASE}/api/products`);
   const withBal = afterC.filter((c) => Math.abs(Number(c.outstandingBalance) || 0) > 0.001);
   let dr = 0;
   let cr = 0;
@@ -216,16 +300,22 @@ async function main() {
   const net = Math.round((dr - cr) * 100) / 100;
   const pay = afterS.filter((s) => Number(s.payableToSupplier) > 0.001);
   const payTotal = Math.round(pay.reduce((a, b) => a + Number(b.payableToSupplier), 0) * 100) / 100;
+  const singles = afterP.filter((p) => p.packageType === 'Single').length;
+  const stockSum = Math.round(afterP.reduce((a, p) => a + (Number(p.currentQuantity) || 0), 0) * 100) / 100;
   console.log('--- VERIFY PRODUCTION ---');
-  console.log(`customers: ${afterC.length} total | with balance: ${withBal.length} (expect 152)`);
-  console.log(`DR ${dr.toFixed(2)} | CR ${cr.toFixed(2)} | NET ${net.toFixed(2)} (expect 302163.55)`);
-  console.log(`suppliers: ${afterS.length} total | with payable: ${pay.length} (expect 40)`);
-  console.log(`payable total: ${payTotal.toFixed(2)} (expect 1096568.86)`);
+  console.log(`customers: ${afterC.length} total | with balance: ${withBal.length} (expect 158)`);
+  console.log(`DR ${dr.toFixed(2)} | CR ${cr.toFixed(2)} | NET ${net.toFixed(2)} (expect 320582.12)`);
+  console.log(`suppliers: ${afterS.length} total | with payable: ${pay.length} (expect 41)`);
+  console.log(`payable total: ${payTotal.toFixed(2)} (expect 1190110.17)`);
+  console.log(`products: ${afterP.length} total | Single: ${singles} | stock sum: ${stockSum} (expect 367 / 367 / 24463.92)`);
   const okAll =
-    withBal.length === 152 &&
-    Math.abs(net - 302163.55) < 0.005 &&
-    pay.length === 40 &&
-    Math.abs(payTotal - 1096568.86) < 0.005;
+    withBal.length === 158 &&
+    Math.abs(net - 320582.12) < 0.005 &&
+    pay.length === 41 &&
+    Math.abs(payTotal - 1190110.17) < 0.005 &&
+    afterP.length === 367 &&
+    singles === 367 &&
+    Math.abs(stockSum - 24463.92) < 0.005;
   console.log(okAll ? 'ALL CHECKS PASSED' : 'CHECKS FAILED');
   return okAll ? 0 : 1;
 }

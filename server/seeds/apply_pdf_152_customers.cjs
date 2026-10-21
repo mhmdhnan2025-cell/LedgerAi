@@ -227,11 +227,11 @@ function verify() {
   const dupIds = cs.length - new Set(cs.map((c) => c.id)).size;
   const badOpen = cs.filter((c) => Number(c.openingBalance) !== Math.abs(Number(c.outstandingBalance))).length;
   console.log('--- VERIFY ---');
-  console.log(`customers: ${cs.length} (expect 152)`);
-  console.log(`srNo 1..152 in order: ${badSr === 0}`);
-  console.log(`DR: ${round2(dr).toFixed(2)} | CR: ${round2(cr).toFixed(2)} | NET: ${net.toFixed(2)} (expect 302163.55)`);
+  console.log(`customers: ${cs.length} (expect 158)`);
+  console.log(`srNo 1..158 in order: ${badSr === 0}`);
+  console.log(`DR: ${round2(dr).toFixed(2)} | CR: ${round2(cr).toFixed(2)} | NET: ${net.toFixed(2)} (expect 320582.12)`);
   console.log(`duplicate ids: ${dupIds} | opening==|outstanding|: ${badOpen === 0}`);
-  const ok = cs.length === 152 && badSr === 0 && dupIds === 0 && badOpen === 0 && Math.abs(net - 302163.55) < 0.005;
+  const ok = cs.length === 158 && badSr === 0 && dupIds === 0 && badOpen === 0 && Math.abs(net - 320582.12) < 0.005;
   console.log(ok ? 'ALL CHECKS PASSED' : 'CHECKS FAILED');
   return ok;
 }
