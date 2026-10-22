@@ -74,16 +74,8 @@ export const MonthlyDatabaseManagement: React.FC<MonthlyDatabaseManagementProps>
   }, []);
 
   const handleOpenPurgeModal = (month: MonthDataSummary) => {
-    if (month.isFuture) {
-      alert('Future month ka data delete nahi kiya ja sakta.');
-      return;
-    }
     if (month.isProtected) {
       alert('Current date se pichlay 2 mahinay (kul 3 active mahinay) ka data delete karna system mein block hai taake active accounts mehfooz rahein.');
-      return;
-    }
-    if (month.counts.totalRecords === 0) {
-      alert('Is month mein koi transactional data mojood nahi hai.');
       return;
     }
     setTargetMonth(month);
@@ -193,7 +185,7 @@ export const MonthlyDatabaseManagement: React.FC<MonthlyDatabaseManagementProps>
               title="Download clean JSON backup of all tables: complete inventory as-is, all 152 customers, 40 suppliers, employees, accounts and active 3-month transactions"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Download Complete Backup (Current Day + Prev 2 Mo)</span>
+              <span>Download Live Backup (.SQL)</span>
             </button>
 
             <button
@@ -537,7 +529,7 @@ export const MonthlyDatabaseManagement: React.FC<MonthlyDatabaseManagementProps>
                     title={hasData ? `Download JSON backup for ${m.monthName}` : 'No data in this month'}
                   >
                     <Download className="w-3 h-3 text-cyan-400" />
-                    <span>Download</span>
+                    <span>Download (.SQL)</span>
                   </button>
 
                   {/* Delete / Purge Button */}

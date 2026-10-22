@@ -243,14 +243,13 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
   <!-- ================= LIVE STRIP ================= -->
   <div class="al-strip">
     <span><span class="dot"></span><span class="live">LIVE WHOLESALE ERP</span></span>
-    <span class="it">Today Revenue: <b class="strong">${sym} ${num(data.strip.todayRevenue)}</b></span>
-    <span class="it">Net Profit: <b class="${data.strip.netProfit >= 0 ? 'green' : 'red'}">${
-      data.strip.netProfit >= 0 ? '+' : ''
-    }${sym} ${num(data.strip.netProfit)}</b> (${pct(data.strip.netMarginPct)})</span>
+    <span class="it">Today Rev: <b class="strong">${sym} ${num(data.strip.todayRevenue)}</b></span>
+    <span class="it">Today Profit: <b class="${data.strip.netProfit >= 0 ? 'green' : 'red'}">${data.strip.netProfit >= 0 ? '+' : ''}${sym} ${num(data.strip.netProfit)}</b></span>
+    <span class="it">Month Profit: <b class="${(data.profitCard?.monthNetProfit ?? data.strip.monthNetProfit ?? 0) >= 0 ? 'green' : 'red'}">${(data.profitCard?.monthNetProfit ?? data.strip.monthNetProfit ?? 0) >= 0 ? '+' : ''}${sym} ${num(data.profitCard?.monthNetProfit ?? data.strip.monthNetProfit ?? 0)}</b></span>
+    <span class="it">Overall Profit: <b class="${(data.profitCard?.totalNetProfit ?? data.strip.totalNetProfit ?? 0) >= 0 ? 'green' : 'red'}">${(data.profitCard?.totalNetProfit ?? data.strip.totalNetProfit ?? 0) >= 0 ? '+' : ''}${sym} ${num(data.profitCard?.totalNetProfit ?? data.strip.totalNetProfit ?? 0)}</b></span>
+    <span class="it">Discounts: <b class="amber">−${sym} ${num(data.discountsHead?.todayTotalDiscount ?? data.strip.todayDiscount ?? 0)}</b></span>
     <span class="it">Udhaar Due: <b class="amber">${sym} ${num(data.strip.receivables)}</b></span>
     <span class="it">Stock: <b class="blue">${sym} ${num(data.strip.warehouseStock)}</b></span>
-    <span class="it">Today Sale Ret: <b class="red">\u2212${sym} ${num(data.strip.todaySaleReturns ?? data.salesCard.saleReturnsToday ?? 0)}</b></span>
-    <span class="it">Today Pur Ret: <b class="green">\u2212${sym} ${num(data.strip.todayPurchaseReturns ?? data.purchaseCard.purchaseReturnsToday ?? 0)}</b></span>
   </div>
 
   <!-- ================= 4 KPI CARDS ================= -->
@@ -457,7 +456,98 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
           <span class="amt">${sym} ${num(data.cash.cashInHand)}</span>
           <span class="tag">VERIFIED</span>
         </div>
+            <!-- 8. DISCOUNTS AUDIT HEAD (ڈسکاؤنٹ و رعایت کھاتہ) -->
+      <div class="al-panel">
+        <div class="al-panel-h">
+          <div class="t" style="color:#d97706">8. DISCOUNTS HEAD &amp; AUDIT SUMMARY (ڈسکاؤنٹ کھاتہ و منافع سے کٹوتی)</div>
+          <div class="s" style="color:#b45309">PROFIT DEDUCTED</div>
+        </div>
+        <table class="al-t">
+          <thead>
+            <tr>
+              <th>Discount Category</th>
+              <th class="num">Today</th>
+              <th class="num">This Month</th>
+              <th class="num">Total Overall (${sym})</th>
+              <th class="center">Profit Impact</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="strong amber">Sale Bills Discount (بل کے وقت والی رعایت)</td>
+              <td class="num">${num(data.discountsHead?.todayBillDiscount ?? 0)}</td>
+              <td class="num">${num(data.discountsHead?.monthBillDiscount ?? 0)}</td>
+              <td class="num strong amber">− ${sym} ${num(data.discountsHead?.totalBillDiscount ?? 0)}</td>
+              <td class="center"><span style="background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:4px;font-size:7.5px;font-weight:700">Deducted</span></td>
+            </tr>
+            <tr>
+              <td class="strong purple">Cash &amp; Bank Voucher Discount (کیش و بینک اینٹریز رعایت)</td>
+              <td class="num">${num(data.discountsHead?.todayVoucherDiscount ?? 0)}</td>
+              <td class="num">${num(data.discountsHead?.monthVoucherDiscount ?? 0)}</td>
+              <td class="num strong purple">− ${sym} ${num(data.discountsHead?.totalVoucherDiscount ?? 0)}</td>
+              <td class="center"><span style="background:#ede9fe;color:#5b21b6;padding:1px 5px;border-radius:4px;font-size:7.5px;font-weight:700">Deducted</span></td>
+            </tr>
+            <tr style="background:#f8fafc;border-top:1.5px solid #cbd5e1">
+              <td class="strong green">TOTAL DISCOUNTS COMBINED (کل مجموعی رعایت)</td>
+              <td class="num strong green">− ${sym} ${num(data.discountsHead?.todayTotalDiscount ?? 0)}</td>
+              <td class="num strong green">− ${sym} ${num(data.discountsHead?.monthTotalDiscount ?? 0)}</td>
+              <td class="num strong red">− ${sym} ${num(data.discountsHead?.totalDiscounts ?? 0)}</td>
+              <td class="center"><span style="background:#fee2e2;color:#991b1b;padding:1px 5px;border-radius:4px;font-size:7.5px;font-weight:700">100% Minus from Profit</span></td>
+            </tr>
+          </tbody>
+        </table>
       </div>
+
+      <!-- 9. OVERALL NET PROFIT & PERFORMANCE (P&L AUDIT • منافع کھاتہ) -->
+      <div class="al-panel">
+        <div class="al-panel-h">
+          <div class="t" style="color:#059669">9. OVERALL NET PROFIT &amp; PERFORMANCE (P&amp;L AUDIT • منافع کھاتہ)</div>
+          <div class="s" style="color:#047857">ACTUAL PROFIT</div>
+        </div>
+        <table class="al-t">
+          <thead>
+            <tr>
+              <th>Audit Timeline</th>
+              <th class="num">Net Profit (${sym})</th>
+              <th class="num">Margin %</th>
+              <th class="num">VAT Excluded</th>
+              <th class="num">Discounts Deducted</th>
+              <th class="center">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="strong">Today's Net Profit (آج کا منافع)</td>
+              <td class="num strong ${(data.profitCard?.todayNetProfit ?? data.strip.netProfit) >= 0 ? 'green' : 'red'}">${(data.profitCard?.todayNetProfit ?? data.strip.netProfit) >= 0 ? '+' : '−'}${sym} ${num(Math.abs(data.profitCard?.todayNetProfit ?? data.strip.netProfit))}</td>
+              <td class="num">${pct(data.profitCard?.todayMarginPct ?? data.strip.netMarginPct)}</td>
+              <td class="num muted">${sym} ${num(data.profitCard?.todayVatExcluded ?? 0)}</td>
+              <td class="num amber">−${sym} ${num(data.discountsHead?.todayTotalDiscount ?? 0)}</td>
+              <td class="center"><span style="background:${(data.profitCard?.todayNetProfit ?? data.strip.netProfit) >= 0 ? '#dcfce7;color:#166534' : '#fee2e2;color:#991b1b'};padding:1px 5px;border-radius:4px;font-size:7.5px;font-weight:700">${(data.profitCard?.todayNetProfit ?? data.strip.netProfit) >= 0 ? 'PROFIT' : 'LOSS'}</span></td>
+            </tr>
+            <tr>
+              <td class="strong">This Month's Net Profit (اس ماہ کا منافع)</td>
+              <td class="num strong ${(data.profitCard?.monthNetProfit ?? 0) >= 0 ? 'green' : 'red'}">${(data.profitCard?.monthNetProfit ?? 0) >= 0 ? '+' : '−'}${sym} ${num(Math.abs(data.profitCard?.monthNetProfit ?? 0))}</td>
+              <td class="num">${pct(data.profitCard?.monthMarginPct ?? 0)}</td>
+              <td class="num muted">${sym} ${num(data.profitCard?.monthVatExcluded ?? 0)}</td>
+              <td class="num amber">−${sym} ${num(data.discountsHead?.monthTotalDiscount ?? 0)}</td>
+              <td class="center"><span style="background:${(data.profitCard?.monthNetProfit ?? 0) >= 0 ? '#dcfce7;color:#166534' : '#fee2e2;color:#991b1b'};padding:1px 5px;border-radius:4px;font-size:7.5px;font-weight:700">${(data.profitCard?.monthNetProfit ?? 0) >= 0 ? 'PROFIT' : 'LOSS'}</span></td>
+            </tr>
+            <tr style="background:#f8fafc;border-top:1.5px solid #cbd5e1">
+              <td class="strong blue">OVERALL NET PROFIT (کل مجموعی منافع)</td>
+              <td class="num strong ${(data.profitCard?.totalNetProfit ?? 0) >= 0 ? 'green' : 'red'}">${(data.profitCard?.totalNetProfit ?? 0) >= 0 ? '+' : '−'}${sym} ${num(Math.abs(data.profitCard?.totalNetProfit ?? 0))}</td>
+              <td class="num strong">${pct(data.profitCard?.totalMarginPct ?? 0)}</td>
+              <td class="num muted">${sym} ${num(data.profitCard?.totalVatExcluded ?? 0)}</td>
+              <td class="num strong red">−${sym} ${num(data.discountsHead?.totalDiscounts ?? 0)}</td>
+              <td class="center"><span style="background:${(data.profitCard?.totalNetProfit ?? 0) >= 0 ? '#dbeafe;color:#1e40af' : '#fee2e2;color:#991b1b'};padding:1px 5px;border-radius:4px;font-size:7.5px;font-weight:700">AUDIT VERIFIED</span></td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="font-size:8px;color:#64748b;margin-top:4px;line-height:1.4">
+          * Formula: <b>Net Profit = Gross Sales (Ex-VAT) &minus; Cost of Goods (COGS) &minus; Bill Discounts &minus; Cash/Bank Voucher Discounts &minus; Operating Expenses</b>.<br/>
+          * VAT collected of ${sym} ${num(data.profitCard?.totalVatExcluded ?? 0)} is 100% excluded from profit (Tax liability owed to government). All discounts are subtracted.
+        </div>
+      </div>
+    </div>
     </div>
   </div>
 

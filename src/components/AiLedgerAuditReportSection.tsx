@@ -303,19 +303,58 @@ export const AiLedgerAuditReportSection: React.FC<AiLedgerAuditReportSectionProp
         <div className="space-y-2.5 print:hidden">
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
-              <span className="text-[10px] text-slate-400 font-bold uppercase block">Today Revenue</span>
-              <span className="text-base font-black font-mono text-emerald-400">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-slate-400 font-bold uppercase block">Today Revenue</span>
+                <span className="text-[9px] px-1 py-0.2 bg-emerald-500/10 text-emerald-400 rounded font-semibold">Ex-VAT</span>
+              </div>
+              <span className="text-base font-black font-mono text-emerald-400 mt-1 block">
                 {report.currencySymbol} {fmt(s?.todayRevenue || 0)}
               </span>
             </div>
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
-              <span className="text-[10px] text-slate-400 font-bold uppercase block">Net Profit</span>
+              <span className="text-[10px] text-slate-400 font-bold uppercase block">Today Net Profit</span>
               <span
                 className={`text-base font-black font-mono ${(s?.netProfit || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}
               >
-                {report.currencySymbol} {fmt(s?.netProfit || 0)} ({(s?.netMarginPct || 0).toFixed(1)}%)
+                {(s?.netProfit || 0) >= 0 ? '+' : ''}{report.currencySymbol} {fmt(s?.netProfit || 0)}
+              </span>
+              <span className="text-[9.5px] text-slate-400 font-mono block mt-0.5">
+                Margin: {(s?.netMarginPct || 0).toFixed(1)}%
               </span>
             </div>
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
+              <span className="text-[10px] text-slate-400 font-bold uppercase block">Month Net Profit</span>
+              <span
+                className={`text-base font-black font-mono ${(report.profitCard?.monthNetProfit ?? s?.monthNetProfit ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}
+              >
+                {(report.profitCard?.monthNetProfit ?? s?.monthNetProfit ?? 0) >= 0 ? '+' : ''}{report.currencySymbol} {fmt(report.profitCard?.monthNetProfit ?? s?.monthNetProfit ?? 0)}
+              </span>
+              <span className="text-[9.5px] text-slate-400 font-mono block mt-0.5">
+                Margin: {((report.profitCard?.monthMarginPct ?? 0)).toFixed(1)}%
+              </span>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
+              <span className="text-[10px] text-slate-400 font-bold uppercase block">Overall Net Profit</span>
+              <span
+                className={`text-base font-black font-mono ${(report.profitCard?.totalNetProfit ?? s?.totalNetProfit ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}
+              >
+                {(report.profitCard?.totalNetProfit ?? s?.totalNetProfit ?? 0) >= 0 ? '+' : ''}{report.currencySymbol} {fmt(report.profitCard?.totalNetProfit ?? s?.totalNetProfit ?? 0)}
+              </span>
+              <span className="text-[9.5px] text-slate-400 font-mono block mt-0.5">
+                Margin: {((report.profitCard?.totalMarginPct ?? 0)).toFixed(1)}%
+              </span>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
+              <span className="text-[10px] text-slate-400 font-bold uppercase block flex items-center gap-1.5">
+                <Wallet className="w-3 h-3 text-emerald-400" /> Cash In Hand
+              </span>
+              <span className="text-base font-black font-mono text-emerald-400 mt-1 block">
+                {report.currencySymbol} {fmt(report.cash.cashInHand)}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
               <span className="text-[10px] text-slate-400 font-bold uppercase block">Udhaar (Receivable)</span>
               <span className="text-base font-black font-mono text-amber-400">
@@ -338,12 +377,22 @@ export const AiLedgerAuditReportSection: React.FC<AiLedgerAuditReportSectionProp
                 </span>
               )}
             </div>
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
-              <span className="text-[10px] text-slate-400 font-bold uppercase block flex items-center gap-1.5">
-                <Wallet className="w-3 h-3 text-emerald-400" /> Cash In Hand
+            <div className="bg-slate-900 border border-amber-500/30 rounded-xl p-3">
+              <span className="text-[10px] text-amber-400 font-bold uppercase block">Discounts Deducted (- Profit)</span>
+              <span className="text-base font-black font-mono text-amber-400">
+                &minus; {report.currencySymbol} {fmt(report.discountsHead?.totalDiscounts ?? s?.totalDiscount ?? 0)}
               </span>
-              <span className="text-base font-black font-mono text-emerald-400">
-                {report.currencySymbol} {fmt(report.cash.cashInHand)}
+              <span className="text-[9.5px] text-slate-400 font-mono block mt-0.5">
+                Today: {report.currencySymbol} {fmt(report.discountsHead?.todayTotalDiscount ?? 0)} &bull; Month: {report.currencySymbol} {fmt(report.discountsHead?.monthTotalDiscount ?? 0)}
+              </span>
+            </div>
+            <div className="bg-slate-900 border border-indigo-500/30 rounded-xl p-3">
+              <span className="text-[10px] text-indigo-400 font-bold uppercase block">VAT Excluded (Tax Liability)</span>
+              <span className="text-base font-black font-mono text-indigo-300">
+                {report.currencySymbol} {fmt(report.profitCard?.totalVatExcluded ?? 0)}
+              </span>
+              <span className="text-[9.5px] text-slate-400 font-mono block mt-0.5">
+                Today: {report.currencySymbol} {fmt(report.profitCard?.todayVatExcluded ?? 0)} &bull; Month: {report.currencySymbol} {fmt(report.profitCard?.monthVatExcluded ?? 0)}
               </span>
             </div>
           </div>

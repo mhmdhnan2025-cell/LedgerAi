@@ -694,10 +694,20 @@ app.get('/api/database/monthly-data/export', (req, res) => {
       return res.status(400).json({ error: 'Month parameter is required (e.g. ?month=2026-07).' });
     }
 
-    const backup = db.exportMonthlyBackup(companyId, month);
-    res.setHeader('Content-Disposition', `attachment; filename="ERP_Backup_${month}_${Date.now()}.json"`);
-    res.setHeader('Content-Type', 'application/json');
-    res.json(backup);
+    const format = ((req.query.format as string) || 'sql').toLowerCase();
+
+    if (format === 'json') {
+      const backup = db.exportMonthlyBackup(companyId, month);
+      res.setHeader('Content-Disposition', `attachment; filename="ERP_Backup_${month}_${Date.now()}.json"`);
+      res.setHeader('Content-Type', 'application/json');
+      return res.json(backup);
+    }
+
+    // Default: SQL Backup
+    const sqlContent = db.exportMonthlySqlBackup(companyId, month);
+    res.setHeader('Content-Disposition', `attachment; filename="ERP_Backup_${month}_${Date.now()}.sql"`);
+    res.setHeader('Content-Type', 'application/sql; charset=utf-8');
+    return res.send(sqlContent);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -706,10 +716,20 @@ app.get('/api/database/monthly-data/export', (req, res) => {
 app.get('/api/database/monthly-data/export-last-3-months', (req, res) => {
   try {
     const companyId = (req as any).companyId || (req.headers['x-company-id'] as string) || (req.query.companyId as string) || (req as any).user?.companyId || db.getQamarCompanyId();
-    const backup = db.exportLast3MonthsBackup(companyId);
-    res.setHeader('Content-Disposition', `attachment; filename="ERP_Backup_Last_3_Months_${Date.now()}.json"`);
-    res.setHeader('Content-Type', 'application/json');
-    res.json(backup);
+    const format = ((req.query.format as string) || 'sql').toLowerCase();
+
+    if (format === 'json') {
+      const backup = db.exportLast3MonthsBackup(companyId);
+      res.setHeader('Content-Disposition', `attachment; filename="ERP_Backup_Last_3_Months_${Date.now()}.json"`);
+      res.setHeader('Content-Type', 'application/json');
+      return res.json(backup);
+    }
+
+    // Default: SQL Backup
+    const sqlContent = db.exportLast3MonthsSqlBackup(companyId);
+    res.setHeader('Content-Disposition', `attachment; filename="ERP_Live_Backup_Last_3_Months_${Date.now()}.sql"`);
+    res.setHeader('Content-Type', 'application/sql; charset=utf-8');
+    return res.send(sqlContent);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

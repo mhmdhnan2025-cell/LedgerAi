@@ -600,6 +600,15 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     const monthKey = auditDate.slice(0, 7);
     const cost = buildCostLookup(products);
 
+    const billExVatRevenue = (b: SaleBill): number => {
+      const billDiscount = Number(b.billDiscountAmount) || 0;
+      const vat = Number(b.totalVatAmount) || 0;
+      if (b.grossAmount !== undefined && b.grossAmount > 0) {
+        return Math.max(0, Number((b.grossAmount - billDiscount).toFixed(2)));
+      }
+      return Math.max(0, Number((b.netTotal - vat).toFixed(2)));
+    };
+
     const inMonth = (dateStr: string) => db.normalizeDateToYMD(dateStr).slice(0, 7) === monthKey;
     const onDate = (dateStr: string) => db.normalizeDateToYMD(dateStr) === auditDate;
     const uptoDate = (dateStr: string) => db.normalizeDateToYMD(dateStr) <= auditDate;
@@ -848,14 +857,15 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
 
       salesmanKhata.push({ name: entry.name, route, opening, todaySold, closing });
 
-      // Profit contribution on the audit date (revenue - cost of goods)
+      // Profit contribution on the audit date (revenue Ex-VAT - cost of goods)
       const profitCogs = cost.costOf(
         todayBills
           .flatMap((b) => b.items || [])
           .map((it) => ({ productId: it.productId, itemTitle: it.itemTitle, mcode: it.mcode, qty: it.qty, rate: it.rate }))
       );
-      const profit = todaySold - profitCogs;
-      const marginPct = todaySold > 0 ? (profit / todaySold) * 100 : 0;
+      const todaySoldExVat = todayBills.reduce((s, b) => s + billExVatRevenue(b), 0);
+      const profit = todaySoldExVat - profitCogs;
+      const marginPct = todaySoldExVat > 0 ? (profit / todaySoldExVat) * 100 : 0;
       salesmanProfit.push({ name: entry.name, todaySales: todaySold, marginPct, netProfit: profit });
       totalSalesmenProfit += profit;
     }
@@ -864,12 +874,89 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     salesmanProfit.sort((a, b) => b.todaySales - a.todaySales);
 
     // -------------------------------------------------------------
-    // 6. NET PROFIT OF THE DAY
+    // 6. COMPREHENSIVE PROFIT & DISCOUNTS AUDIT ENGINE
+    //    * Excludes 100% of VAT (Tax liability owed to FTA)
+    //    * Deducts all bill discounts (percentage or flat amount)
+    //    * Deducts all Cash & Bank voucher settlement discounts
+    //    * Calculates Today Net Profit, Month Net Profit & Overall Net Profit
     // -------------------------------------------------------------
+    // Bill discounts:
+    const todayBillDiscount = saleBillsToday.reduce(
+      (s, b) => s + (Number(b.totalDiscount) || Number(b.billDiscountAmount) || 0),
+      0
+    ) + ordersToday.reduce((s, o) => s + (Number(o.discount) || 0), 0);
+
+    const monthBillDiscount = saleBillsMonth.reduce(
+      (s, b) => s + (Number(b.totalDiscount) || Number(b.billDiscountAmount) || 0),
+      0
+    ) + ordersMonth.reduce((s, o) => s + (Number(o.discount) || 0), 0);
+
+    const totalBillDiscount = saleBillsUpto.reduce(
+      (s, b) => s + (Number(b.totalDiscount) || Number(b.billDiscountAmount) || 0),
+      0
+    ) + ordersUpto.reduce((s, o) => s + (Number(o.discount) || 0), 0);
+
+    // Cash & Bank voucher settlement discounts:
+    const todayVoucherDiscount = vouchers
+      .filter((v) => onDate(v.date))
+      .reduce((sum, v) => sum + (v.entries || []).reduce((esum, e) => esum + (Number(e.discount) || 0), 0), 0);
+
+    const monthVoucherDiscount = vouchers
+      .filter((v) => uptoDate(v.date) && inMonth(v.date))
+      .reduce((sum, v) => sum + (v.entries || []).reduce((esum, e) => esum + (Number(e.discount) || 0), 0), 0);
+
+    const totalVoucherDiscount = vouchers
+      .filter((v) => uptoDate(v.date))
+      .reduce((sum, v) => sum + (v.entries || []).reduce((esum, e) => esum + (Number(e.discount) || 0), 0), 0);
+
+    // Total Combined Discounts:
+    const todayTotalDiscount = Number((todayBillDiscount + todayVoucherDiscount).toFixed(2));
+    const monthTotalDiscount = Number((monthBillDiscount + monthVoucherDiscount).toFixed(2));
+    const totalDiscounts = Number((totalBillDiscount + totalVoucherDiscount).toFixed(2));
+
+    // VAT Excluded:
+    const todayVatExcluded = saleBillsToday.reduce((s, b) => s + (Number(b.totalVatAmount) || 0), 0);
+    const monthVatExcluded = saleBillsMonth.reduce((s, b) => s + (Number(b.totalVatAmount) || 0), 0);
+    const totalVatExcluded = saleBillsUpto.reduce((s, b) => s + (Number(b.totalVatAmount) || 0), 0);
+
+    // Operating Expenses:
     const todayExpenses = expenses.filter((e) => onDate(e.date)).reduce((s, e) => s + (Number(e.amount) || 0), 0);
-    const ordersTodayProfit = ordersToday.reduce((s, o) => s + (Number(o.grossProfit) || 0), 0);
-    const todayNetProfit = totalSalesmenProfit + ordersTodayProfit - todayExpenses;
-    const todayNetMargin = todaySales > 0 ? (todayNetProfit / todaySales) * 100 : 0;
+    const monthExpenses = expenses.filter((e) => uptoDate(e.date) && inMonth(e.date)).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const totalExpenses = expenses.filter((e) => uptoDate(e.date)).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+
+    // COGS helper:
+    const cogsOfBills = (billsList: SaleBill[]) => cost.costOf(
+      billsList.flatMap((b) => b.items || []).map((it) => ({
+        productId: it.productId,
+        itemTitle: it.itemTitle,
+        mcode: it.mcode,
+        qty: it.qty,
+        rate: it.rate
+      }))
+    );
+
+    const todayCogs = cogsOfBills(saleBillsToday);
+    const monthCogs = cogsOfBills(saleBillsMonth);
+    const totalCogs = cogsOfBills(saleBillsUpto);
+
+    // Ex-VAT Revenues (post bill discount):
+    const todayExVatRevenue = saleBillsToday.reduce((s, b) => s + billExVatRevenue(b), 0) + ordersToday.reduce((s, o) => s + ((o.totalAmount || 0) - (o.discount || 0)), 0);
+    const monthExVatRevenue = saleBillsMonth.reduce((s, b) => s + billExVatRevenue(b), 0) + ordersMonth.reduce((s, o) => s + ((o.totalAmount || 0) - (o.discount || 0)), 0);
+    const totalExVatRevenue = saleBillsUpto.reduce((s, b) => s + billExVatRevenue(b), 0) + ordersUpto.reduce((s, o) => s + ((o.totalAmount || 0) - (o.discount || 0)), 0);
+
+    // Gross Profits:
+    const todayGrossProfit = Number((todayExVatRevenue - todayCogs).toFixed(2));
+    const monthGrossProfit = Number((monthExVatRevenue - monthCogs).toFixed(2));
+    const totalGrossProfit = Number((totalExVatRevenue - totalCogs).toFixed(2));
+
+    // Net Profits (Gross Profit - Cash & Bank Voucher Discounts - Operating Expenses):
+    const todayNetProfit = Number((todayGrossProfit - todayVoucherDiscount - todayExpenses).toFixed(2));
+    const monthNetProfit = Number((monthGrossProfit - monthVoucherDiscount - monthExpenses).toFixed(2));
+    const totalNetProfit = Number((totalGrossProfit - totalVoucherDiscount - totalExpenses).toFixed(2));
+
+    const todayNetMargin = todayExVatRevenue > 0 ? (todayNetProfit / todayExVatRevenue) * 100 : 0;
+    const monthMarginPct = monthExVatRevenue > 0 ? (monthNetProfit / monthExVatRevenue) * 100 : 0;
+    const totalMarginPct = totalExVatRevenue > 0 ? (totalNetProfit / totalExVatRevenue) * 100 : 0;
 
     // -------------------------------------------------------------
     // 7. CASH & BANK LIQUIDITY REGISTER (CASH IN HAND)
@@ -1003,7 +1090,9 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
       inflows.push({ label: 'Cash Refunded on Sales Returns (فروخت واپسی نقد ادائیگی)', value: todaySRCash, tag: 'SALE RETURN', direction: 'out' });
     }
     inflows.push(
-      { label: 'Discount Given to Customers (adjusted in bill)', value: todayDiscount, tag: 'MEMO', direction: 'memo' }
+      { label: 'Sale Bill Discounts Given (بل میں رعایت)', value: todayBillDiscount, tag: 'BILL DISC', direction: 'memo' },
+      { label: 'Cash & Bank Voucher Discounts (کیش و بینک اینٹریز رعایت)', value: todayVoucherDiscount, tag: 'CB DISC', direction: 'memo' },
+      { label: 'Total Discounts (Deducted from Profit • منافع سے کٹوتی)', value: todayTotalDiscount, tag: 'TOTAL DISC', direction: 'memo' }
     );
 
     const bankRows: AiLedgerAuditCashRow[] = [
@@ -1053,6 +1142,11 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
         todayRevenue: todaySales,
         netProfit: todayNetProfit,
         netMarginPct: todayNetMargin,
+        monthNetProfit,
+        totalNetProfit,
+        todayDiscount: todayTotalDiscount,
+        monthDiscount: monthTotalDiscount,
+        totalDiscount: totalDiscounts,
         receivables: receivable,
         warehouseStock: warehouseStockValue,
         todaySaleReturns: saleReturnsToday,
@@ -1128,6 +1222,38 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
         payable,
         fixExpense,
         total: totalBusinessWorth,
+      },
+      profitCard: {
+        todayNetProfit,
+        todayGrossProfit,
+        todayMarginPct: todayNetMargin,
+        todayExpenses,
+        todayVatExcluded,
+
+        monthNetProfit,
+        monthGrossProfit,
+        monthMarginPct,
+        monthExpenses,
+        monthVatExcluded,
+
+        totalNetProfit,
+        totalGrossProfit,
+        totalMarginPct,
+        totalExpenses,
+        totalVatExcluded,
+      },
+      discountsHead: {
+        todayBillDiscount,
+        monthBillDiscount,
+        totalBillDiscount,
+
+        todayVoucherDiscount,
+        monthVoucherDiscount,
+        totalVoucherDiscount,
+
+        todayTotalDiscount,
+        monthTotalDiscount,
+        totalDiscounts,
       },
     };
 

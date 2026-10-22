@@ -677,6 +677,10 @@ export interface BusinessProfitDiagnosis {
   restaurantReports: RestaurantProfitReport[];
   criticalIssues: string[];
   actionPlan: string[];
+  totalVatExcluded?: number;
+  totalBillDiscounts?: number;
+  totalCashBankDiscounts?: number;
+  totalDiscounts?: number;
 }
 
 export interface Customer {
@@ -1061,6 +1065,11 @@ export interface AiLedgerAuditReport {
     todayPurchaseReturns?: number;
     totalSaleReturns?: number;
     totalPurchaseReturns?: number;
+    monthNetProfit?: number;
+    totalNetProfit?: number;
+    todayDiscount?: number;
+    monthDiscount?: number;
+    totalDiscount?: number;
   };
   salesCard: {
     monthSales: number;
@@ -1118,6 +1127,35 @@ export interface AiLedgerAuditReport {
     payable: number;
     fixExpense: number;
     total: number;
+
+  };
+  profitCard?: {
+    todayNetProfit: number;
+    todayGrossProfit: number;
+    todayMarginPct: number;
+    todayExpenses: number;
+    todayVatExcluded: number;
+    monthNetProfit: number;
+    monthGrossProfit: number;
+    monthMarginPct: number;
+    monthExpenses: number;
+    monthVatExcluded: number;
+    totalNetProfit: number;
+    totalGrossProfit: number;
+    totalMarginPct: number;
+    totalExpenses: number;
+    totalVatExcluded: number;
+  };
+  discountsHead?: {
+    todayBillDiscount: number;
+    monthBillDiscount: number;
+    totalBillDiscount: number;
+    todayVoucherDiscount: number;
+    monthVoucherDiscount: number;
+    totalVoucherDiscount: number;
+    todayTotalDiscount: number;
+    monthTotalDiscount: number;
+    totalDiscounts: number;
   };
 }
 

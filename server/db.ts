@@ -5615,40 +5615,162 @@ ON CONFLICT (id) DO NOTHING;`);
     // Synchronize all ledgers first
     this.recalculateAllLedgers();
 
-    const restaurants = this.data.restaurants;
-    const validOrders = this.data.orders.filter((o) => o.status !== 'Cancelled');
-    const expenses = this.data.expenses;
+    // Helper map to quickly lookup product cost
+    const productCostMap = new Map<string, { product: Product; purchaseCost: number }>();
+    for (const p of this.data.products || []) {
+      const cost = p.purchasePrice || p.averagePurchaseCost || p.lastPurchasePrice || (p.sellingPrice * 0.75) || 1;
+      productCostMap.set(p.id, { product: p, purchaseCost: cost });
+      if (p.name) productCostMap.set(p.name.toLowerCase().trim(), { product: p, purchaseCost: cost });
+      if (p.itemTitle) productCostMap.set(p.itemTitle.toLowerCase().trim(), { product: p, purchaseCost: cost });
+      if (p.mcode) productCostMap.set(p.mcode.toLowerCase().trim(), { product: p, purchaseCost: cost });
+    }
 
-    // Overall business turnover and costs across all confirmed orders
-    const totalRevenue = validOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
-    const totalCostOfGoods = validOrders.reduce((sum, o) => {
-      return sum + (o.items || []).reduce((itemSum, it) => itemSum + (it.totalCost || 0), 0);
-    }, 0);
-    const grossProfit = totalRevenue - totalCostOfGoods;
-    const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
-    const netProfitOrLoss = grossProfit - totalExpenses;
+    const calcBillCogs = (items: SaleBillItem[]) => {
+      let cogs = 0;
+      for (const it of (items || [])) {
+        let matched = it.productId ? productCostMap.get(it.productId) : undefined;
+        if (!matched && it.itemTitle) matched = productCostMap.get(it.itemTitle.toLowerCase().trim());
+        if (!matched && it.mcode) matched = productCostMap.get(it.mcode.toLowerCase().trim());
+        const unitCost = matched ? matched.purchaseCost : (it.rate > 0 ? it.rate * 0.75 : 0);
+        const prod = matched?.product;
+        const qInCtn = (prod?.qtyInCarton && prod.qtyInCarton > 0) ? prod.qtyInCarton : (it.qtyPerCtn || 1);
+        const ctnCost = (prod?.ctnPurchaseRate && prod.ctnPurchaseRate > 0) ? prod.ctnPurchaseRate : (unitCost * qInCtn);
+        const ctnUnits = Number(it.ctn) || 0;
+        const looseUnits = Number(it.qty) || 0;
+        cogs += (ctnUnits * ctnCost) + (looseUnits * unitCost);
+      }
+      return cogs;
+    };
+
+    const billExVatRevenue = (b: SaleBill) => {
+      const billDiscount = Number(b.billDiscountAmount) || 0;
+      const vat = Number(b.totalVatAmount) || 0;
+      if (b.grossAmount !== undefined && b.grossAmount > 0) {
+        return Math.max(0, Number((b.grossAmount - billDiscount).toFixed(2)));
+      }
+      return Math.max(0, Number((b.netTotal - vat).toFixed(2)));
+    };
+
+    const validBills = (this.data.saleBills || []).filter((b) => b.status !== 'Cancelled');
+    const validReturns = (this.data.saleReturns || []).filter((r) => r.status !== 'CANCELLED');
+    const validOrders = (this.data.orders || []).filter((o) => o.status !== 'Cancelled');
+    const expenses = this.data.expenses || [];
+    const vouchers = (this.data.vouchers || []).filter((v) => v.status === 'POSTED');
+
+    // Sale Bills totals (Ex-VAT, deducting bill discounts)
+    let totalBillsExVat = 0;
+    let totalBillsCogs = 0;
+    let totalBillVatExcluded = 0;
+    let totalBillDiscounts = 0;
+
+    for (const b of validBills) {
+      totalBillsExVat += billExVatRevenue(b);
+      totalBillsCogs += calcBillCogs(b.items || []);
+      totalBillVatExcluded += Number(b.totalVatAmount) || 0;
+      totalBillDiscounts += Number(b.totalDiscount) || Number(b.billDiscountAmount) || 0;
+    }
+
+    // Sales Returns deductions
+    let totalReturnsExVat = 0;
+    let totalReturnsCogs = 0;
+    for (const r of validReturns) {
+      const rVat = Number(r.taxAmount) || 0;
+      totalReturnsExVat += Math.max(0, Number((r.netTotal - rVat).toFixed(2)));
+      for (const it of (r.items || [])) {
+        let matched = it.productId ? productCostMap.get(it.productId) : undefined;
+        if (!matched && it.itemTitle) matched = productCostMap.get(it.itemTitle.toLowerCase().trim());
+        const uCost = matched ? matched.purchaseCost : 0;
+        totalReturnsCogs += (Number(it.qty) || 0) * uCost;
+      }
+    }
+
+    // Include orders not already counted as sale bills
+    const existingBillNums = new Set(validBills.map((b) => b.billNumber || b.id));
+    for (const o of validOrders) {
+      if (existingBillNums.has(o.orderNumber) || existingBillNums.has(o.id)) continue;
+      const oRevenue = (o.totalAmount || 0) - (o.discount || 0);
+      totalBillsExVat += oRevenue;
+      totalBillDiscounts += (o.discount || 0);
+      const oCost = (o.items || []).reduce((itemSum, it) => itemSum + (it.totalCost || 0), 0);
+      totalBillsCogs += oCost;
+    }
+
+    // Cash & Bank Voucher Settlement Discounts (Deducted from profit)
+    const totalCashBankDiscounts = vouchers.reduce(
+      (sum, v) => sum + (v.entries || []).reduce((esum, e) => esum + (Number(e.discount) || 0), 0),
+      0
+    );
+
+    const totalRevenue = Math.max(0, Number((totalBillsExVat - totalReturnsExVat).toFixed(2)));
+    const totalCostOfGoods = Math.max(0, Number((totalBillsCogs - totalReturnsCogs).toFixed(2)));
+    const grossProfit = Number((totalRevenue - totalCostOfGoods).toFixed(2));
+    const totalExpenses = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const netProfitOrLoss = Number((grossProfit - totalCashBankDiscounts - totalExpenses).toFixed(2));
     const isProfit = netProfitOrLoss >= 0;
     const netMarginPct = totalRevenue > 0 ? Number(((netProfitOrLoss / totalRevenue) * 100).toFixed(1)) : 0;
+    const totalDiscounts = Number((totalBillDiscounts + totalCashBankDiscounts).toFixed(2));
 
-    // Compute per-restaurant reports
-    const restaurantReports: RestaurantProfitReport[] = restaurants.map((r) => {
-      const restOrders = validOrders.filter((o) => o.restaurantId === r.id);
-      const restRevenue = r.totalPurchases;
-      const restCost = restOrders.reduce((sum, o) => {
-        return sum + (o.items || []).reduce((itemSum, it) => itemSum + (it.totalCost || 0), 0);
-      }, 0);
-      const restGross = restRevenue - restCost;
+    // Per-Customer / Restaurant Reports
+    const customers = (this.data.customers && this.data.customers.length > 0) ? this.data.customers : this.data.restaurants;
+    const restaurantReports: RestaurantProfitReport[] = customers.map((c) => {
+      const cId = c.id;
+      const cCode = (c.code || (c as any).manualCode || '').toLowerCase().trim();
+      const cTitle = (c.accountTitle || c.name || '').toLowerCase().trim();
+
+      const custBills = validBills.filter((b) => {
+        if (b.customerId === cId) return true;
+        if (cCode && (b as any).customerCode && (b as any).customerCode.toLowerCase().trim() === cCode) return true;
+        if (cTitle && b.customerAccountTitle && b.customerAccountTitle.toLowerCase().trim() === cTitle) return true;
+        return false;
+      });
+
+      let restRevenue = 0;
+      let restCost = 0;
+      for (const b of custBills) {
+        restRevenue += billExVatRevenue(b);
+        restCost += calcBillCogs(b.items || []);
+      }
+
+      // Customer sales returns
+      const custReturns = validReturns.filter(
+        (r) => r.customerId === cId || (cTitle && r.customerAccountTitle && r.customerAccountTitle.toLowerCase().trim() === cTitle)
+      );
+      for (const r of custReturns) {
+        const rVat = Number(r.taxAmount) || 0;
+        restRevenue = Math.max(0, restRevenue - Number((r.netTotal - rVat).toFixed(2)));
+        for (const it of (r.items || [])) {
+          let matched = it.productId ? productCostMap.get(it.productId) : undefined;
+          if (!matched && it.itemTitle) matched = productCostMap.get(it.itemTitle.toLowerCase().trim());
+          const uCost = matched ? matched.purchaseCost : 0;
+          restCost = Math.max(0, restCost - ((Number(it.qty) || 0) * uCost));
+        }
+      }
+
+      // Customer cash/bank voucher settlement discount
+      let custVoucherDiscount = 0;
+      for (const v of vouchers) {
+        for (const e of (v.entries || [])) {
+          if (
+            e.accountId === cId ||
+            (cCode && e.accountCode && e.accountCode.toLowerCase().trim() === cCode) ||
+            (cTitle && e.accountTitle && e.accountTitle.toLowerCase().trim() === cTitle)
+          ) {
+            custVoucherDiscount += Number(e.discount) || 0;
+          }
+        }
+      }
+
+      const restGross = Number((restRevenue - restCost).toFixed(2));
       const grossMarginPct = restRevenue > 0 ? Number(((restGross / restRevenue) * 100).toFixed(1)) : 0;
-
-      const directExpenses = r.allocatedExpenses || 0;
-      const netProfit = r.profitGenerated;
+      const directExpenses = Number(((c.allocatedExpenses || 0) + custVoucherDiscount).toFixed(2));
+      const netProfit = Number((restGross - directExpenses).toFixed(2));
       const isRestProfit = netProfit >= 0;
-      const totalPaid = r.totalPaid;
-      const balanceDue = r.outstandingBalance;
+      const totalPaid = c.totalPaid || 0;
+      const balanceDue = c.outstandingBalance || 0;
 
       let actionRecommendation = '';
       if (!isRestProfit) {
-        actionRecommendation = `Currently in LOSS of ${currencySymbol()} ${Math.abs(netProfit).toLocaleString()}. Direct delivery & petrol expenses (${currencySymbol()} ${directExpenses.toLocaleString()}) exceeded gross margin. Increase minimum order size or revise delivery fee.`;
+        actionRecommendation = `Currently in LOSS of ${currencySymbol()} ${Math.abs(netProfit).toLocaleString()}. Purchase costs and discounts exceeded revenue. Review selling rates and settlement discounts.`;
       } else if (balanceDue > 0) {
         actionRecommendation = `In PROFIT (+${currencySymbol()} ${netProfit.toLocaleString()}), but ${currencySymbol()} ${balanceDue.toLocaleString()} is still unpaid. Collecting this pending balance will clear the cash ledger.`;
       } else {
@@ -5656,11 +5778,11 @@ ON CONFLICT (id) DO NOTHING;`);
       }
 
       return {
-        restaurantId: r.id,
-        restaurantName: r.name,
-        totalOrders: restOrders.length,
-        totalRevenue: restRevenue,
-        totalCostOfGoods: restCost,
+        restaurantId: c.id,
+        restaurantName: c.accountTitle || c.name,
+        totalOrders: custBills.length,
+        totalRevenue: Number(restRevenue.toFixed(2)),
+        totalCostOfGoods: Number(restCost.toFixed(2)),
         grossProfit: restGross,
         grossMarginPct,
         directExpenses,
@@ -5672,15 +5794,15 @@ ON CONFLICT (id) DO NOTHING;`);
       };
     });
 
-    const totalOutstandingReceivables = restaurants.reduce((sum, r) => sum + (r.outstandingBalance || 0), 0);
+    const totalOutstandingReceivables = customers.reduce((sum, r) => sum + (r.outstandingBalance || 0), 0);
 
     const criticalIssues: string[] = [];
     const actionPlan: string[] = [];
 
-    const lossMakingRestaurants = restaurantReports.filter((r) => !r.isProfit);
+    const lossMakingRestaurants = restaurantReports.filter((r) => !r.isProfit && r.totalRevenue > 0);
     if (lossMakingRestaurants.length > 0) {
-      criticalIssues.push(`${lossMakingRestaurants.length} restaurant(s) are operating at a net loss (${lossMakingRestaurants.map((r) => r.restaurantName).join(', ')}).`);
-      actionPlan.push(`Review delivery and petrol costs allocated to ${lossMakingRestaurants.map((r) => r.restaurantName).join(', ')} to restore profitability.`);
+      criticalIssues.push(`${lossMakingRestaurants.length} account(s) are operating at a net loss (${lossMakingRestaurants.slice(0, 5).map((r) => r.restaurantName).join(', ')}).`);
+      actionPlan.push(`Review delivery, discounts, and item pricing allocated to ${lossMakingRestaurants.slice(0, 5).map((r) => r.restaurantName).join(', ')} to restore profitability.`);
     }
 
     if (totalOutstandingReceivables > 0) {
@@ -5710,6 +5832,10 @@ ON CONFLICT (id) DO NOTHING;`);
       restaurantReports,
       criticalIssues,
       actionPlan,
+      totalVatExcluded: Number(totalBillVatExcluded.toFixed(2)),
+      totalBillDiscounts: Number(totalBillDiscounts.toFixed(2)),
+      totalCashBankDiscounts: Number(totalCashBankDiscounts.toFixed(2)),
+      totalDiscounts,
     };
   }
 
@@ -5719,28 +5845,65 @@ ON CONFLICT (id) DO NOTHING;`);
 
     const todayStr = new Date().toISOString().split('T')[0];
 
-    const todayOrders = this.data.orders.filter((o) => o.orderDate === todayStr && o.status !== 'Cancelled');
-    const todayRevenue = todayOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
-    const todayCostOfGoods = todayOrders.reduce((sum, o) => {
-      return sum + (o.items || []).reduce((itemSum, it) => itemSum + (it.totalCost || 0), 0);
-    }, 0);
-    const todayGrossProfit = todayRevenue - todayCostOfGoods;
+    // Helper map to quickly lookup product cost
+    const productCostMap = new Map<string, { product: Product; purchaseCost: number }>();
+    for (const p of this.data.products || []) {
+      const cost = p.purchasePrice || p.averagePurchaseCost || p.lastPurchasePrice || (p.sellingPrice * 0.75) || 1;
+      productCostMap.set(p.id, { product: p, purchaseCost: cost });
+      if (p.name) productCostMap.set(p.name.toLowerCase().trim(), { product: p, purchaseCost: cost });
+      if (p.itemTitle) productCostMap.set(p.itemTitle.toLowerCase().trim(), { product: p, purchaseCost: cost });
+      if (p.mcode) productCostMap.set(p.mcode.toLowerCase().trim(), { product: p, purchaseCost: cost });
+    }
 
+    const todayBills = (this.data.saleBills || []).filter((b) => b.date === todayStr && b.status !== 'Cancelled');
+    const todayOrders = this.data.orders.filter((o) => o.orderDate === todayStr && o.status !== 'Cancelled');
+
+    let todayRevenue = 0;
+    let todayCostOfGoods = 0;
+
+    for (const b of todayBills) {
+      const bDisc = Number(b.billDiscountAmount) || 0;
+      const bVat = Number(b.totalVatAmount) || 0;
+      const exVat = b.grossAmount !== undefined && b.grossAmount > 0 ? (b.grossAmount - bDisc) : (b.netTotal - bVat);
+      todayRevenue += exVat;
+      for (const it of (b.items || [])) {
+        let matched = it.productId ? productCostMap.get(it.productId) : undefined;
+        if (!matched && it.itemTitle) matched = productCostMap.get(it.itemTitle.toLowerCase().trim());
+        const uCost = matched ? matched.purchaseCost : (it.rate > 0 ? it.rate * 0.75 : 0);
+        const prod = matched?.product;
+        const qInCtn = (prod?.qtyInCarton && prod.qtyInCarton > 0) ? prod.qtyInCarton : (it.qtyPerCtn || 1);
+        const ctnCost = (prod?.ctnPurchaseRate && prod.ctnPurchaseRate > 0) ? prod.ctnPurchaseRate : (uCost * qInCtn);
+        todayCostOfGoods += (Number(it.ctn || 0) * ctnCost) + (Number(it.qty || 0) * uCost);
+      }
+    }
+
+    const existingBillNums = new Set(todayBills.map((b) => b.billNumber || b.id));
+    for (const o of todayOrders) {
+      if (existingBillNums.has(o.orderNumber) || existingBillNums.has(o.id)) continue;
+      todayRevenue += (o.totalAmount || 0) - (o.discount || 0);
+      todayCostOfGoods += (o.items || []).reduce((itemSum, it) => itemSum + (it.totalCost || 0), 0);
+    }
+
+    const todayVoucherDiscounts = (this.data.vouchers || [])
+      .filter((v) => v.date === todayStr && v.status === 'POSTED')
+      .reduce((sum, v) => sum + (v.entries || []).reduce((esum, e) => esum + (Number(e.discount) || 0), 0), 0);
+
+    const todayGrossProfit = Number((todayRevenue - todayCostOfGoods).toFixed(2));
     const todayExpensesList = this.data.expenses.filter((e) => e.date === todayStr);
     const todayExpenses = todayExpensesList.reduce((sum, e) => sum + (e.amount || 0), 0);
-    const todayNetProfit = todayGrossProfit - todayExpenses;
+    const todayNetProfit = Number((todayGrossProfit - todayVoucherDiscounts - todayExpenses).toFixed(2));
 
-    const outstandingPaymentsTotal = this.data.restaurants.reduce((sum, r) => sum + (r.outstandingBalance || 0), 0);
+    const outstandingPaymentsTotal = (this.data.customers || this.data.restaurants).reduce((sum, r) => sum + (r.outstandingBalance || 0), 0);
     const inventoryTotalValue = this.data.products.reduce((sum, p) => sum + (p.stockValue || 0), 0);
     const lowStockItemsCount = this.data.products.filter((p) => p.lowStockAlert).length;
 
     return {
-      todayRevenue,
+      todayRevenue: Number(todayRevenue.toFixed(2)),
       todayGrossProfit,
       todayNetProfit,
       todayExpenses,
-      todayOrdersCount: todayOrders.length,
-      todayRestaurantsServed: new Set(todayOrders.map((o) => o.restaurantId)).size,
+      todayOrdersCount: todayBills.length + todayOrders.length,
+      todayRestaurantsServed: new Set([...todayBills.map((b) => b.customerId), ...todayOrders.map((o) => o.restaurantId)]).size,
       outstandingPaymentsTotal,
       inventoryTotalValue,
       lowStockItemsCount,

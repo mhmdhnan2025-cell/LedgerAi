@@ -18,6 +18,7 @@ import {
   PhoneCall,
   RefreshCw,
   Sparkles,
+  ShieldAlert,
   TrendingDown,
   TrendingUp,
   Truck,
@@ -144,86 +145,119 @@ export const ProfitIntelligenceView: React.FC<ProfitIntelligenceViewProps> = ({
 
       {/* Primary KPI Banner */}
       {diagnosis && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Total Revenue */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
-            <div className="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
-              <span>Total Sale / Revenue</span>
-              <CircleDollarSign className="w-4 h-4 text-indigo-400" />
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Total Revenue */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+              <div className="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
+                <span>Sale Revenue</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 font-bold border border-emerald-500/30">Ex-VAT</span>
+              </div>
+              <div className="text-2xl font-black text-white mt-2">
+                {currencySymbol()} {(diagnosis?.totalRevenue ?? 0).toLocaleString()}
+              </div>
+              <div className="text-xs text-slate-400 mt-1">
+                <span>COGS: {currencySymbol()} {(diagnosis?.totalCostOfGoods ?? 0).toLocaleString()}</span>
+              </div>
+              <div className="text-[11px] text-indigo-400 mt-1 font-medium">
+                VAT Excluded: {currencySymbol()} {(diagnosis?.totalVatExcluded ?? 0).toLocaleString()}
+              </div>
             </div>
-            <div className="text-2xl font-black text-white mt-2">
-              {currencySymbol()} {(diagnosis?.totalRevenue ?? 0).toLocaleString()}
-            </div>
-            <div className="text-xs text-slate-400 mt-1 flex items-center gap-1">
-              <span>COGS / Purchase Cost: {currencySymbol()} {(diagnosis?.totalCostOfGoods ?? 0).toLocaleString()}</span>
-            </div>
-          </div>
 
-          {/* Gross Margin */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
-            <div className="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
-              <span>Gross Wholesale Profit</span>
-              <Layers className="w-4 h-4 text-emerald-400" />
+            {/* Gross Wholesale Profit */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+              <div className="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
+                <span>Gross Wholesale Profit</span>
+                <Layers className="w-4 h-4 text-emerald-400" />
+              </div>
+              <div className="text-2xl font-black text-emerald-400 mt-2">
+                {currencySymbol()} {(diagnosis?.grossProfit ?? 0).toLocaleString()}
+              </div>
+              <div className="text-xs text-slate-400 mt-1">
+                Margin:{' '}
+                <strong className="text-slate-200">
+                  {(diagnosis?.totalRevenue ?? 0) > 0
+                    ? (((diagnosis?.grossProfit ?? 0) / (diagnosis?.totalRevenue ?? 1)) * 100).toFixed(1)
+                    : '0'}
+                  %
+                </strong>{' '}
+                on inventory sold
+              </div>
+              <div className="text-[11px] text-amber-400 mt-1 font-medium">
+                Bill Discounts: &minus;{currencySymbol()} {(diagnosis?.totalBillDiscounts ?? 0).toLocaleString()}
+              </div>
             </div>
-            <div className="text-2xl font-black text-emerald-400 mt-2">
-              {currencySymbol()} {(diagnosis?.grossProfit ?? 0).toLocaleString()}
-            </div>
-            <div className="text-xs text-slate-400 mt-1">
-              Margin:{' '}
-              <strong className="text-slate-200">
-                {(diagnosis?.totalRevenue ?? 0) > 0
-                  ? (((diagnosis?.grossProfit ?? 0) / (diagnosis?.totalRevenue ?? 1)) * 100).toFixed(1)
-                  : '0'}
-                %
-              </strong>{' '}
-              on inventory sold
-            </div>
-          </div>
 
-          {/* Direct & Operational Expenses */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
-            <div className="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
-              <span>Direct Expenses (Petrol/Calling)</span>
-              <Fuel className="w-4 h-4 text-amber-400" />
+            {/* Direct & Operational Expenses */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+              <div className="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
+                <span>Operational Expenses</span>
+                <Fuel className="w-4 h-4 text-amber-400" />
+              </div>
+              <div className="text-2xl font-black text-amber-400 mt-2">
+                {currencySymbol()} {(diagnosis?.totalExpenses ?? 0).toLocaleString()}
+              </div>
+              <div className="text-xs text-slate-400 mt-1 flex items-center gap-2">
+                <span>Petrol: {currencySymbol()} {(petrolExpenses ?? 0).toLocaleString()}</span>
+                <span>&bull;</span>
+                <span>Calling: {currencySymbol()} {(callingExpenses ?? 0).toLocaleString()}</span>
+              </div>
+              <div className="text-[11px] text-purple-400 mt-1 font-medium">
+                Cash/Bank Discounts: &minus;{currencySymbol()} {(diagnosis?.totalCashBankDiscounts ?? 0).toLocaleString()}
+              </div>
             </div>
-            <div className="text-2xl font-black text-amber-400 mt-2">
-              {currencySymbol()} {(diagnosis?.totalExpenses ?? 0).toLocaleString()}
-            </div>
-            <div className="text-xs text-slate-400 mt-1 flex items-center gap-2">
-              <span>Petrol: {currencySymbol()} {(petrolExpenses ?? 0).toLocaleString()}</span>
-              <span>&bull;</span>
-              <span>Calling: {currencySymbol()} {(callingExpenses ?? 0).toLocaleString()}</span>
-            </div>
-          </div>
 
-          {/* Net Profit or Net Loss */}
-          <div
-            className={`border rounded-2xl p-5 shadow-sm ${
-              diagnosis.isProfit
-                ? 'bg-emerald-950/30 border-emerald-800/60'
-                : 'bg-rose-950/30 border-rose-800/60'
-            }`}
-          >
-            <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider">
-              <span className={diagnosis.isProfit ? 'text-emerald-400' : 'text-rose-400'}>
-                {diagnosis.isProfit ? 'OVERALL NET PROFIT' : 'CURRENTLY IN NET LOSS'}
-              </span>
-              {diagnosis.isProfit ? (
-                <ArrowUpRight className="w-5 h-5 text-emerald-400" />
-              ) : (
-                <ArrowDownRight className="w-5 h-5 text-rose-400" />
-              )}
-            </div>
+            {/* Net Profit or Net Loss */}
             <div
-              className={`text-3xl font-black mt-2 ${
-                diagnosis.isProfit ? 'text-emerald-300' : 'text-rose-300'
+              className={`border rounded-2xl p-5 shadow-sm ${
+                diagnosis.isProfit
+                  ? 'bg-emerald-950/30 border-emerald-800/60'
+                  : 'bg-rose-950/30 border-rose-800/60'
               }`}
             >
-              {diagnosis.netProfitOrLoss < 0 ? '-' : '+'}{currencySymbol()}{' '}
-              {Math.abs(diagnosis?.netProfitOrLoss ?? 0).toLocaleString()}
+              <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider">
+                <span className={diagnosis.isProfit ? 'text-emerald-400' : 'text-rose-400'}>
+                  {diagnosis.isProfit ? 'OVERALL NET PROFIT' : 'CURRENTLY IN NET LOSS'}
+                </span>
+                {diagnosis.isProfit ? (
+                  <ArrowUpRight className="w-5 h-5 text-emerald-400" />
+                ) : (
+                  <ArrowDownRight className="w-5 h-5 text-rose-400" />
+                )}
+              </div>
+              <div
+                className={`text-3xl font-black mt-2 ${
+                  diagnosis.isProfit ? 'text-emerald-300' : 'text-rose-300'
+                }`}
+              >
+                {diagnosis.netProfitOrLoss < 0 ? '-' : '+'}{currencySymbol()}{' '}
+                {Math.abs(diagnosis?.netProfitOrLoss ?? 0).toLocaleString()}
+              </div>
+              <div className="text-xs text-slate-300 mt-1 font-medium">
+                Net Margin: {diagnosis.netMarginPct}% after expenses &amp; discounts
+              </div>
             </div>
-            <div className="text-xs text-slate-300 mt-1 font-medium">
-              Net Margin: {diagnosis.netMarginPct}% after all petrol & operational costs
+          </div>
+
+          {/* Audit Verification & Deductions Banner */}
+          <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 text-emerald-400 font-bold">
+              <ShieldAlert className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>Actual Real Profit Audit:</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-300">
+              <span className="bg-slate-800 px-2 py-1 rounded border border-slate-700">
+                VAT Excluded (Tax Liability): <strong className="text-indigo-400">{currencySymbol()} {(diagnosis?.totalVatExcluded ?? 0).toLocaleString()}</strong>
+              </span>
+              <span className="bg-slate-800 px-2 py-1 rounded border border-slate-700">
+                Sale Bill Discounts: <strong className="text-amber-400">&minus;{currencySymbol()} {(diagnosis?.totalBillDiscounts ?? 0).toLocaleString()}</strong>
+              </span>
+              <span className="bg-slate-800 px-2 py-1 rounded border border-slate-700">
+                Cash &amp; Bank Discounts: <strong className="text-purple-400">&minus;{currencySymbol()} {(diagnosis?.totalCashBankDiscounts ?? 0).toLocaleString()}</strong>
+              </span>
+              <span className="bg-emerald-950/60 px-2 py-1 rounded border border-emerald-500/40 text-emerald-300 font-bold">
+                Total Discounts Deducted from Profit: &minus;{currencySymbol()} {(diagnosis?.totalDiscounts ?? 0).toLocaleString()}
+              </span>
             </div>
           </div>
         </div>

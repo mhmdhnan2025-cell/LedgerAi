@@ -1699,7 +1699,7 @@ export const api = {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `ERP_Backup_${yearMonth}.json`);
+      link.setAttribute('download', `ERP_Backup_${yearMonth}.sql`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -1708,7 +1708,7 @@ export const api = {
       // Direct navigation fallback
       const link = document.createElement('a');
       link.href = `/api/database/monthly-data/export?month=${encodeURIComponent(yearMonth)}`;
-      link.setAttribute('download', `ERP_Backup_${yearMonth}.json`);
+      link.setAttribute('download', `ERP_Backup_${yearMonth}.sql`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -1724,7 +1724,7 @@ export const api = {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `ERP_Backup_Last_3_Months.json`);
+      link.setAttribute('download', `ERP_Backup_Last_3_Months.sql`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -1733,7 +1733,7 @@ export const api = {
       // Direct navigation fallback
       const link = document.createElement('a');
       link.href = `/api/database/monthly-data/export-last-3-months`;
-      link.setAttribute('download', `ERP_Backup_Last_3_Months.json`);
+      link.setAttribute('download', `ERP_Backup_Last_3_Months.sql`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
