@@ -115,41 +115,42 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
   * { box-sizing: border-box; }
   html, body { margin:0; padding:0; background:#ffffff; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    font-size: 10px;
-    font-weight: 700;
+    font-family: Arial, 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+    font-size: 11px;
+    font-weight: 800;
     color: #0f172a;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-    line-height: 1.35;
+    line-height: 1.4;
   }
-  .al-page { width: 100%; max-width: 100%; margin: 0 auto; padding: 2px; }
+  .al-page { width: 100%; max-width: 100%; margin: 0 auto; padding: 4px; font-weight: 800; }
+  .al-page * { font-weight: inherit; }
 
   /* ---------- HEADER ---------- */
   .al-head {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
     background: linear-gradient(90deg, #091322 0%, #0f1e36 55%, #0a182b 100%);
     border-left: 6px solid #10b981; border-bottom: 3px solid #10b981;
-    border-radius: 8px; padding: 10px 14px; color: #ffffff;
+    border-radius: 8px; padding: 11px 15px; color: #ffffff;
   }
   .al-head-l { display: flex; align-items: center; gap: 12px; min-width: 0; }
   .al-logo {
-    width: 42px; height: 42px; border-radius: 8px; flex: 0 0 42px; overflow: hidden;
+    width: 44px; height: 44px; border-radius: 8px; flex: 0 0 44px; overflow: hidden;
     background: linear-gradient(135deg, #10b981, #059669); display: flex; align-items: center; justify-content: center;
     font-weight: 900; font-size: 20px; color: #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.3);
   }
   .al-logo img { width: 100%; height: 100%; object-fit: cover; }
   .al-title {
-    font-size: 20px; font-weight: 900; line-height: 1.1; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    font-size: 21px; font-weight: 900; line-height: 1.1; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
     color: #ffffff; letter-spacing: 0.3px;
   }
   .al-badge {
-    background: #2563eb; color: #ffffff; font-size: 9px; padding: 3px 9px; border-radius: 999px;
+    background: #2563eb; color: #ffffff; font-size: 9.5px; padding: 3px 9px; border-radius: 999px;
     font-weight: 900; letter-spacing: 0.5px;
   }
-  .al-sub { font-size: 10.5px; font-weight: 700; color: #94a3b8; margin-top: 3px; }
+  .al-sub { font-size: 11px; font-weight: 800; color: #94a3b8; margin-top: 3px; }
   .al-head-r { text-align: right; flex: 0 0 auto; }
-  .al-date { font-size: 11.5px; font-weight: 800; color: #ffffff; }
+  .al-date { font-size: 12px; font-weight: 900; color: #ffffff; }
   .al-verified {
     display: inline-block; margin-top: 5px; border: 1.5px solid #34d399; color: #6ee7b7;
     font-size: 9px; padding: 3px 9px; border-radius: 5px; font-weight: 900; letter-spacing: 0.4px;
@@ -158,72 +159,77 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
 
   /* ---------- LIVE STRIP ---------- */
   .al-strip {
-    display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; background: #f8fafc;
-    border: 1.5px solid #cbd5e1; border-radius: 7px; padding: 6px 12px; margin-top: 7px; font-size: 10.5px;
+    display: flex; align-items: center; flex-wrap: wrap; gap: 8px 18px; background: #f8fafc;
+    border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 8px 14px; margin-top: 10px; font-size: 11px;
     font-weight: 800;
   }
   .al-strip .live { color: #047857; font-weight: 900; }
-  .al-strip .it { color: #334155; }
+  .al-strip .it { color: #1e293b; font-weight: 800; }
   .al-strip .it b { font-weight: 900; }
   .al-strip .dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; display: inline-block; margin-right: 5px; }
 
   /* ---------- 4 KPI CARDS ---------- */
   .al-cards {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; width: 100%;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; width: 100%;
   }
   .al-card {
     background: #f8fafc; border: 1.5px solid #cbd5e1; border-top: 4px solid #2563eb;
-    border-radius: 7px; padding: 7px 9px; font-weight: 700;
+    border-radius: 8px; padding: 9px 12px; font-weight: 800;
   }
   .al-card-h { display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; }
-  .al-card-t { font-size: 11px; font-weight: 900; color: #0f172a; text-transform: uppercase; line-height: 1.2; }
-  .al-tag { font-size: 8.5px; font-weight: 900; text-align: right; text-transform: uppercase; line-height: 1.2; }
+  .al-card-t { font-size: 11.5px; font-weight: 900; color: #0f172a; text-transform: uppercase; line-height: 1.2; }
+  .al-tag { font-size: 9px; font-weight: 900; text-align: right; text-transform: uppercase; line-height: 1.2; }
   .al-row {
     display: flex; justify-content: space-between; align-items: center; gap: 8px;
-    font-size: 9.5px; margin-top: 4px;
+    font-size: 10px; margin-top: 5px;
   }
-  .al-row .lbl { color: #334155; font-weight: 700; }
-  .al-row .val { font-weight: 900; text-align: right; white-space: nowrap; }
+  .al-row .lbl { color: #1e293b; font-weight: 800; }
+  .al-row .val { font-weight: 900; text-align: right; white-space: nowrap; font-size: 10.5px; }
 
   /* ---------- PANELS & GRID ---------- */
   .al-grid {
-    display: grid; grid-template-columns: 1.15fr 1fr; gap: 8px; margin-top: 8px; align-items: start; width: 100%;
+    display: grid; grid-template-columns: 1.15fr 1fr; gap: 12px; margin-top: 10px; align-items: start; width: 100%;
   }
-  .al-col { display: flex; flex-direction: column; gap: 8px; }
+  .al-col { display: flex; flex-direction: column; gap: 12px; }
   .al-panel {
-    background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 7px; overflow: hidden; width: 100%;
+    background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px; overflow: hidden; width: 100%;
   }
   .al-panel-full {
-    background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 7px; overflow: hidden; width: 100%; margin-top: 8px;
+    background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px; overflow: hidden; width: 100%; margin-top: 12px;
   }
   .al-panel-h {
-    display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 7px 10px;
-    background: #f1f5f9; border-bottom: 1.5px solid #cbd5e1;
+    display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 9px 14px;
+    background: #f1f5f9; border-bottom: 2px solid #cbd5e1;
   }
-  .al-panel-h .t { font-size: 11px; font-weight: 900; text-transform: uppercase; line-height: 1.2; letter-spacing: 0.3px; }
+  .al-panel-h .t { font-size: 11.5px; font-weight: 900; text-transform: uppercase; line-height: 1.25; letter-spacing: 0.3px; }
   .al-panel-h .s {
-    font-size: 8.5px; font-weight: 900; color: #475569; text-align: right; text-transform: uppercase;
-    line-height: 1.2;
+    font-size: 9px; font-weight: 900; color: #334155; text-align: right; text-transform: uppercase;
+    line-height: 1.2; background: #ffffff; padding: 2px 7px; border-radius: 4px; border: 1px solid #cbd5e1;
   }
   .al-sec {
-    display: flex; justify-content: space-between; gap: 6px; font-size: 8.5px; font-weight: 900; color: #475569;
-    text-transform: uppercase; padding: 5px 10px 4px; border-top: 1.5px solid #e2e8f0; background: #f8fafc;
+    display: flex; justify-content: space-between; align-items: center; gap: 6px;
+    font-size: 10px; font-weight: 900; color: #1e293b;
+    text-transform: uppercase; padding: 9px 14px 7px;
+    border-top: 2px solid #cbd5e1; border-bottom: 1.5px solid #cbd5e1;
+    background: #f1f5f9; margin-top: 6px;
   }
+  .al-sec:first-of-type { margin-top: 0; }
 
   /* ---------- TABLES ---------- */
   table.al-t {
-    width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 9.5px; font-weight: 700;
+    width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 10.5px; font-weight: 800;
   }
   .al-t th {
-    background: #e2e8f0; color: #0f172a; font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.2px;
-    padding: 5px 8px; text-align: left; border-top: 1px solid #cbd5e1; border-bottom: 1.5px solid #cbd5e1;
+    background: #e2e8f0; color: #0f172a; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.3px;
+    padding: 7px 10px; text-align: left; border-top: 1px solid #cbd5e1; border-bottom: 2px solid #cbd5e1;
   }
   .al-t td {
-    padding: 4.5px 8px; border-bottom: 1px solid #e2e8f0; color: #0f172a; font-weight: 700;
+    padding: 7px 10px; border-bottom: 1.5px solid #eef2f7; color: #0f172a; font-weight: 800;
     word-wrap: break-word; overflow-wrap: break-word;
   }
   .al-t tr:last-child td { border-bottom: none; }
-  .al-t .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .al-t tr:hover { background: #fbfcfe; }
+  .al-t .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 800; }
   .al-t .center { text-align: center; }
   .strong { font-weight: 900; color: #0f172a; }
   .green { color: #15803d; font-weight: 900; }
@@ -231,48 +237,50 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
   .amber { color: #b45309; font-weight: 900; }
   .blue { color: #1d4ed8; font-weight: 900; }
   .purple { color: #6d28d9; font-weight: 900; }
-  .muted { color: #64748b; font-weight: 700; }
+  .muted { color: #475569; font-weight: 800; }
   .al-total {
-    display: flex; justify-content: space-between; gap: 8px; font-size: 10.5px; font-weight: 900;
-    padding: 7px 10px; background: #f1f5f9; border-top: 1.5px solid #cbd5e1; color: #0f172a;
+    display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; font-weight: 900;
+    padding: 9px 14px; background: #f1f5f9; border-top: 2px solid #cbd5e1; color: #0f172a;
   }
 
   /* ---------- CASH REGISTER ---------- */
   .al-cash-row {
-    display: flex; align-items: center; gap: 6px; padding: 4.5px 10px; font-size: 9.5px; font-weight: 700;
-    border-bottom: 1px solid #f1f5f9;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 8px 14px; font-size: 11px; font-weight: 800;
+    border-bottom: 1.5px solid #f1f5f9;
   }
-  .al-cash-row .lbl { flex: 1; color: #0f172a; font-weight: 700; }
-  .al-cash-row .amt { min-width: 80px; text-align: right; font-weight: 900; white-space: nowrap; }
+  .al-cash-row:hover { background: #fafbfc; }
+  .al-cash-row .lbl { flex: 1; color: #0f172a; font-weight: 800; font-size: 11px; line-height: 1.35; }
+  .al-cash-row .amt { min-width: 90px; text-align: right; font-weight: 900; font-size: 12px; white-space: nowrap; }
   .al-cash-row .tag {
-    width: 60px; text-align: right; font-size: 8px; font-weight: 900; color: #64748b;
-    text-transform: uppercase;
+    width: 68px; text-align: right; font-size: 8.5px; font-weight: 800; color: #475569;
+    text-transform: uppercase; background: #f1f5f9; padding: 2.5px 7px; border-radius: 4px; border: 1px solid #e2e8f0;
   }
-  .al-cash-row.hl { background: #ecfdf5; border-bottom: none; border-top: 2px solid #10b981; padding: 8px 10px; }
-  .al-cash-row.hl .lbl { font-weight: 900; color: #065f46; font-size: 11px; text-transform: uppercase; }
-  .al-cash-row.hl .amt { font-size: 13px; color: #047857; font-weight: 900; }
-  .al-cash-row.hl .tag { color: #059669; font-weight: 900; }
+  .al-cash-row.hl { background: #ecfdf5; border-bottom: none; border-top: 2.5px solid #10b981; padding: 12px 14px; margin-top: 6px; }
+  .al-cash-row.hl .lbl { font-weight: 900; color: #065f46; font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px; }
+  .al-cash-row.hl .amt { font-size: 15px; color: #047857; font-weight: 900; }
+  .al-cash-row.hl .tag { color: #059669; font-weight: 900; background: #d1fae5; border-color: #a7f3d0; }
 
   /* ---------- BUSINESS WORTH ---------- */
   .al-worth {
-    display: grid; grid-template-columns: repeat(5, 1fr); border: 1.5px solid #cbd5e1;
-    border-radius: 7px; overflow: hidden; margin-top: 8px; width: 100%;
+    display: grid; grid-template-columns: repeat(5, 1fr); border: 2px solid #cbd5e1;
+    border-radius: 8px; overflow: hidden; margin-top: 12px; width: 100%;
   }
-  .al-worth > div { padding: 8px 10px; border-right: 1.5px solid #cbd5e1; background: #f8fafc; }
+  .al-worth > div { padding: 10px 12px; border-right: 1.5px solid #cbd5e1; background: #f8fafc; }
   .al-worth > div:last-child { border-right: none; background: #eff6ff; text-align: right; }
-  .al-worth .k { font-size: 8.5px; font-weight: 900; text-transform: uppercase; color: #0f172a; line-height: 1.2; }
-  .al-worth .v { font-size: 14.5px; font-weight: 900; margin-top: 3px; white-space: nowrap; }
-  .al-worth .c { font-size: 8.5px; color: #475569; margin-top: 2px; font-weight: 700; }
+  .al-worth .k { font-size: 9px; font-weight: 900; text-transform: uppercase; color: #0f172a; line-height: 1.2; }
+  .al-worth .v { font-size: 15px; font-weight: 900; margin-top: 4px; white-space: nowrap; }
+  .al-worth .c { font-size: 9px; color: #475569; margin-top: 2px; font-weight: 800; }
 
   /* ---------- SIGNATURES & FOOTER ---------- */
   .al-sign {
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px;
-    border-top: 1.5px dashed #64748b; padding-top: 8px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 14px;
+    border-top: 2px dashed #64748b; padding-top: 9px;
   }
-  .al-sign div { text-align: center; font-size: 10px; font-weight: 800; color: #0f172a; }
+  .al-sign div { text-align: center; font-size: 10.5px; font-weight: 900; color: #0f172a; }
   .al-foot {
-    display: flex; justify-content: space-between; gap: 12px; margin-top: 9px; padding-top: 6px;
-    border-top: 1.5px solid #cbd5e1; font-size: 9px; color: #64748b; font-weight: 700;
+    display: flex; justify-content: space-between; gap: 12px; margin-top: 10px; padding-top: 7px;
+    border-top: 1.5px solid #cbd5e1; font-size: 9.5px; color: #64748b; font-weight: 800;
   }
 
   @media print {
