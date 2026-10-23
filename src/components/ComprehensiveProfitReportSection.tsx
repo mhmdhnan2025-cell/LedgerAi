@@ -523,9 +523,12 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
         { header: 'Qty Sold', accessor: (it) => it.qtySold },
         { header: 'Ctn Sold', accessor: (it) => it.ctnSold },
         { header: 'Avg Cost', accessor: (it) => it.avgPurchaseRate },
-        { header: 'Total Sale / Revenue', accessor: (it) => it.totalRevenue },
+        { header: 'Avg Sale', accessor: (it) => it.avgSaleRate },
+        { header: 'Sale Revenue (Ex-VAT)', accessor: (it) => it.totalRevenue },
+        { header: 'VAT Excluded', accessor: (it) => it.totalVatAmount || 0 },
+        { header: 'Discount Deducted', accessor: (it) => it.totalDiscountAmount || 0 },
         { header: 'COGS / Purchase Cost', accessor: (it) => it.totalCostOfGoods },
-        { header: 'Item Profit', accessor: (it) => it.grossProfit },
+        { header: 'Net Profit', accessor: (it) => (it.netProfit !== undefined ? it.netProfit : it.grossProfit) },
         { header: 'Margin %', accessor: (it) => it.profitMarginPct },
         { header: 'In Stock / Warehouse', accessor: (it) => it.currentRemainingStock },
         { header: 'Status', accessor: (it) => it.status },
@@ -1247,9 +1250,11 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
                     <th className="py-2.5 px-3 text-center">Quantity</th>
                     <th className="py-2.5 px-3 text-right">Avg Cost</th>
                     <th className="py-2.5 px-3 text-right">Avg Sale</th>
-                    <th className="py-2.5 px-3 text-right">Total Sale / Revenue</th>
-                    <th className="py-2.5 px-3 text-right">COGS / Purchase Cost</th>
-                    <th className="py-2.5 px-3 text-right text-emerald-400 font-extrabold">Item Profit</th>
+                    <th className="py-2.5 px-3 text-right">Sale Rev (Ex-VAT)</th>
+                    <th className="py-2.5 px-3 text-right">VAT Excluded</th>
+                    <th className="py-2.5 px-3 text-right">Discount</th>
+                    <th className="py-2.5 px-3 text-right">COGS (Cost)</th>
+                    <th className="py-2.5 px-3 text-right text-emerald-400 font-extrabold">Net Profit</th>
                     <th className="py-2.5 px-3 text-right">Margin %</th>
                     <th className="py-2.5 px-3 text-center">In Stock / Warehouse</th>
                     <th className="py-2.5 px-3 text-center">Status</th>
@@ -1258,60 +1263,75 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
                 <tbody className="divide-y divide-slate-800/60 font-mono">
                   {filteredItems.length === 0 ? (
                     <tr>
-                      <td colSpan={13} className="text-center py-8 text-slate-500 font-sans">
+                      <td colSpan={15} className="text-center py-8 text-slate-500 font-sans">
                         No sales or profit records found for the selected period.
                       </td>
                     </tr>
                   ) : (
-                    filteredItems.map((it, idx) => (
-                      <tr key={idx} className="hover:bg-slate-800/40 transition">
-                        <td className="py-2.5 px-3 text-slate-400">{it.mcode}</td>
-                        <td className="py-2.5 px-3 font-sans font-bold text-white">
-                          {it.itemTitle}
-                        </td>
-                        <td className="py-2.5 px-3 font-sans text-slate-400">{it.category}</td>
-                        <td className="py-2.5 px-3 text-center text-slate-300">{it.ctnSold}</td>
-                        <td className="py-2.5 px-3 text-center text-white font-bold">{it.qtySold}</td>
-                        <td className="py-2.5 px-3 text-right text-slate-400">{currencySymbol()} {it.avgPurchaseRate.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right text-slate-200">{currencySymbol()} {it.avgSaleRate.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right font-bold text-white">{currencySymbol()} {it.totalRevenue.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right text-slate-400">{currencySymbol()} {it.totalCostOfGoods.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right font-black text-emerald-400 text-sm">
-                          <span className="px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-700/60 inline-block shadow-sm">
-                            +{currencySymbol()} {it.grossProfit.toLocaleString()}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-bold">
-                          <span className={it.profitMarginPct >= 15 ? 'text-emerald-400' : it.profitMarginPct > 0 ? 'text-amber-400' : 'text-rose-400'}>
-                            {it.profitMarginPct}%
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-3 text-center">
-                          <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                            it.currentRemainingStock <= 10 ? 'bg-rose-950 text-rose-300 border border-rose-800' : 'bg-slate-800 text-slate-200'
-                          }`}>
-                            {it.currentRemainingStock} ({it.currentStockCartons} Ctn)
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-3 text-center font-sans">
-                          {it.status === 'PROFITABLE' && (
-                            <span className="px-2 py-0.5 bg-emerald-950/80 text-emerald-300 border border-emerald-800 rounded text-[10px] font-bold">
-                              Profitable
+                    filteredItems.map((it, idx) => {
+                      const netP = it.netProfit !== undefined ? it.netProfit : it.grossProfit;
+                      return (
+                        <tr key={idx} className="hover:bg-slate-800/40 transition">
+                          <td className="py-2.5 px-3 text-slate-400">{it.mcode}</td>
+                          <td className="py-2.5 px-3 font-sans font-bold text-white">
+                            {it.itemTitle}
+                          </td>
+                          <td className="py-2.5 px-3 font-sans text-slate-400">{it.category}</td>
+                          <td className="py-2.5 px-3 text-center text-slate-300">{it.ctnSold}</td>
+                          <td className="py-2.5 px-3 text-center text-white font-bold">{it.qtySold}</td>
+                          <td className="py-2.5 px-3 text-right text-slate-400">{currencySymbol()} {it.avgPurchaseRate.toLocaleString()}</td>
+                          <td className="py-2.5 px-3 text-right text-slate-200">{currencySymbol()} {it.avgSaleRate.toLocaleString()}</td>
+                          <td className="py-2.5 px-3 text-right font-bold text-white">{currencySymbol()} {it.totalRevenue.toLocaleString()}</td>
+                          <td className="py-2.5 px-3 text-right text-slate-400">
+                            <span className="text-[11px] text-slate-400 font-medium">
+                              +{currencySymbol()} {(it.totalVatAmount || 0).toLocaleString()}
                             </span>
-                          )}
-                          {it.status === 'LOW_MARGIN' && (
-                            <span className="px-2 py-0.5 bg-amber-950/80 text-amber-300 border border-amber-800 rounded text-[10px] font-bold">
-                              Low Margin
+                          </td>
+                          <td className="py-2.5 px-3 text-right text-amber-400 font-semibold">
+                            {(it.totalDiscountAmount || 0) > 0 ? `-${currencySymbol()} ${(it.totalDiscountAmount || 0).toLocaleString()}` : '—'}
+                          </td>
+                          <td className="py-2.5 px-3 text-right text-slate-400">{currencySymbol()} {it.totalCostOfGoods.toLocaleString()}</td>
+                          <td className="py-2.5 px-3 text-right font-black text-emerald-400 text-sm">
+                            <span className={`px-2 py-0.5 rounded border inline-block shadow-sm ${
+                              netP >= 0
+                                ? 'bg-emerald-950/80 border-emerald-700/60 text-emerald-400'
+                                : 'bg-rose-950/80 border-rose-700/60 text-rose-400'
+                            }`}>
+                              {netP >= 0 ? '+' : ''}{currencySymbol()} {netP.toLocaleString()}
                             </span>
-                          )}
-                          {it.status === 'LOSS' && (
-                            <span className="px-2 py-0.5 bg-rose-950/80 text-rose-300 border border-rose-800 rounded text-[10px] font-bold">
-                              Loss
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-bold">
+                            <span className={it.profitMarginPct >= 15 ? 'text-emerald-400' : it.profitMarginPct > 0 ? 'text-amber-400' : 'text-rose-400'}>
+                              {it.profitMarginPct}%
                             </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                              it.currentRemainingStock <= 10 ? 'bg-rose-950 text-rose-300 border border-rose-800' : 'bg-slate-800 text-slate-200'
+                            }`}>
+                              {it.currentRemainingStock} ({it.currentStockCartons} Ctn)
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-center font-sans">
+                            {it.status === 'PROFITABLE' && (
+                              <span className="px-2 py-0.5 bg-emerald-950/80 text-emerald-300 border border-emerald-800 rounded text-[10px] font-bold">
+                                Profitable
+                              </span>
+                            )}
+                            {it.status === 'LOW_MARGIN' && (
+                              <span className="px-2 py-0.5 bg-amber-950/80 text-amber-300 border border-amber-800 rounded text-[10px] font-bold">
+                                Low Margin
+                              </span>
+                            )}
+                            {it.status === 'LOSS' && (
+                              <span className="px-2 py-0.5 bg-rose-950/80 text-rose-300 border border-rose-800 rounded text-[10px] font-bold">
+                                Loss
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>

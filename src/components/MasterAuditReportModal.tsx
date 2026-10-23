@@ -62,14 +62,34 @@ export const MasterAuditReportModal: React.FC<MasterAuditReportModalProps> = ({
   if (!isOpen) return null;
 
   const handlePrint = () => {
-    document.body.classList.add('printing-audit');
+    const printableElement = document.getElementById('printable-audit-report');
+    if (!printableElement) {
+      window.print();
+      return;
+    }
+
+    // Create an isolated container outside #root so ONLY the audit report prints
+    const printContainer = document.createElement('div');
+    printContainer.id = 'active-audit-print-container';
+    printContainer.innerHTML = printableElement.innerHTML;
+
+    document.body.appendChild(printContainer);
+    document.body.classList.add('is-printing-audit');
+
     const cleanup = () => {
-      document.body.classList.remove('printing-audit');
+      document.body.classList.remove('is-printing-audit');
+      if (printContainer && printContainer.parentNode) {
+        printContainer.parentNode.removeChild(printContainer);
+      }
       window.removeEventListener('afterprint', cleanup);
     };
+
     window.addEventListener('afterprint', cleanup);
-    window.print();
-    setTimeout(cleanup, 1500);
+    window.focus();
+    setTimeout(() => {
+      window.print();
+      setTimeout(cleanup, 2500);
+    }, 150);
   };
 
   const downloadUrl = (format: 'html' | 'doc') =>

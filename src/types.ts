@@ -826,6 +826,10 @@ export interface ItemProfitReportItem {
   totalRevenue: number;
   totalCostOfGoods: number;
   grossProfit: number;
+  netProfit?: number;
+  totalVatAmount?: number;
+  totalDiscountAmount?: number;
+  netRevenue?: number;
   profitMarginPct: number;
   currentRemainingStock: number;
   currentStockCartons: number;

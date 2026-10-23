@@ -37,7 +37,8 @@
   background: #334155;
 }
 
-#active-print-container {
+#active-print-container,
+#active-audit-print-container {
   display: none;
 }
 
@@ -105,7 +106,28 @@
     print-color-adjust: exact !important;
   }
 
-  /* AI Ledger Master Business Audit Report - print only the A4 sheet */
+  /* AI Ledger Master Business Audit Report - print only the A4 sheet with 100% root suppression */
+  body.is-printing-audit #root {
+    display: none !important;
+  }
+
+  body.is-printing-audit #active-audit-print-container {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+  }
+
+  body.is-printing-audit #active-audit-print-container * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
   body.printing-audit #root > div > *:not(:has(#printable-audit-report)) {
     display: none !important;
   }

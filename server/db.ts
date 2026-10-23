@@ -8434,6 +8434,8 @@ ON CONFLICT (id) DO NOTHING;`);
         ctnSold: number;
         totalRevenue: number;
         totalCostOfGoods: number;
+        totalVatAmount: number;
+        totalDiscountAmount: number;
         totalSaleRates: number;
         saleRateCounts: number;
         purchaseCostRate: number;
@@ -8463,6 +8465,15 @@ ON CONFLICT (id) DO NOTHING;`);
           ? Number((it as any).baseAmt)
           : ((it.amount ? (it.amount - (it.vatAmount || 0)) : ((ctnUnits * (it.ratePerCtn || 0)) + (looseUnits * it.rate))));
 
+        const itemVat = Number(it.vatAmount) || 0;
+        const rawBillGross = Number(bill.grossAmount) || (Number(bill.netTotal) || 0);
+        const billDiscTotal = Number(bill.billDiscountAmount) || 0;
+        const allocatedBillDisc = (rawBillGross > 0 && billDiscTotal > 0)
+          ? Number(((itemRevenue / rawBillGross) * billDiscTotal).toFixed(2))
+          : 0;
+        const itemLineDisc = Number(it.discount) || 0;
+        const itemTotalDisc = Number((itemLineDisc + allocatedBillDisc).toFixed(2));
+
         if (!itemMap.has(key)) {
           itemMap.set(key, {
             productId: it.productId || matched?.product?.id,
@@ -8473,6 +8484,8 @@ ON CONFLICT (id) DO NOTHING;`);
             ctnSold: 0,
             totalRevenue: 0,
             totalCostOfGoods: 0,
+            totalVatAmount: 0,
+            totalDiscountAmount: 0,
             totalSaleRates: 0,
             saleRateCounts: 0,
             purchaseCostRate: unitCost,
@@ -8485,6 +8498,8 @@ ON CONFLICT (id) DO NOTHING;`);
         entry.ctnSold += ctnUnits;
         entry.totalRevenue += itemRevenue;
         entry.totalCostOfGoods += itemCost;
+        entry.totalVatAmount += itemVat;
+        entry.totalDiscountAmount += itemTotalDisc;
         const effRate = it.ratePerCtn && it.ratePerCtn > 0 ? it.ratePerCtn : it.rate;
         entry.totalSaleRates += effRate;
         entry.saleRateCounts += 1;
@@ -8492,15 +8507,19 @@ ON CONFLICT (id) DO NOTHING;`);
     }
 
     const perItem: ItemProfitReportItem[] = Array.from(itemMap.values()).map((v) => {
+      const totalDisc = Number(v.totalDiscountAmount.toFixed(2));
+      const totalVat = Number(v.totalVatAmount.toFixed(2));
+      const netRev = Number(Math.max(0, v.totalRevenue - totalDisc).toFixed(2));
       const grossProfit = Number((v.totalRevenue - v.totalCostOfGoods).toFixed(2));
-      const profitMarginPct = v.totalRevenue > 0 ? Number(((grossProfit / v.totalRevenue) * 100).toFixed(1)) : 0;
+      const netProfit = Number((netRev - v.totalCostOfGoods).toFixed(2));
+      const profitMarginPct = netRev > 0 ? Number(((netProfit / netRev) * 100).toFixed(1)) : (v.totalRevenue > 0 ? Number(((grossProfit / v.totalRevenue) * 100).toFixed(1)) : 0);
       const avgSaleRate = v.saleRateCounts > 0 ? Number((v.totalSaleRates / v.saleRateCounts).toFixed(2)) : (v.ctnSold > 0 ? Number((v.totalRevenue / v.ctnSold).toFixed(2)) : 0);
       const currentRemainingStock = v.matchedProduct ? (v.matchedProduct.currentQuantity || 0) : 0;
       const qtyInCarton = v.matchedProduct?.qtyInCarton || 1;
       const currentStockCartons = Number((currentRemainingStock / qtyInCarton).toFixed(1));
 
       let status: 'PROFITABLE' | 'LOW_MARGIN' | 'LOSS' = 'PROFITABLE';
-      if (grossProfit < 0 || profitMarginPct < 0) {
+      if (netProfit < 0 || profitMarginPct < 0) {
         status = 'LOSS';
       } else if (profitMarginPct < 10) {
         status = 'LOW_MARGIN';
@@ -8516,14 +8535,18 @@ ON CONFLICT (id) DO NOTHING;`);
         avgPurchaseRate: Number(v.purchaseCostRate.toFixed(2)),
         avgSaleRate,
         totalRevenue: Number(v.totalRevenue.toFixed(2)),
+        totalVatAmount: totalVat,
+        totalDiscountAmount: totalDisc,
+        netRevenue: netRev,
         totalCostOfGoods: Number(v.totalCostOfGoods.toFixed(2)),
         grossProfit,
+        netProfit,
         profitMarginPct,
         currentRemainingStock,
         currentStockCartons,
         status,
       };
-    }).sort((a, b) => b.grossProfit - a.grossProfit);
+    }).sort((a, b) => (b.netProfit ?? b.grossProfit) - (a.netProfit ?? a.grossProfit));
 
     // 2. PER BILL BREAKDOWN
     const perBill: BillProfitReportItem[] = bills.map((bill) => {

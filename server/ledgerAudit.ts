@@ -861,7 +861,15 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
       const profitCogs = cost.costOf(
         todayBills
           .flatMap((b) => b.items || [])
-          .map((it) => ({ productId: it.productId, itemTitle: it.itemTitle, mcode: it.mcode, qty: it.qty, rate: it.rate }))
+          .map((it) => ({
+            productId: it.productId,
+            itemTitle: it.itemTitle,
+            mcode: it.mcode,
+            qty: it.qty,
+            rate: it.rate,
+            ctn: it.ctn,
+            ratePerCtn: it.ratePerCtn,
+          }))
       );
       const todaySoldExVat = todayBills.reduce((s, b) => s + billExVatRevenue(b), 0);
       const profit = todaySoldExVat - profitCogs;
@@ -931,7 +939,9 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
         itemTitle: it.itemTitle,
         mcode: it.mcode,
         qty: it.qty,
-        rate: it.rate
+        rate: it.rate,
+        ctn: it.ctn,
+        ratePerCtn: it.ratePerCtn,
       }))
     );
 
@@ -1075,24 +1085,24 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     const todayCounterCashSales = Math.max(0, todayMove.cashIn - todayMarketWasooli - todayPRCash);
 
     const inflows: AiLedgerAuditCashRow[] = [
-      { label: 'Total Cash Received (کل کیش ان / نقد وصولی)', value: todayMove.cashIn, tag: 'CASH IN', direction: 'in' },
-      { label: 'Market Udhaar Wasooli (مارکیٹ وصولی)', value: todayMarketWasooli, tag: 'WASOOLI', direction: 'in' },
-      { label: 'Counter Cash Sales (کاؤنٹر نقد فروخت)', value: todayCounterCashSales, tag: 'SALES', direction: 'in' },
+      { label: 'Total Cash Received (Cash In)', value: todayMove.cashIn, tag: 'CASH IN', direction: 'in' },
+      { label: 'Market Udhaar Wasooli (Credit Recovery)', value: todayMarketWasooli, tag: 'WASOOLI', direction: 'in' },
+      { label: 'Counter Cash Sales (Direct Sales)', value: todayCounterCashSales, tag: 'SALES', direction: 'in' },
     ];
     if (todayPRCash > 0) {
-      inflows.push({ label: 'Cash from Purchase Returns (خریداری واپسی نقد وصولی)', value: todayPRCash, tag: 'PUR RETURN', direction: 'in' });
+      inflows.push({ label: 'Cash from Purchase Returns', value: todayPRCash, tag: 'PUR RETURN', direction: 'in' });
     }
     inflows.push(
       { label: 'Today Paid to Supplier (Mill / Vendor Cash)', value: todaySupplierCash, tag: 'SUPPLIER', direction: 'out' },
       { label: 'Daily Expense (Salaries, Petrol, Utilities, Misc)', value: todayExpenses, tag: 'EXPENSE', direction: 'out' }
     );
     if (todaySRCash > 0) {
-      inflows.push({ label: 'Cash Refunded on Sales Returns (فروخت واپسی نقد ادائیگی)', value: todaySRCash, tag: 'SALE RETURN', direction: 'out' });
+      inflows.push({ label: 'Cash Refunded on Sales Returns', value: todaySRCash, tag: 'SALE RETURN', direction: 'out' });
     }
     inflows.push(
-      { label: 'Sale Bill Discounts Given (بل میں رعایت)', value: todayBillDiscount, tag: 'BILL DISC', direction: 'memo' },
-      { label: 'Cash & Bank Voucher Discounts (کیش و بینک اینٹریز رعایت)', value: todayVoucherDiscount, tag: 'CB DISC', direction: 'memo' },
-      { label: 'Total Discounts (Deducted from Profit • منافع سے کٹوتی)', value: todayTotalDiscount, tag: 'TOTAL DISC', direction: 'memo' }
+      { label: 'Sale Bill Discounts Given', value: todayBillDiscount, tag: 'BILL DISC', direction: 'memo' },
+      { label: 'Cash & Bank Voucher Discounts', value: todayVoucherDiscount, tag: 'CB DISC', direction: 'memo' },
+      { label: 'Total Discounts (Deducted from Profit)', value: todayTotalDiscount, tag: 'TOTAL DISC', direction: 'memo' }
     );
 
     const bankRows: AiLedgerAuditCashRow[] = [
