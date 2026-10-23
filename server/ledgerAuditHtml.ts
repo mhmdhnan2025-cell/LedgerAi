@@ -188,7 +188,10 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
 
   /* ---------- PANELS & GRID ---------- */
   .al-grid {
-    display: grid; grid-template-columns: 1.15fr 1fr; gap: 12px; margin-top: 10px; align-items: start; width: 100%;
+    display: grid; grid-template-columns: 1.05fr 1fr; gap: 14px; margin-top: 12px; align-items: start; width: 100%;
+  }
+  @media (max-width: 900px) {
+    .al-grid { grid-template-columns: 1fr; }
   }
   .al-col { display: flex; flex-direction: column; gap: 12px; }
   .al-panel {
@@ -217,20 +220,21 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
 
   /* ---------- TABLES ---------- */
   table.al-t {
-    width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 10.5px; font-weight: 800;
+    width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 11px; font-weight: 800;
   }
-  .al-t th {
-    background: #e2e8f0; color: #0f172a; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.3px;
-    padding: 7px 10px; text-align: left; border-top: 1px solid #cbd5e1; border-bottom: 2px solid #cbd5e1;
+  table.al-t th {
+    background: #e2e8f0; color: #0f172a; font-size: 9.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.2px;
+    padding: 8px 8px; text-align: left; border-top: 1px solid #cbd5e1; border-bottom: 2px solid #cbd5e1;
+    word-break: normal; white-space: normal; line-height: 1.3; vertical-align: bottom;
   }
-  .al-t td {
-    padding: 7px 10px; border-bottom: 1.5px solid #eef2f7; color: #0f172a; font-weight: 800;
+  table.al-t td {
+    padding: 8px 8px; border-bottom: 1.5px solid #eef2f7; color: #0f172a; font-weight: 800; font-size: 11px;
     word-wrap: break-word; overflow-wrap: break-word;
   }
-  .al-t tr:last-child td { border-bottom: none; }
-  .al-t tr:hover { background: #fbfcfe; }
-  .al-t .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 800; }
-  .al-t .center { text-align: center; }
+  table.al-t tr:last-child td { border-bottom: none; }
+  table.al-t tr:hover { background: #fbfcfe; }
+  table.al-t .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 800; }
+  table.al-t .center { text-align: center; }
   .strong { font-weight: 900; color: #0f172a; }
   .green { color: #15803d; font-weight: 900; }
   .red { color: #dc2626; font-weight: 900; }
@@ -239,27 +243,54 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
   .purple { color: #6d28d9; font-weight: 900; }
   .muted { color: #475569; font-weight: 800; }
   .al-total {
-    display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; font-weight: 900;
-    padding: 9px 14px; background: #f1f5f9; border-top: 2px solid #cbd5e1; color: #0f172a;
+    display: flex; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 900;
+    padding: 10px 14px; background: #f1f5f9; border-top: 2px solid #cbd5e1; color: #0f172a;
   }
 
-  /* ---------- CASH REGISTER ---------- */
+  /* ---------- CASH & BANK LIQUIDITY REGISTER (EXTRA BOLD & EXPANDED) ---------- */
+  .al-panel-cash .al-panel-h {
+    padding: 11px 16px; background: #e2e8f0; border-bottom: 2.5px solid #cbd5e1;
+  }
+  .al-panel-cash .al-panel-h .t {
+    font-size: 13.5px !important; font-weight: 900 !important; color: #0f172a !important; letter-spacing: 0.4px;
+  }
+  .al-panel-cash .al-sec {
+    padding: 10px 16px 8px !important; font-size: 12px !important; font-weight: 900 !important;
+    color: #0f172a !important; background: #eef2f6 !important; border-top: 2.5px solid #cbd5e1 !important;
+    border-bottom: 1.5px solid #cbd5e1 !important; margin-top: 6px; letter-spacing: 0.5px;
+  }
+  .al-panel-cash .al-sec:first-of-type { margin-top: 0; }
   .al-cash-row {
-    display: flex; align-items: center; justify-content: space-between; gap: 10px;
-    padding: 8px 14px; font-size: 11px; font-weight: 800;
-    border-bottom: 1.5px solid #f1f5f9;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 10px 16px !important; font-size: 13px !important; font-weight: 900 !important;
+    border-bottom: 1.5px solid #eef2f7;
   }
-  .al-cash-row:hover { background: #fafbfc; }
-  .al-cash-row .lbl { flex: 1; color: #0f172a; font-weight: 800; font-size: 11px; line-height: 1.35; }
-  .al-cash-row .amt { min-width: 90px; text-align: right; font-weight: 900; font-size: 12px; white-space: nowrap; }
+  .al-cash-row:hover { background: #f8fafc; }
+  .al-cash-row .lbl {
+    flex: 1; color: #000000 !important; font-weight: 900 !important; font-size: 13px !important; line-height: 1.35;
+  }
+  .al-cash-row .amt {
+    min-width: 100px; text-align: right; font-weight: 900 !important; font-size: 14.5px !important;
+    white-space: nowrap; letter-spacing: 0.3px;
+  }
   .al-cash-row .tag {
-    width: 68px; text-align: right; font-size: 8.5px; font-weight: 800; color: #475569;
-    text-transform: uppercase; background: #f1f5f9; padding: 2.5px 7px; border-radius: 4px; border: 1px solid #e2e8f0;
+    width: 74px; text-align: right; font-size: 9.5px !important; font-weight: 900 !important;
+    color: #334155 !important; text-transform: uppercase; background: #f1f5f9;
+    padding: 3px 8px; border-radius: 4px; border: 1.5px solid #cbd5e1;
   }
-  .al-cash-row.hl { background: #ecfdf5; border-bottom: none; border-top: 2.5px solid #10b981; padding: 12px 14px; margin-top: 6px; }
-  .al-cash-row.hl .lbl { font-weight: 900; color: #065f46; font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px; }
-  .al-cash-row.hl .amt { font-size: 15px; color: #047857; font-weight: 900; }
-  .al-cash-row.hl .tag { color: #059669; font-weight: 900; background: #d1fae5; border-color: #a7f3d0; }
+  .al-cash-row.hl {
+    background: #ecfdf5 !important; border-bottom: none; border-top: 3px solid #10b981 !important;
+    padding: 14px 16px !important; margin-top: 8px;
+  }
+  .al-cash-row.hl .lbl {
+    font-weight: 900 !important; color: #065f46 !important; font-size: 14px !important;
+    text-transform: uppercase; letter-spacing: 0.4px;
+  }
+  .al-cash-row.hl .amt { font-size: 18px !important; color: #047857 !important; font-weight: 900 !important; }
+  .al-cash-row.hl .tag {
+    color: #047857 !important; font-weight: 900 !important; font-size: 10.5px !important;
+    background: #d1fae5 !important; border-color: #6ee7b7 !important;
+  }
 
   /* ---------- BUSINESS WORTH ---------- */
   .al-worth {
@@ -425,10 +456,10 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
         <table class="al-t">
           <thead>
             <tr>
-              <th style="width:38%">Salesman / Route</th>
-              <th class="num" style="width:20%">Opening (${sym})</th>
+              <th style="width:34%">Salesman / Route</th>
+              <th class="num" style="width:22%">Opening (${sym})</th>
               <th class="num" style="width:22%">Today Sold</th>
-              <th class="num" style="width:20%">Closing (${sym})</th>
+              <th class="num" style="width:22%;padding-right:12px">Closing (${sym})</th>
             </tr>
           </thead>
           <tbody>${khataRows}</tbody>
@@ -443,10 +474,10 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
         <table class="al-t">
           <thead>
             <tr>
-              <th style="width:38%">Sales Representative</th>
+              <th style="width:34%">Sales Representative</th>
               <th class="num" style="width:22%">Today Sales</th>
-              <th class="num" style="width:18%">Margin %</th>
-              <th class="num" style="width:22%">Net Profit (${sym})</th>
+              <th class="num" style="width:20%">Margin %</th>
+              <th class="num" style="width:24%;padding-right:12px">Net Profit (${sym})</th>
             </tr>
           </thead>
           <tbody>${profitRows}</tbody>
@@ -460,7 +491,7 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
 
     <!-- RIGHT COLUMN : CASH & BANK LIQUIDITY REGISTER -->
     <div class="al-col">
-      <div class="al-panel">
+      <div class="al-panel al-panel-cash">
         <div class="al-panel-h">
           <div class="t" style="color:#0f172a">7. CASH &amp; BANK LIQUIDITY REGISTER</div>
           <div class="s">DAILY CLOSING</div>
