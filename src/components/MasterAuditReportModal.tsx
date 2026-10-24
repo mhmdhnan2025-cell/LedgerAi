@@ -59,6 +59,40 @@ export const MasterAuditReportModal: React.FC<MasterAuditReportModalProps> = ({
     }
   }, [reportHtml]);
 
+    useEffect(() => {
+    if (!isOpen) return;
+
+    const handleBeforePrint = () => {
+      const printableElement = document.getElementById('printable-audit-report');
+      if (!printableElement) return;
+      let printContainer = document.getElementById('active-audit-print-container');
+      if (!printContainer) {
+        printContainer = document.createElement('div');
+        printContainer.id = 'active-audit-print-container';
+        document.body.appendChild(printContainer);
+      }
+      printContainer.innerHTML = printableElement.innerHTML;
+      document.body.classList.add('is-printing-audit');
+    };
+
+    const handleAfterPrint = () => {
+      document.body.classList.remove('is-printing-audit');
+      const printContainer = document.getElementById('active-audit-print-container');
+      if (printContainer && printContainer.parentNode) {
+        printContainer.parentNode.removeChild(printContainer);
+      }
+    };
+
+    window.addEventListener('beforeprint', handleBeforePrint);
+    window.addEventListener('afterprint', handleAfterPrint);
+
+    return () => {
+      window.removeEventListener('beforeprint', handleBeforePrint);
+      window.removeEventListener('afterprint', handleAfterPrint);
+      handleAfterPrint();
+    };
+  }, [isOpen, parsed]);
+
   if (!isOpen) return null;
 
   const handlePrint = () => {

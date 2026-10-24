@@ -19,6 +19,7 @@ export interface ToolExecutionContext {
   userId?: string;
   userName?: string;
   userRole?: 'Admin' | 'Manager' | 'Order Taker' | 'Inventory Staff' | 'Accountant';
+  companyId?: string;
   source?: 'ai_chat' | 'voice' | 'image_ocr' | 'manual';
 }
 
@@ -410,6 +411,97 @@ export const toolsDeclarations: FunctionDeclaration[] = [
       type: Type.OBJECT,
       properties: {
         supplierNameOrId: { type: Type.STRING, description: 'Optional supplier name or ID' },
+      },
+    },
+  },
+  {
+    name: 'get_profit_report',
+    description: 'Retrieves comprehensive profit intelligence report with perItem, perBill, perRestaurant, and perSalesman tabs.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        tab: { type: Type.STRING, description: 'Tab to focus on: perItem, perBill, perRestaurant, or perSalesman' },
+        search: { type: Type.STRING, description: 'Optional search filter for item or customer' },
+      },
+    },
+  },
+  {
+    name: 'get_salesman_customer_profit',
+    description: 'Calculates exact sales turnover, COGS, gross profit, and margin % made by a specific salesman on a specific customer.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        salesmanName: { type: Type.STRING, description: 'Name of the salesman (e.g. Akbar Bhai)' },
+        customerName: { type: Type.STRING, description: 'Name of the customer (e.g. Spicy point)' },
+      },
+      required: ['salesmanName', 'customerName'],
+    },
+  },
+  {
+    name: 'get_customer_ledger_report',
+    description: 'Retrieves verified customer khata ledger statement with running balance, recent debit/credit transactions, and shareable WhatsApp statement.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        customerNameOrId: { type: Type.STRING, description: 'Customer business title, customer code, or account ID' },
+      },
+      required: ['customerNameOrId'],
+    },
+  },
+  {
+    name: 'get_supplier_ledger_report',
+    description: 'Retrieves verified supplier khata ledger statement with running balance, purchases, payments, and payable due.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        supplierNameOrId: { type: Type.STRING, description: 'Supplier name or supplier code' },
+      },
+      required: ['supplierNameOrId'],
+    },
+  },
+  {
+    name: 'get_receivables_report',
+    description: 'Retrieves list of customers with outstanding balances (market udhaar / receivables).',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        search: { type: Type.STRING, description: 'Optional customer search term' },
+      },
+    },
+  },
+  {
+    name: 'get_payables_report',
+    description: 'Retrieves list of suppliers with payable dues / balances.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        search: { type: Type.STRING, description: 'Optional supplier search term' },
+      },
+    },
+  },
+  {
+    name: 'get_sales_returns_report',
+    description: 'Retrieves customer sales return vouchers report with items returned, quantities, and net refund value.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {},
+    },
+  },
+  {
+    name: 'get_purchase_returns_report',
+    description: 'Retrieves supplier purchase return vouchers report with returned items and recovery totals.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {},
+    },
+  },
+  {
+    name: 'get_stock_history_report',
+    description: 'Retrieves live warehouse stock movement ledger with inward purchases, outward sales, and closing balance.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        productId: { type: Type.STRING, description: 'Optional product ID or name to filter movement' },
       },
     },
   },
@@ -1204,30 +1296,32 @@ export async function executeTool(name: string, args: Record<string, any>, ctx: 
       };
     }
 
+        case 'get_profit_report':
     case 'get_profit_per_item_report': {
-      const compProfit = db.getComprehensiveProfitReport({ search: args.search });
+      const compProfit = db.getComprehensiveProfitReport({ search: args.search || args.itemName });
       const report = generateProfitByItemReportDoc('html');
       const items = compProfit.perItem || [];
-      const totalRev = items.reduce((s, it) => s + it.totalRevenue, 0);
-      const totalProfit = items.reduce((s, it) => s + it.grossProfit, 0);
       const topItems = items.slice(0, 10).map((it) => 
-        `• ${it.itemTitle} (M-Code: ${it.mcode}): Sold ${it.qtySold} (${it.ctnSold} CTN), Revenue: ${currencySymbol()} ${it.totalRevenue.toLocaleString()}, Profit: ${currencySymbol()} ${it.grossProfit.toLocaleString()} (${it.profitMarginPct.toFixed(1)}%)`
+        `• ${it.itemTitle} (M-Code: ${it.mcode || '-'}): Sold ${it.qtySold} (${it.ctnSold || 0} CTN), Revenue: ${currencySymbol()} ${it.totalRevenue.toLocaleString()}, Profit: ${currencySymbol()} ${it.grossProfit.toLocaleString()} (${it.profitMarginPct.toFixed(1)}%)`
       ).join('\n');
 
       return {
         success: true,
-        reportType: 'profit_item',
+        reportType: 'profit',
         title: 'Profit Per Item Report',
         fileName: report.fileName,
         downloadUrl: '/api/reports/download?type=profit-item&format=html',
         viewUrl: '/api/reports/download?type=profit-item&format=html',
-        summary: { totalItems: items.length, totalRevenue: totalRev, totalProfit: totalProfit },
+        initialTab: 'perItem',
+        summary: compProfit.summary,
+        profitData: compProfit,
         message: `✅ Verified Profit Per Item Report Tayar Hai!\n\n` +
           `• Kul Items Count: ${items.length}\n` +
-          `• Total Item Revenue: ${currencySymbol()} ${totalRev.toLocaleString()}\n` +
-          `• Total Gross Profit: ${currencySymbol()} ${totalProfit.toLocaleString()}\n\n` +
+          `• Total Sales Volume: ${currencySymbol()} ${compProfit.summary.totalSalesVolume.toLocaleString()}\n` +
+          `• Total Gross Profit: ${currencySymbol()} ${compProfit.summary.totalGrossProfit.toLocaleString()}\n` +
+          `• Overall Margin: ${compProfit.summary.overallMarginPct}%\n\n` +
           `Top Items Breakdown:\n${topItems || 'Koi sales record nahi mila.'}\n\n` +
-          `📄 Verified Report File Download K Liye Tayar Hai: ${report.fileName}`,
+          `📄 Verified Report File Tayar Hai: ${report.fileName}`,
       };
     }
 
@@ -1235,24 +1329,25 @@ export async function executeTool(name: string, args: Record<string, any>, ctx: 
       const compProfit = db.getComprehensiveProfitReport();
       const report = generateProfitBySalesmanReportDoc('html');
       const salesmen = compProfit.perSalesman || [];
-      const totalSales = salesmen.reduce((s, sm) => s + sm.totalSalesVolume, 0);
-      const totalProfit = salesmen.reduce((s, sm) => s + sm.totalProfit, 0);
       const smDetails = salesmen.map((sm) =>
         `• ${sm.salesmanName}: ${sm.billsCount} Bills, Customers: ${sm.customersHandledCount}, Sales: ${currencySymbol()} ${sm.totalSalesVolume.toLocaleString()}, Profit: ${currencySymbol()} ${sm.totalProfit.toLocaleString()} (${sm.profitMarginPct.toFixed(1)}%)`
       ).join('\n');
 
       return {
         success: true,
-        reportType: 'profit_salesman',
+        reportType: 'profit',
         title: 'Profit Per Salesman Report',
         fileName: report.fileName,
         downloadUrl: '/api/reports/download?type=profit-salesman&format=html',
         viewUrl: '/api/reports/download?type=profit-salesman&format=html',
-        summary: { totalSalesmen: salesmen.length, totalSales, totalProfit },
+        initialTab: 'perSalesman',
+        summary: compProfit.summary,
+        profitData: compProfit,
         message: `✅ Verified Profit Per Salesman Report Tayar Hai!\n\n` +
           `• Total Salesmen: ${salesmen.length}\n` +
-          `• Total Sales Volume: ${currencySymbol()} ${totalSales.toLocaleString()}\n` +
-          `• Total Gross Profit: ${currencySymbol()} ${totalProfit.toLocaleString()}\n\n` +
+          `• Total Sales Volume: ${currencySymbol()} ${compProfit.summary.totalSalesVolume.toLocaleString()}\n` +
+          `• Total Gross Profit: ${currencySymbol()} ${compProfit.summary.totalGrossProfit.toLocaleString()}\n` +
+          `• Overall Margin: ${compProfit.summary.overallMarginPct}%\n\n` +
           `Salesmen Breakdown:\n${smDetails || 'Koi record nahi mila.'}\n\n` +
           `📄 Verified Report File Tayar Hai: ${report.fileName}`,
       };
@@ -1262,27 +1357,25 @@ export async function executeTool(name: string, args: Record<string, any>, ctx: 
       const compProfit = db.getComprehensiveProfitReport({ search: args.search });
       const report = generateProfitByRestaurantReportDoc('html');
       const rests = compProfit.perRestaurant || [];
-      const totalSales = rests.reduce((s, r) => s + r.totalSalesVolume, 0);
-      const totalProfit = rests.reduce((s, r) => s + r.grossProfit, 0);
-      const totalUdhaar = rests.reduce((s, r) => s + (r.outstandingBalance || 0), 0);
       const topRests = rests.slice(0, 10).map((r) =>
         `• ${r.accountTitle} [${r.code || '-'}]: Sales ${currencySymbol()} ${r.totalSalesVolume.toLocaleString()}, Profit: ${currencySymbol()} ${r.grossProfit.toLocaleString()} (${r.profitMarginPct.toFixed(1)}%), Udhaar: ${currencySymbol()} ${(r.outstandingBalance || 0).toLocaleString()}`
       ).join('\n');
 
       return {
         success: true,
-        reportType: 'profit_restaurant',
+        reportType: 'profit',
         title: 'Profit Per Restaurant / Customer Report',
         fileName: report.fileName,
         downloadUrl: '/api/reports/download?type=profit-restaurant&format=html',
         viewUrl: '/api/reports/download?type=profit-restaurant&format=html',
-        summary: { totalRestaurants: rests.length, totalSales, totalProfit, totalUdhaar },
-        message: `✅ Verified Profit Per Restaurant / Customer Report Tayar Hai!\n\n` +
-          `• Total Customers / Restaurants: ${rests.length}\n` +
-          `• Total Sales: ${currencySymbol()} ${totalSales.toLocaleString()}\n` +
-          `• Total Gross Profit: ${currencySymbol()} ${totalProfit.toLocaleString()}\n` +
-          `• Total Market Udhaar (Receivables): ${currencySymbol()} ${totalUdhaar.toLocaleString()}\n\n` +
-          `Top Records:\n${topRests || 'Koi record nahi mila.'}\n\n` +
+        initialTab: 'perRestaurant',
+        summary: compProfit.summary,
+        profitData: compProfit,
+        message: `✅ Verified Profit Per Customer Report Tayar Hai!\n\n` +
+          `• Total Customers: ${rests.length}\n` +
+          `• Total Sales Volume: ${currencySymbol()} ${compProfit.summary.totalSalesVolume.toLocaleString()}\n` +
+          `• Total Gross Profit: ${currencySymbol()} ${compProfit.summary.totalGrossProfit.toLocaleString()}\n\n` +
+          `Top Customers:\n${topRests || 'Koi record nahi mila.'}\n\n` +
           `📄 Verified Report File Tayar Hai: ${report.fileName}`,
       };
     }
@@ -1291,26 +1384,261 @@ export async function executeTool(name: string, args: Record<string, any>, ctx: 
       const compProfit = db.getComprehensiveProfitReport({ search: args.search });
       const report = generateProfitByBillReportDoc('html');
       const bills = compProfit.perBill || [];
-      const totalSales = bills.reduce((s, b) => s + b.netTotal, 0);
-      const totalProfit = bills.reduce((s, b) => s + b.grossProfit, 0);
-      const recentBills = bills.slice(0, 10).map((b) =>
-        `• Bill #${b.billNumber} (${b.date}) - ${b.customerAccountTitle}: Sale ${currencySymbol()} ${b.netTotal.toLocaleString()}, Cost ${currencySymbol()} ${b.costOfGoods.toLocaleString()}, Profit: ${currencySymbol()} ${b.grossProfit.toLocaleString()} (${b.profitMarginPct.toFixed(1)}%)`
+      const topBills = bills.slice(0, 10).map((b) =>
+        `• Bill #${b.billNumber} (${b.customerAccountTitle}): Turnover ${currencySymbol()} ${Number((b as any).totalAmount || b.netTotal).toLocaleString()}, Profit: ${currencySymbol()} ${b.grossProfit.toLocaleString()} (${b.profitMarginPct.toFixed(1)}%)`
       ).join('\n');
 
       return {
         success: true,
-        reportType: 'profit_bill',
+        reportType: 'profit',
         title: 'Profit Per Sale Bill Report',
         fileName: report.fileName,
         downloadUrl: '/api/reports/download?type=profit-bill&format=html',
         viewUrl: '/api/reports/download?type=profit-bill&format=html',
-        summary: { totalBills: bills.length, totalSales, totalProfit },
+        initialTab: 'perBill',
+        summary: compProfit.summary,
+        profitData: compProfit,
         message: `✅ Verified Profit Per Sale Bill Report Tayar Hai!\n\n` +
-          `• Total Bills Count: ${bills.length}\n` +
-          `• Total Sales: ${currencySymbol()} ${totalSales.toLocaleString()}\n` +
-          `• Total Gross Profit: ${currencySymbol()} ${totalProfit.toLocaleString()}\n\n` +
-          `Recent Bills Profit Details:\n${recentBills || 'Koi bills nahi mile.'}\n\n` +
+          `• Total Verified Sale Bills: ${bills.length}\n` +
+          `• Total Billed Turnover: ${currencySymbol()} ${compProfit.summary.totalSalesVolume.toLocaleString()}\n` +
+          `• Total Gross Profit: ${currencySymbol()} ${compProfit.summary.totalGrossProfit.toLocaleString()}\n\n` +
+          `Recent Invoices:\n${topBills || 'Koi bill record nahi mila.'}\n\n` +
           `📄 Verified Report File Tayar Hai: ${report.fileName}`,
+      };
+    }
+
+    case 'get_salesman_customer_profit': {
+      const { salesmanName, customerName } = args;
+      const compProfit = db.getComprehensiveProfitReport();
+      const allBills = compProfit.perBill || [];
+      const smLower = String(salesmanName || '').toLowerCase().trim();
+      const custLower = String(customerName || '').toLowerCase().trim();
+
+      const matchedBills = allBills.filter((b) => {
+        const rawSM = ((b as any).rawBill?.salesmanName || b.salesmanName || '').toLowerCase();
+        const rawCust = (b.customerAccountTitle || '').toLowerCase();
+        const smMatch = !smLower || rawSM.includes(smLower) || smLower.includes(rawSM);
+        const custMatch = !custLower || rawCust.includes(custLower) || custLower.includes(rawCust);
+        return smMatch && custMatch;
+      });
+
+      const totalSales = matchedBills.reduce((s, b) => s + Number((b as any).totalAmount || b.netTotal || 0), 0);
+      const totalCost = matchedBills.reduce((s, b) => s + Number(b.costOfGoods || 0), 0);
+      const totalProfit = matchedBills.reduce((s, b) => s + Number(b.grossProfit || 0), 0);
+      const marginPct = totalSales > 0 ? Number(((totalProfit / totalSales) * 100).toFixed(1)) : 0;
+
+      return {
+        success: true,
+        reportType: 'salesman_customer_profit',
+        title: `Salesman ${salesmanName} on ${customerName} Profit`,
+        salesmanName,
+        customerName,
+        summary: {
+          billsCount: matchedBills.length,
+          totalSalesVolume: totalSales,
+          totalCostOfGoods: totalCost,
+          totalProfit: totalProfit,
+          profitMarginPct: marginPct,
+        },
+        bills: matchedBills.map((b) => (b as any).rawBill).filter(Boolean),
+        message: `💼 **Salesman vs Customer Profit Analysis**\n\n` +
+          `• 👤 Salesman: **${salesmanName}**\n` +
+          `• 🏢 Customer: **${customerName}**\n` +
+          `• 📄 Total Bills: **${matchedBills.length}**\n` +
+          `• 💵 Sales Turnover: **${currencySymbol()} ${totalSales.toLocaleString()}**\n` +
+          `• 📦 Khareed Laagat (COGS): **${currencySymbol()} ${totalCost.toLocaleString()}**\n` +
+          `• 📈 **Gross Profit (منافع): ${currencySymbol()} ${totalProfit.toLocaleString()}**\n` +
+          `• 📊 Profit Margin: **${marginPct}%**`,
+      };
+    }
+
+    case 'get_customer_ledger_report': {
+      const { customerNameOrId } = args;
+      const customers = db.getCustomers();
+      const q = String(customerNameOrId || '').toLowerCase().trim();
+      const matched = customers.find(
+        (c) =>
+          c.id === customerNameOrId ||
+          (c.code && c.code.toLowerCase() === q) ||
+          (c.name && c.name.toLowerCase().includes(q)) ||
+          (c.accountTitle && c.accountTitle.toLowerCase().includes(q))
+      ) || customers[0];
+
+      if (!matched) {
+        return { success: false, message: `Customer "${customerNameOrId}" ka khata nahi mila.` };
+      }
+
+      const ledger = db.getCustomerLedgerReport(matched.id);
+      const closingBal = Number(ledger.closingBalance || 0);
+      const isDebit = closingBal >= 0;
+
+      const whatsappText =
+        `*STATEMENT OF ACCOUNT / کھاتہ اسٹیٹمنٹ*\n` +
+        `👤 *Customer:* ${ledger.customerName || ledger.accountTitle}\n` +
+        `🏷️ *Code:* ${(ledger as any).accountCode || '-'}\n` +
+        `📞 *Mobile:* ${ledger.phone || '-'}\n` +
+        `📅 *Date:* ${new Date().toLocaleDateString('en-GB')}\n` +
+        `----------------------------------------\n` +
+        `• Opening Balance: ${currencySymbol()} ${Number(ledger.openingBalance || 0).toLocaleString()}\n` +
+        `• Total Debits (Sales): ${currencySymbol()} ${Number(ledger.totalDebit || 0).toLocaleString()}\n` +
+        `• Total Credits (Receipts): ${currencySymbol()} ${Number(ledger.totalCredit || 0).toLocaleString()}\n` +
+        `• *NET OUTSTANDING BALANCE: ${currencySymbol()} ${Math.abs(closingBal).toLocaleString()} ${isDebit ? 'DR (واجب الادا)' : 'CR (ایڈوانس)'}*\n` +
+        `----------------------------------------\n` +
+        `Baraye meherbani apna khata check farmayein. Shukriya!`;
+
+      return {
+        success: true,
+        reportType: 'customerLedger',
+        title: `Customer Khata Ledger - ${ledger.customerName}`,
+        ledgerData: ledger,
+        whatsappText,
+        message: `📒 **Customer Khata Ledger Statement — ${ledger.customerName}**\n\n` +
+          `• 👤 Customer: **${ledger.customerName}** [${(ledger as any).accountCode || '-'}]\n` +
+          `• 📞 Mobile: **${ledger.phone || '-'}**\n` +
+          `• 📍 Location: **${ledger.address || (ledger as any).city || 'UAE'}**\n` +
+          `• Opening Balance: ${currencySymbol()} ${Number(ledger.openingBalance || 0).toLocaleString()}\n` +
+          `• Total Billed Sales: ${currencySymbol()} ${Number(ledger.totalDebit || 0).toLocaleString()}\n` +
+          `• Total Cash Recovered: ${currencySymbol()} ${Number(ledger.totalCredit || 0).toLocaleString()}\n` +
+          `• **صاف بقایا (NET BALANCE): ${currencySymbol()} ${Math.abs(closingBal).toLocaleString()} ${isDebit ? 'DR' : 'CR'}**\n\n` +
+          `Neechay mukammal scrollable ledger table aur "Send on WhatsApp" ka button dastiyab hai:`,
+      };
+    }
+
+    case 'get_supplier_ledger_report': {
+      const { supplierNameOrId } = args;
+      const suppliers = db.getSuppliers();
+      const q = String(supplierNameOrId || '').toLowerCase().trim();
+      const matched = suppliers.find(
+        (s) =>
+          s.id === supplierNameOrId ||
+          (s.code && s.code.toLowerCase() === q) ||
+          (s.name && s.name.toLowerCase().includes(q)) ||
+          (s.accountTitle && s.accountTitle.toLowerCase().includes(q))
+      ) || suppliers[0];
+
+      if (!matched) {
+        return { success: false, message: `Supplier "${supplierNameOrId}" ka khata nahi mila.` };
+      }
+
+      const ledger = db.getSupplierLedgerReport(matched.id);
+      const closingBal = Number(ledger.closingBalance || 0);
+
+      return {
+        success: true,
+        reportType: 'supplierLedger',
+        title: `Supplier Khata Ledger - ${ledger.supplierName}`,
+        ledgerData: ledger,
+        message: `📒 **Supplier Khata Statement — ${ledger.supplierName}**\n\n` +
+          `• 🏢 Supplier: **${ledger.supplierName}** [${(ledger as any).accountCode || '-'}]\n` +
+          `• 📞 Phone: **${ledger.phone || '-'}**\n` +
+          `• Total Purchases: ${currencySymbol()} ${Number(ledger.totalDebit || 0).toLocaleString()}\n` +
+          `• Total Paid: ${currencySymbol()} ${Number(ledger.totalCredit || 0).toLocaleString()}\n` +
+          `• **سپلائر بقایا (PAYABLE DUE): ${currencySymbol()} ${Math.abs(closingBal).toLocaleString()}**`,
+      };
+    }
+
+    case 'get_receivables_report': {
+      const customers = db.getCustomers();
+      const debtorList = customers.filter(
+        (c) => Number(c.outstandingBalance || (c as any).currentBalance || (c as any).balance || 0) > 0
+      ).sort(
+        (a, b) => Number(b.outstandingBalance || (b as any).currentBalance || 0) - Number(a.outstandingBalance || (a as any).currentBalance || 0)
+      );
+
+      const totalReceivables = debtorList.reduce(
+        (s, c) => s + Number(c.outstandingBalance || (c as any).currentBalance || (c as any).balance || 0),
+        0
+      );
+
+      return {
+        success: true,
+        reportType: 'receivables',
+        title: 'Customer Receivables List (مارکیٹ ادھار کھاتہ)',
+        totalReceivables,
+        customers: debtorList,
+        message: `💰 **Customer Receivables List (مارکیٹ ادھار رپورٹ)**\n\n` +
+          `• Total Udhaar Customers: **${debtorList.length}**\n` +
+          `• **Kul Market Udhaar (صاف ریکوری): ${currencySymbol()} ${totalReceivables.toLocaleString()}**\n\n` +
+          `Neechay tamam gahakon ki tafseeli list baqaya raqam aur credit limit k sath di gayi hai:`,
+      };
+    }
+
+    case 'get_payables_report': {
+      const suppliers = db.getSuppliers();
+      const creditorList = suppliers.filter(
+        (s) => Number((s as any).payableBalance || (s as any).remainingBalance || (s as any).balance || s.openingBalance || 0) > 0
+      ).sort(
+        (a, b) => Number((b as any).payableBalance || (b as any).remainingBalance || 0) - Number((a as any).payableBalance || (a as any).remainingBalance || 0)
+      );
+
+      const totalPayables = creditorList.reduce(
+        (s, sObj) => s + Number((sObj as any).payableBalance || (sObj as any).remainingBalance || (sObj as any).balance || sObj.openingBalance || 0),
+        0
+      );
+
+      return {
+        success: true,
+        reportType: 'payables',
+        title: 'Supplier Payables List (سپلائرز کے واجبات)',
+        totalPayables,
+        suppliers: creditorList,
+        message: `💳 **Supplier Payables List (سپلائرز کے واجبات)**\n\n` +
+          `• Total Creditor Suppliers: **${creditorList.length}**\n` +
+          `• **Kul Supplier Payables Due: ${currencySymbol()} ${totalPayables.toLocaleString()}**\n\n` +
+          `Neechay tamam suppliers ki list aur un k واجب الادا بقایا جات di gayi hain:`,
+      };
+    }
+
+    case 'get_sales_returns_report': {
+      const sReturns = db.getSaleReturns();
+      const totalAmount = sReturns.reduce((s, r) => s + Number((r as any).netAmount || r.netTotal || r.totalAmount || 0), 0);
+
+      return {
+        success: true,
+        reportType: 'sales_returns',
+        title: 'Sales Returns Report (گاہک مال واپسی)',
+        totalAmount,
+        returns: sReturns,
+        message: `🔄 **Sales Returns Report (گاہک مال واپسی ریکارڈ)**\n\n` +
+          `• Total Return Vouchers: **${sReturns.length}**\n` +
+          `• **Kul Refunded / Return Value: ${currencySymbol()} ${totalAmount.toLocaleString()}**\n\n` +
+          `Neechay wapsi ki mukammal tafseel di gayi hai:`,
+      };
+    }
+
+    case 'get_purchase_returns_report': {
+      const pReturns = db.getPurchaseReturns();
+      const totalAmount = pReturns.reduce((s, r) => s + Number((r as any).netAmount || r.netTotal || r.totalAmount || 0), 0);
+
+      return {
+        success: true,
+        reportType: 'purchase_returns',
+        title: 'Purchase Returns Report (سپلائر خریداری واپسی)',
+        totalAmount,
+        returns: pReturns,
+        message: `🔄 **Purchase Returns Report (سپلائر مال واپسی ریکارڈ)**\n\n` +
+          `• Total Return Invoices: **${pReturns.length}**\n` +
+          `• **Kul Recovered Value: ${currencySymbol()} ${totalAmount.toLocaleString()}**\n\n` +
+          `Neechay purchase returns ki mukammal tafseel di gayi hai:`,
+      };
+    }
+
+    case 'get_stock_history_report': {
+      const stRep = db.getStockMovementLedger({ productId: args.productId });
+      const inCtn = (stRep.ledgerTransactions || []).filter((t: any) => t.movementType === 'PURCHASE').reduce((s: number, t: any) => s + Math.abs(t.cartonsChange || 0), 0);
+      const outCtn = (stRep.ledgerTransactions || []).filter((t: any) => t.movementType === 'SALE').reduce((s: number, t: any) => s + Math.abs(t.cartonsChange || 0), 0);
+
+      return {
+        success: true,
+        reportType: 'stockHistory',
+        title: 'Stock Movement History (اسٹاک کھاتہ)',
+        summary: { totalStockValue: stRep.totalStockValue, inCtn, outCtn },
+        stockData: stRep,
+        message: `☸ **Stock Movement History (اسٹاک کھاتہ)**\n\n` +
+          `• Tracked Products: **${stRep.itemsSummary.length} Items**\n` +
+          `• Purchases Inflow: **${inCtn} CTN**\n` +
+          `• Sales Outflow: **${outCtn} CTN**\n` +
+          `• Warehouse Closing Value: **${currencySymbol()} ${(stRep.totalStockValue || 0).toLocaleString()}**`,
       };
     }
 

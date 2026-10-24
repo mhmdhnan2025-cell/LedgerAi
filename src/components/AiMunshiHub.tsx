@@ -49,6 +49,14 @@ import {
   UserRole,
 } from '../types';
 import { SalesBillReceiptModal } from './SalesBillReceiptModal';
+import {
+  CustomerLedgerWidget,
+  SupplierLedgerWidget,
+  ReceivablesTableWidget,
+  PayablesTableWidget,
+  ReturnsTableWidget,
+  SalesmanCustomerProfitWidget,
+} from './AiMunshiReportWidgets';
 import { PurchaseBillVoucherModal } from './PurchaseBillVoucherModal';
 import { MasterAuditReportModal } from './MasterAuditReportModal';
 import { AiSmartPurchaseReportWidget } from './AiSmartPurchaseReportWidget';
@@ -104,6 +112,32 @@ interface ChatMessage {
   stockHistoryData?: {
     summary: any;
     stockData: StockMovementReport;
+  } | null;
+  customerLedgerData?: {
+    ledger: any;
+    whatsappText?: string;
+  } | null;
+  supplierLedgerData?: {
+    ledger: any;
+  } | null;
+  receivablesData?: {
+    totalReceivables: number;
+    customers: any[];
+  } | null;
+  payablesData?: {
+    totalPayables: number;
+    suppliers: any[];
+  } | null;
+  returnsData?: {
+    type: 'sale' | 'purchase';
+    returns: any[];
+    totalAmount: number;
+  } | null;
+  salesmanCustomerProfitData?: {
+    salesmanName: string;
+    customerName: string;
+    summary: any;
+    bills: SaleBill[];
   } | null;
   reportTab?: string;
 }
@@ -686,6 +720,62 @@ Please process this into the database (create inventory, record order, or expens
           };
         }
 
+        // 7. Customer Ledger
+        const custLedgerTool = aiResponse.executedTools?.find(
+          (t) => t.name === 'get_customer_ledger_report' || t.result?.reportType === 'customerLedger'
+        );
+        let customerLedgerData = custLedgerTool?.result?.ledgerData ? {
+          ledger: custLedgerTool.result.ledgerData,
+          whatsappText: custLedgerTool.result.whatsappText,
+        } : null;
+
+        // 8. Supplier Ledger
+        const suppLedgerTool = aiResponse.executedTools?.find(
+          (t) => t.name === 'get_supplier_ledger_report' || t.result?.reportType === 'supplierLedger'
+        );
+        let supplierLedgerData = suppLedgerTool?.result?.ledgerData ? {
+          ledger: suppLedgerTool.result.ledgerData,
+        } : null;
+
+        // 9. Receivables List
+        const receivablesTool = aiResponse.executedTools?.find(
+          (t) => t.name === 'get_receivables_report' || t.result?.reportType === 'receivables'
+        );
+        let receivablesData = receivablesTool?.result?.customers ? {
+          totalReceivables: receivablesTool.result.totalReceivables,
+          customers: receivablesTool.result.customers,
+        } : null;
+
+        // 10. Payables List
+        const payablesTool = aiResponse.executedTools?.find(
+          (t) => t.name === 'get_payables_report' || t.result?.reportType === 'payables'
+        );
+        let payablesData = payablesTool?.result?.suppliers ? {
+          totalPayables: payablesTool.result.totalPayables,
+          suppliers: payablesTool.result.suppliers,
+        } : null;
+
+        // 11. Returns Report
+        const returnsTool = aiResponse.executedTools?.find(
+          (t) => t.name.includes('returns') || t.result?.reportType?.includes('returns')
+        );
+        let returnsData = returnsTool?.result?.returns ? {
+          type: (returnsTool.result.reportType === 'purchase_returns' || returnsTool.name.includes('purchase')) ? ('purchase' as const) : ('sale' as const),
+          returns: returnsTool.result.returns,
+          totalAmount: returnsTool.result.totalAmount,
+        } : null;
+
+        // 12. Salesman vs Customer Profit
+        const smCustProfitTool = aiResponse.executedTools?.find(
+          (t) => t.name === 'get_salesman_customer_profit' || t.result?.reportType === 'salesman_customer_profit'
+        );
+        let salesmanCustomerProfitData = smCustProfitTool?.result?.summary ? {
+          salesmanName: smCustProfitTool.result.salesmanName,
+          customerName: smCustProfitTool.result.customerName,
+          summary: smCustProfitTool.result.summary,
+          bills: smCustProfitTool.result.bills || [],
+        } : null;
+
         const reportTab = (!purchaseReportData && !saleReportData && !profitReportData && !stockHistoryData) ? reportTool?.result?.tab : undefined;
 
         setChatLog((prev) => [
@@ -700,6 +790,12 @@ Please process this into the database (create inventory, record order, or expens
             saleReportData,
             profitReportData,
             stockHistoryData,
+            customerLedgerData,
+            supplierLedgerData,
+            receivablesData,
+            payablesData,
+            returnsData,
+            salesmanCustomerProfitData,
             reportTab,
           },
         ]);
@@ -1188,6 +1284,68 @@ Please process this into the database (create inventory, record order, or expens
                           </tbody>
                         </table>
                       </div>
+                    </div>
+                  )}
+
+                  {/* 7. Customer Khata Ledger Statement */}
+                  {msg.customerLedgerData && msg.customerLedgerData.ledger && (
+                    <div className="mt-3.5">
+                      <CustomerLedgerWidget
+                        ledger={msg.customerLedgerData.ledger}
+                        whatsappText={msg.customerLedgerData.whatsappText}
+                        onOpenSaleBill={(b) => setSelectedBillForReceiptModal(b)}
+                      />
+                    </div>
+                  )}
+
+                  {/* 8. Supplier Khata Ledger Statement */}
+                  {msg.supplierLedgerData && msg.supplierLedgerData.ledger && (
+                    <div className="mt-3.5">
+                      <SupplierLedgerWidget ledger={msg.supplierLedgerData.ledger} />
+                    </div>
+                  )}
+
+                  {/* 9. Receivables List */}
+                  {msg.receivablesData && msg.receivablesData.customers && (
+                    <div className="mt-3.5">
+                      <ReceivablesTableWidget
+                        customers={msg.receivablesData.customers}
+                        totalReceivables={msg.receivablesData.totalReceivables}
+                      />
+                    </div>
+                  )}
+
+                  {/* 10. Payables List */}
+                  {msg.payablesData && msg.payablesData.suppliers && (
+                    <div className="mt-3.5">
+                      <PayablesTableWidget
+                        suppliers={msg.payablesData.suppliers}
+                        totalPayables={msg.payablesData.totalPayables}
+                      />
+                    </div>
+                  )}
+
+                  {/* 11. Returns Report */}
+                  {msg.returnsData && msg.returnsData.returns && (
+                    <div className="mt-3.5">
+                      <ReturnsTableWidget
+                        type={msg.returnsData.type}
+                        returns={msg.returnsData.returns}
+                        totalAmount={msg.returnsData.totalAmount}
+                      />
+                    </div>
+                  )}
+
+                  {/* 12. Salesman vs Customer Profit */}
+                  {msg.salesmanCustomerProfitData && msg.salesmanCustomerProfitData.summary && (
+                    <div className="mt-3.5">
+                      <SalesmanCustomerProfitWidget
+                        salesmanName={msg.salesmanCustomerProfitData.salesmanName}
+                        customerName={msg.salesmanCustomerProfitData.customerName}
+                        summary={msg.salesmanCustomerProfitData.summary}
+                        bills={msg.salesmanCustomerProfitData.bills}
+                        onOpenSaleBill={(b) => setSelectedBillForReceiptModal(b)}
+                      />
                     </div>
                   )}
 

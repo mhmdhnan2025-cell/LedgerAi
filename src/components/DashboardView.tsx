@@ -148,6 +148,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Smart Business Alerts */}
+      <div className="print:hidden">
       <SmartAlertsBanner
         alerts={alerts}
         onActionClick={(alert) => {
@@ -158,6 +159,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         }}
         onDismiss={onDismissAlert}
       />
+      </div>
 
       {/* Quick Action Dock */}
       <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 shadow-sm">

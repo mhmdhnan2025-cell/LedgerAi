@@ -657,11 +657,13 @@ export default function App() {
         )}
 
         {/* Real-time Business Alerts Bar */}
-        <SmartAlertsBanner
-          alerts={alerts}
-          onActionClick={handleAlertAction}
-          onDismissAlert={(id) => setAlerts(alerts.filter((a) => a.id !== id))}
-        />
+        <div className="print:hidden">
+          <SmartAlertsBanner
+            alerts={alerts}
+            onActionClick={handleAlertAction}
+            onDismissAlert={(id) => setAlerts(alerts.filter((a) => a.id !== id))}
+          />
+        </div>
 
         {/* Global Error Banner */}
         {error && (

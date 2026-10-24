@@ -806,7 +806,11 @@ export const api = {
     const timeoutId = setTimeout(() => controller.abort(), 28000);
 
     const vaultKey = (typeof window !== 'undefined' ? localStorage.getItem('gemini_api_key_vault') : null) || '';
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const currentCompanyId = authStorage.getCompanyId() || 'comp-muocj00t-j3co';
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'x-company-id': currentCompanyId,
+    };
     if (vaultKey && vaultKey.trim().length > 10) {
       headers['x-gemini-key'] = vaultKey.trim();
     }
@@ -818,6 +822,7 @@ export const api = {
         signal: controller.signal,
         body: JSON.stringify({
           messages,
+          companyId: currentCompanyId,
           ...userContext,
         }),
       });

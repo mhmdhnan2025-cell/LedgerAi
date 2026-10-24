@@ -35,6 +35,7 @@ import {
   requireAuth,
   requireRole,
   tenantContextMiddleware,
+  tenantStorage,
   checkRateLimit,
   resetRateLimit,
 } from './server/auth';
@@ -2185,19 +2186,33 @@ app.get('/api/search', (req, res) => {
 // -------------------------------------------------------------
 app.post('/api/ai/chat', async (req, res) => {
   try {
-    const { messages, userRole, userName, userId, source } = req.body;
+    const { messages, userRole, userName, userId, source, companyId: bodyCompanyId } = req.body;
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ error: 'Messages array is required.' });
     }
 
-    const result = await processAiChat(messages, {
-      userRole,
-      userName,
-      userId,
-      source: source || 'ai_chat',
-    });
+    const effectiveCompanyId =
+      req.companyId ||
+      bodyCompanyId ||
+      (req.headers['x-company-id'] as string) ||
+      (req.headers['company-id'] as string) ||
+      (req.user && req.user.companyId) ||
+      'comp-muocj00t-j3co';
 
-    res.json(result);
+    await tenantStorage.run(
+      { companyId: effectiveCompanyId, userId, role: userRole, username: userName },
+      async () => {
+        const result = await processAiChat(messages, {
+          userRole,
+          userName,
+          userId,
+          companyId: effectiveCompanyId,
+          source: source || 'ai_chat',
+        });
+
+        res.json(result);
+      }
+    );
   } catch (err: any) {
     res.json({
       reply: 'Assalam-o-Alaikum! Main aap ka AI Munshi hoon. System local mode me active hai. Aap kisi bhi restaurant ka order, payment ya stock hisaab seedha likh sakte hain.',

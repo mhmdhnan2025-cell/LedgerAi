@@ -826,25 +826,451 @@ async function localRuleBasedFallback(
     }
   }
 
-  // 0b. CHECK FOR THE 5 SPECIFIC ERP REPORTS
-  // 1. Purchase Report
-  // 2. Sale Report
-  // 3. Profit Intelligence
-  // 4. Stock Movement History
-  // 5. Master Business Audit Report
-  const isPurchaseReport =
-    (/\b(purchase|purchases|khareed|khareedari)\b/i.test(text) && /\b(report|details|hisaab|khata)\b/i.test(text)) ||
-    text.includes('purchase report') ||
-    text.includes('khareed report') ||
-    text.includes('purchasing report') ||
-    text.includes('sari purchase');
+  // =========================================================================
+  // 0b. COMPREHENSIVE AI MUNSHI REPORTING SUITE (100% Deterministic & Real Data)
+  // =========================================================================
+  const allCustomers = db.getCustomers();
+  const allSuppliers = db.getSuppliers();
+  const allEmployees = db.getEmployees();
+  const allSaleBills = db.getSaleBills();
+  const allPurchaseBills = db.getPurchaseBills();
+  const allSaleReturns = db.getSaleReturns();
+  const allPurchaseReturns = db.getPurchaseReturns();
 
-  const isSaleReport =
-    (/\b(sale|sales|farokht|becha|bikri)\b/i.test(text) && /\b(report|details|hisaab|khata)\b/i.test(text)) ||
-    text.includes('sale report') ||
-    text.includes('sales report') ||
-    text.includes('sari sale');
+  // Helper: Find matched customer from text
+  const findCustomerInText = (str: string) => {
+    return allCustomers.find((c) => {
+      const name = (c.name || c.accountTitle || '').toLowerCase().trim();
+      const code = (c.code || c.accountCode || '').toLowerCase().trim();
+      return (code && str.includes(code)) || (name.length >= 3 && str.includes(name));
+    });
+  };
 
+  // Helper: Find matched supplier from text
+  const findSupplierInText = (str: string) => {
+    return allSuppliers.find((s) => {
+      const name = (s.name || s.accountTitle || '').toLowerCase().trim();
+      const code = (s.code || (s as any).accountCode || '').toLowerCase().trim();
+      return (code && str.includes(code)) || (name.length >= 3 && str.includes(name));
+    });
+  };
+
+  // Helper: Find matched salesman from text
+  const KNOWN_SALESMEN = [
+    'akbar bhai', 'akbar', 'aman deep', 'aman', 'ashiq ali', 'ashiq',
+    'hafiz abdul qadeer', 'hafiz', 'qamar abbas', 'qamar', 'subhan',
+    'sultan mir', 'sultan', 'vikas pushpa', 'vikas', 'zahrat al fajr'
+  ];
+  const findSalesmanInText = (str: string) => {
+    for (const sm of KNOWN_SALESMEN) {
+      if (str.includes(sm)) {
+        const found = allEmployees.find((e) => ((e as any).fullName || (e as any).accountTitle || (e as any).name || '').toLowerCase().includes(sm));
+        return found ? ((found as any).fullName || (found as any).accountTitle || (found as any).name || sm) : sm.split(' ').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      }
+    }
+    return null;
+  };
+
+  // 1. SALESMAN ON SPECIFIC CUSTOMER PROFIT ANALYSIS
+  // e.g. "Akbar Bhai ny Spicy point pr kitni profit banai", "salesman akbar on customer spicy point profit"
+  const matchedSalesman = findSalesmanInText(text);
+  const matchedCustomerForSalesman = findCustomerInText(text);
+  const isProfitKeyword = /\b(profit|munafa|margin|kamai|banai|bachat)\b/i.test(text);
+
+  if (matchedSalesman && (matchedCustomerForSalesman || (text.includes('customer') && matchedCustomerForSalesman)) && isProfitKeyword) {
+    const custName = matchedCustomerForSalesman ? (matchedCustomerForSalesman.name || matchedCustomerForSalesman.accountTitle) : 'Customer';
+    const compProfit = db.getComprehensiveProfitReport();
+    const allBills = compProfit.perBill || [];
+    const smLower = matchedSalesman.toLowerCase();
+    const custLower = custName.toLowerCase();
+
+    const matchedBills = allBills.filter((b) => {
+      const rawSM = ((b as any).rawBill?.salesmanName || b.salesmanName || '').toLowerCase();
+      const rawCust = (b.customerAccountTitle || '').toLowerCase();
+      return (rawSM.includes(smLower) || smLower.includes(rawSM)) && (rawCust.includes(custLower) || custLower.includes(rawCust));
+    });
+
+    const totalSales = matchedBills.reduce((s, b) => s + Number((b as any).totalAmount || b.netTotal || 0), 0);
+    const totalCost = matchedBills.reduce((s, b) => s + Number(b.costOfGoods || 0), 0);
+    const totalProfit = matchedBills.reduce((s, b) => s + Number(b.grossProfit || 0), 0);
+    const marginPct = totalSales > 0 ? Number(((totalProfit / totalSales) * 100).toFixed(1)) : 0;
+
+    return {
+      reply: `💼 **Salesman vs Customer Profit Analysis**\n\n` +
+        `• 👤 Salesman: **${matchedSalesman}**\n` +
+        `• 🏢 Customer: **${custName}**\n` +
+        `• 📄 Total Bills: **${matchedBills.length} Bills**\n` +
+        `• 💵 Total Sales Turnover: **${currencySymbol()} ${totalSales.toLocaleString()}**\n` +
+        `• 📦 Khareed Laagat (Cost of Goods): **${currencySymbol()} ${totalCost.toLocaleString()}**\n` +
+        `• 📈 **Gross Profit (خام منافع): ${currencySymbol()} ${totalProfit.toLocaleString()}**\n` +
+        `• 📊 Profit Margin: **${marginPct}%**\n\n` +
+        `Neechay is salesman k is customer par tamam bills aur profit ka card display kiya gaya hai:`,
+      executedTools: [{
+        name: 'get_salesman_customer_profit',
+        args: { salesmanName: matchedSalesman, customerName: custName },
+        result: {
+          success: true,
+          reportType: 'salesman_customer_profit',
+          title: `Salesman ${matchedSalesman} on ${custName} Profit`,
+          salesmanName: matchedSalesman,
+          customerName: custName,
+          summary: {
+            billsCount: matchedBills.length,
+            totalSalesVolume: totalSales,
+            totalCostOfGoods: totalCost,
+            totalProfit,
+            profitMarginPct: marginPct,
+          },
+          bills: matchedBills.map((b) => (b as any).rawBill).filter(Boolean),
+        },
+      }],
+    };
+  }
+
+  // 2. SHAREABLE CUSTOMER LEDGER & BALANCE STATEMENT
+  // e.g. "Spicy point ka kitna balance hai", "Spicy point ka ledger do taa k customer ko send kr sku"
+  const isLedgerQuery = /\b(ledger|khata|statement|balance|baqi|hisaab)\b/i.test(text);
+  const matchedCustomerForLedger = findCustomerInText(text);
+
+  if (matchedCustomerForLedger && isLedgerQuery && !text.includes('profit') && !text.includes('munafa')) {
+    const custName = matchedCustomerForLedger.name || matchedCustomerForLedger.accountTitle;
+    const ledger = db.getCustomerLedgerReport(matchedCustomerForLedger.id);
+    const closingBal = Number(ledger.closingBalance || 0);
+    const isDebit = closingBal >= 0;
+
+    const whatsappText =
+      `*STATEMENT OF ACCOUNT / کھاتہ اسٹیٹمنٹ*\n` +
+      `👤 *Customer:* ${ledger.customerName || custName}\n` +
+      `🏷️ *Code:* ${(ledger as any).accountCode || '-'}\n` +
+      `📞 *Mobile:* ${ledger.phone || '-'}\n` +
+      `📅 *Date:* ${new Date().toLocaleDateString('en-GB')}\n` +
+      `----------------------------------------\n` +
+      `• Opening Balance: ${currencySymbol()} ${Number(ledger.openingBalance || 0).toLocaleString()}\n` +
+      `• Total Debits (Sales): ${currencySymbol()} ${Number(ledger.totalDebit || 0).toLocaleString()}\n` +
+      `• Total Credits (Receipts): ${currencySymbol()} ${Number(ledger.totalCredit || 0).toLocaleString()}\n` +
+      `• *NET OUTSTANDING BALANCE: ${currencySymbol()} ${Math.abs(closingBal).toLocaleString()} ${isDebit ? 'DR (واجب الادا)' : 'CR (ایڈوانس)'}*\n` +
+      `----------------------------------------\n` +
+      `Baraye meherbani apna khata check farmayein. Shukriya!`;
+
+    return {
+      reply: `📒 **Customer Khata Ledger Statement — ${custName}**\n\n` +
+        `• 👤 Customer: **${custName}** [Code: ${(ledger as any).accountCode || '-'}]\n` +
+        `• 📞 Phone: **${ledger.phone || '-'}**\n` +
+        `• 📍 Location: **${ledger.address || (ledger as any).city || 'Sharjah / UAE'}**\n` +
+        `• 💵 Opening Balance: ${currencySymbol()} ${Number(ledger.openingBalance || 0).toLocaleString()}\n` +
+        `• 📤 Total Billed Sales: ${currencySymbol()} ${Number(ledger.totalDebit || 0).toLocaleString()}\n` +
+        `• 📥 Total Cash Recovered: ${currencySymbol()} ${Number(ledger.totalCredit || 0).toLocaleString()}\n` +
+        `• **صاف بقایا (NET OUTSTANDING DUE): ${currencySymbol()} ${Math.abs(closingBal).toLocaleString()} ${isDebit ? 'DR (واجب الادا)' : 'CR'}**\n\n` +
+        `Neechay mukammal scrollable ledger table di gayi hai. Aap **"Send WhatsApp"** par click kar k seedha customer ko statement bhej sakty hain ya print nikal sakty hain:`,
+      executedTools: [{
+        name: 'get_customer_ledger_report',
+        args: { customerNameOrId: custName },
+        result: {
+          success: true,
+          reportType: 'customerLedger',
+          title: `Customer Khata Ledger - ${custName}`,
+          ledgerData: ledger,
+          whatsappText,
+        },
+      }],
+    };
+  }
+
+  // 3. SPECIFIC CUSTOMER SALE BILL VOUCHER SEARCH
+  // e.g. "Spicy point ka bill do", "bill # 1004"
+  const isBillKeyword = /\b(bill|invoice|voucher|parchi)\b/i.test(text);
+  const matchedCustomerForBill = findCustomerInText(text);
+
+  if (matchedCustomerForBill && isBillKeyword && !text.includes('profit') && !text.includes('munafa') && !text.includes('ledger')) {
+    const custName = matchedCustomerForBill.name || matchedCustomerForBill.accountTitle;
+    const custBills = allSaleBills.filter((b) => {
+      const bCust = (b.customerAccountTitle || b.customerName || '').toLowerCase();
+      return bCust.includes(custName.toLowerCase()) || custName.toLowerCase().includes(bCust);
+    });
+
+    const primaryBill = custBills[0] || allSaleBills.find((b) => b.customerId === matchedCustomerForBill.id);
+
+    if (primaryBill) {
+      return {
+        reply: `📄 **Sale Bill Voucher — ${custName} (${custBills.length || 1} Bills Found)**\n\n` +
+          `• 🏢 Customer: **${primaryBill.customerAccountTitle || custName}**\n` +
+          `• 🧾 Bill #: **${primaryBill.billNumber}**\n` +
+          `• 📅 Date: **${primaryBill.date}**\n` +
+          `• 👤 Salesman: **${primaryBill.salesmanName || '-'}**\n` +
+          `• 💵 Net Total: **${currencySymbol()} ${(primaryBill.netTotal || 0).toLocaleString()}**\n` +
+          `• **Balance Due (بقایا): ${currencySymbol()} ${(primaryBill.balanceReceivable || 0).toLocaleString()}**\n\n` +
+          `Neechay is bill ka verified voucher display ho gaya hai. Aap **"View & Print Bill"** par click kar k mukammal printable Tax Invoice slip dekh sakty hain:`,
+        executedTools: [{
+          name: 'get_customer_sale_bill_report',
+          args: { customerNameOrBillNumber: custName },
+          result: {
+            success: true,
+            isSpecific: true,
+            reportType: 'sales',
+            customerName: custName,
+            bill: primaryBill,
+            bills: custBills,
+          },
+        }],
+      };
+    }
+  }
+
+  // 4. SHAREABLE SUPPLIER LEDGER & BALANCE STATEMENT
+  // e.g. "AL Madina Foodstuff ka ledger", "supplier ka kitna payable hai"
+  const matchedSupplierForLedger = findSupplierInText(text);
+  if (matchedSupplierForLedger && isLedgerQuery && !text.includes('profit') && !text.includes('munafa')) {
+    const suppName = matchedSupplierForLedger.name || matchedSupplierForLedger.accountTitle;
+    const ledger = db.getSupplierLedgerReport(matchedSupplierForLedger.id);
+    const closingBal = Number(ledger.closingBalance || 0);
+
+    return {
+      reply: `📒 **Supplier Khata Statement — ${suppName}**\n\n` +
+        `• 🏢 Supplier: **${suppName}** [Code: ${(ledger as any).accountCode || '-'}]\n` +
+        `• 📞 Phone: **${ledger.phone || '-'}**\n` +
+        `• Opening Balance: ${currencySymbol()} ${Number(ledger.openingBalance || 0).toLocaleString()}\n` +
+        `• Total Purchases: ${currencySymbol()} ${Number(ledger.totalDebit || 0).toLocaleString()}\n` +
+        `• Total Paid: ${currencySymbol()} ${Number(ledger.totalCredit || 0).toLocaleString()}\n` +
+        `• **سپلائر بقایا (PAYABLE DUE): ${currencySymbol()} ${Math.abs(closingBal).toLocaleString()}**\n\n` +
+        `Neechay supplier khata ledger statement display ho gaya hai:`,
+      executedTools: [{
+        name: 'get_supplier_ledger_report',
+        args: { supplierNameOrId: suppName },
+        result: {
+          success: true,
+          reportType: 'supplierLedger',
+          title: `Supplier Khata Ledger - ${suppName}`,
+          ledgerData: ledger,
+        },
+      }],
+    };
+  }
+
+  // 5. SPECIFIC SUPPLIER PURCHASE INVOICE VOUCHER
+  const matchedSupplierForInvoice = findSupplierInText(text);
+  if (matchedSupplierForInvoice && (text.includes('purchase bill') || text.includes('purchase invoice') || text.includes('khareed bill') || text.includes('khareed invoice') || text.includes('voucher'))) {
+    const suppName = matchedSupplierForInvoice.name || matchedSupplierForInvoice.accountTitle;
+    const suppBills = allPurchaseBills.filter((b) => {
+      const sTitle = (b.supplierAccountTitle || (b as any).supplierName || '').toLowerCase();
+      return sTitle.includes(suppName.toLowerCase()) || suppName.toLowerCase().includes(sTitle);
+    });
+
+    const primaryPB = suppBills[0];
+    if (primaryPB) {
+      return {
+        reply: `📥 **Purchase Bill Voucher — ${suppName}**\n\n` +
+          `• 🏢 Supplier: **${primaryPB.supplierAccountTitle || suppName}**\n` +
+          `• 🧾 Purchase Bill #: **${primaryPB.billNumber}**\n` +
+          `• 📅 Date: **${primaryPB.date}**\n` +
+          `• 💵 Net Total: **${currencySymbol()} ${(primaryPB.netTotal || 0).toLocaleString()}**\n` +
+          `• 💳 Paid Amount: ${currencySymbol()} ${(primaryPB.paidAmount || 0).toLocaleString()}\n` +
+          `• **Payable Due: ${currencySymbol()} ${(primaryPB.remainingBalance || 0).toLocaleString()}**\n\n` +
+          `Neechay verified purchase voucher di gayi hai. Aap **"View & Print Voucher"** par click kar k purchase invoice open kar sakty hain:`,
+        executedTools: [{
+          name: 'get_purchase_report',
+          args: { supplierId: matchedSupplierForInvoice.id },
+          result: {
+            success: true,
+            reportType: 'purchases',
+            supplierName: suppName,
+            purchaseBill: primaryPB,
+            bills: suppBills,
+          },
+        }],
+      };
+    }
+  }
+
+  // 6. CUSTOMER RECEIVABLES LIST (MARKET UDHAAR LIST)
+  // e.g. "receivables list do", "customer udhaar list", "market udhaar report", "recivables list"
+  const isReceivablesQuery =
+    text.includes('receivable') ||
+    text.includes('recivable') ||
+    text.includes('udhaar list') ||
+    text.includes('market udhaar') ||
+    text.includes('customer udhaar') ||
+    text.includes('gahakon ka baqi') ||
+    text.includes('udhar report') ||
+    text.includes('receivables report');
+
+  if (isReceivablesQuery) {
+    const debtorList = allCustomers.filter(
+      (c) => Number(c.outstandingBalance || (c as any).currentBalance || (c as any).balance || 0) > 0
+    ).sort(
+      (a, b) => Number(b.outstandingBalance || (b as any).currentBalance || 0) - Number(a.outstandingBalance || (a as any).currentBalance || 0)
+    );
+
+    const totalReceivables = debtorList.reduce(
+      (s, c) => s + Number(c.outstandingBalance || (c as any).currentBalance || (c as any).balance || 0),
+      0
+    );
+
+    return {
+      reply: `💰 **Customer Receivables List (مارکیٹ ادھار رپورٹ)**\n\n` +
+        `• Total Udhaar Customers: **${debtorList.length} Customers**\n` +
+        `• **Kul Market Udhaar (صاف ریکوری): ${currencySymbol()} ${totalReceivables.toLocaleString()}**\n\n` +
+        `Neechay tamam gahakon ki tafseeli list baqaya raqam aur credit limit k sath di gayi hai:`,
+      executedTools: [{
+        name: 'get_receivables_report',
+        args: {},
+        result: {
+          success: true,
+          reportType: 'receivables',
+          title: 'Customer Receivables List (مارکیٹ ادھار کھاتہ)',
+          totalReceivables,
+          customers: debtorList,
+        },
+      }],
+    };
+  }
+
+  // 7. SUPPLIER PAYABLES LIST
+  // e.g. "supplier payable ka puchu to wo report dy dy", "payables list", "suppliers ka baqi"
+  const isPayablesQuery =
+    text.includes('payable') ||
+    text.includes('payables list') ||
+    text.includes('supplier payable') ||
+    text.includes('suppliers ka baqi') ||
+    text.includes('supplier dues') ||
+    text.includes('payables report');
+
+  if (isPayablesQuery) {
+    const creditorList = allSuppliers.filter(
+      (s) => Number((s as any).payableBalance || (s as any).remainingBalance || (s as any).balance || s.openingBalance || 0) > 0
+    ).sort(
+      (a, b) => Number((b as any).payableBalance || (b as any).remainingBalance || 0) - Number((a as any).payableBalance || (a as any).remainingBalance || 0)
+    );
+
+    const totalPayables = creditorList.reduce(
+      (s, sObj) => s + Number((sObj as any).payableBalance || (sObj as any).remainingBalance || (sObj as any).balance || sObj.openingBalance || 0),
+      0
+    );
+
+    return {
+      reply: `💳 **Supplier Payables List (سپلائرز کے واجبات)**\n\n` +
+        `• Total Creditor Suppliers: **${creditorList.length} Suppliers**\n` +
+        `• **Kul Supplier Payables Due: ${currencySymbol()} ${totalPayables.toLocaleString()}**\n\n` +
+        `Neechay tamam suppliers ki list aur un k واجب الادا بقایا جات di gayi hain:`,
+      executedTools: [{
+        name: 'get_payables_report',
+        args: {},
+        result: {
+          success: true,
+          reportType: 'payables',
+          title: 'Supplier Payables List (سپلائرز کے واجبات)',
+          totalPayables,
+          suppliers: creditorList,
+        },
+      }],
+    };
+  }
+
+  // 8. SALES RETURNS REPORT
+  // e.g. "sales return ka puchu to un ki reports aye bs", "sales wapsi"
+  const isSalesReturnQuery =
+    text.includes('sale return') ||
+    text.includes('sales return') ||
+    text.includes('sales wapsi') ||
+    text.includes('sale wapsi') ||
+    text.includes('gahak wapsi');
+
+  if (isSalesReturnQuery) {
+    const totalAmount = allSaleReturns.reduce((s, r) => s + Number((r as any).netAmount || r.netTotal || r.totalAmount || 0), 0);
+    return {
+      reply: `🔄 **Sales Returns Report (گاہک مال واپسی ریکارڈ)**\n\n` +
+        `• Total Sales Return Invoices: **${allSaleReturns.length}**\n` +
+        `• **Kul Refunded / Return Value: ${currencySymbol()} ${totalAmount.toLocaleString()}**\n\n` +
+        `Neechay gahak mal wapsi ki mukammal tafseel di gayi hai:`,
+      executedTools: [{
+        name: 'get_sales_returns_report',
+        args: {},
+        result: {
+          success: true,
+          reportType: 'sales_returns',
+          title: 'Sales Returns Report (گاہک مال واپسی)',
+          totalAmount,
+          returns: allSaleReturns,
+        },
+      }],
+    };
+  }
+
+  // 9. PURCHASE RETURNS REPORT
+  // e.g. "purchases retrun k puchu to wo reports aye", "khareed wapsi"
+  const isPurchaseReturnQuery =
+    text.includes('purchase return') ||
+    text.includes('purchases return') ||
+    text.includes('khareed wapsi') ||
+    text.includes('supplier wapsi');
+
+  if (isPurchaseReturnQuery) {
+    const totalAmount = allPurchaseReturns.reduce((s, r) => s + Number((r as any).netAmount || r.netTotal || r.totalAmount || 0), 0);
+    return {
+      reply: `🔄 **Purchase Returns Report (سپلائر خریداری واپسی ریکارڈ)**\n\n` +
+        `• Total Purchase Return Invoices: **${allPurchaseReturns.length}**\n` +
+        `• **Kul Recovered Value: ${currencySymbol()} ${totalAmount.toLocaleString()}**\n\n` +
+        `Neechay supplier khareed wapsi ki mukammal tafseel di gayi hai:`,
+      executedTools: [{
+        name: 'get_purchase_returns_report',
+        args: {},
+        result: {
+          success: true,
+          reportType: 'purchase_returns',
+          title: 'Purchase Returns Report (سپلائر خریداری واپسی)',
+          totalAmount,
+          returns: allPurchaseReturns,
+        },
+      }],
+    };
+  }
+
+  // 10. SPECIFIC PRODUCT PROFIT (ITEM FILTERED)
+  // e.g. "Zeera ki profit report", "item [X] ka profit", "Zeera Whole profit"
+  const matchedProductForProfit = products.find((p) => {
+    const pName = (p.name || '').toLowerCase();
+    return pName.length >= 3 && text.includes(pName);
+  });
+
+  if (matchedProductForProfit && isProfitKeyword) {
+    const compProfit = db.getComprehensiveProfitReport();
+    const pName = matchedProductForProfit.name;
+    const pLower = pName.toLowerCase();
+    const matchedItemProfit = (compProfit.perItem || []).find((it) => {
+      const itName = (it.itemTitle || '').toLowerCase();
+      return itName.includes(pLower) || pLower.includes(itName);
+    });
+
+    if (matchedItemProfit) {
+      return {
+        reply: `📦 **Product Profit Intelligence — ${pName}**\n\n` +
+          `• Item Title: **${matchedItemProfit.itemTitle}**\n` +
+          `• Units Sold: **${matchedItemProfit.qtySold}** (${matchedItemProfit.ctnSold || 0} CTN)\n` +
+          `• Sales Turnover: **${currencySymbol()} ${matchedItemProfit.totalRevenue.toLocaleString()}**\n` +
+          `• Khareed Laagat (COGS): **${currencySymbol()} ${matchedItemProfit.totalCostOfGoods.toLocaleString()}**\n` +
+          `• Total VAT Collected: **${currencySymbol()} ${(matchedItemProfit.totalVatAmount || (matchedItemProfit as any).totalVatCollected || 0).toLocaleString()}**\n` +
+          `• **Gross Profit (منافع): ${currencySymbol()} ${matchedItemProfit.grossProfit.toLocaleString()}**\n` +
+          `• Profit Margin: **${matchedItemProfit.profitMarginPct.toFixed(1)}%**\n\n` +
+          `Neechay is product ki rate-tier aur VAT breakdown table di gayi hai:`,
+        executedTools: [{
+          name: 'get_profit_report',
+          args: { tab: 'perItem', search: pName },
+          result: {
+            success: true,
+            reportType: 'profit',
+            title: `Profit Report - ${pName}`,
+            summary: compProfit.summary,
+            profitData: {
+              ...compProfit,
+              perItem: [matchedItemProfit],
+            },
+            initialTab: 'perItem',
+          },
+        }],
+      };
+    }
+  }
+
+  // 11. GENERAL PROFIT INTELLIGENCE (Per Salesman, Per Bill, Per Restaurant, Per Item)
   const isProfitReport =
     (/\b(profit|munafa|margin|gain|loss|intelligence)\b/i.test(text) && /\b(report|details|batao|hisaab|per|har)\b/i.test(text)) ||
     text.includes('profit intelligence') ||
@@ -853,92 +1279,19 @@ async function localRuleBasedFallback(
     text.includes('profit per item') ||
     text.includes('profit per bill') ||
     text.includes('profit per salesman') ||
+    text.includes('profit by salesman') ||
     text.includes('profit per restaurant') ||
     text.includes('profit per customer') ||
     text.includes('item profit') ||
     text.includes('bill profit') ||
     text.includes('salesman profit');
 
-  const isStockHistoryReport =
-    (/\b(stock|inventory|movement|ledger|inflow|outflow)\b/i.test(text) && /\b(history|ledger|report|hisaab|khata|details|management)\b/i.test(text)) ||
-    text.includes('stock movement') ||
-    text.includes('stock history') ||
-    text.includes('stock ledger') ||
-    text.includes('stock khata') ||
-    text.includes('stock management') ||
-    text.includes('inventory history');
-
-  const isMasterAuditReport =
-    (/\b(master|audit|business|overall|tamam|mukammal)\b/i.test(text) && /\b(report|audit|hisaab|file)\b/i.test(text)) ||
-    text.includes('master audit') ||
-    text.includes('business audit') ||
-    text.includes('audit report');
-
-  const isGeneralReportIntent =
-    text.includes('report') ||
-    text.includes('doc') ||
-    text.includes('word file') ||
-    text.includes('reports') ||
-    text.includes('tamam reports') ||
-    text.includes('sari reports');
-
-  if (isPurchaseReport) {
-    const suppliers = db.getSuppliers();
-    let matchedSupplier = suppliers.find((s) => {
-      const title = (s.accountTitle || s.name || s.title || '').toLowerCase().trim();
-      return title.length > 2 && text.includes(title);
-    });
-
-    const pRep = db.getPurchaseReport(matchedSupplier ? { supplierId: matchedSupplier.id } : undefined);
-    return {
-      reply: `✨ **AI Munshi Multi-Supplier Purchase Report & Invoices**${matchedSupplier ? ` — Supplier: **${matchedSupplier.accountTitle || matchedSupplier.name}**` : ''}\n\n` +
-        `Aap ke store ki mukammal purchasing summary aur verified supplier vouchers generate ho chukay hain. Neechay interactive AI dashboard mein tamam suppliers ki list, kul khareed, paid raqam, aur remaining payables live calculation k sath dekhain. Kisi bhi bill ki item-wise invoice dekhnay k liye **Details** par click karein ya voucher print karein:`,
-      executedTools: [{
-        name: 'get_purchase_report',
-        args: matchedSupplier ? { supplierId: matchedSupplier.id } : {},
-        result: {
-          success: true,
-          reportType: 'purchases',
-          title: `Purchase Report (خریداری رپورٹ)${matchedSupplier ? ` - ${matchedSupplier.accountTitle || matchedSupplier.name}` : ''}`,
-          summary: pRep,
-          bills: pRep.bills,
-        },
-      }],
-    };
-  }
-
-  if (isSaleReport) {
-    const sRep = db.getSaleReport();
-    return {
-      reply: `💰 **Sale Report (سیل / فروخت رپورٹ)**\n\n` +
-        `• Kul Sale Bills: **${sRep.totalBillsCount} Bills**\n` +
-        `• Kul Cartons Sold: **${sRep.totalCtn} CTN** (${sRep.totalQty} Units)\n` +
-        `• Gross Sales: ${currencySymbol()} ${(sRep.totalGrossAmount || 0).toLocaleString()}\n` +
-        `• Discount Diya: ${currencySymbol()} ${(sRep.totalDiscount || 0).toLocaleString()}\n` +
-        `• **Net Sales Turnover: ${currencySymbol()} ${(sRep.totalNetSales || 0).toLocaleString()}**\n` +
-        `• Cash Wasool Hua: ${currencySymbol()} ${(sRep.totalCashReceived || 0).toLocaleString()}\n` +
-        `• **Market Udhaar (Receivable): ${currencySymbol()} ${(sRep.totalBalanceReceivable || 0).toLocaleString()}**\n\n` +
-        `Yeh rahi aapki mukammal Sale Report table. Kisi bhi bill par click kar k aap Tax Invoice dekh aur print kar sakty hain:`,
-      executedTools: [{
-        name: 'get_sale_report',
-        args: {},
-        result: {
-          success: true,
-          reportType: 'sales',
-          title: 'Sale Report (سیل رپورٹ)',
-          summary: sRep,
-          bills: sRep.bills,
-        },
-      }],
-    };
-  }
-
   if (isProfitReport) {
     const profRep = db.getComprehensiveProfitReport();
     const sum = profRep.summary;
 
     let initialTab: 'perItem' | 'perBill' | 'perRestaurant' | 'perSalesman' = 'perItem';
-    if (text.includes('salesman') || text.includes('seller') || text.includes('rider') || text.includes('sales man')) {
+    if (text.includes('salesman') || text.includes('seller') || text.includes('rider') || text.includes('sales man') || text.includes('saleman')) {
       initialTab = 'perSalesman';
     } else if (text.includes('per bill') || text.includes('bill profit') || text.includes('har bill') || text.includes('bill wise') || text.includes('billwise') || text.includes('invoice profit') || text.includes('ivoice')) {
       initialTab = 'perBill';
@@ -946,6 +1299,19 @@ async function localRuleBasedFallback(
       initialTab = 'perRestaurant';
     } else if (text.includes('per item') || text.includes('item wise') || text.includes('itemwise') || text.includes('har item') || text.includes('product profit') || text.includes('cheez')) {
       initialTab = 'perItem';
+    }
+
+    let tabDetailText = '';
+    if (initialTab === 'perSalesman') {
+      const salesmen = profRep.perSalesman || [];
+      tabDetailText = salesmen.map((s) =>
+        `• **${s.salesmanName}**: Bills: ${s.billsCount} | Sales: ${currencySymbol()} ${s.totalSalesVolume.toLocaleString()} | Profit: ${currencySymbol()} ${s.totalProfit.toLocaleString()} (Margin: ${s.profitMarginPct.toFixed(1)}%)`
+      ).join('\n');
+    } else if (initialTab === 'perRestaurant') {
+      const rests = (profRep.perRestaurant || []).slice(0, 10);
+      tabDetailText = rests.map((r) =>
+        `• **${r.accountTitle}**: Sales: ${currencySymbol()} ${r.totalSalesVolume.toLocaleString()} | Profit: ${currencySymbol()} ${r.grossProfit.toLocaleString()} | Udhaar: ${currencySymbol()} ${(r.outstandingBalance || 0).toLocaleString()}`
+      ).join('\n');
     }
 
     return {
@@ -956,6 +1322,7 @@ async function localRuleBasedFallback(
         `• **Net Realized Profit (خالص منافع): ${currencySymbol()} ${(sum.totalNetProfit || 0).toLocaleString()}**\n` +
         `• Overall Net Profit Margin: **${sum.overallMarginPct || 0}%**\n` +
         `• Status: **${sum.totalNetProfit >= 0 ? 'PROFITABLE 🟢' : 'LOSS 🔴'}**\n\n` +
+        (tabDetailText ? `**${initialTab === 'perSalesman' ? 'Salesmen Performance Breakdown:' : 'Top Customers Breakdown:'}**\n${tabDetailText}\n\n` : '') +
         `Neechay Profit Report table di gayi hai. Aap tabs change kar k Item-Wise, Bill-Wise, Restaurant, aur Salesman profit dekh sakty hain, aur kisi bhi bill par click kar k invoice open kar sakty hain:`,
       executedTools: [{
         name: 'get_profit_report',
@@ -972,12 +1339,96 @@ async function localRuleBasedFallback(
     };
   }
 
+  // 12. GENERAL PURCHASES REPORT
+  const isPurchaseReport =
+    (/\b(purchase|purchases|khareed|khareedari)\b/i.test(text) && /\b(report|details|hisaab|khata)\b/i.test(text)) ||
+    text.includes('purchase report') ||
+    text.includes('khareed report') ||
+    text.includes('purchasing report') ||
+    text.includes('sari purchase');
+
+  if (isPurchaseReport) {
+    const pRep = db.getPurchaseReport();
+    return {
+      reply: `📥 **Purchases Report & Supplier Invoices (خریداری رپورٹ)**\n\n` +
+        `• Total Purchase Bills: **${pRep.totalBillsCount} Bills**\n` +
+        `• Total Cartons Purchased: **${pRep.totalCtn} CTN** (${pRep.totalQty} Units)\n` +
+        `• Kul Khareed (Gross Purchases): **${currencySymbol()} ${(pRep.totalGrossAmount || (pRep as any).totalGrossPurchases || 0).toLocaleString()}**\n` +
+        `• Total VAT Paid: **${currencySymbol()} ${pRep.totalVatAmount.toLocaleString()}**\n` +
+        `• **Net Purchases: ${currencySymbol()} ${pRep.totalNetPurchases.toLocaleString()}**\n` +
+        `• Cash Paid: **${currencySymbol()} ${pRep.totalPaidAmount.toLocaleString()}**\n` +
+        `• **Remaining Payable Balance: ${currencySymbol()} ${pRep.totalRemainingBalance.toLocaleString()}**\n\n` +
+        `Neechay تمام purchase bills aur vouchers ki list di gayi hai:`,
+      executedTools: [{
+        name: 'get_comprehensive_purchases_report',
+        args: {},
+        result: {
+          success: true,
+          reportType: 'purchases',
+          title: 'Purchases Report (خریداری رپورٹ)',
+          summary: pRep,
+          bills: pRep.bills,
+        },
+      }],
+    };
+  }
+
+  // 13. GENERAL SALES REPORT
+  const isSaleReport =
+    (/\b(sale|sales|farokht|becha|bikri)\b/i.test(text) && /\b(report|details|hisaab|khata)\b/i.test(text)) ||
+    text.includes('sale report') ||
+    text.includes('sales report') ||
+    text.includes('sari sale');
+
+  if (isSaleReport) {
+    const sRep = db.getSaleReport();
+    return {
+      reply: `💰 **Comprehensive Sales Report (سیل / فروخت رپورٹ)**\n\n` +
+        `• Kul Sale Bills: **${sRep.totalBillsCount} Bills**\n` +
+        `• Kul Cartons Sold: **${sRep.totalCtn} CTN** (${sRep.totalQty} Units)\n` +
+        `• Gross Sales: **${currencySymbol()} ${(sRep.totalGrossAmount || (sRep as any).totalGrossSales || 0).toLocaleString()}**\n` +
+        `• Total VAT Collected: **${currencySymbol()} ${sRep.totalVatAmount.toLocaleString()}**\n` +
+        `• Total Discounts: **${currencySymbol()} ${(sRep.totalDiscount || (sRep as any).totalDiscounts || 0).toLocaleString()}**\n` +
+        `• **Net Realized Sales: ${currencySymbol()} ${sRep.totalNetSales.toLocaleString()}**\n` +
+        `• Cash Received: **${currencySymbol()} ${sRep.totalCashReceived.toLocaleString()}**\n` +
+        `• **Market Udhaar (Balance Due): ${currencySymbol()} ${sRep.totalBalanceReceivable.toLocaleString()}**\n\n` +
+        `Neechay tamam verified sales invoices di gayi hain:`,
+      executedTools: [{
+        name: 'get_comprehensive_sales_report',
+        args: {},
+        result: {
+          success: true,
+          reportType: 'sales',
+          title: 'Sales Report (سیل رپورٹ)',
+          summary: sRep,
+          bills: sRep.bills,
+        },
+      }],
+    };
+  }
+
+  // 14. STOCK MOVEMENT HISTORY & WAREHOUSE LEDGER
+  const isStockHistoryReport =
+    (/\b(stock|inventory|movement|ledger|inflow|outflow)\b/i.test(text) && /\b(history|ledger|report|hisaab|khata|details|management)\b/i.test(text)) ||
+    text.includes('stock movement') ||
+    text.includes('stock history') ||
+    text.includes('stock ledger') ||
+    text.includes('stock khata') ||
+    text.includes('stock management') ||
+    text.includes('inventory history');
+
   if (isStockHistoryReport) {
-    const stRep = db.getStockMovementLedger({ timeframe: 'custom' });
+    const matchedProduct = products.find((p) => {
+      const pName = (p.name || '').toLowerCase();
+      return pName.length >= 3 && text.includes(pName);
+    });
+
+    const stRep = db.getStockMovementLedger({ productId: matchedProduct?.id, timeframe: 'custom' });
     const inCtn = (stRep.ledgerTransactions || []).filter((t: any) => t.movementType === 'PURCHASE').reduce((s: number, t: any) => s + Math.abs(t.cartonsChange || 0), 0);
     const outCtn = (stRep.ledgerTransactions || []).filter((t: any) => t.movementType === 'SALE').reduce((s: number, t: any) => s + Math.abs(t.cartonsChange || 0), 0);
+
     return {
-      reply: `☸ **Stock Movement History (اسٹاک کھاتہ)**\n\n` +
+      reply: `☸ **Stock Movement History (اسٹاک کھاتہ)**${matchedProduct ? ` — Product: **${matchedProduct.name}**` : ''}\n\n` +
         `• Total Tracked Items: **${stRep.itemsSummary.length} Products**\n` +
         `• Inward Purchases: **${inCtn} CTN** Inflow\n` +
         `• Outward Sales: **${outCtn} CTN** Sold Outflow\n` +
@@ -987,11 +1438,11 @@ async function localRuleBasedFallback(
         `Neechay live Stock Movement History aur Warehouse Ledger table di gayi hai:`,
       executedTools: [{
         name: 'get_stock_history_report',
-        args: {},
+        args: matchedProduct ? { productId: matchedProduct.id } : {},
         result: {
           success: true,
           reportType: 'stockHistory',
-          title: 'Stock Movement History (اسٹاک کھاتہ)',
+          title: `Stock Movement History${matchedProduct ? ` - ${matchedProduct.name}` : ''}`,
           summary: { totalStockValue: stRep.totalStockValue, inCtn, outCtn },
           stockData: stRep,
         },
@@ -999,34 +1450,39 @@ async function localRuleBasedFallback(
     };
   }
 
-  if (isMasterAuditReport || isGeneralReportIntent) {
+  // 15. MASTER BUSINESS AUDIT REPORT
+  const isMasterAuditReport =
+    (/\b(master|audit|business|overall|tamam|mukammal)\b/i.test(text) && /\b(report|audit|hisaab|file)\b/i.test(text)) ||
+    text.includes('master audit') ||
+    text.includes('business audit') ||
+    text.includes('audit report');
+
+  if (isMasterAuditReport) {
     const masterRep = generateBusinessMasterReportDoc();
     const sum = masterRep.summary;
     return {
-      reply: `🛡️ **Master Business Audit Report (ماسٹر آڈٹ رپورٹ)**\n\n` +
-        `ERP ka verified audit hisaab mukammal tayar hai:\n\n` +
-        `1️⃣ **Turnover & Sales:** ${currencySymbol()} ${(sum?.totalRevenue ?? 0).toLocaleString()}\n` +
-        `2️⃣ **Gross Wholesale Margin:** ${currencySymbol()} ${(sum?.grossProfit ?? 0).toLocaleString()}\n` +
-        `3️⃣ **Operational & Fuel Expenses:** ${currencySymbol()} ${(sum?.totalExpenses ?? 0).toLocaleString()}\n` +
-        `4️⃣ **Net Business Outcome:** ${(sum?.isProfit ? '+' : '')}${currencySymbol()} ${(sum?.netProfitOrLoss ?? 0).toLocaleString()} (${sum?.isProfit ? 'PROFIT' : 'LOSS'})\n` +
-        `5️⃣ **Market Receivables (مارکیٹ سے لینا):** ${currencySymbol()} ${(sum?.totalOutstandingReceivables ?? 0).toLocaleString()}\n` +
-        `6️⃣ **Warehouse Stock Inventory Asset:** ${currencySymbol()} ${(sum?.inventoryTotalValue ?? 0).toLocaleString()}\n\n` +
-        `Aap neechay diye gaye options se Word (.doc) download kar sakty hain ya Reports tab me direct dekh sakty hain.`,
+      reply: `🛡️ **Master Business Audit Report (مکمل کاروباری آڈٹ فائل)**\n\n` +
+        `• Verified Total Sales Volume: **${currencySymbol()} ${(sum.totalSalesVolume || 0).toLocaleString()}**\n` +
+        `• Total Gross Profit Margin: **${currencySymbol()} ${(sum.totalGrossProfit || 0).toLocaleString()}**\n` +
+        `• Market Receivables (Gahakon ka Baqi Udhaar): **${currencySymbol()} ${(sum.totalReceivables || 0).toLocaleString()}**\n` +
+        `• Supplier Payables Due: **${currencySymbol()} ${(sum.totalPayables || 0).toLocaleString()}**\n` +
+        `• Current Cash Register Balance: **${currencySymbol()} ${(sum.cashInHand || 0).toLocaleString()}**\n\n` +
+        `Neechay official Master Business Audit Card tayar hai. Aap **"View & Print Master Audit"** par click kar k mukammal official A4 audit sheet print ya PDF save kar sakty hain:`,
       executedTools: [{
         name: 'generate_business_report',
         args: {},
         result: {
           success: true,
           reportType: 'aiLedgerAudit',
+          title: 'Master Business Audit Report',
           summary: sum,
-          fileName: masterRep.fileName,
-          downloadUrl: `/api/reports/download?type=business`,
-          viewUrl: `/api/reports/business`,
-          tab: 'aiLedgerAudit',
+          downloadUrl: '/api/reports/download?type=ledger-audit&format=html',
+          fileName: 'Master_Business_Audit_Report.html',
         },
       }],
     };
   }
+
 
   // -0.5. CHECK FOR TROUBLESHOOTING / COMPLAINT ABOUT INVENTORY NOT ADDING OR SPEED
   const isTroubleshootQuery =
@@ -1911,7 +2367,21 @@ async function localRuleBasedFallback(
 
     return {
       reply,
-      executedTools: [{ name: 'get_profit_by_salesman', args: {}, result: salesmen }],
+      executedTools: [{
+        name: 'get_profit_report',
+        args: { tab: 'perSalesman' },
+        result: {
+          success: true,
+          reportType: 'profit',
+          title: 'Profit by Salesman Report',
+          summary: comp.summary,
+          profitData: comp,
+          initialTab: 'perSalesman',
+          fileName: `Profit_By_Salesman_${new Date().toISOString().split('T')[0]}.html`,
+          downloadUrl: '/api/reports/download?type=profit-salesman&format=html',
+          viewUrl: '/api/reports/download?type=profit-salesman&format=html',
+        },
+      }],
       reportAttachment: {
         type: 'business',
         title: 'Profit by Salesman Report',
@@ -1952,7 +2422,18 @@ async function localRuleBasedFallback(
 
     return {
       reply,
-      executedTools: [{ name: 'get_profit_by_restaurant', args: {}, result: comp.perRestaurant }],
+      executedTools: [{
+        name: 'get_profit_report',
+        args: { tab: 'perRestaurant' },
+        result: {
+          success: true,
+          reportType: 'profit',
+          title: 'Profit by Customer / Restaurant Report',
+          summary: comp.summary,
+          profitData: comp,
+          initialTab: 'perRestaurant',
+        },
+      }],
       reportAttachment: {
         type: 'business',
         title: 'Profit by Restaurant & Customer Report',
@@ -2277,6 +2758,7 @@ export async function processAiChat(
     userId?: string;
     userName?: string;
     userRole?: 'Admin' | 'Manager' | 'Order Taker' | 'Inventory Staff' | 'Accountant';
+    companyId?: string;
     source?: 'ai_chat' | 'voice' | 'image_ocr';
   } = {}
 ) {

@@ -2243,3 +2243,15 @@ html[data-theme="dark"] .auth-card {
 }
 
 
+
+@media print {
+  #smart-alerts-banner,
+  .smart-alerts-banner,
+  [data-testid="smart-alerts"],
+  .alerts-banner,
+  aside,
+  nav,
+  header {
+    display: none !important;
+  }
+}

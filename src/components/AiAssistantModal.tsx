@@ -28,6 +28,14 @@ import {
 import { api } from '../services/api';
 import { CompanyProfile, SaleBill, PurchaseBill, UserRole } from '../types';
 import { SalesBillReceiptModal } from './SalesBillReceiptModal';
+import {
+  CustomerLedgerWidget,
+  SupplierLedgerWidget,
+  ReceivablesTableWidget,
+  PayablesTableWidget,
+  ReturnsTableWidget,
+  SalesmanCustomerProfitWidget,
+} from './AiMunshiReportWidgets';
 import { PurchaseBillVoucherModal } from './PurchaseBillVoucherModal';
 import { MasterAuditReportModal } from './MasterAuditReportModal';
 
@@ -367,6 +375,12 @@ const ProfitIntelligenceWidget: React.FC<{
   onOpenSaleBill: (bill: SaleBill) => void;
 }> = ({ summary, profitData, initialTab = 'perItem', onOpenSaleBill }) => {
   const [activeTab, setActiveTab] = useState<'perItem' | 'perBill' | 'perRestaurant' | 'perSalesman'>(initialTab);
+
+  React.useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   const perItem = profitData?.perItem || [];
   const perBill = profitData?.perBill || [];
@@ -1063,6 +1077,56 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
                             </div>
                           )}
 
+                          {/* 7. CUSTOMER KHATA LEDGER (Shareable on WhatsApp & Printable) */}
+                          {(tool.result?.reportType === 'customerLedger' || tool.name === 'get_customer_ledger_report') && tool.result?.ledgerData && (
+                            <CustomerLedgerWidget
+                              ledger={tool.result.ledgerData}
+                              whatsappText={tool.result.whatsappText}
+                              onOpenSaleBill={setSelectedBillForReceiptModal}
+                            />
+                          )}
+
+                          {/* 8. SUPPLIER KHATA LEDGER */}
+                          {(tool.result?.reportType === 'supplierLedger' || tool.name === 'get_supplier_ledger_report') && tool.result?.ledgerData && (
+                            <SupplierLedgerWidget ledger={tool.result.ledgerData} />
+                          )}
+
+                          {/* 9. CUSTOMER RECEIVABLES LIST (Market Udhaar) */}
+                          {(tool.result?.reportType === 'receivables' || tool.name === 'get_receivables_report') && tool.result?.customers && (
+                            <ReceivablesTableWidget
+                              customers={tool.result.customers}
+                              totalReceivables={tool.result.totalReceivables}
+                            />
+                          )}
+
+                          {/* 10. SUPPLIER PAYABLES LIST */}
+                          {(tool.result?.reportType === 'payables' || tool.name === 'get_payables_report') && tool.result?.suppliers && (
+                            <PayablesTableWidget
+                              suppliers={tool.result.suppliers}
+                              totalPayables={tool.result.totalPayables}
+                            />
+                          )}
+
+                          {/* 11. RETURNS REPORT (Sales & Purchase Returns) */}
+                          {(tool.result?.reportType === 'sales_returns' || tool.result?.reportType === 'purchase_returns' || tool.name === 'get_sales_returns_report' || tool.name === 'get_purchase_returns_report') && tool.result?.returns && (
+                            <ReturnsTableWidget
+                              type={tool.result.reportType === 'purchase_returns' ? 'purchase' : 'sale'}
+                              returns={tool.result.returns}
+                              totalAmount={tool.result.totalAmount}
+                            />
+                          )}
+
+                          {/* 12. SALESMAN VS CUSTOMER PROFIT ANALYSIS */}
+                          {(tool.result?.reportType === 'salesman_customer_profit' || tool.name === 'get_salesman_customer_profit') && tool.result?.summary && (
+                            <SalesmanCustomerProfitWidget
+                              salesmanName={tool.result.salesmanName}
+                              customerName={tool.result.customerName}
+                              summary={tool.result.summary}
+                              bills={tool.result.bills || []}
+                              onOpenSaleBill={setSelectedBillForReceiptModal}
+                            />
+                          )}
+
                           {/* Fallback for raw / unformatted responses */}
                           {!tool.result?.bills &&
                             !tool.result?.bill &&
@@ -1073,7 +1137,18 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
                             tool.name !== 'get_profit_report' &&
                             tool.result?.reportType !== 'stockHistory' &&
                             tool.name !== 'get_stock_history_report' &&
-                            tool.name !== 'get_stock_report' && (
+                            tool.name !== 'get_stock_report' &&
+                            tool.result?.reportType !== 'customerLedger' &&
+                            tool.name !== 'get_customer_ledger_report' &&
+                            tool.result?.reportType !== 'supplierLedger' &&
+                            tool.name !== 'get_supplier_ledger_report' &&
+                            tool.result?.reportType !== 'receivables' &&
+                            tool.name !== 'get_receivables_report' &&
+                            tool.result?.reportType !== 'payables' &&
+                            tool.name !== 'get_payables_report' &&
+                            tool.result?.reportType !== 'sales_returns' &&
+                            tool.result?.reportType !== 'purchase_returns' &&
+                            tool.result?.reportType !== 'salesman_customer_profit' && (
                             tool.result && (
                               <div className="text-slate-300 whitespace-pre-line font-mono text-[11px]">
                                 {tool.result.message || JSON.stringify(tool.result)}
