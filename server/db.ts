@@ -8422,7 +8422,7 @@ ON CONFLICT (id) DO NOTHING;`);
       if (p.mcode) productCostMap.set(p.mcode.toLowerCase(), { product: p, purchaseCost: cost });
     }
 
-    // 1. PER ITEM BREAKDOWN
+    // 1. PER ITEM BREAKDOWN (WITH DISTINCT SALE RATE & VAT TIER BREAKDOWN)
     const itemMap = new Map<
       string,
       {
@@ -8440,6 +8440,23 @@ ON CONFLICT (id) DO NOTHING;`);
         saleRateCounts: number;
         purchaseCostRate: number;
         matchedProduct?: Product;
+        tiersMap: Map<
+          string,
+          {
+            rateType: 'Carton' | 'Loose' | 'Unit';
+            rate: number;
+            unitLabel: string;
+            vatPercent: number;
+            qtySold: number;
+            ctnSold: number;
+            avgPurchaseRate: number;
+            totalRevenue: number;
+            totalVatAmount: number;
+            totalDiscountAmount: number;
+            totalCostOfGoods: number;
+            billsCount: number;
+          }
+        >;
       }
     >();
 
@@ -8490,6 +8507,7 @@ ON CONFLICT (id) DO NOTHING;`);
             saleRateCounts: 0,
             purchaseCostRate: unitCost,
             matchedProduct: matched?.product,
+            tiersMap: new Map(),
           });
         }
 
@@ -8503,6 +8521,111 @@ ON CONFLICT (id) DO NOTHING;`);
         const effRate = it.ratePerCtn && it.ratePerCtn > 0 ? it.ratePerCtn : it.rate;
         entry.totalSaleRates += effRate;
         entry.saleRateCounts += 1;
+
+        // Populate distinct sale rate & VAT rate breakdown tiers
+        const vatPercent = Number(it.vatPercent) || 0;
+        const ratePerCtn = Number(it.ratePerCtn) || 0;
+        const looseRate = Number(it.rate) || 0;
+        const unitName = it.unit || (matched?.product?.unit || 'Unit');
+
+        const addTier = (
+          rateType: 'Carton' | 'Loose' | 'Unit',
+          rate: number,
+          unitLabel: string,
+          cSold: number,
+          qSold: number,
+          pRevenue: number,
+          pVat: number,
+          pDisc: number,
+          pCost: number,
+          pPurchaseRate: number
+        ) => {
+          const tierKey = `${rateType}_${rate.toFixed(2)}_VAT_${vatPercent.toFixed(1)}`;
+          if (!entry.tiersMap.has(tierKey)) {
+            entry.tiersMap.set(tierKey, {
+              rateType,
+              rate,
+              unitLabel,
+              vatPercent,
+              qtySold: 0,
+              ctnSold: 0,
+              avgPurchaseRate: pPurchaseRate,
+              totalRevenue: 0,
+              totalVatAmount: 0,
+              totalDiscountAmount: 0,
+              totalCostOfGoods: 0,
+              billsCount: 0,
+            });
+          }
+          const t = entry.tiersMap.get(tierKey)!;
+          t.qtySold += qSold;
+          t.ctnSold += cSold;
+          t.totalRevenue += pRevenue;
+          t.totalVatAmount += pVat;
+          t.totalDiscountAmount += pDisc;
+          t.totalCostOfGoods += pCost;
+          t.billsCount += 1;
+        };
+
+        if (ctnUnits > 0 && looseUnits > 0) {
+          const ctnGross = ctnUnits * (ratePerCtn || (looseRate * qInCtn));
+          const looseGross = looseUnits * looseRate;
+          const totGross = ctnGross + looseGross;
+          const ctnRatio = totGross > 0 ? (ctnGross / totGross) : 0.5;
+          const looseRatio = totGross > 0 ? (looseGross / totGross) : 0.5;
+
+          addTier(
+            'Carton',
+            ratePerCtn > 0 ? ratePerCtn : (looseRate * qInCtn),
+            'Ctn',
+            ctnUnits,
+            0,
+            itemRevenue * ctnRatio,
+            itemVat * ctnRatio,
+            itemTotalDisc * ctnRatio,
+            ctnUnits * ctnCost,
+            ctnCost
+          );
+
+          addTier(
+            'Loose',
+            looseRate > 0 ? looseRate : (ratePerCtn > 0 && qInCtn > 0 ? ratePerCtn / qInCtn : 0),
+            unitName,
+            0,
+            looseUnits,
+            itemRevenue * looseRatio,
+            itemVat * looseRatio,
+            itemTotalDisc * looseRatio,
+            looseUnits * unitCost,
+            unitCost
+          );
+        } else if (ctnUnits > 0) {
+          addTier(
+            'Carton',
+            ratePerCtn > 0 ? ratePerCtn : (looseRate * qInCtn),
+            'Ctn',
+            ctnUnits,
+            0,
+            itemRevenue,
+            itemVat,
+            itemTotalDisc,
+            ctnUnits * ctnCost,
+            ctnCost
+          );
+        } else {
+          addTier(
+            'Loose',
+            looseRate > 0 ? looseRate : (ratePerCtn > 0 && qInCtn > 0 ? ratePerCtn / qInCtn : 0),
+            unitName,
+            0,
+            looseUnits,
+            itemRevenue,
+            itemVat,
+            itemTotalDisc,
+            looseUnits * unitCost,
+            unitCost
+          );
+        }
       }
     }
 
@@ -8525,6 +8648,39 @@ ON CONFLICT (id) DO NOTHING;`);
         status = 'LOW_MARGIN';
       }
 
+      const rateTiers: ItemProfitRateTier[] = Array.from(v.tiersMap.entries()).map(([tKey, t]) => {
+        const tDisc = Number(t.totalDiscountAmount.toFixed(2));
+        const tRev = Number(t.totalRevenue.toFixed(2));
+        const tNetRev = Number(Math.max(0, tRev - tDisc).toFixed(2));
+        const tCost = Number(t.totalCostOfGoods.toFixed(2));
+        const tGrossProfit = Number((tRev - tCost).toFixed(2));
+        const tNetProfit = Number((tNetRev - tCost).toFixed(2));
+        const tMarginPct = tNetRev > 0
+          ? Number(((tNetProfit / tNetRev) * 100).toFixed(1))
+          : (tRev > 0 ? Number(((tGrossProfit / tRev) * 100).toFixed(1)) : 0);
+
+        return {
+          tierKey: tKey,
+          rateType: t.rateType,
+          rate: Number(t.rate.toFixed(2)),
+          ratePerCtn: t.rateType === 'Carton' ? Number(t.rate.toFixed(2)) : undefined,
+          unitLabel: t.unitLabel,
+          vatPercent: Number(t.vatPercent.toFixed(1)),
+          qtySold: Number(t.qtySold.toFixed(2)),
+          ctnSold: Number(t.ctnSold.toFixed(2)),
+          avgPurchaseRate: Number(t.avgPurchaseRate.toFixed(2)),
+          totalRevenue: tRev,
+          totalVatAmount: Number(t.totalVatAmount.toFixed(2)),
+          totalDiscountAmount: tDisc,
+          netRevenue: tNetRev,
+          totalCostOfGoods: tCost,
+          grossProfit: tGrossProfit,
+          netProfit: tNetProfit,
+          profitMarginPct: tMarginPct,
+          billsCount: t.billsCount,
+        };
+      }).sort((a, b) => b.rate - a.rate || b.vatPercent - a.vatPercent);
+
       return {
         productId: v.productId,
         mcode: v.mcode,
@@ -8545,6 +8701,7 @@ ON CONFLICT (id) DO NOTHING;`);
         currentRemainingStock,
         currentStockCartons,
         status,
+        rateTiers,
       };
     }).sort((a, b) => (b.netProfit ?? b.grossProfit) - (a.netProfit ?? a.grossProfit));
 

@@ -516,19 +516,80 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
         setErrorMsg('No item profit records to export.');
         return;
       }
-      success = exportToCsv(`Profit_Report_PerItem_${fromDate}_${toDate}`, filteredItems, [
+      const exportRows: any[] = [];
+      filteredItems.forEach((it) => {
+        if (it.rateTiers && it.rateTiers.length > 1) {
+          it.rateTiers.forEach((t) => {
+            exportRows.push({
+              mcode: it.mcode,
+              itemTitle: `${it.itemTitle} (Rate: ${t.rate}/${t.unitLabel}, VAT: ${t.vatPercent}%)`,
+              category: it.category,
+              qtySold: t.qtySold,
+              ctnSold: t.ctnSold,
+              avgPurchaseRate: t.avgPurchaseRate,
+              avgSaleRate: t.rate,
+              totalRevenue: t.totalRevenue,
+              totalVatAmount: t.totalVatAmount,
+              totalDiscountAmount: t.totalDiscountAmount,
+              totalCostOfGoods: t.totalCostOfGoods,
+              netProfit: t.netProfit,
+              profitMarginPct: t.profitMarginPct,
+              currentRemainingStock: '—',
+              status: 'Rate Tier Breakdown',
+            });
+          });
+          exportRows.push({
+            mcode: it.mcode,
+            itemTitle: `TOTAL: ${it.itemTitle} (Combined)`,
+            category: it.category,
+            qtySold: it.qtySold,
+            ctnSold: it.ctnSold,
+            avgPurchaseRate: it.avgPurchaseRate,
+            avgSaleRate: it.avgSaleRate,
+            totalRevenue: it.totalRevenue,
+            totalVatAmount: it.totalVatAmount || 0,
+            totalDiscountAmount: it.totalDiscountAmount || 0,
+            totalCostOfGoods: it.totalCostOfGoods,
+            netProfit: it.netProfit !== undefined ? it.netProfit : it.grossProfit,
+            profitMarginPct: it.profitMarginPct,
+            currentRemainingStock: it.currentRemainingStock,
+            status: it.status,
+          });
+        } else {
+          exportRows.push({
+            mcode: it.mcode,
+            itemTitle: it.rateTiers && it.rateTiers[0]
+              ? `${it.itemTitle} (Rate: ${it.rateTiers[0].rate}/${it.rateTiers[0].unitLabel}, VAT: ${it.rateTiers[0].vatPercent}%)`
+              : it.itemTitle,
+            category: it.category,
+            qtySold: it.qtySold,
+            ctnSold: it.ctnSold,
+            avgPurchaseRate: it.avgPurchaseRate,
+            avgSaleRate: it.avgSaleRate,
+            totalRevenue: it.totalRevenue,
+            totalVatAmount: it.totalVatAmount || 0,
+            totalDiscountAmount: it.totalDiscountAmount || 0,
+            totalCostOfGoods: it.totalCostOfGoods,
+            netProfit: it.netProfit !== undefined ? it.netProfit : it.grossProfit,
+            profitMarginPct: it.profitMarginPct,
+            currentRemainingStock: it.currentRemainingStock,
+            status: it.status,
+          });
+        }
+      });
+      success = exportToCsv(`Profit_Report_PerItem_${fromDate}_${toDate}`, exportRows, [
         { header: 'M.Code', accessor: (it) => it.mcode },
         { header: 'Item Title', accessor: (it) => it.itemTitle },
         { header: 'Category', accessor: (it) => it.category },
         { header: 'Qty Sold', accessor: (it) => it.qtySold },
         { header: 'Ctn Sold', accessor: (it) => it.ctnSold },
         { header: 'Avg Cost', accessor: (it) => it.avgPurchaseRate },
-        { header: 'Avg Sale', accessor: (it) => it.avgSaleRate },
+        { header: 'Avg Sale / Rate', accessor: (it) => it.avgSaleRate },
         { header: 'Sale Revenue (Ex-VAT)', accessor: (it) => it.totalRevenue },
         { header: 'VAT Excluded', accessor: (it) => it.totalVatAmount || 0 },
         { header: 'Discount Deducted', accessor: (it) => it.totalDiscountAmount || 0 },
         { header: 'COGS / Purchase Cost', accessor: (it) => it.totalCostOfGoods },
-        { header: 'Net Profit', accessor: (it) => (it.netProfit !== undefined ? it.netProfit : it.grossProfit) },
+        { header: 'Net Profit', accessor: (it) => it.netProfit },
         { header: 'Margin %', accessor: (it) => it.profitMarginPct },
         { header: 'In Stock / Warehouse', accessor: (it) => it.currentRemainingStock },
         { header: 'Status', accessor: (it) => it.status },
@@ -1270,11 +1331,162 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
                   ) : (
                     filteredItems.map((it, idx) => {
                       const netP = it.netProfit !== undefined ? it.netProfit : it.grossProfit;
+                      const hasMultipleTiers = it.rateTiers && it.rateTiers.length > 1;
+
+                      if (hasMultipleTiers && it.rateTiers) {
+                        return (
+                          <React.Fragment key={idx}>
+                            {/* Individual Distinct Rate & VAT Tier Rows */}
+                            {it.rateTiers.map((tier, tIdx) => (
+                              <tr key={`tier-${idx}-${tIdx}`} className="hover:bg-slate-800/40 transition bg-slate-900/30">
+                                <td className="py-2 px-3 text-slate-400 font-mono text-[11px]">{it.mcode}</td>
+                                <td className="py-2 px-3 font-sans">
+                                  <div>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-slate-400 text-xs">↳</span>
+                                      <span className="font-semibold text-slate-200">{it.itemTitle}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 mt-1 ml-3.5">
+                                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-950 text-indigo-300 border border-indigo-700/60 font-mono">
+                                        Rate: {currencySymbol()} {tier.rate} / {tier.unitLabel}
+                                      </span>
+                                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-700/60 font-mono">
+                                        VAT: {tier.vatPercent}%
+                                      </span>
+                                      <span className="text-[10px] text-slate-400 font-sans">
+                                        ({tier.billsCount} {tier.billsCount === 1 ? 'sale' : 'sales'})
+                                      </span>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="py-2 px-3 font-sans text-slate-400">{it.category}</td>
+                                <td className="py-2 px-3 text-center text-slate-300 font-mono">{tier.ctnSold > 0 ? tier.ctnSold : '—'}</td>
+                                <td className="py-2 px-3 text-center text-white font-bold font-mono">{tier.qtySold > 0 ? tier.qtySold : '—'}</td>
+                                <td className="py-2 px-3 text-right text-slate-400 font-mono">{currencySymbol()} {tier.avgPurchaseRate.toLocaleString()}</td>
+                                <td className="py-2 px-3 text-right text-indigo-300 font-bold font-mono">{currencySymbol()} {tier.rate.toLocaleString()}</td>
+                                <td className="py-2 px-3 text-right font-bold text-white font-mono">{currencySymbol()} {tier.totalRevenue.toLocaleString()}</td>
+                                <td className="py-2 px-3 text-right font-mono">
+                                  <span className="text-[11px] text-slate-400 font-medium">
+                                    +{currencySymbol()} {tier.totalVatAmount.toLocaleString()}
+                                  </span>
+                                </td>
+                                <td className="py-2 px-3 text-right text-amber-400 font-semibold font-mono">
+                                  {tier.totalDiscountAmount > 0 ? `-${currencySymbol()} ${tier.totalDiscountAmount.toLocaleString()}` : '—'}
+                                </td>
+                                <td className="py-2 px-3 text-right text-slate-400 font-mono">{currencySymbol()} {tier.totalCostOfGoods.toLocaleString()}</td>
+                                <td className="py-2 px-3 text-right font-bold text-xs font-mono">
+                                  <span className={`px-2 py-0.5 rounded border inline-block ${
+                                    tier.netProfit >= 0
+                                      ? 'bg-emerald-950/80 border-emerald-700/60 text-emerald-400'
+                                      : 'bg-rose-950/80 border-rose-700/60 text-rose-400'
+                                  }`}>
+                                    {tier.netProfit >= 0 ? '+' : ''}{currencySymbol()} {tier.netProfit.toLocaleString()}
+                                  </span>
+                                </td>
+                                <td className="py-2 px-3 text-right font-bold font-mono">
+                                  <span className={tier.profitMarginPct >= 15 ? 'text-emerald-400' : tier.profitMarginPct > 0 ? 'text-amber-400' : 'text-rose-400'}>
+                                    {tier.profitMarginPct}%
+                                  </span>
+                                </td>
+                                <td className="py-2 px-3 text-center text-slate-500 font-mono text-[10px]">
+                                  Rate Tier
+                                </td>
+                                <td className="py-2 px-3 text-center font-sans">
+                                  <span className="px-1.5 py-0.5 bg-slate-800 text-slate-300 border border-slate-700 rounded text-[9.5px] font-bold">
+                                    Tier
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+
+                            {/* ITEM COMBINED TOTAL ROW */}
+                            <tr key={`total-${idx}`} className="bg-emerald-950/35 border-y-2 border-emerald-500/60 hover:bg-emerald-950/50 transition">
+                              <td className="py-2.5 px-3 text-slate-300 font-mono font-bold">{it.mcode}</td>
+                              <td className="py-2.5 px-3 font-sans">
+                                <div className="flex items-center gap-2">
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-600 text-white tracking-wider uppercase shadow-xs">
+                                    ITEM TOTAL
+                                  </span>
+                                  <span className="font-extrabold text-white text-xs">{it.itemTitle}</span>
+                                  <span className="text-[10px] text-emerald-400 font-sans font-semibold">
+                                    ({it.rateTiers.length} Rates &amp; VAT Combined)
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-3 font-sans text-slate-300 font-bold">{it.category}</td>
+                              <td className="py-2.5 px-3 text-center text-emerald-300 font-extrabold font-mono">{it.ctnSold}</td>
+                              <td className="py-2.5 px-3 text-center text-white font-extrabold font-mono">{it.qtySold}</td>
+                              <td className="py-2.5 px-3 text-right text-slate-300 font-mono font-bold">{currencySymbol()} {it.avgPurchaseRate.toLocaleString()}</td>
+                              <td className="py-2.5 px-3 text-right text-slate-200 font-mono font-bold">
+                                {currencySymbol()} {it.avgSaleRate.toLocaleString()} <span className="text-[9px] text-slate-400 font-normal">(Avg)</span>
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-black text-white font-mono">{currencySymbol()} {it.totalRevenue.toLocaleString()}</td>
+                              <td className="py-2.5 px-3 text-right font-mono">
+                                <span className="text-[11px] text-emerald-300 font-black">
+                                  +{currencySymbol()} {(it.totalVatAmount || 0).toLocaleString()}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-right text-amber-400 font-bold font-mono">
+                                {(it.totalDiscountAmount || 0) > 0 ? `-${currencySymbol()} ${(it.totalDiscountAmount || 0).toLocaleString()}` : '—'}
+                              </td>
+                              <td className="py-2.5 px-3 text-right text-slate-300 font-mono font-bold">{currencySymbol()} {it.totalCostOfGoods.toLocaleString()}</td>
+                              <td className="py-2.5 px-3 text-right font-black text-emerald-300 text-sm font-mono">
+                                <span className={`px-2.5 py-1 rounded border inline-block shadow-sm font-black ${
+                                  netP >= 0
+                                    ? 'bg-emerald-950 border-emerald-600 text-emerald-300'
+                                    : 'bg-rose-950 border-rose-600 text-rose-300'
+                                }`}>
+                                  {netP >= 0 ? '+' : ''}{currencySymbol()} {netP.toLocaleString()}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-black font-mono">
+                                <span className={it.profitMarginPct >= 15 ? 'text-emerald-400' : it.profitMarginPct > 0 ? 'text-amber-400' : 'text-rose-400'}>
+                                  {it.profitMarginPct}%
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-center font-mono">
+                                <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                                  it.currentRemainingStock <= 10 ? 'bg-rose-950 text-rose-300 border border-rose-800' : 'bg-slate-800 text-slate-200'
+                                }`}>
+                                  {it.currentRemainingStock} ({it.currentStockCartons} Ctn)
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-center font-sans">
+                                {it.status === 'PROFITABLE' && (
+                                  <span className="px-2 py-0.5 bg-emerald-950/80 text-emerald-300 border border-emerald-800 rounded text-[10px] font-bold">
+                                    Profitable
+                                  </span>
+                                )}
+                                {it.status === 'LOW_MARGIN' && (
+                                  <span className="px-2 py-0.5 bg-amber-950/80 text-amber-300 border border-amber-800 rounded text-[10px] font-bold">
+                                    Low Margin
+                                  </span>
+                                )}
+                                {it.status === 'LOSS' && (
+                                  <span className="px-2 py-0.5 bg-rose-950/80 text-rose-300 border border-rose-800 rounded text-[10px] font-bold">
+                                    Loss
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          </React.Fragment>
+                        );
+                      }
+
+                      // Single rate tier or standard row
+                      const singleTier = it.rateTiers && it.rateTiers.length === 1 ? it.rateTiers[0] : null;
                       return (
                         <tr key={idx} className="hover:bg-slate-800/40 transition">
                           <td className="py-2.5 px-3 text-slate-400">{it.mcode}</td>
-                          <td className="py-2.5 px-3 font-sans font-bold text-white">
-                            {it.itemTitle}
+                          <td className="py-2.5 px-3 font-sans">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-white">{it.itemTitle}</span>
+                              {singleTier && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-950/80 text-indigo-300 border border-indigo-700/50 font-mono">
+                                  Rate: {currencySymbol()} {singleTier.rate} / {singleTier.unitLabel} &bull; VAT: {singleTier.vatPercent}%
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="py-2.5 px-3 font-sans text-slate-400">{it.category}</td>
                           <td className="py-2.5 px-3 text-center text-slate-300">{it.ctnSold}</td>

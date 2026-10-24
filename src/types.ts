@@ -814,6 +814,27 @@ export interface SaleReport {
 // -------------------------------------------------------------
 // PROFIT REPORT BREAKDOWN INTERFACES (Per Item, Bill, Restaurant, Salesman)
 // -------------------------------------------------------------
+export interface ItemProfitRateTier {
+  tierKey: string;
+  rateType: 'Carton' | 'Loose' | 'Unit';
+  rate: number;
+  ratePerCtn?: number;
+  unitLabel: string;
+  vatPercent: number;
+  qtySold: number;
+  ctnSold: number;
+  avgPurchaseRate: number;
+  totalRevenue: number;
+  totalVatAmount: number;
+  totalDiscountAmount: number;
+  netRevenue: number;
+  totalCostOfGoods: number;
+  grossProfit: number;
+  netProfit: number;
+  profitMarginPct: number;
+  billsCount: number;
+}
+
 export interface ItemProfitReportItem {
   productId?: string;
   mcode: string;
@@ -834,6 +855,7 @@ export interface ItemProfitReportItem {
   currentRemainingStock: number;
   currentStockCartons: number;
   status: 'PROFITABLE' | 'LOW_MARGIN' | 'LOSS';
+  rateTiers?: ItemProfitRateTier[];
 }
 
 export interface BillProfitReportItem {
