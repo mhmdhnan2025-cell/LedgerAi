@@ -601,10 +601,14 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
         ...expenses.map((e) => db.normalizeDateToYMD(e.date)),
       ].filter(Boolean).sort();
 
-      const hasTodayActivity = allActivityDates.includes(today);
-      if (!hasTodayActivity && allActivityDates.length > 0) {
+      if (allActivityDates.length > 0) {
         const latestTx = allActivityDates[allActivityDates.length - 1];
-        if (latestTx && latestTx < today) {
+        if (latestTx && latestTx >= today) {
+          // If latest transaction is today or ahead of server UTC today (e.g. user in UTC+4 / UTC+5), default to it
+          auditDate = latestTx;
+        } else if (allActivityDates.includes(today)) {
+          auditDate = today;
+        } else if (latestTx) {
           auditDate = latestTx;
         }
       }
