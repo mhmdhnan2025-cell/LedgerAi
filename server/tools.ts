@@ -1398,12 +1398,7 @@ export async function executeTool(name: string, args: Record<string, any>, ctx: 
         initialTab: 'perBill',
         summary: compProfit.summary,
         profitData: compProfit,
-        message: `✅ Verified Profit Per Sale Bill Report Tayar Hai!\n\n` +
-          `• Total Verified Sale Bills: ${bills.length}\n` +
-          `• Total Billed Turnover: ${currencySymbol()} ${compProfit.summary.totalSalesVolume.toLocaleString()}\n` +
-          `• Total Gross Profit: ${currencySymbol()} ${compProfit.summary.totalGrossProfit.toLocaleString()}\n\n` +
-          `Recent Invoices:\n${topBills || 'Koi bill record nahi mila.'}\n\n` +
-          `📄 Verified Report File Tayar Hai: ${report.fileName}`,
+        message: 'Verified Profit Per Sale Bill Report generated successfully. Please view the interactive report widget below.'
       };
     }
 

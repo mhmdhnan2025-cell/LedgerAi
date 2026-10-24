@@ -148,7 +148,18 @@ const InlineChatProfitReport: React.FC<{
   onSelectBill: (bill: SaleBill) => void;
 }> = ({ profitData, initialTab = 'perItem', onSelectBill }) => {
   const [tab, setTab] = useState<'perItem' | 'perBill' | 'perRestaurant' | 'perSalesman'>(initialTab);
-  const sum = profitData.summary;
+
+  useEffect(() => {
+    if (initialTab) {
+      setTab(initialTab);
+    }
+  }, [initialTab]);
+
+  const sum = profitData?.summary || ({} as any);
+  const itemsList = profitData?.perItem || (profitData as any)?.itemWise || [];
+  const billsList = profitData?.perBill || (profitData as any)?.billWise || [];
+  const restaurantsList = profitData?.perRestaurant || (profitData as any)?.restaurantWise || [];
+  const salesmenList = profitData?.perSalesman || (profitData as any)?.salesmanWise || [];
 
   return (
     <div className="mt-3.5 bg-slate-900 border border-slate-700/80 rounded-xl overflow-hidden shadow-lg text-xs">
@@ -158,7 +169,7 @@ const InlineChatProfitReport: React.FC<{
           <TrendingUp className="w-4 h-4 text-emerald-400" />
           <span className="font-bold text-white text-xs">Profit Intelligence</span>
           <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-semibold">
-            {sum.overallMarginPct}% Margin
+            {sum.overallMarginPct || 0}% Margin
           </span>
         </div>
         <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800 text-[11px]">
@@ -169,7 +180,7 @@ const InlineChatProfitReport: React.FC<{
               tab === 'perItem' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
             }`}
           >
-            📦 Per Item
+            📦 Per Item ({itemsList.length})
           </button>
           <button
             type="button"
@@ -178,7 +189,7 @@ const InlineChatProfitReport: React.FC<{
               tab === 'perBill' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
             }`}
           >
-            📄 Per Bill
+            📄 Per Bill ({billsList.length})
           </button>
           <button
             type="button"
@@ -187,7 +198,7 @@ const InlineChatProfitReport: React.FC<{
               tab === 'perRestaurant' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
             }`}
           >
-            🏢 Restaurant
+            🏢 Restaurant ({restaurantsList.length})
           </button>
           <button
             type="button"
@@ -196,7 +207,7 @@ const InlineChatProfitReport: React.FC<{
               tab === 'perSalesman' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
             }`}
           >
-            👤 Salesman
+            👤 Salesman ({salesmenList.length})
           </button>
         </div>
       </div>
@@ -205,20 +216,20 @@ const InlineChatProfitReport: React.FC<{
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 bg-slate-950/60 border-b border-slate-800/80 text-[11px]">
         <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
           <span className="text-[10px] text-slate-400 block">Sales Volume</span>
-          <span className="font-mono font-bold text-white">{currencySymbol()} {(sum.totalSalesVolume || 0).toLocaleString()}</span>
+          <span className="font-mono font-bold text-white">{currencySymbol()} {Number(sum.totalSalesVolume || 0).toLocaleString()}</span>
         </div>
         <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
           <span className="text-[10px] text-slate-400 block">Cost of Goods</span>
-          <span className="font-mono font-bold text-amber-300">{currencySymbol()} {(sum.totalCostOfGoods || 0).toLocaleString()}</span>
+          <span className="font-mono font-bold text-amber-300">{currencySymbol()} {Number(sum.totalCostOfGoods || 0).toLocaleString()}</span>
         </div>
         <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
           <span className="text-[10px] text-slate-400 block">Gross Profit</span>
-          <span className="font-mono font-bold text-sky-400">{currencySymbol()} {(sum.totalGrossProfit || 0).toLocaleString()}</span>
+          <span className="font-mono font-bold text-sky-400">{currencySymbol()} {Number(sum.totalGrossProfit || 0).toLocaleString()}</span>
         </div>
         <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
           <span className="text-[10px] text-slate-400 block">Net Realized Profit</span>
-          <span className={`font-mono font-black ${(sum.totalNetProfit || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-            {currencySymbol()} {(sum.totalNetProfit || 0).toLocaleString()}
+          <span className={`font-mono font-black ${(sum.totalNetProfit || sum.totalGrossProfit || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+            {currencySymbol()} {Number(sum.totalNetProfit || sum.totalGrossProfit || 0).toLocaleString()}
           </span>
         </div>
       </div>
@@ -226,7 +237,7 @@ const InlineChatProfitReport: React.FC<{
       {/* Tab Tables */}
       <div className="max-h-72 overflow-y-auto overflow-x-auto">
         {tab === 'perBill' && (
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full text-left text-xs border-collapse min-w-[550px]">
             <thead className="bg-slate-950 text-slate-400 sticky top-0 text-[10px] uppercase font-bold tracking-wider border-b border-slate-800">
               <tr>
                 <th className="py-2 px-2.5">Bill #</th>
@@ -240,34 +251,40 @@ const InlineChatProfitReport: React.FC<{
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
-              {(profitData.billWise || []).map((b, idx) => (
-                <tr key={idx} className="hover:bg-slate-800/40">
-                  <td className="py-1.5 px-2.5 font-mono font-bold text-sky-400">{b.billNumber}</td>
-                  <td className="py-1.5 px-2.5 text-slate-400 text-[11px] whitespace-nowrap">{b.date}</td>
-                  <td className="py-1.5 px-2.5 font-semibold text-white truncate max-w-[130px]">{b.customerName}</td>
-                  <td className="py-1.5 px-2.5 text-right font-mono text-slate-200">{currencySymbol()} {b.netSaleAmount.toLocaleString()}</td>
-                  <td className="py-1.5 px-2.5 text-right font-mono text-slate-400">{currencySymbol()} {b.costOfGoods.toLocaleString()}</td>
-                  <td className={`py-1.5 px-2.5 text-right font-mono font-bold ${b.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {currencySymbol()} {b.netProfit.toLocaleString()}
-                  </td>
-                  <td className="py-1.5 px-2.5 text-right font-mono text-slate-300">{b.marginPct}%</td>
-                  <td className="py-1.5 px-2.5 text-center">
-                    <button
-                      type="button"
-                      onClick={() => onSelectBill(b.saleBill)}
-                      className="px-2.5 py-1 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-[11px] font-bold transition cursor-pointer shadow-xs"
-                    >
-                      👁️ View Invoice
-                    </button>
-                  </td>
+              {billsList.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-4 text-center text-slate-500">No bill records found</td>
                 </tr>
-              ))}
+              ) : (
+                billsList.map((b: any, idx: number) => (
+                  <tr key={idx} className="hover:bg-slate-800/40 transition">
+                    <td className="py-1.5 px-2.5 font-mono font-bold text-sky-400">#{b.billNumber}</td>
+                    <td className="py-1.5 px-2.5 text-slate-400 text-[11px] whitespace-nowrap">{b.date}</td>
+                    <td className="py-1.5 px-2.5 font-semibold text-white truncate max-w-[150px]">{b.customerAccountTitle || b.customerName || 'Customer'}</td>
+                    <td className="py-1.5 px-2.5 text-right font-mono text-slate-200">{currencySymbol()} {Number(b.netTotal ?? b.netSaleAmount ?? b.totalAmount ?? 0).toLocaleString()}</td>
+                    <td className="py-1.5 px-2.5 text-right font-mono text-slate-400">{currencySymbol()} {Number(b.costOfGoods ?? 0).toLocaleString()}</td>
+                    <td className={`py-1.5 px-2.5 text-right font-mono font-bold ${(b.grossProfit ?? b.netProfit ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {currencySymbol()} {Number(b.grossProfit ?? b.netProfit ?? 0).toLocaleString()}
+                    </td>
+                    <td className="py-1.5 px-2.5 text-right font-mono text-slate-300">{Number(b.profitMarginPct ?? b.marginPct ?? 0).toFixed(1)}%</td>
+                    <td className="py-1.5 px-2.5 text-center">
+                      <button
+                        type="button"
+                        onClick={() => onSelectBill(b.rawBill || b.saleBill || b)}
+                        className="px-2.5 py-1 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-[11px] font-bold transition cursor-pointer shadow-xs"
+                      >
+                        👁️ View Invoice
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         )}
 
         {tab === 'perItem' && (
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full text-left text-xs border-collapse min-w-[550px]">
             <thead className="bg-slate-950 text-slate-400 sticky top-0 text-[10px] uppercase font-bold tracking-wider border-b border-slate-800">
               <tr>
                 <th className="py-2 px-2.5">Item Description</th>
@@ -280,25 +297,42 @@ const InlineChatProfitReport: React.FC<{
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
-              {(profitData.itemWise || []).map((it, idx) => (
-                <tr key={idx} className="hover:bg-slate-800/40">
-                  <td className="py-1.5 px-2.5 font-bold text-white">{it.itemTitle}</td>
-                  <td className="py-1.5 px-2.5 text-right font-mono text-slate-300">{it.totalCtn}</td>
-                  <td className="py-1.5 px-2.5 text-right font-mono text-slate-400">{it.totalQty}</td>
-                  <td className="py-1.5 px-2.5 text-right font-mono text-slate-200">{currencySymbol()} {it.totalSaleAmount.toLocaleString()}</td>
-                  <td className="py-1.5 px-2.5 text-right font-mono text-slate-400">{currencySymbol()} {it.totalCostOfGoods.toLocaleString()}</td>
-                  <td className={`py-1.5 px-2.5 text-right font-mono font-bold ${it.grossProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {currencySymbol()} {it.grossProfit.toLocaleString()}
-                  </td>
-                  <td className="py-1.5 px-2.5 text-right font-mono text-slate-300">{it.marginPct}%</td>
+              {itemsList.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-4 text-center text-slate-500">No item records found</td>
                 </tr>
-              ))}
+              ) : (
+                itemsList.map((it: any, idx: number) => (
+                  <tr key={idx} className="hover:bg-slate-800/40 transition">
+                    <td className="py-1.5 px-2.5 font-bold text-white">
+                      <div>{it.itemTitle}</div>
+                      {it.rateTiers && it.rateTiers.length > 1 && (
+                        <div className="text-[10px] text-slate-400 font-normal mt-0.5 space-y-0.5">
+                          {it.rateTiers.map((t: any, ti: number) => (
+                            <div key={ti} className="text-[10px] text-slate-400">
+                              • {t.rateType} @ {currencySymbol()} {t.rate} (VAT {t.vatPercent}%): {t.ctnSold || t.qtySold} sold | Profit: +{currencySymbol()} {t.grossProfit} ({t.profitMarginPct}%)
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-1.5 px-2.5 text-right font-mono text-slate-300">{it.ctnSold ?? it.totalCtn ?? 0}</td>
+                    <td className="py-1.5 px-2.5 text-right font-mono text-slate-400">{it.qtySold ?? it.totalQty ?? 0}</td>
+                    <td className="py-1.5 px-2.5 text-right font-mono text-slate-200">{currencySymbol()} {Number(it.totalRevenue ?? it.totalSaleAmount ?? 0).toLocaleString()}</td>
+                    <td className="py-1.5 px-2.5 text-right font-mono text-slate-400">{currencySymbol()} {Number(it.totalCostOfGoods ?? 0).toLocaleString()}</td>
+                    <td className={`py-1.5 px-2.5 text-right font-mono font-bold ${(it.grossProfit ?? it.netProfit ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {currencySymbol()} {Number(it.grossProfit ?? it.netProfit ?? 0).toLocaleString()}
+                    </td>
+                    <td className="py-1.5 px-2.5 text-right font-mono text-slate-300">{Number(it.profitMarginPct ?? it.marginPct ?? 0).toFixed(1)}%</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         )}
 
         {tab === 'perRestaurant' && (
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full text-left text-xs border-collapse min-w-[550px]">
             <thead className="bg-slate-950 text-slate-400 sticky top-0 text-[10px] uppercase font-bold tracking-wider border-b border-slate-800">
               <tr>
                 <th className="py-2 px-2.5">Customer / Restaurant</th>
@@ -310,24 +344,30 @@ const InlineChatProfitReport: React.FC<{
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
-              {(profitData.restaurantWise || []).map((r, idx) => (
-                <tr key={idx} className="hover:bg-slate-800/40">
-                  <td className="py-1.5 px-2.5 font-bold text-white">{r.customerName}</td>
-                  <td className="py-1.5 px-2.5 text-center font-mono text-slate-400">{r.billsCount}</td>
-                  <td className="py-1.5 px-2.5 text-right font-mono text-slate-200">{currencySymbol()} {r.totalSalesVolume.toLocaleString()}</td>
-                  <td className="py-1.5 px-2.5 text-right font-mono text-slate-400">{currencySymbol()} {r.totalCostOfGoods.toLocaleString()}</td>
-                  <td className={`py-1.5 px-2.5 text-right font-mono font-bold ${r.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {currencySymbol()} {r.netProfit.toLocaleString()}
-                  </td>
-                  <td className="py-1.5 px-2.5 text-right font-mono text-slate-300">{r.marginPct}%</td>
+              {restaurantsList.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-4 text-center text-slate-500">No customer records found</td>
                 </tr>
-              ))}
+              ) : (
+                restaurantsList.map((r: any, idx: number) => (
+                  <tr key={idx} className="hover:bg-slate-800/40 transition">
+                    <td className="py-1.5 px-2.5 font-bold text-white">{r.accountTitle || r.customerName}</td>
+                    <td className="py-1.5 px-2.5 text-center font-mono text-slate-400">{r.billsCount}</td>
+                    <td className="py-1.5 px-2.5 text-right font-mono text-slate-200">{currencySymbol()} {Number(r.totalSalesVolume || 0).toLocaleString()}</td>
+                    <td className="py-1.5 px-2.5 text-right font-mono text-slate-400">{currencySymbol()} {Number(r.totalCostOfGoods || 0).toLocaleString()}</td>
+                    <td className={`py-1.5 px-2.5 text-right font-mono font-bold ${(r.grossProfit ?? r.netProfit ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {currencySymbol()} {Number(r.grossProfit ?? r.netProfit ?? 0).toLocaleString()}
+                    </td>
+                    <td className="py-1.5 px-2.5 text-right font-mono text-slate-300">{Number(r.profitMarginPct ?? r.marginPct ?? 0).toFixed(1)}%</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         )}
 
         {tab === 'perSalesman' && (
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full text-left text-xs border-collapse min-w-[550px]">
             <thead className="bg-slate-950 text-slate-400 sticky top-0 text-[10px] uppercase font-bold tracking-wider border-b border-slate-800">
               <tr>
                 <th className="py-2 px-2.5">Salesman / Agent</th>
@@ -338,17 +378,23 @@ const InlineChatProfitReport: React.FC<{
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
-              {(profitData.salesmanWise || []).map((s, idx) => (
-                <tr key={idx} className="hover:bg-slate-800/40">
-                  <td className="py-1.5 px-2.5 font-bold text-white">{s.salesmanName}</td>
-                  <td className="py-1.5 px-2.5 text-center font-mono text-slate-400">{s.billsCount}</td>
-                  <td className="py-1.5 px-2.5 text-right font-mono text-slate-200">{currencySymbol()} {s.totalSalesVolume.toLocaleString()}</td>
-                  <td className={`py-1.5 px-2.5 text-right font-mono font-bold ${s.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {currencySymbol()} {s.netProfit.toLocaleString()}
-                  </td>
-                  <td className="py-1.5 px-2.5 text-right font-mono text-slate-300">{s.marginPct}%</td>
+              {salesmenList.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-4 text-center text-slate-500">No salesman records found</td>
                 </tr>
-              ))}
+              ) : (
+                salesmenList.map((s: any, idx: number) => (
+                  <tr key={idx} className="hover:bg-slate-800/40 transition">
+                    <td className="py-1.5 px-2.5 font-bold text-white">{s.salesmanName}</td>
+                    <td className="py-1.5 px-2.5 text-center font-mono text-slate-400">{s.billsCount}</td>
+                    <td className="py-1.5 px-2.5 text-right font-mono text-slate-200">{currencySymbol()} {Number(s.totalSalesVolume || 0).toLocaleString()}</td>
+                    <td className={`py-1.5 px-2.5 text-right font-mono font-bold ${(s.totalProfit ?? s.netProfit ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {currencySymbol()} {Number(s.totalProfit ?? s.netProfit ?? 0).toLocaleString()}
+                    </td>
+                    <td className="py-1.5 px-2.5 text-right font-mono text-slate-300">{Number(s.profitMarginPct ?? s.marginPct ?? 0).toFixed(1)}%</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         )}

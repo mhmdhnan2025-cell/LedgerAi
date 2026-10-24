@@ -9808,6 +9808,10 @@ ON CONFLICT (id) DO NOTHING;`);
         currentStockCartons,
         status,
         rateTiers,
+        totalCtn: Number(v.ctnSold.toFixed(2)),
+        totalQty: Number(v.qtySold.toFixed(2)),
+        totalSaleAmount: netRev || v.totalRevenue,
+        marginPct: profitMarginPct,
       };
     }).sort((a, b) => (b.netProfit ?? b.grossProfit) - (a.netProfit ?? a.grossProfit));
 
@@ -9860,6 +9864,12 @@ ON CONFLICT (id) DO NOTHING;`);
         netProfit,
         profitMarginPct,
         items: bill.items,
+        customerName: bill.customerAccountTitle || bill.customerName,
+        netSaleAmount: bill.netTotal,
+        totalAmount: bill.netTotal,
+        marginPct: profitMarginPct,
+        saleBill: bill,
+        rawBill: bill,
       };
     });
 
@@ -9946,6 +9956,9 @@ ON CONFLICT (id) DO NOTHING;`);
         profitMarginPct,
         outstandingBalance: c.outstandingBalance,
         status,
+        customerName: c.accountTitle,
+        netProfit: grossProfit,
+        marginPct: profitMarginPct,
       };
     }).sort((a, b) => b.totalSalesVolume - a.totalSalesVolume);
 
@@ -10035,6 +10048,8 @@ ON CONFLICT (id) DO NOTHING;`);
         profitMarginPct,
         customersHandledCount: sm.customersMap.size,
         customersList,
+        netProfit: totalProfit,
+        marginPct: profitMarginPct,
       };
     }).sort((a, b) => b.totalSalesVolume - a.totalSalesVolume);
 
@@ -10086,6 +10101,10 @@ ON CONFLICT (id) DO NOTHING;`);
       perBill,
       perRestaurant,
       perSalesman,
+      itemWise: perItem,
+      billWise: perBill,
+      restaurantWise: perRestaurant,
+      salesmanWise: perSalesman,
     };
   }
 

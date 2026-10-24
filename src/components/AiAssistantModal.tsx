@@ -382,10 +382,10 @@ const ProfitIntelligenceWidget: React.FC<{
     }
   }, [initialTab]);
 
-  const perItem = profitData?.perItem || [];
-  const perBill = profitData?.perBill || [];
-  const perRestaurant = profitData?.perRestaurant || [];
-  const perSalesman = profitData?.perSalesman || [];
+  const perItem = profitData?.perItem || profitData?.itemWise || [];
+  const perBill = profitData?.perBill || profitData?.billWise || [];
+  const perRestaurant = profitData?.perRestaurant || profitData?.restaurantWise || [];
+  const perSalesman = profitData?.perSalesman || profitData?.salesmanWise || [];
 
   return (
     <div className="p-3.5 bg-slate-900 border border-slate-700/80 rounded-2xl space-y-3 text-xs w-full">
@@ -529,19 +529,17 @@ const ProfitIntelligenceWidget: React.FC<{
                 <tr key={i} className="hover:bg-slate-800/40 transition">
                   <td className="py-1.5 px-2.5 font-mono text-cyan-300 font-bold">#{b.billNumber}</td>
                   <td className="py-1.5 px-2 font-bold text-white">{b.customerAccountTitle}</td>
-                  <td className="py-1.5 px-2 text-right font-mono text-white">{currencySymbol()} {Number(b.totalAmount).toLocaleString()}</td>
-                  <td className="py-1.5 px-2 text-right font-mono font-bold text-emerald-400">+{currencySymbol()} {Number(b.grossProfit).toLocaleString()}</td>
-                  <td className="py-1.5 px-2 text-right font-mono text-cyan-300">{b.profitMarginPct}%</td>
+                  <td className="py-1.5 px-2 text-right font-mono text-white">{currencySymbol()} {Number(b.totalAmount ?? b.netTotal ?? b.netSaleAmount ?? 0).toLocaleString()}</td>
+                  <td className="py-1.5 px-2 text-right font-mono font-bold text-emerald-400">+{currencySymbol()} {Number(b.grossProfit ?? b.netProfit ?? 0).toLocaleString()}</td>
+                  <td className="py-1.5 px-2 text-right font-mono text-cyan-300">{Number(b.profitMarginPct ?? b.marginPct ?? 0).toFixed(1)}%</td>
                   <td className="py-1.5 px-2.5 text-center">
-                    {b.rawBill && (
-                      <button
-                        type="button"
-                        onClick={() => onOpenSaleBill(b.rawBill)}
-                        className="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold transition cursor-pointer"
-                      >
-                        👁️ View Bill
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => onOpenSaleBill(b.rawBill || b.saleBill || b)}
+                      className="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold transition cursor-pointer"
+                    >
+                      👁️ View Bill
+                    </button>
                   </td>
                 </tr>
               ))}

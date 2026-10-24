@@ -272,6 +272,12 @@ You are the AI Operating System and Executive Business Analyst for a wholesale R
 The company supplies bulk foods (Rice, Daal, Flour, Sugar, Cooking Oil, Spices, Meat/Chicken, Packaging, Cleaning supplies, etc.) to restaurants and hotels.
 
 YOUR CORE MANDATES:
+0. REPORT OUTPUT CONCISENESS RULE (CRITICAL USER MANDATE):
+   - When calling any report tool ('get_profit_report', 'get_profit_per_bill_report', 'get_profit_per_item_report', 'get_profit_per_salesman_report', 'get_profit_per_restaurant_report', 'get_sale_report', 'get_purchase_report', 'get_customer_ledger_report', 'get_receivables_report', 'get_payables_report', 'get_stock_history_report'):
+     • DO NOT output long walls of text, duplicate bullet lists of numbers, or ASCII tables in your text reply!
+     • The UI automatically renders full interactive visual widgets, KPI summary cards, and scrollable data tables.
+     • Keep your text reply concise (1-2 sentences at most), announcing that the visual report widget is ready below.
+
 1. INVENTORY INTAKE & MANDATORY PRICE & AMOUNT VALIDATION (CRITICAL USER MANDATE):
    - MANDATORY PRICE & AMOUNT ENFORCEMENT:
      • Agar user ne inventory mein koi bhi stock add karne ko kaha (chahay chat se, OCR se, ya manual):
@@ -1284,7 +1290,9 @@ async function localRuleBasedFallback(
 
   // 11. GENERAL PROFIT INTELLIGENCE (Per Salesman, Per Bill, Per Restaurant, Per Item)
   const isProfitReport =
-    (/\b(profit|munafa|margin|gain|loss|intelligence)\b/i.test(text) && /\b(report|details|batao|hisaab|per|har)\b/i.test(text)) ||
+    (/(profit|munafa|margin|gain|loss|intelligence)/i.test(text) && /(report|details|batao|hisaab|per|har)/i.test(text)) ||
+    text === 'per bill' || text === 'per salesman' || text === 'per item' || text === 'per customer' || text === 'per restaurant' ||
+    text.startsWith('per bill') || text.startsWith('per salesman') || text.startsWith('per item') || text.startsWith('per customer') || text.startsWith('per restaurant') ||
     text.includes('profit intelligence') ||
     text.includes('munafa report') ||
     text.includes('profit report') ||
@@ -1313,36 +1321,17 @@ async function localRuleBasedFallback(
       initialTab = 'perItem';
     }
 
-    let tabDetailText = '';
-    if (initialTab === 'perSalesman') {
-      const salesmen = profRep.perSalesman || [];
-      tabDetailText = salesmen.map((s) =>
-        `• **${s.salesmanName}**: Bills: ${s.billsCount} | Sales: ${currencySymbol()} ${s.totalSalesVolume.toLocaleString()} | Profit: ${currencySymbol()} ${s.totalProfit.toLocaleString()} (Margin: ${s.profitMarginPct.toFixed(1)}%)`
-      ).join('\n');
-    } else if (initialTab === 'perRestaurant') {
-      const rests = (profRep.perRestaurant || []).slice(0, 10);
-      tabDetailText = rests.map((r) =>
-        `• **${r.accountTitle}**: Sales: ${currencySymbol()} ${r.totalSalesVolume.toLocaleString()} | Profit: ${currencySymbol()} ${r.grossProfit.toLocaleString()} | Udhaar: ${currencySymbol()} ${(r.outstandingBalance || 0).toLocaleString()}`
-      ).join('\n');
-    }
+    const tabLabel = initialTab === 'perBill' ? 'Per Bill (بل وائز)' : initialTab === 'perSalesman' ? 'Per Salesman (سیلزمین وائز)' : initialTab === 'perRestaurant' ? 'Per Customer (کسٹمر وائز)' : 'Per Item (آئٹم وائز)';
 
     return {
-      reply: `📈 **Profit Intelligence Report (نفع کی رپورٹ)**\n\n` +
-        `• Kul Billed Sales Volume: **${currencySymbol()} ${(sum.totalSalesVolume || 0).toLocaleString()}**\n` +
-        `• Khareed Laagat (Cost of Goods): **${currencySymbol()} ${(sum.totalCostOfGoods || 0).toLocaleString()}**\n` +
-        `• **Gross Profit (خام منافع): ${currencySymbol()} ${(sum.totalGrossProfit || 0).toLocaleString()}**\n` +
-        `• **Net Realized Profit (خالص منافع): ${currencySymbol()} ${(sum.totalNetProfit || 0).toLocaleString()}**\n` +
-        `• Overall Net Profit Margin: **${sum.overallMarginPct || 0}%**\n` +
-        `• Status: **${sum.totalNetProfit >= 0 ? 'PROFITABLE 🟢' : 'LOSS 🔴'}**\n\n` +
-        (tabDetailText ? `**${initialTab === 'perSalesman' ? 'Salesmen Performance Breakdown:' : 'Top Customers Breakdown:'}**\n${tabDetailText}\n\n` : '') +
-        `Neechay Profit Report table di gayi hai. Aap tabs change kar k Item-Wise, Bill-Wise, Restaurant, aur Salesman profit dekh sakty hain, aur kisi bhi bill par click kar k invoice open kar sakty hain:`,
+      reply: `📊 **Profit Intelligence Report — ${tabLabel}**\nNeechay mukammal interactive report di gayi hai. Aap tabs change kar k Item-Wise, Bill-Wise, Restaurant, aur Salesman profit dekh sakty hain, aur kisi bhi bill par click kar k invoice open kar sakty hain:`,
       executedTools: [{
         name: 'get_profit_report',
         args: { tab: initialTab },
         result: {
           success: true,
           reportType: 'profit',
-          title: 'Profit Intelligence Report (نفع کی رپورٹ)',
+          title: `Profit Intelligence Report (${tabLabel})`,
           summary: sum,
           profitData: profRep,
           initialTab,

@@ -863,6 +863,10 @@ export interface ItemProfitReportItem {
   currentStockCartons: number;
   status: 'PROFITABLE' | 'LOW_MARGIN' | 'LOSS';
   rateTiers?: ItemProfitRateTier[];
+  totalCtn?: number;
+  totalQty?: number;
+  totalSaleAmount?: number;
+  marginPct?: number;
 }
 
 export interface BillProfitReportItem {
@@ -884,6 +888,12 @@ export interface BillProfitReportItem {
   netProfit: number;
   profitMarginPct: number;
   items: SaleBillItem[];
+  customerName?: string;
+  netSaleAmount?: number;
+  totalAmount?: number;
+  marginPct?: number;
+  rawBill?: SaleBill;
+  saleBill?: SaleBill;
 }
 
 export interface RestaurantCustomerProfitReportItem {
@@ -902,6 +912,9 @@ export interface RestaurantCustomerProfitReportItem {
   profitMarginPct: number;
   outstandingBalance: number;
   status: 'HEALTHY' | 'LOSS' | 'PENDING_COLLECTION';
+  customerName?: string;
+  netProfit?: number;
+  marginPct?: number;
 }
 
 export interface SalesmanCustomerDetail {
@@ -925,6 +938,8 @@ export interface SalesmanProfitReportItem {
   profitMarginPct: number;
   customersHandledCount: number;
   customersList?: SalesmanCustomerDetail[];
+  netProfit?: number;
+  marginPct?: number;
 }
 
 export interface ComprehensiveProfitReport {
@@ -945,11 +960,15 @@ export interface ComprehensiveProfitReport {
     totalBillsCount: number;
     totalQtySold: number;
     totalCtnSold: number;
-  };
+};
   perItem: ItemProfitReportItem[];
   perBill: BillProfitReportItem[];
   perRestaurant: RestaurantCustomerProfitReportItem[];
   perSalesman: SalesmanProfitReportItem[];
+  itemWise?: ItemProfitReportItem[];
+  billWise?: BillProfitReportItem[];
+  restaurantWise?: RestaurantCustomerProfitReportItem[];
+  salesmanWise?: SalesmanProfitReportItem[];
 }
 
 // -------------------------------------------------------------
