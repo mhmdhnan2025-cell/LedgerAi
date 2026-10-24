@@ -65,7 +65,7 @@ export function exportToCsv<T = any>(
   setTimeout(() => {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  }, 200);
+  }, 10000);
 
   return true;
 }

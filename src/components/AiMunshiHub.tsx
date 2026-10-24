@@ -63,6 +63,7 @@ import {
 import { PurchaseBillVoucherModal } from './PurchaseBillVoucherModal';
 import { MasterAuditReportModal } from './MasterAuditReportModal';
 import { AiSmartPurchaseReportWidget } from './AiSmartPurchaseReportWidget';
+import { downloadReportFile } from '../utils/downloadFile';
 
 interface AiMunshiHubProps {
   currentRole: UserRole;
@@ -932,14 +933,14 @@ Please process this into the database (create inventory, record order, or expens
 
         {/* Action buttons */}
         <div className="flex items-center gap-3">
-          <a
-            href="/api/reports/download?type=business&format=html"
-            download="Master_Business_Profit_Audit.html"
+          <button
+            type="button"
+            onClick={() => downloadReportFile('/api/reports/download?type=business&format=html', 'Master_Business_Profit_Audit.html')}
             className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold shadow transition cursor-pointer"
           >
             <Download className="w-4 h-4" />
             Download Master Audit (.html)
-          </a>
+          </button>
           {onNavigateTab && (
             <button
               onClick={() => onNavigateTab('profit')}
@@ -1077,14 +1078,14 @@ Please process this into the database (create inventory, record order, or expens
                           <Printer className="w-3.5 h-3.5" />
                           <span>👁️ View &amp; Print Master Audit</span>
                         </button>
-                        <a
-                          href={msg.report.downloadUrl.replace('format=doc', 'format=html')}
-                          download={msg.report.fileName.replace(/\.doc$/, '.html')}
+                        <button
+                          type="button"
+                          onClick={() => downloadReportFile(msg.report.downloadUrl.replace('format=doc', 'format=html'), msg.report.fileName.replace(/\.doc$/, '.html'))}
                           className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow transition cursor-pointer"
                         >
                           <Download className="w-3.5 h-3.5" />
                           Download Report (.html)
-                        </a>
+                        </button>
                       </div>
                     </div>
                   )}

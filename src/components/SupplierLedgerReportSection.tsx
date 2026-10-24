@@ -23,6 +23,7 @@ import {
 import { Supplier, SupplierLedgerReport, SupplierLedgerEntry, CompanyProfile } from '../types';
 import { api } from '../services/api';
 import { currencySymbol } from '../utils/currency';
+import { exportToCsv } from '../utils/exportCsv';
 
 interface SupplierLedgerReportSectionProps {
   companyProfile?: CompanyProfile | null;
@@ -318,60 +319,26 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
   const handleExportCSV = () => {
     if (!report) return;
     const headers = ['REF', 'REF#', 'DATE', 'BILL#', 'NARRATION', 'DEBIT (PAID)', 'CREDIT (PURCHASE)', 'BALANCE', 'TYPE'];
-    const rows: string[][] = [];
-
-    // Opening Balance
-    rows.push([
-      'OB',
-      '-',
-      report.fromDate,
-      '-',
-      'Opening Balance',
-      '-',
-      '-',
-      String(report.openingBalance),
-      report.openingBalanceType,
-    ]);
-
-    // Entries
-    for (const e of report.entries) {
-      rows.push([
+    const rows = [
+      ['OB', '-', report.fromDate, '-', 'Opening Balance', '-', '-', String(report.openingBalance), report.openingBalanceType],
+      ...report.entries.map((e) => [
         e.refType,
         String(e.refNumber || ''),
         e.date,
         e.billNumber || '',
-        `"${(e.narration || '').replace(/"/g, '""').replace(/\n/g, ' ')}"`,
+        (e.narration || '').replace(/\n/g, ' '),
         e.debit > 0 ? String(e.debit) : '-',
         e.credit > 0 ? String(e.credit) : '-',
         String(e.balance),
         e.balanceType,
-      ]);
-    }
+      ]),
+      ['TOTAL', '', '', '', 'Closing Balance', String(report.totalDebit), String(report.totalCredit), String(report.closingBalance), report.closingBalanceType],
+    ];
 
-    // Totals
-    rows.push([
-      'TOTAL',
-      '',
-      '',
-      '',
-      'Closing Balance',
-      String(report.totalDebit),
-      String(report.totalCredit),
-      String(report.closingBalance),
-      report.closingBalanceType,
-    ]);
-
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute(
-      'download',
-      `Supplier_Ledger_${selectedSupplier?.code || 'report'}_${report.fromDate}_to_${report.toDate}.csv`
+    exportToCsv(
+      `Supplier_Ledger_${selectedSupplier?.code || 'report'}_${report.fromDate}_to_${report.toDate}`,
+      [headers, ...rows]
     );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   const formatNumber = (val?: number) => {

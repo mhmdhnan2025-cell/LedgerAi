@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { CompanyProfile } from '../types';
+import { downloadReportFile } from '../utils/downloadFile';
 
 interface MasterAuditReportModalProps {
   isOpen: boolean;
@@ -163,15 +164,15 @@ export const MasterAuditReportModal: React.FC<MasterAuditReportModalProps> = ({
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
             </button>
 
-            <a
-              href={downloadUrl('html')}
-              download="Master_Business_Audit_Report.html"
+            <button
+              type="button"
+              onClick={() => downloadReportFile(downloadUrl('html'), 'Master_Business_Audit_Report.html')}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow-md shadow-emerald-600/20 transition cursor-pointer"
-              title="Download standalone styled HTML audit report (opens identically offline/in browser)"
+              title="Download standalone styled HTML audit report"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Download Report (.html)</span>
-            </a>
+            </button>
 
             <button
               onClick={handlePrint}

@@ -23,6 +23,7 @@ import {
 import { CashPaidReportItem, CompanyProfile } from '../types';
 import { api } from '../services/api';
 import { currencySymbol } from '../utils/currency';
+import { exportToCsv } from '../utils/exportCsv';
 
 interface CashPaidReportSectionProps {
   companyProfile?: CompanyProfile | null;
@@ -149,24 +150,15 @@ export const CashPaidReportSection: React.FC<CashPaidReportSectionProps> = ({
       r.date,
       r.voucherNumberFormatted,
       r.jvNumber,
-      `"${r.category || 'Other'}"`,
-      `"${r.accountCode}"`,
-      `"${r.accountTitle.replace(/"/g, '""')}"`,
-      `"${r.paymentMode}"`,
-      `"${r.narration.replace(/"/g, '""')}"`,
+      r.category || 'Other',
+      r.accountCode,
+      r.accountTitle,
+      r.paymentMode,
+      r.narration,
       r.amount.toFixed(2),
     ]);
 
-    const csvContent =
-      'data:text/csv;charset=utf-8,' +
-      [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Cash_Paid_Report_${fromDate}_to_${toDate}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportToCsv(`Cash_Paid_Report_${fromDate}_to_${toDate}`, [headers, ...rows]);
   };
 
   const supplierItemsCount = useMemo(

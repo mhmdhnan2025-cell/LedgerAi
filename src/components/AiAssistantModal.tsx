@@ -39,6 +39,7 @@ import {
 } from './AiMunshiReportWidgets';
 import { PurchaseBillVoucherModal } from './PurchaseBillVoucherModal';
 import { MasterAuditReportModal } from './MasterAuditReportModal';
+import { downloadReportFile } from '../utils/downloadFile';
 
 interface AiAssistantModalProps {
   isOpen: boolean;
@@ -867,14 +868,14 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
                                   <span>👁️ View &amp; Print Master Audit</span>
                                 </button>
                                 {tool.result.downloadUrl && (
-                                  <a
-                                    href={tool.result.downloadUrl}
-                                    download={tool.result.fileName || 'Master_Audit.doc'}
-                                    className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold border border-slate-700 transition flex items-center gap-1"
+                                  <button
+                                    type="button"
+                                    onClick={() => downloadReportFile(tool.result.downloadUrl, tool.result.fileName || 'Master_Audit.doc')}
+                                    className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold border border-slate-700 transition flex items-center gap-1 cursor-pointer"
                                   >
                                     <FileText className="w-3.5 h-3.5 text-indigo-400" />
                                     <span>Word (.doc)</span>
-                                  </a>
+                                  </button>
                                 )}
                               </div>
                             </div>
@@ -961,13 +962,13 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
 
                           {tool.result?.downloadUrl && tool.name !== 'generate_business_report' && (
                             <div className="flex items-center gap-2 pt-1 border-t border-slate-800">
-                              <a
-                                href={tool.result.downloadUrl}
-                                download={tool.result.fileName || 'Report.html'}
-                                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded font-bold text-[10px] inline-flex items-center gap-1 transition"
+                              <button
+                                type="button"
+                                onClick={() => downloadReportFile(tool.result.downloadUrl, tool.result.fileName || 'Report.html')}
+                                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded font-bold text-[10px] inline-flex items-center gap-1 transition cursor-pointer"
                               >
                                 📥 Download Report File
-                              </a>
+                              </button>
                             </div>
                           )}
                         </div>

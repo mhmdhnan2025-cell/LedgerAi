@@ -1926,7 +1926,7 @@ app.get('/api/reports/download', (req, res) => {
   const type = String(req.query.type || 'business');
   const format = String(req.query.format || (type === 'ledger-audit' || type === 'business' ? 'html' : 'doc'));
 
-  if (type === 'ledger-audit' || type === 'business') {
+  if (type === 'ledger-audit' || type === 'business' || type === 'master_audit' || type === 'master-audit' || type === 'audit') {
     const date = typeof req.query.date === 'string' ? req.query.date : undefined;
     const isHtml = format !== 'doc';
     const result = isHtml ? generateAiLedgerAuditHtml(date) : generateAiLedgerAuditDoc(date);

@@ -1,4 +1,5 @@
 import { currencySymbol } from '../utils/currency';
+import { downloadReportFile } from '../utils/downloadFile';
 import React, { useState } from 'react';
 import {
   Area,
@@ -203,15 +204,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <FileSpreadsheet className="w-3.5 h-3.5 text-rose-400" />
             <span>Scan Paper Slip</span>
           </button>
-          <a
-            href="/api/reports/download?type=business"
-            download="Master_Business_Profit_Audit.doc"
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700/60 hover:bg-emerald-600 text-emerald-100 hover:text-white rounded-lg text-xs font-semibold border border-emerald-600/50 transition"
-            title="Download full business audit (.doc)"
+          <button
+            type="button"
+            onClick={() => downloadReportFile('/api/reports/download?type=business&format=html', 'Master_Business_Profit_Audit.html')}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700/60 hover:bg-emerald-600 text-emerald-100 hover:text-white rounded-lg text-xs font-semibold border border-emerald-600/50 transition cursor-pointer"
+            title="Download full business audit (.html)"
           >
             <FileText className="w-3.5 h-3.5 text-emerald-300" />
-            <span>Overall Report (.doc)</span>
-          </a>
+            <span>Overall Report (.html)</span>
+          </button>
           <button
             onClick={() => onOpenAiAssistant('What is our net profit today and where are our highest expenses?')}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-900/60 to-purple-900/60 hover:from-indigo-800 hover:to-purple-800 text-indigo-200 hover:text-white rounded-lg text-xs font-semibold border border-indigo-700/60 transition"

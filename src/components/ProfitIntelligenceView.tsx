@@ -1,4 +1,5 @@
 import { currencySymbol } from '../utils/currency';
+import { downloadReportFile } from '../utils/downloadFile';
 import React, { useEffect, useState } from 'react';
 import {
   AlertCircle,
@@ -115,15 +116,15 @@ export const ProfitIntelligenceView: React.FC<ProfitIntelligenceViewProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
-          <a
-            href="/api/reports/download?type=business"
-            download="Master_Business_Profit_Audit.doc"
-            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold shadow transition"
+          <button
+            type="button"
+            onClick={() => downloadReportFile('/api/reports/download?type=business&format=html', 'Master_Business_Profit_Audit.html')}
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold shadow transition cursor-pointer"
             title="Download Master P&L Audit Report as Document"
           >
             <Download className="w-4 h-4" />
-            <span>Download Master Audit (.doc)</span>
-          </a>
+            <span>Download Master Audit (.html)</span>
+          </button>
           <button
             onClick={handleManualRefresh}
             className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-sm font-semibold border border-slate-700 transition"

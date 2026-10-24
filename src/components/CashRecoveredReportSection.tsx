@@ -19,6 +19,7 @@ import {
 import { CashRecoveredReportItem, CompanyProfile } from '../types';
 import { api } from '../services/api';
 import { currencySymbol } from '../utils/currency';
+import { exportToCsv } from '../utils/exportCsv';
 
 interface CashRecoveredReportSectionProps {
   companyProfile?: CompanyProfile | null;
@@ -104,21 +105,14 @@ export const CashRecoveredReportSection: React.FC<CashRecoveredReportSectionProp
       r.date,
       r.voucherNumberFormatted,
       r.jvNumber,
-      `"${r.accountCode}"`,
-      `"${r.accountTitle.replace(/"/g, '""')}"`,
-      `"${r.paymentMode}"`,
-      `"${r.narration.replace(/"/g, '""')}"`,
+      r.accountCode,
+      r.accountTitle,
+      r.paymentMode,
+      r.narration,
       r.amount.toFixed(2),
     ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Cash_Recovered_Report_${fromDate}_to_${toDate}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportToCsv(`Cash_Recovered_Report_${fromDate}_to_${toDate}`, [headers, ...rows]);
   };
 
   return (

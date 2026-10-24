@@ -34,7 +34,7 @@ export function getActiveCompanyId(explicitId?: string): string {
   if (store && store.companyId) {
     return store.companyId;
   }
-  return 'comp_default_01';
+  return 'comp-muocj00t-j3co';
 }
 
 // Extend Express Request
@@ -180,6 +180,13 @@ export function tenantContextMiddleware(req: Request, res: Response, next: NextF
     }
   }
 
+  const queryCompanyId = req.query.companyId || req.query.cid;
+  if (typeof queryCompanyId === 'string' && queryCompanyId.trim()) {
+    const cid = queryCompanyId.trim();
+    req.companyId = cid;
+    return tenantStorage.run({ companyId: cid }, () => next());
+  }
+
   const headerCompanyId = req.headers['x-company-id'] || req.headers['company-id'];
   if (typeof headerCompanyId === 'string' && headerCompanyId.trim()) {
     const cid = headerCompanyId.trim();
@@ -187,7 +194,7 @@ export function tenantContextMiddleware(req: Request, res: Response, next: NextF
     return tenantStorage.run({ companyId: cid }, () => next());
   }
 
-  tenantStorage.run({ companyId: 'comp_default_01' }, () => next());
+  tenantStorage.run({ companyId: 'comp-muocj00t-j3co' }, () => next());
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction) {

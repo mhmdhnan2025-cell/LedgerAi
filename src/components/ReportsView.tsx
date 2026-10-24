@@ -45,6 +45,7 @@ import { SupplierLedgerReportSection } from './SupplierLedgerReportSection';
 import { SaleReturnReportSection } from './SaleReturnReportSection';
 import { PurchaseReturnReportSection } from './PurchaseReturnReportSection';
 import { ErrorBoundary } from './ErrorBoundary';
+import { exportToCsv } from '../utils/exportCsv';
 
 interface ReportsViewProps {
   suppliers: Supplier[];
@@ -289,11 +290,11 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     ];
 
     const rows = bills.map((b) => [
-      `"${b.billNumber}"`,
-      `"${b.vendorBillNumber || ''}"`,
-      `"${b.gatePassNumber || ''}"`,
-      `"${b.date}"`,
-      `"${(b.supplierAccountTitle || '').replace(/"/g, '""')}"`,
+      b.billNumber,
+      b.vendorBillNumber || '',
+      b.gatePassNumber || '',
+      b.date,
+      b.supplierAccountTitle || '',
       b.totalCtn ?? 0,
       b.totalQty ?? 0,
       b.grossAmount ?? 0,
@@ -304,14 +305,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       b.remainingBalance ?? 0,
     ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Purchase_Report_${fromDate}_to_${toDate}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportToCsv(`Purchase_Report_${fromDate}_to_${toDate}`, [headers, ...rows]);
   };
 
   // Print Report

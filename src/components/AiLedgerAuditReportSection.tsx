@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { AiLedgerAuditReport, CashRegister, CompanyProfile, UserRole } from '../types';
 import { api } from '../services/api';
+import { downloadReportFile } from '../utils/downloadFile';
 
 interface AiLedgerAuditReportSectionProps {
   companyProfile?: CompanyProfile | null;
@@ -173,22 +174,24 @@ export const AiLedgerAuditReportSection: React.FC<AiLedgerAuditReportSectionProp
               <span>Tijori (Cash Register)</span>
             </button>
 
-            <a
-              href={downloadUrl('html')}
-              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold border border-slate-700 transition flex items-center gap-1.5"
+            <button
+              type="button"
+              onClick={() => downloadReportFile(downloadUrl('html'), 'Master_Business_Audit_Report.html')}
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold border border-slate-700 transition flex items-center gap-1.5 cursor-pointer"
               title="Download standalone HTML (print-ready A4)"
             >
               <Download className="w-3.5 h-3.5 text-sky-400" />
               <span>Download HTML</span>
-            </a>
-            <a
-              href={downloadUrl('doc')}
-              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold border border-slate-700 transition flex items-center gap-1.5"
+            </button>
+            <button
+              type="button"
+              onClick={() => downloadReportFile(downloadUrl('doc'), 'Master_Business_Audit_Report.doc')}
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold border border-slate-700 transition flex items-center gap-1.5 cursor-pointer"
               title="Download Word / MS Office document"
             >
               <FileText className="w-3.5 h-3.5 text-indigo-400" />
               <span>Download DOC</span>
-            </a>
+            </button>
 
             <button
               onClick={handlePrint}
