@@ -683,13 +683,16 @@ export default function App() {
 
         {/* Current Active View */}
         {currentTab === 'aimunshi' && (
-          <AiMunshiHub
-            currentRole={currentRole}
-            companyProfile={companyProfile}
-            onRefreshData={() => loadBusinessData(true)}
-            onNavigateTab={(tab) => setCurrentTab(tab as any)}
-            summary={summary}
-          />
+          <ErrorBoundary fallbackTitle="AI Munshi Hub">
+            <AiMunshiHub
+              currentRole={currentRole}
+              companyProfile={companyProfile}
+              onRefreshData={() => loadBusinessData(true)}
+              onNavigateTab={(tab) => setCurrentTab(tab as any)}
+              summary={summary}
+              products={products}
+            />
+          </ErrorBoundary>
         )}
 
         {currentTab === 'sales' && (

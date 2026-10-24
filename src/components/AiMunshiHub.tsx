@@ -47,7 +47,9 @@ import {
   ComprehensiveProfitReport,
   StockMovementReport,
   UserRole,
+  Product,
 } from '../types';
+import { ErrorBoundary } from './ErrorBoundary';
 import { SalesBillReceiptModal } from './SalesBillReceiptModal';
 import {
   CustomerLedgerWidget,
@@ -68,6 +70,7 @@ interface AiMunshiHubProps {
   onRefreshData: () => Promise<void>;
   onNavigateTab?: (tab: string) => void;
   summary?: BusinessSummary | null;
+  products?: Product[];
 }
 
 interface ExecutedAction {
@@ -425,6 +428,7 @@ export const AiMunshiHub: React.FC<AiMunshiHubProps> = ({
   onRefreshData,
   onNavigateTab,
   summary,
+  products = [],
 }) => {
   const [inputText, setInputText] = useState('');
   const [selectedBillForReceiptModal, setSelectedBillForReceiptModal] = useState<SaleBill | null>(null);
