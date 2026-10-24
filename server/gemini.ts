@@ -837,21 +837,33 @@ async function localRuleBasedFallback(
   const allSaleReturns = db.getSaleReturns();
   const allPurchaseReturns = db.getPurchaseReturns();
 
-  // Helper: Find matched customer from text
+  // Helper: Find matched customer from text (supports clean name & fuzzy matching)
   const findCustomerInText = (str: string) => {
+    const sLower = str.toLowerCase();
     return allCustomers.find((c) => {
       const name = (c.name || c.accountTitle || '').toLowerCase().trim();
-      const code = (c.code || c.accountCode || '').toLowerCase().trim();
-      return (code && str.includes(code)) || (name.length >= 3 && str.includes(name));
+      const code = (c.code || (c as any).accountCode || '').toLowerCase().trim();
+      if (code && sLower.includes(code)) return true;
+      if (!name || name.length < 3) return false;
+      if (sLower.includes(name)) return true;
+      const cleanName = name.replace(/\s*(bfc|restaurant|restaurent|hotel|cafe|cafeteria|trading|llc|grocery|supermarket)\b/gi, '').trim();
+      if (cleanName.length >= 3 && sLower.includes(cleanName)) return true;
+      return false;
     });
   };
 
-  // Helper: Find matched supplier from text
+  // Helper: Find matched supplier from text (supports clean name)
   const findSupplierInText = (str: string) => {
+    const sLower = str.toLowerCase();
     return allSuppliers.find((s) => {
       const name = (s.name || s.accountTitle || '').toLowerCase().trim();
       const code = (s.code || (s as any).accountCode || '').toLowerCase().trim();
-      return (code && str.includes(code)) || (name.length >= 3 && str.includes(name));
+      if (code && sLower.includes(code)) return true;
+      if (!name || name.length < 3) return false;
+      if (sLower.includes(name)) return true;
+      const cleanName = name.replace(/\s*(foodstuff|trading|llc|general|traders|beverage|distributors)\b/gi, '').trim();
+      if (cleanName.length >= 3 && sLower.includes(cleanName)) return true;
+      return false;
     });
   };
 

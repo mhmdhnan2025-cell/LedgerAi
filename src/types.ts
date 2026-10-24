@@ -142,12 +142,16 @@ export interface PurchaseBillItem {
 
 export interface PurchaseBill {
   id: string;
+  companyId?: string;
+  grossTotal?: number;
   billNumber: string;             // e.g. "1713"
   vendorBillNumber?: string;       // V.Bill# e.g. "V-9921"
   gatePassNumber?: string;         // GP# e.g. "GP-441"
   date: string;                    // e.g. "21-09-2026"
   supplierId: string;              // Account / Supplier ID
+  supplierCode?: string;
   supplierAccountTitle: string;    // Account Name
+  supplierName?: string;
   customerName?: string;           // Purchaser / Buyer / Customer name
   partyBalanceBefore?: number;     // Party Bal prior to bill
   isCash: boolean;                 // Cash checkbox
@@ -761,10 +765,13 @@ export interface SaleBillItem {
 
 export interface SaleBill {
   id: string;
-  billNumber: string;             // e.g. "6762"
+  companyId?: string;
+  billNumber: string;
+  billNumberFormatted?: string;             // e.g. "6762"
   lpoNo?: string;                 // Customer Purchase Order / L.P.O No printed on Tax Invoice
   date: string;                   // e.g. "21-09-2026"
   customerId: string;             // Account / Customer ID
+  customerCode?: string;
   customerAccountTitle: string;   // Account Name e.g. "SHAROOQ AL FAJAR"
   customerName?: string;
   customerMobile?: string;

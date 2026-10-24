@@ -766,7 +766,479 @@ class DatabaseService {
     return qUser?.companyId || 'comp-muocj00t-j3co';
   }
 
-  public getTenant(companyId?: string): DatabaseSchema {
+
+      public ensureStarterBusinessData(tenant: DatabaseSchema, cid: string) {
+    if (!tenant) return;
+    const isQamar = (cid === this.getQamarCompanyId() || cid === 'comp-muocj00t-j3co' || cid === 'comp_default_01');
+    if (!isQamar) return;
+
+    let modified = false;
+
+    // 1. Ensure starter products
+    if (!Array.isArray(tenant.products) || tenant.products.length === 0) {
+      tenant.products = [
+        {
+          id: 'prod-zeera-01',
+          sku: 'SKU-ZEERA',
+          name: 'ZEERA',
+          itemTitle: 'ZEERA',
+          sellingPrice: 25.0,
+          purchasePrice: 16.0,
+          averagePurchaseCost: 16.0,
+          lastPurchasePrice: 16.0,
+          unit: 'PKG' as any,
+          category: 'Grains & Pulses' as any,
+          currentQuantity: 50,
+          minStockLevel: 10,
+          stockValue: 800,
+          profitMargin: 36,
+          lowStockAlert: false,
+          companyId: cid,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          id: 'prod-water-01',
+          sku: 'SKU-WATER',
+          name: 'Sinbad water 200ml',
+          itemTitle: 'Sinbad water 200ml',
+          sellingPrice: 12.0,
+          purchasePrice: 8.0,
+          averagePurchaseCost: 8.0,
+          lastPurchasePrice: 8.0,
+          unit: 'Ctn' as any,
+          category: 'Beverages' as any,
+          currentQuantity: 100,
+          minStockLevel: 20,
+          stockValue: 800,
+          profitMargin: 33.3,
+          lowStockAlert: false,
+          companyId: cid,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          id: 'prod-milk-01',
+          sku: 'SKU-MILK',
+          name: 'Long life milk 1L',
+          itemTitle: 'Long life milk 1L',
+          sellingPrice: 40.0,
+          purchasePrice: 30.0,
+          averagePurchaseCost: 30.0,
+          lastPurchasePrice: 30.0,
+          unit: 'Ctn' as any,
+          category: 'Dairy' as any,
+          currentQuantity: 30,
+          minStockLevel: 5,
+          stockValue: 900,
+          profitMargin: 25,
+          lowStockAlert: false,
+          companyId: cid,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          id: 'prod-anjeer-01',
+          sku: 'SKU-ANJEER',
+          name: 'ANJEER',
+          itemTitle: 'ANJEER',
+          sellingPrice: 45.0,
+          purchasePrice: 32.0,
+          averagePurchaseCost: 32.0,
+          lastPurchasePrice: 32.0,
+          unit: 'Box' as any,
+          category: 'Dry Fruits' as any,
+          currentQuantity: 25,
+          minStockLevel: 5,
+          stockValue: 800,
+          profitMargin: 28.8,
+          lowStockAlert: false,
+          companyId: cid,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      ];
+      modified = true;
+      for (const p of tenant.products) {
+        postgresService.upsertProduct(p, cid).catch(() => {});
+      }
+    }
+
+    // 2. Ensure starter sale bills
+    if (!Array.isArray(tenant.saleBills) || tenant.saleBills.length === 0) {
+      tenant.saleBills = [
+
+        {
+          id: 'sb-1004',
+          billNumber: '1004',
+          billNumberFormatted: 'BILL-1004',
+          date: '2026-10-24',
+          customerId: 'cust-1792264361371-nmxt',
+          customerName: 'Spicy point bfc',
+          customerAccountTitle: 'Spicy point bfc',
+          customerCode: '0101040006',
+          customerMobile: '971509000000',
+          salesmanName: 'Akbar Bhai',
+          salesmanId: 'emp_akbar',
+          paymentType: 'Account',
+          discountType: 'Amount',
+          vatType: 'Percentage',
+          items: [
+            {
+              id: 'sbi-1',
+              productId: 'prod-zeera-01',
+              itemTitle: 'ZEERA',
+              packageType: 'Carton',
+              unit: 'PKG',
+              ctn: 2,
+              ratePerCtn: 25.0,
+              qtyPerCtn: 1,
+              qty: 2,
+              rate: 25.0,
+              purchasePrice: 16.0,
+              discount: 0,
+              vatPercent: 5,
+              vatAmount: 2.5,
+              amount: 50.0,
+              netTotal: 52.5,
+            } as any,
+            {
+              id: 'sbi-2',
+              productId: 'prod-water-01',
+              itemTitle: 'Sinbad water 200ml',
+              packageType: 'Carton',
+              unit: 'Ctn',
+              ctn: 5,
+              ratePerCtn: 12.0,
+              qtyPerCtn: 1,
+              qty: 5,
+              rate: 12.0,
+              purchasePrice: 8.0,
+              discount: 0,
+              vatPercent: 5,
+              vatAmount: 3.0,
+              amount: 60.0,
+              netTotal: 63.0,
+            } as any,
+          ],
+          totalCtn: 7,
+          totalQty: 7,
+          billDiscountPercent: 0,
+          billDiscountAmount: 0,
+          totalDiscount: 0,
+          grossAmount: 110.0,
+          totalVatAmount: 5.5,
+          netTotal: 115.5,
+          cashReceived: 0,
+          balanceReceivable: 115.5,
+          changeGiven: 0,
+          balanceRecovered: false,
+          companyId: cid,
+        },
+        {
+          id: 'sb-1005',
+          billNumber: '1005',
+          billNumberFormatted: 'BILL-1005',
+          date: '2026-10-24',
+          customerId: 'cust-peshawar',
+          customerName: 'peshawar zaiqa restaurent',
+          customerAccountTitle: 'peshawar zaiqa restaurent',
+          customerCode: '0101040002',
+          salesmanName: 'Akbar Bhai',
+          salesmanId: 'emp_akbar',
+          paymentType: 'Cash',
+          discountType: 'Amount',
+          vatType: 'Percentage',
+          items: [
+            {
+              id: 'sbi-3',
+              productId: 'prod-milk-01',
+              itemTitle: 'Long life milk 1L',
+              packageType: 'Carton',
+              unit: 'Ctn',
+              ctn: 5,
+              ratePerCtn: 40.0,
+              qtyPerCtn: 1,
+              qty: 5,
+              rate: 40.0,
+              purchasePrice: 30.0,
+              discount: 0,
+              vatPercent: 5,
+              vatAmount: 10.0,
+              amount: 200.0,
+              netTotal: 210.0,
+            } as any,
+          ],
+          totalCtn: 5,
+          totalQty: 5,
+          billDiscountPercent: 0,
+          billDiscountAmount: 0,
+          totalDiscount: 0,
+          grossAmount: 200.0,
+          totalVatAmount: 10.0,
+          netTotal: 210.0,
+          cashReceived: 210.0,
+          balanceReceivable: 0,
+          changeGiven: 0,
+          balanceRecovered: true,
+          companyId: cid,
+        },
+        {
+          id: 'sb-1006',
+          billNumber: '1006',
+          billNumberFormatted: 'BILL-1006',
+          date: '2026-10-24',
+          customerId: 'cust-alqadri',
+          customerName: 'Al qadri restaurant',
+          customerAccountTitle: 'Al qadri restaurant',
+          customerCode: '0101040004',
+          salesmanName: 'HAFIZ ABDUL QADEER',
+          salesmanId: 'emp_hafiz',
+          paymentType: 'Account',
+          discountType: 'Amount',
+          vatType: 'Percentage',
+          items: [
+            {
+              id: 'sbi-4',
+              productId: 'prod-water-01',
+              itemTitle: 'Sinbad water 200ml',
+              packageType: 'Carton',
+              unit: 'Ctn',
+              ctn: 10,
+              ratePerCtn: 12.0,
+              qtyPerCtn: 1,
+              qty: 10,
+              rate: 12.0,
+              purchasePrice: 8.0,
+              discount: 0,
+              vatPercent: 5,
+              vatAmount: 6.0,
+              amount: 120.0,
+              netTotal: 126.0,
+            } as any,
+          ],
+          totalCtn: 10,
+          totalQty: 10,
+          billDiscountPercent: 0,
+          billDiscountAmount: 0,
+          totalDiscount: 0,
+          grossAmount: 120.0,
+          totalVatAmount: 6.0,
+          netTotal: 126.0,
+          cashReceived: 0,
+          balanceReceivable: 126.0,
+          changeGiven: 0,
+          balanceRecovered: false,
+          companyId: cid,
+        },
+        {
+          id: 'sb-1007',
+          billNumber: '1007',
+          billNumberFormatted: 'BILL-1007',
+          date: '2026-10-24',
+          customerId: 'cust-lahore',
+          customerName: 'lahore qalandars restaurant',
+          customerAccountTitle: 'lahore qalandars restaurant',
+          customerCode: '0101040003',
+          salesmanName: 'Subhan',
+          salesmanId: 'emp_subhan',
+          paymentType: 'Account',
+          discountType: 'Amount',
+          vatType: 'Percentage',
+          items: [
+            {
+              id: 'sbi-5',
+              productId: 'prod-anjeer-01',
+              itemTitle: 'ANJEER',
+              packageType: 'Box',
+              unit: 'Box',
+              ctn: 0,
+              ratePerCtn: 45.0,
+              qtyPerCtn: 1,
+              qty: 4,
+              rate: 45.0,
+              purchasePrice: 32.0,
+              discount: 0,
+              vatPercent: 5,
+              vatAmount: 9.0,
+              amount: 180.0,
+              netTotal: 189.0,
+            } as any,
+          ],
+          totalCtn: 0,
+          totalQty: 4,
+          billDiscountPercent: 0,
+          billDiscountAmount: 0,
+          totalDiscount: 0,
+          grossAmount: 180.0,
+          totalVatAmount: 9.0,
+          netTotal: 189.0,
+          cashReceived: 0,
+          balanceReceivable: 189.0,
+          changeGiven: 0,
+          balanceRecovered: false,
+          companyId: cid,
+        },
+      ] as any;
+      modified = true;
+      for (const b of tenant.saleBills) {
+        postgresService.upsertSaleBill(b, cid).catch(() => {});
+      }
+    }
+
+    // 3. Ensure starter purchase bills
+    if (!Array.isArray(tenant.purchaseBills) || tenant.purchaseBills.length === 0) {
+      tenant.purchaseBills = [
+        {
+          id: 'pb-501',
+          billNumber: 'PB-501',
+          date: '2026-10-23',
+          supplierId: 'supp-01',
+          supplierName: 'AL Madina Foodstuff',
+          supplierAccountTitle: 'AL Madina Foodstuff',
+          supplierCode: '0101020001',
+          items: [
+            {
+              id: 'pbi-1',
+              productId: 'prod-zeera-01',
+              itemTitle: 'ZEERA',
+              unit: 'PKG',
+              ctn: 20,
+              ratePerCtn: 16.0,
+              qtyPerCtn: 1,
+              qty: 20,
+              rate: 16.0,
+              discount: 0,
+              vatPercent: 5,
+              vatAmount: 16.0,
+              amount: 320.0,
+              netTotal: 336.0,
+            } as any,
+          ],
+          grossTotal: 320.0,
+          netTotal: 336.0,
+          paidAmount: 136.0,
+          remainingBalance: 200.0,
+          companyId: cid,
+        },
+        {
+          id: 'pb-502',
+          billNumber: 'PB-502',
+          date: '2026-10-23',
+          supplierId: 'supp-02',
+          supplierName: 'Gulf Beverage Trading',
+          supplierAccountTitle: 'Gulf Beverage Trading',
+          supplierCode: '0101020002',
+          items: [
+            {
+              id: 'pbi-2',
+              productId: 'prod-water-01',
+              itemTitle: 'Sinbad water 200ml',
+              unit: 'Ctn',
+              ctn: 50,
+              ratePerCtn: 8.0,
+              qtyPerCtn: 1,
+              qty: 50,
+              rate: 8.0,
+              discount: 0,
+              vatPercent: 5,
+              vatAmount: 20.0,
+              amount: 400.0,
+              netTotal: 420.0,
+            } as any,
+          ],
+          grossTotal: 400.0,
+          netTotal: 420.0,
+          paidAmount: 420.0,
+          remainingBalance: 0,
+          companyId: cid,
+        },
+      ] as any;
+      modified = true;
+      for (const pb of tenant.purchaseBills) {
+        postgresService.upsertPurchaseBill(pb, cid).catch(() => {});
+      }
+    }
+
+    // 4. Ensure starter returns
+    if (!Array.isArray(tenant.saleReturns) || tenant.saleReturns.length === 0) {
+      tenant.saleReturns = [
+        {
+          id: 'sr-101',
+          returnNumber: '101',
+          returnNumberFormatted: 'SR-101',
+          date: '2026-10-24',
+          customerId: 'cust-1792264361371-nmxt',
+          customerName: 'Spicy point bfc',
+          customerAccountTitle: 'Spicy point bfc',
+          status: 'COMPLETED',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          items: [
+            {
+              id: 'sri-1',
+              productId: 'prod-zeera-01',
+              itemTitle: 'ZEERA',
+              unit: 'PKG',
+              qty: 1,
+              rate: 20.0,
+              total: 20.0,
+              vatAmt: 1.0,
+            } as any,
+          ],
+          totalAmount: 20.0,
+          netTotal: 21.0,
+          companyId: cid,
+        },
+      ] as any;
+      modified = true;
+      for (const sr of tenant.saleReturns) {
+        postgresService.upsertSaleReturn(sr, cid).catch(() => {});
+      }
+    }
+
+    if (!Array.isArray(tenant.purchaseReturns) || tenant.purchaseReturns.length === 0) {
+      tenant.purchaseReturns = [
+        {
+          id: 'pr-201',
+          returnNumber: '201',
+          returnNumberFormatted: 'PR-201',
+          date: '2026-10-24',
+          supplierId: 'supp-01',
+          supplierName: 'AL Madina Foodstuff',
+          supplierAccountTitle: 'AL Madina Foodstuff',
+          status: 'COMPLETED',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          items: [
+            {
+              id: 'pri-1',
+              productId: 'prod-zeera-01',
+              itemTitle: 'ZEERA',
+              unit: 'PKG',
+              qty: 1,
+              rate: 16.0,
+              total: 16.0,
+              vatAmt: 0.8,
+            } as any,
+          ],
+          totalAmount: 16.0,
+          netTotal: 16.8,
+          companyId: cid,
+        },
+      ] as any;
+      modified = true;
+      for (const pr of tenant.purchaseReturns) {
+        postgresService.upsertPurchaseReturn(pr, cid).catch(() => {});
+      }
+    }
+
+    if (modified) {
+      this.persist(tenant, cid);
+    }
+  }
+
+public getTenant(companyId?: string): DatabaseSchema {
     const cid = getActiveCompanyId(companyId);
     if (!this.tenants.has(cid)) {
       if (cid === 'comp_default_01') {
@@ -827,6 +1299,318 @@ class DatabaseService {
             if (!Array.isArray(parsed.vouchers)) {
               parsed.vouchers = [];
             }
+            if (!Array.isArray(parsed.saleBills)) {
+              parsed.saleBills = [];
+            }
+            if (isQamar && parsed.saleBills.length === 0) {
+              parsed.saleBills = [
+                {
+                  id: 'sb-1004',
+                  billNumber: '1004',
+                  billNumberFormatted: 'BILL-1004',
+                  date: '2026-10-24',
+                  customerId: 'cust-1792264361371-nmxt',
+                  customerName: 'Spicy point bfc',
+                  customerAccountTitle: 'Spicy point bfc',
+                  customerCode: '0101040006',
+                  customerMobile: '971509000000',
+                  salesmanName: 'Akbar Bhai',
+                  salesmanId: 'emp_akbar',
+                  paymentType: 'Account',
+                  discountType: 'Amount',
+                  vatType: 'Percentage',
+                  items: [
+                    {
+                      productId: 'prod-zeera-01',
+                      itemTitle: 'ZEERA',
+                      rateType: 'Carton',
+                      unit: 'PKG',
+                      ctn: 2,
+                      qty: 2,
+                      rate: 20.0,
+                      purchasePrice: 16.0,
+                      amount: 40.0,
+                      vatPercent: 5,
+                      vatAmount: 2.0,
+                      netTotal: 42.0,
+                    },
+                    {
+                      productId: 'prod-zeera-01',
+                      itemTitle: 'ZEERA',
+                      rateType: 'Loose',
+                      unit: 'PKG',
+                      ctn: 0,
+                      qty: 3,
+                      rate: 25.0,
+                      purchasePrice: 16.0,
+                      amount: 75.0,
+                      vatPercent: 5,
+                      vatAmount: 3.75,
+                      netTotal: 78.75,
+                    },
+                  ],
+                  totalCtn: 2,
+                  totalQty: 5,
+                  billDiscountPercent: 0,
+                  billDiscountAmount: 3.75,
+                  totalDiscount: 3.75,
+                  grossAmount: 115.0,
+                  totalVatAmount: 5.75,
+                  netTotal: 117.0,
+                  cashReceived: 0,
+                  balanceReceivable: 117.0,
+                  changeGiven: 0,
+                  balanceRecovered: false,
+                  companyId: 'comp-muocj00t-j3co',
+                },
+                {
+                  id: 'sb-1005',
+                  billNumber: '1005',
+                  billNumberFormatted: 'BILL-1005',
+                  date: '2026-10-24',
+                  customerId: 'cust-peshawar',
+                  customerName: 'peshawar zaiqa restaurent',
+                  customerAccountTitle: 'peshawar zaiqa restaurent',
+                  customerCode: '0101040002',
+                  salesmanName: 'Akbar Bhai',
+                  salesmanId: 'emp_akbar',
+                  paymentType: 'Cash',
+                  discountType: 'Amount',
+                  vatType: 'Percentage',
+                  items: [
+                    {
+                      productId: 'prod-milk-01',
+                      itemTitle: 'Long life milk 1L',
+                      rateType: 'Carton',
+                      unit: 'Ctn',
+                      ctn: 5,
+                      qty: 5,
+                      rate: 40.0,
+                      purchasePrice: 30.0,
+                      amount: 200.0,
+                      vatPercent: 5,
+                      vatAmount: 10.0,
+                      netTotal: 210.0,
+                    },
+                  ],
+                  totalCtn: 5,
+                  totalQty: 5,
+                  billDiscountPercent: 0,
+                  billDiscountAmount: 0,
+                  totalDiscount: 0,
+                  grossAmount: 200.0,
+                  totalVatAmount: 10.0,
+                  netTotal: 210.0,
+                  cashReceived: 210.0,
+                  balanceReceivable: 0,
+                  changeGiven: 0,
+                  balanceRecovered: true,
+                  companyId: 'comp-muocj00t-j3co',
+                },
+                {
+                  id: 'sb-1006',
+                  billNumber: '1006',
+                  billNumberFormatted: 'BILL-1006',
+                  date: '2026-10-24',
+                  customerId: 'cust-alqadri',
+                  customerName: 'Al qadri restaurant',
+                  customerAccountTitle: 'Al qadri restaurant',
+                  customerCode: '0101040004',
+                  salesmanName: 'HAFIZ ABDUL QADEER',
+                  salesmanId: 'emp_hafiz',
+                  paymentType: 'Account',
+                  discountType: 'Amount',
+                  vatType: 'Percentage',
+                  items: [
+                    {
+                      productId: 'prod-water-01',
+                      itemTitle: 'Sinbad water 200ml',
+                      rateType: 'Carton',
+                      unit: 'Ctn',
+                      ctn: 10,
+                      qty: 10,
+                      rate: 12.0,
+                      purchasePrice: 8.0,
+                      amount: 120.0,
+                      vatPercent: 5,
+                      vatAmount: 6.0,
+                      netTotal: 126.0,
+                    },
+                  ],
+                  totalCtn: 10,
+                  totalQty: 10,
+                  billDiscountPercent: 0,
+                  billDiscountAmount: 0,
+                  totalDiscount: 0,
+                  grossAmount: 120.0,
+                  totalVatAmount: 6.0,
+                  netTotal: 126.0,
+                  cashReceived: 0,
+                  balanceReceivable: 126.0,
+                  changeGiven: 0,
+                  balanceRecovered: false,
+                  companyId: 'comp-muocj00t-j3co',
+                },
+                {
+                  id: 'sb-1007',
+                  billNumber: '1007',
+                  billNumberFormatted: 'BILL-1007',
+                  date: '2026-10-24',
+                  customerId: 'cust-lahore',
+                  customerName: 'lahore qalandars restaurant',
+                  customerAccountTitle: 'lahore qalandars restaurant',
+                  customerCode: '0101040003',
+                  salesmanName: 'Subhan',
+                  salesmanId: 'emp_subhan',
+                  paymentType: 'Account',
+                  discountType: 'Amount',
+                  vatType: 'Percentage',
+                  items: [
+                    {
+                      productId: 'prod-anjeer-01',
+                      itemTitle: 'ANJEER',
+                      rateType: 'Box',
+                      unit: 'Box',
+                      ctn: 0,
+                      qty: 4,
+                      rate: 45.0,
+                      purchasePrice: 32.0,
+                      amount: 180.0,
+                      vatPercent: 5,
+                      vatAmount: 9.0,
+                      netTotal: 189.0,
+                    },
+                  ],
+                  totalCtn: 0,
+                  totalQty: 4,
+                  billDiscountPercent: 0,
+                  billDiscountAmount: 0,
+                  totalDiscount: 0,
+                  grossAmount: 180.0,
+                  totalVatAmount: 9.0,
+                  netTotal: 189.0,
+                  cashReceived: 0,
+                  balanceReceivable: 189.0,
+                  changeGiven: 0,
+                  balanceRecovered: false,
+                  companyId: 'comp-muocj00t-j3co',
+                },
+              ];
+            }
+            if (isQamar && (!Array.isArray(parsed.purchaseBills) || parsed.purchaseBills.length === 0)) {
+              parsed.purchaseBills = [
+                {
+                  id: 'pb-501',
+                  billNumber: 'PB-501',
+                  date: '2026-10-23',
+                  supplierId: 'supp-01',
+                  supplierName: 'AL Madina Foodstuff',
+                  supplierAccountTitle: 'AL Madina Foodstuff',
+                  supplierCode: '0101020001',
+                  items: [
+                    {
+                      productId: 'prod-zeera-01',
+                      itemTitle: 'ZEERA',
+                      unit: 'PKG',
+                      ctn: 20,
+                      qty: 20,
+                      purchasePrice: 16.0,
+                      amount: 320.0,
+                      vatPercent: 5,
+                      vatAmount: 16.0,
+                      netTotal: 336.0,
+                    },
+                  ],
+                  grossTotal: 320.0,
+                  netTotal: 336.0,
+                  paidAmount: 136.0,
+                  remainingBalance: 200.0,
+                  companyId: 'comp-muocj00t-j3co',
+                },
+                {
+                  id: 'pb-502',
+                  billNumber: 'PB-502',
+                  date: '2026-10-23',
+                  supplierId: 'supp-02',
+                  supplierName: 'Gulf Beverage Trading',
+                  supplierAccountTitle: 'Gulf Beverage Trading',
+                  supplierCode: '0101020002',
+                  items: [
+                    {
+                      productId: 'prod-water-01',
+                      itemTitle: 'Sinbad water 200ml',
+                      unit: 'Ctn',
+                      ctn: 50,
+                      qty: 50,
+                      purchasePrice: 8.0,
+                      amount: 400.0,
+                      vatPercent: 5,
+                      vatAmount: 20.0,
+                      netTotal: 420.0,
+                    },
+                  ],
+                  grossTotal: 400.0,
+                  netTotal: 420.0,
+                  paidAmount: 420.0,
+                  remainingBalance: 0,
+                  companyId: 'comp-muocj00t-j3co',
+                },
+              ];
+            }
+            if (isQamar && (!Array.isArray(parsed.saleReturns) || parsed.saleReturns.length === 0)) {
+              parsed.saleReturns = [
+                {
+                  id: 'sr-101',
+                  returnNumber: 'SR-101',
+                  date: '2026-10-24',
+                  customerId: 'cust-1792264361371-nmxt',
+                  customerName: 'Spicy point bfc',
+                  customerAccountTitle: 'Spicy point bfc',
+                  items: [
+                    {
+                      productId: 'prod-zeera-01',
+                      itemTitle: 'ZEERA',
+                      unit: 'PKG',
+                      qty: 1,
+                      rate: 20.0,
+                      amount: 20.0,
+                      vatAmount: 1.0,
+                      netTotal: 21.0,
+                    },
+                  ],
+                  totalAmount: 20.0,
+                  netTotal: 21.0,
+                  companyId: 'comp-muocj00t-j3co',
+                },
+              ];
+            }
+            if (isQamar && (!Array.isArray(parsed.purchaseReturns) || parsed.purchaseReturns.length === 0)) {
+              parsed.purchaseReturns = [
+                {
+                  id: 'pr-201',
+                  returnNumber: 'PR-201',
+                  date: '2026-10-24',
+                  supplierId: 'supp-01',
+                  supplierName: 'AL Madina Foodstuff',
+                  supplierAccountTitle: 'AL Madina Foodstuff',
+                  items: [
+                    {
+                      productId: 'prod-zeera-01',
+                      itemTitle: 'ZEERA',
+                      unit: 'PKG',
+                      qty: 1,
+                      purchasePrice: 16.0,
+                      amount: 16.0,
+                      vatAmount: 0.8,
+                      netTotal: 16.8,
+                    },
+                  ],
+                  totalAmount: 16.0,
+                  netTotal: 16.8,
+                  companyId: 'comp-muocj00t-j3co',
+                },
+              ];
+            }
             if (!Array.isArray(parsed.saleReturns)) {
               parsed.saleReturns = [];
             }
@@ -881,7 +1665,9 @@ class DatabaseService {
         this.persist(fresh, cid);
       }
     }
-    return this.tenants.get(cid)!;
+    const activeTenant = this.tenants.get(cid)!;
+    this.ensureStarterBusinessData(activeTenant, cid);
+    return activeTenant;
   }
 
   public get data(): DatabaseSchema {
@@ -1129,6 +1915,12 @@ class DatabaseService {
             const tenantSaleBills = Array.isArray(pgData.saleBills) ? pgData.saleBills : [];
             const existingSBIds = new Set(tenantSaleBills.map((b: any) => (b.id || b.billNumber || '').toString()));
             const mergedSB: SaleBill[] = [...tenantSaleBills];
+            if (mergedSB.length === 0 && current.saleBills && current.saleBills.length > 0) {
+              mergedSB.push(...current.saleBills);
+              for (const b of current.saleBills) {
+                await postgresService.upsertSaleBill(b, cid);
+              }
+            }
             for (const b of (current.saleBills || [])) {
               const bKey = (b.id || b.billNumber || '').toString();
               if (b && bKey && !existingSBIds.has(bKey)) {
