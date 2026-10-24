@@ -1825,8 +1825,13 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                                 </td>
                               </>
                             ) : (
-                              <td className="py-1.5 px-2 text-right text-emerald-400 font-mono font-bold">
-                                {currencySymbol()} {Number(e.amount || 0).toFixed(2)}
+                              <td className="py-1.5 px-2 text-right font-mono font-bold">
+                                <span className="text-emerald-400">{currencySymbol()} {Number(e.amount || 0).toFixed(2)}</span>
+                                {e.discount && Number(e.discount) > 0 ? (
+                                  <span className="block text-[10px] text-amber-400 font-normal">
+                                    (Disc: {currencySymbol()} {Number(e.discount).toFixed(2)})
+                                  </span>
+                                ) : null}
                               </td>
                             )}
                           </tr>
@@ -2158,7 +2163,12 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                       <td className="py-1 px-2 font-mono">{e.accountCode}</td>
                       <td className="py-1 px-2 font-semibold">{e.accountTitle}</td>
                       <td className="py-1 px-2 text-slate-600">{e.narration}</td>
-                      <td className="py-1 px-2 text-right font-bold font-mono">{Number(e.amount || 0).toFixed(2)}</td>
+                      <td className="py-1 px-2 text-right font-bold font-mono">
+                        {Number(e.amount || 0).toFixed(2)}
+                        {e.discount && Number(e.discount) > 0 ? (
+                          <div className="text-[9px] text-amber-600 font-normal">Disc: {Number(e.discount).toFixed(2)}</div>
+                        ) : null}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

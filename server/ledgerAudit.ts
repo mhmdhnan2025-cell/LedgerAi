@@ -541,6 +541,8 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     const expenses = (db.getExpenses() || []).filter(
       (e) =>
         e &&
+        (e.category as string) !== 'Discount Allowed' &&
+        !(e.id && e.id.startsWith('exp-disc-')) &&
         !(e as any).isDeleted &&
         (e as any).status !== 'DELETED' &&
         (e as any).status !== 'Deleted' &&
@@ -583,18 +585,29 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     const cashRegister = db.getCashRegister();
 
     // ---- Audit date -------------------------------------------------
-    // Default = today. If nothing has been billed today yet the report
-    // opens on the latest billed day so the audit is never silently empty.
+    // Default = today. If a specific date is requested, use it.
+    // If no date requested: check if today has any activity (sales, purchases, vouchers, expenses).
+    // If today has activity (e.g. vouchers or receipts entered today), open on today!
+    // If today is completely empty and there are past transactions, fall back to latest activity date.
     let auditDate = today;
     const requested = (requestedDate || '').trim();
     if (/^\d{4}-\d{2}-\d{2}$/.test(requested)) {
       auditDate = db.normalizeDateToYMD(requested);
     } else {
-      // Empty or unknown date format: open on the latest billed day (if that
-      // is before today) so the audit is never silently empty or broken.
-      const saleDates = allSaleBills.map((b) => db.normalizeDateToYMD(b.date)).filter(Boolean).sort();
-      const latestSale = saleDates.length ? saleDates[saleDates.length - 1] : '';
-      if (latestSale && latestSale < today) auditDate = latestSale;
+      const allActivityDates = [
+        ...allSaleBills.map((b) => db.normalizeDateToYMD(b.date)),
+        ...purchaseBills.map((b) => db.normalizeDateToYMD(b.date)),
+        ...vouchers.map((v) => db.normalizeDateToYMD(v.date)),
+        ...expenses.map((e) => db.normalizeDateToYMD(e.date)),
+      ].filter(Boolean).sort();
+
+      const hasTodayActivity = allActivityDates.includes(today);
+      if (!hasTodayActivity && allActivityDates.length > 0) {
+        const latestTx = allActivityDates[allActivityDates.length - 1];
+        if (latestTx && latestTx < today) {
+          auditDate = latestTx;
+        }
+      }
     }
 
     const monthKey = auditDate.slice(0, 7);
@@ -905,17 +918,81 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     ) + ordersUpto.reduce((s, o) => s + (Number(o.discount) || 0), 0);
 
     // Cash & Bank voucher settlement discounts:
+    const getVoucherDiscount = (v: Voucher): number => {
+      if (!v) return 0;
+      const entriesDisc = (v.entries || []).reduce((sum, e) => sum + (Number(e.discount) || 0), 0);
+      if (entriesDisc > 0) return entriesDisc;
+      return Number((v as any).discountAmount) || 0;
+    };
+
     const todayVoucherDiscount = vouchers
       .filter((v) => onDate(v.date))
-      .reduce((sum, v) => sum + (v.entries || []).reduce((esum, e) => esum + (Number(e.discount) || 0), 0), 0);
+      .reduce((sum, v) => sum + getVoucherDiscount(v), 0);
 
     const monthVoucherDiscount = vouchers
-      .filter((v) => uptoDate(v.date) && inMonth(v.date))
-      .reduce((sum, v) => sum + (v.entries || []).reduce((esum, e) => esum + (Number(e.discount) || 0), 0), 0);
+      .filter((v) => inMonth(v.date))
+      .reduce((sum, v) => sum + getVoucherDiscount(v), 0);
 
     const totalVoucherDiscount = vouchers
-      .filter((v) => uptoDate(v.date))
-      .reduce((sum, v) => sum + (v.entries || []).reduce((esum, e) => esum + (Number(e.discount) || 0), 0), 0);
+      .reduce((sum, v) => sum + getVoucherDiscount(v), 0);
+
+    // Collect itemized discount entries for full transparency in Section 8 (Discounts Audit Head)
+    const discountEntries: Array<{
+      date: string;
+      refNumber: string;
+      source: string;
+      partyName: string;
+      discountAmount: number;
+      period: 'today' | 'this_month' | 'past';
+    }> = [];
+
+    // From vouchers (Cash Receipt CR, Bank Receipt BR, etc.)
+    for (const v of vouchers) {
+      if (!v) continue;
+      const vDate = db.normalizeDateToYMD(v.date);
+      const period = onDate(vDate) ? 'today' : (inMonth(vDate) ? 'this_month' : 'past');
+      const vTypeLabel = v.voucherType === 'CR' ? 'Cash Receipt'
+        : v.voucherType === 'BR' ? 'Bank Receipt'
+        : v.voucherType === 'CP' ? 'Cash Payment'
+        : v.voucherType === 'BP' ? 'Bank Payment'
+        : v.voucherType === 'CB' ? 'Cash & Bank'
+        : 'Journal Voucher';
+
+      for (const e of (v.entries || [])) {
+        const d = Number(e.discount || 0);
+        if (d > 0) {
+          discountEntries.push({
+            date: v.date,
+            refNumber: v.voucherNumberFormatted || String(v.voucherNumber),
+            source: `${vTypeLabel} (${v.voucherType})`,
+            partyName: e.accountTitle || 'Customer / Party',
+            discountAmount: d,
+            period,
+          });
+        }
+      }
+    }
+
+    // From sale bills
+    for (const b of allSaleBills) {
+      if (!b) continue;
+      const bDate = db.normalizeDateToYMD(b.date);
+      const period = onDate(bDate) ? 'today' : (inMonth(bDate) ? 'this_month' : 'past');
+      const d = Number(b.totalDiscount) || Number(b.billDiscountAmount) || 0;
+      if (d > 0) {
+        discountEntries.push({
+          date: b.date,
+          refNumber: b.billNumberFormatted || `BILL-${b.billNumber}`,
+          source: 'Sale Bill (Invoice)',
+          partyName: b.customerAccountTitle || b.customerName || 'Customer',
+          discountAmount: d,
+          period,
+        });
+      }
+    }
+
+    // Sort descending by date
+    discountEntries.sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
 
     // Total Combined Discounts:
     const todayTotalDiscount = Number((todayBillDiscount + todayVoucherDiscount).toFixed(2));
@@ -1099,11 +1176,8 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     if (todaySRCash > 0) {
       inflows.push({ label: 'Cash Refunded on Sales Returns', value: todaySRCash, tag: 'SALE RETURN', direction: 'out' });
     }
-    inflows.push(
-      { label: 'Sale Bill Discounts Given', value: todayBillDiscount, tag: 'BILL DISC', direction: 'memo' },
-      { label: 'Cash & Bank Voucher Discounts', value: todayVoucherDiscount, tag: 'CB DISC', direction: 'memo' },
-      { label: 'Total Discounts (Deducted from Profit)', value: todayTotalDiscount, tag: 'TOTAL DISC', direction: 'memo' }
-    );
+    // Note: Discounts are excluded from Cash Liquidity Register to avoid double writing,
+    // and are comprehensively tracked in Section 8 (Discounts Audit Head).
 
     const bankRows: AiLedgerAuditCashRow[] = [
       { label: 'Bank Received (Direct Online / Raast / Cheques)', value: todayBank.bankIn, tag: 'BANK IN', direction: 'in' },
@@ -1264,6 +1338,7 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
         todayTotalDiscount,
         monthTotalDiscount,
         totalDiscounts,
+        discountEntries,
       },
     };
 

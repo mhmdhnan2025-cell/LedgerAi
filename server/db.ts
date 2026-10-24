@@ -941,6 +941,9 @@ public getTenant(companyId?: string): DatabaseSchema {
             if (!Array.isArray(parsed.expenseAccounts) || parsed.expenseAccounts.length === 0) {
               parsed.expenseAccounts = [...DEFAULT_SEED_EXPENSE_ACCOUNTS];
             }
+            if (Array.isArray(parsed.expenses)) {
+              parsed.expenses = parsed.expenses.filter((e: any) => e && (e.category as string) !== 'Discount Allowed' && !e.id?.startsWith('exp-disc-'));
+            }
             if (!Array.isArray(parsed.vouchers)) {
               parsed.vouchers = [];
             }
@@ -1214,6 +1217,15 @@ public getTenant(companyId?: string): DatabaseSchema {
               }
             }
             const banks = tenantBanks;
+
+            // Purge legacy discount expenses from PostgreSQL so discount details are not duplicated
+            try {
+              if (postgresService['pool']) {
+                await (postgresService['pool'] as any).query(
+                  "DELETE FROM expenses WHERE category = 'Discount Allowed' OR id LIKE 'exp-disc-%'"
+                );
+              }
+            } catch {}
 
             // Merge expense accounts
             const tenantExpenseAccounts = Array.isArray(pgData.expenseAccounts) && pgData.expenseAccounts.length > 0
@@ -5393,7 +5405,9 @@ ON CONFLICT (id) DO NOTHING;`);
 
   // EXPENSES CRUD & ALLOCATION
   public getExpenses(): Expense[] {
-    return this.data.expenses;
+    return (this.data.expenses || []).filter(
+      (e) => e && (e.category as string) !== 'Discount Allowed' && !e.id?.startsWith('exp-disc-')
+    );
   }
 
   public createExpense(
@@ -10156,7 +10170,9 @@ ON CONFLICT (id) DO NOTHING;`);
     let list = [...(this.data.vouchers || [])];
 
     // Map daily expenses as vouchers (CP for Cash, BP for Bank) so they appear in Voucher Search!
-    const expenseVouchers: Voucher[] = (this.data.expenses || []).map((exp, idx) => {
+    const expenseVouchers: Voucher[] = (this.data.expenses || [])
+      .filter((exp) => exp && (exp.category as string) !== 'Discount Allowed' && !exp.id?.startsWith('exp-disc-'))
+      .map((exp, idx) => {
       const pm = (exp.paymentMethod || '').toLowerCase();
       const isBank = pm.includes('bank') || pm.includes('cheque') || pm.includes('chq') || pm.includes('transfer');
       const vType: VoucherType = isBank ? 'BP' : 'CP';
@@ -10525,28 +10541,7 @@ ON CONFLICT (id) DO NOTHING;`);
       const disc = Number((e.discount || 0).toFixed(2));
       const isBank = newVoucher.voucherType === 'BP' || Boolean(newVoucher.bankAccountId);
 
-      // 1. Discount Allowed (Deducts from Daily Profit as requested by user)
-      if (disc > 0) {
-        const discExp: Expense = {
-          id: `exp-disc-${newVoucher.id}-${idx}`,
-          expenseNumber: `EXP-DISC-${newVoucher.voucherNumberFormatted}`,
-          category: 'Discount Allowed' as any,
-          title: `Discount Allowed: ${e.accountTitle}`,
-          amount: disc,
-          date: newVoucher.date,
-          scope: 'business_wide',
-          notes: `Customer Discount on ${newVoucher.voucherType} Voucher #${newVoucher.voucherNumberFormatted} for ${e.accountTitle}`,
-          recordedBy: newVoucher.salesmanTitle || userName,
-          source: 'manual',
-          paymentMethod: isBank ? 'Bank' : 'Cash',
-          voucherId: newVoucher.id,
-          createdAt: newVoucher.createdAt,
-        };
-        if (!this.data.expenses) this.data.expenses = [];
-        this.data.expenses.push(discExp);
-      }
-
-      // 2. Employee Payment (Salary / Advance -> Deducts from Daily Profit)
+      // Employee Payment (Salary / Advance -> Deducts from Daily Profit)
       if (isEmployee && amt > 0 && (newVoucher.voucherType === 'CP' || newVoucher.voucherType === 'BP')) {
         const empExp: Expense = {
           id: `exp-sal-${newVoucher.id}-${idx}`,

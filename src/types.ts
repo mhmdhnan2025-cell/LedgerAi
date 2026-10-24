@@ -1208,6 +1208,14 @@ export interface AiLedgerAuditReport {
     todayTotalDiscount: number;
     monthTotalDiscount: number;
     totalDiscounts: number;
+    discountEntries?: Array<{
+      date: string;
+      refNumber: string;
+      source: string;
+      partyName: string;
+      discountAmount: number;
+      period: 'today' | 'this_month' | 'past';
+    }>;
   };
 }
 
