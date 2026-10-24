@@ -1133,9 +1133,11 @@ app.post('/api/purchases', (req, res) => {
   }
 });
 
-app.delete('/api/purchases/:id', (req, res) => {
+app.delete('/api/purchases/:id', async (req, res) => {
   try {
-    const success = db.deletePurchaseBill(req.params.id, req.body.user);
+    const success = db.deletePurchaseBill(req.params.id, req.body?.user);
+    const cid = (req as any).companyId || 'comp-muocj00t-j3co';
+    await postgresService.deletePurchaseBill(req.params.id, cid);
     res.json({ success });
   } catch (err: any) {
     res.status(400).json({ error: err.message });
@@ -1348,9 +1350,11 @@ app.post('/api/sales', (req, res) => {
   }
 });
 
-app.delete('/api/sales/:id', (req, res) => {
+app.delete('/api/sales/:id', async (req, res) => {
   try {
-    const success = db.deleteSaleBill(req.params.id, req.body.user);
+    const success = db.deleteSaleBill(req.params.id, req.body?.user);
+    const cid = (req as any).companyId || 'comp-muocj00t-j3co';
+    await postgresService.deleteSaleBill(req.params.id, cid);
     res.json({ success });
   } catch (err: any) {
     res.status(400).json({ error: err.message });
@@ -1844,10 +1848,12 @@ app.put('/api/sale-returns/:id', (req, res) => {
   }
 });
 
-app.delete('/api/sale-returns/:id', (req, res) => {
+app.delete('/api/sale-returns/:id', async (req, res) => {
   try {
     const userName = (req as any).user?.name || 'Admin';
     const ok = db.deleteSaleReturn(req.params.id, userName);
+    const cid = (req as any).companyId || 'comp-muocj00t-j3co';
+    await postgresService.deleteSaleReturn(req.params.id, cid);
     res.json({ success: ok });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -1885,10 +1891,12 @@ app.put('/api/purchase-returns/:id', (req, res) => {
   }
 });
 
-app.delete('/api/purchase-returns/:id', (req, res) => {
+app.delete('/api/purchase-returns/:id', async (req, res) => {
   try {
     const userName = (req as any).user?.name || 'Admin';
     const ok = db.deletePurchaseReturn(req.params.id, userName);
+    const cid = (req as any).companyId || 'comp-muocj00t-j3co';
+    await postgresService.deletePurchaseReturn(req.params.id, cid);
     res.json({ success: ok });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

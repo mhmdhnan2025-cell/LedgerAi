@@ -2333,7 +2333,12 @@ class PostgresService {
   public async deletePurchaseBill(id: string, companyId = 'comp_default_01'): Promise<void> {
     if (!this.pool) return;
     try {
-      await this.pool.query('DELETE FROM purchase_bills WHERE id = $1 AND (company_id = $2 OR company_id IS NULL)', [id, companyId]);
+      await this.pool.query(
+        `DELETE FROM purchase_bills 
+         WHERE (id = $1 OR bill_number = $1) 
+           AND (company_id = $2 OR company_id IS NULL OR company_id = 'comp_default_01' OR company_id = 'comp-muocj00t-j3co')`,
+        [id, companyId]
+      );
     } catch (err: any) {
       console.warn('[PostgreSQL deletePurchaseBill error]:', err.message);
     }
@@ -2392,7 +2397,12 @@ class PostgresService {
   public async deleteSaleBill(id: string, companyId = 'comp_default_01'): Promise<void> {
     if (!this.pool) return;
     try {
-      await this.pool.query('DELETE FROM sale_bills WHERE id = $1 AND (company_id = $2 OR company_id IS NULL)', [id, companyId]);
+      await this.pool.query(
+        `DELETE FROM sale_bills 
+         WHERE (id = $1 OR bill_number = $1) 
+           AND (company_id = $2 OR company_id IS NULL OR company_id = 'comp_default_01' OR company_id = 'comp-muocj00t-j3co')`,
+        [id, companyId]
+      );
     } catch (err: any) {
       console.warn('[PostgreSQL deleteSaleBill error]:', err.message);
     }
@@ -2635,7 +2645,12 @@ class PostgresService {
   public async deleteSaleReturn(id: string, companyId = 'comp_default_01'): Promise<void> {
     if (!this.pool) return;
     try {
-      await this.pool.query('DELETE FROM sale_returns WHERE id = $1 AND (company_id = $2 OR company_id IS NULL)', [id, companyId]);
+      await this.pool.query(
+        `DELETE FROM sale_returns 
+         WHERE (id = $1 OR return_number = $1) 
+           AND (company_id = $2 OR company_id IS NULL OR company_id = 'comp_default_01' OR company_id = 'comp-muocj00t-j3co')`,
+        [id, companyId]
+      );
     } catch (err: any) {
       console.warn('[PostgreSQL deleteSaleReturn error]:', err.message);
     }
@@ -2702,7 +2717,12 @@ class PostgresService {
   public async deletePurchaseReturn(id: string, companyId = 'comp_default_01'): Promise<void> {
     if (!this.pool) return;
     try {
-      await this.pool.query('DELETE FROM purchase_returns WHERE id = $1 AND (company_id = $2 OR company_id IS NULL)', [id, companyId]);
+      await this.pool.query(
+        `DELETE FROM purchase_returns 
+         WHERE (id = $1 OR return_number = $1) 
+           AND (company_id = $2 OR company_id IS NULL OR company_id = 'comp_default_01' OR company_id = 'comp-muocj00t-j3co')`,
+        [id, companyId]
+      );
     } catch (err: any) {
       console.warn('[PostgreSQL deletePurchaseReturn error]:', err.message);
     }
