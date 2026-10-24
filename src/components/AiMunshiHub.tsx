@@ -56,6 +56,7 @@ import {
   PayablesTableWidget,
   ReturnsTableWidget,
   SalesmanCustomerProfitWidget,
+  StockReportDualWidget,
 } from './AiMunshiReportWidgets';
 import { PurchaseBillVoucherModal } from './PurchaseBillVoucherModal';
 import { MasterAuditReportModal } from './MasterAuditReportModal';
@@ -1273,64 +1274,10 @@ Please process this into the database (create inventory, record order, or expens
 
                   {/* 6. Stock Movement History Table */}
                   {msg.stockHistoryData && msg.stockHistoryData.stockData && (
-                    <div className="mt-3.5 bg-slate-900 border border-slate-700/80 rounded-xl overflow-hidden shadow-lg text-xs">
-                      <div className="bg-slate-950 px-4 py-2.5 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2">
-                        <div className="flex items-center gap-2">
-                          <Package className="w-4 h-4 text-indigo-400" />
-                          <span className="font-bold text-white text-xs">Stock Movement History</span>
-                        </div>
-                        <div className="text-[11px] text-slate-400">
-                          Warehouse Stock Value: <strong className="text-emerald-400 font-mono">{currencySymbol()} {(msg.stockHistoryData.stockData.totalStockValue || 0).toLocaleString()}</strong>
-                        </div>
-                      </div>
-
-                      <div className="max-h-72 overflow-y-auto overflow-x-auto">
-                        <table className="w-full text-left text-xs border-collapse">
-                          <thead className="bg-slate-950 text-slate-400 sticky top-0 text-[10px] uppercase font-bold tracking-wider border-b border-slate-800">
-                            <tr>
-                              <th className="py-2 px-2.5">Date / Time</th>
-                              <th className="py-2 px-2.5">Product Item</th>
-                              <th className="py-2 px-2.5 text-center">Movement</th>
-                              <th className="py-2 px-2.5 text-right">Cartons</th>
-                              <th className="py-2 px-2.5 text-right">Units</th>
-                              <th className="py-2 px-2.5 text-right">Rate</th>
-                              <th className="py-2 px-2.5">Ref / Bill #</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-800/60">
-                            {(msg.stockHistoryData.stockData.ledgerTransactions || []).map((t: any, idx: number) => {
-                              const isPurchase = t.movementType === 'PURCHASE';
-                              const isSale = t.movementType === 'SALE';
-                              return (
-                                <tr key={idx} className="hover:bg-slate-800/40">
-                                  <td className="py-2 px-2.5 text-slate-300 font-mono text-[11px] whitespace-nowrap">{t.timestamp || t.date}</td>
-                                  <td className="py-2 px-2.5 font-bold text-white">{t.productName || t.itemTitle}</td>
-                                  <td className="py-2 px-2.5 text-center">
-                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                      isPurchase ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : isSale ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                                    }`}>
-                                      {t.movementType}
-                                    </span>
-                                  </td>
-                                  <td className={`py-2 px-2.5 text-right font-mono font-bold ${isPurchase ? 'text-emerald-400' : isSale ? 'text-rose-400' : 'text-slate-300'}`}>
-                                    {isPurchase ? `+${t.cartonsChange}` : `${t.cartonsChange}`}
-                                  </td>
-                                  <td className={`py-2 px-2.5 text-right font-mono font-bold ${isPurchase ? 'text-emerald-400' : isSale ? 'text-rose-400' : 'text-slate-300'}`}>
-                                    {isPurchase ? `+${t.quantityChange}` : `${t.quantityChange}`}
-                                  </td>
-                                  <td className="py-2 px-2.5 text-right font-mono text-slate-300">
-                                    {t.rate ? `${currencySymbol()} ${t.rate.toLocaleString()}` : '—'}
-                                  </td>
-                                  <td className="py-2 px-2.5 font-mono text-slate-400 text-[11px]">
-                                    {t.referenceBillNumber || t.notes || '—'}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
+                    <StockReportDualWidget
+                      stockData={msg.stockHistoryData.stockData}
+                      products={products}
+                    />
                   )}
 
                   {/* 7. Customer Khata Ledger Statement */}

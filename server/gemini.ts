@@ -1409,42 +1409,61 @@ async function localRuleBasedFallback(
   }
 
   // 14. STOCK MOVEMENT HISTORY & WAREHOUSE LEDGER
+  const isExplicitLowStockOnly =
+    /\b(low\s*stock|shortage|short\s*stock|khatam\s*(ho|hai|mal|maal)|kam\s*hai|reorder\s*level|out\s*of\s*stock)\b/i.test(text) &&
+    !/\b(history|hstory|ledger|movement|movemnt|movment|report|khata|trail|balance)\b/i.test(text);
+
   const isStockHistoryReport =
-    (/\b(stock|inventory|movement|ledger|inflow|outflow)\b/i.test(text) && /\b(history|ledger|report|hisaab|khata|details|management)\b/i.test(text)) ||
-    text.includes('stock movement') ||
-    text.includes('stock history') ||
-    text.includes('stock ledger') ||
-    text.includes('stock khata') ||
-    text.includes('stock management') ||
-    text.includes('inventory history');
+    !isExplicitLowStockOnly && (
+      (/\b(stock|stok|inventory|movement|movemnt|movment|godown|warehouse|mal|maal)\b/i.test(text) &&
+       /\b(history|hist|histry|hstory|ledger|report|hisaab|hisab|khata|details|management|move|movement|movemnt|movment|trail|balance|balances|position|inflow|outflow)\b/i.test(text)) ||
+      /\b(stock|stok|inventory)\s*(movement|movemnt|movment|history|hist|histry|hstory|ledger|khata|report|position|balance|balances|trail)\b/i.test(text) ||
+      /\b(movement|movemnt|movment)\s*(report|ledger|history|trail)?\b/i.test(text) ||
+      /\b(hstory|history)\s*(report|ledger|khata)\b/i.test(text) ||
+      text === 'stock' || text === 'inventory' || text === 'stok' ||
+      text.includes('stock movement') ||
+      text.includes('stock movemnt') ||
+      text.includes('stock movment') ||
+      text.includes('stock history') ||
+      text.includes('stock hstory') ||
+      text.includes('stock ledger') ||
+      text.includes('stock khata') ||
+      text.includes('stock report') ||
+      text.includes('inventory history') ||
+      text.includes('inventory report') ||
+      text.includes('movement report') ||
+      text.includes('movemnt report') ||
+      text.includes('movment report')
+    );
 
   if (isStockHistoryReport) {
     const matchedProduct = products.find((p) => {
-      const pName = (p.name || '').toLowerCase();
-      return pName.length >= 3 && text.includes(pName);
+      const pName = (p.name || '').trim().toLowerCase();
+      if (pName.length < 3) return false;
+      const regex = new RegExp(`(^|\\b|\\s)${pName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\b|\\s|$)`, 'i');
+      return regex.test(text);
     });
 
     const stRep = db.getStockMovementLedger({ productId: matchedProduct?.id, timeframe: 'custom' });
     const inCtn = (stRep.ledgerTransactions || []).filter((t: any) => t.movementType === 'PURCHASE').reduce((s: number, t: any) => s + Math.abs(t.cartonsChange || 0), 0);
     const outCtn = (stRep.ledgerTransactions || []).filter((t: any) => t.movementType === 'SALE').reduce((s: number, t: any) => s + Math.abs(t.cartonsChange || 0), 0);
+    const titleText = matchedProduct ? `Stock Movement History (${matchedProduct.name})` : 'Stock Movement History & Warehouse Ledger';
 
     return {
-      reply: `☸ **Stock Movement History (اسٹاک کھاتہ)**${matchedProduct ? ` — Product: **${matchedProduct.name}**` : ''}\n\n` +
-        `• Total Tracked Items: **${stRep.itemsSummary.length} Products**\n` +
-        `• Inward Purchases: **${inCtn} CTN** Inflow\n` +
-        `• Outward Sales: **${outCtn} CTN** Sold Outflow\n` +
-        `• Current Warehouse Closing Stock Value: **${currencySymbol()} ${(stRep.totalStockValue || 0).toLocaleString()}**\n` +
-        `• Out of Stock Alerts: **${stRep.itemsSummary.filter((i) => i.status === 'OUT_OF_STOCK').length} Items**\n` +
-        `• Low Stock Alerts: **${stRep.itemsSummary.filter((i) => i.status === 'LOW_STOCK').length} Items**\n\n` +
-        `Neechay live Stock Movement History aur Warehouse Ledger table di gayi hai:`,
+      reply: `📦 **${titleText}**\nNeechay mukammal interactive Stock Report di gayi hai. Aap **Product Stock Balances** aur **Detailed Movement Audit Trail** tabs mein warehouse ka mukammal hisaab dekh sakty hain:`,
       executedTools: [{
         name: 'get_stock_history_report',
         args: matchedProduct ? { productId: matchedProduct.id } : {},
         result: {
           success: true,
           reportType: 'stockHistory',
-          title: `Stock Movement History${matchedProduct ? ` - ${matchedProduct.name}` : ''}`,
-          summary: { totalStockValue: stRep.totalStockValue, inCtn, outCtn },
+          title: titleText,
+          summary: {
+            totalStockValue: stRep.totalStockValue,
+            inCtn,
+            outCtn,
+            totalItems: stRep.itemsSummary.length,
+          },
           stockData: stRep,
         },
       }],
@@ -2695,10 +2714,7 @@ async function localRuleBasedFallback(
 
   // 5. Check for Inventory / Low stock queries
   if (
-    text.includes('stock') ||
-    text.includes('inventory') ||
-    text.includes('shortage') ||
-    text.includes('kam hai')
+    /\b(low\s*stock|shortage|short\s*stock|khatam|kam\s*hai|reorder|out\s*of\s*stock)\b/i.test(text)
   ) {
     const lowStock = products.filter((p) => p.lowStockAlert);
     if (lowStock.length === 0) {
@@ -2708,12 +2724,11 @@ async function localRuleBasedFallback(
       };
     }
 
-    const list = lowStock
-      .map((p) => `• ${p.name}: ${p.currentQuantity} ${p.unit} remaining (Reorder Level: ${p.minStockLevel} ${p.unit})`)
-      .join('\n');
+    const previewList = lowStock.slice(0, 10).map((p) => `• **${p.name}**: ${p.currentQuantity} ${p.unit} remaining (Reorder Level: ${p.minStockLevel} ${p.unit})`).join('\n');
+    const remainingCount = lowStock.length - 10;
 
     return {
-      reply: `Attention: ${lowStock.length} items are currently below minimum safety stock levels:\n\n${list}\n\nWould you like me to book a purchase intake for these items?`,
+      reply: `⚠️ **Low Stock Alert**: Warehouse mein **${lowStock.length} items** minimum safety level se kam hain:\n\n${previewList}${remainingCount > 0 ? `\n\n*...aur mazeed ${remainingCount} items low stock hain.*` : ''}`,
       executedTools: [{ name: 'get_inventory_status', args: { filter: 'low_stock' }, result: lowStock }],
     };
   }

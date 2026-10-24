@@ -19,6 +19,10 @@ import {
   User,
   Users,
   Wallet,
+  Layers,
+  Clock,
+  Package,
+  Boxes,
 } from 'lucide-react';
 import { currencySymbol } from '../utils/currency';
 import { CustomerLedgerReport, SupplierLedgerReport, SaleBill } from '../types';
@@ -777,6 +781,245 @@ export const SalesmanCustomerProfitWidget: React.FC<{
                   </td>
                 </tr>
               ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+};
+
+
+// =============================================================
+// 7. STOCK REPORT DUAL WIDGET (Balances & Movement Audit Trail)
+// =============================================================
+export const StockReportDualWidget: React.FC<{
+  stockData?: any;
+  products?: any[];
+}> = ({ stockData, products = [] }) => {
+  const [activeTab, setActiveTab] = useState<'balances' | 'trail'>('balances');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const itemsSummary: any[] = stockData?.itemsSummary || products || [];
+  const transactions: any[] = stockData?.ledgerTransactions || [];
+
+  const filteredItems = itemsSummary.filter((item: any) => {
+    const title = (item.productName || item.name || item.itemTitle || '').toLowerCase();
+    const cat = (item.category || '').toLowerCase();
+    return title.includes(searchTerm.toLowerCase()) || cat.includes(searchTerm.toLowerCase());
+  });
+
+  const filteredTransactions = transactions.filter((tx: any) => {
+    const name = (tx.productName || '').toLowerCase();
+    const ref = (tx.referenceLabel || tx.partyName || tx.referenceId || '').toLowerCase();
+    return name.includes(searchTerm.toLowerCase()) || ref.includes(searchTerm.toLowerCase());
+  });
+
+  const totalValuation = itemsSummary.reduce((sum: number, it: any) => {
+    const loose = it.closingStock ?? it.currentBalance ?? it.currentQuantity ?? 0;
+    const rate = it.purchasePrice ?? it.unitCost ?? 0;
+    return sum + (it.totalStockValue ?? it.stockValue ?? (loose * rate));
+  }, 0);
+
+  return (
+    <div className="mt-3.5 p-3.5 bg-slate-900 border border-slate-700/80 rounded-2xl space-y-3 text-xs w-full shadow-lg">
+      {/* Header with Title and Valuation */}
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-800">
+        <div className="flex items-center gap-2">
+          <Boxes className="w-4 h-4 text-indigo-400" />
+          <h4 className="font-extrabold text-sm text-white">Stock History & Warehouse Ledger</h4>
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-mono">
+            {itemsSummary.length} Tracked Products
+          </span>
+        </div>
+        <div className="text-right">
+          <span className="text-[10px] text-slate-400 block">Total Stock Valuation</span>
+          <span className="font-mono font-black text-emerald-400 text-xs">
+            {currencySymbol()} {Number(stockData?.totalStockValue || totalValuation || 0).toLocaleString()}
+          </span>
+        </div>
+      </div>
+
+      {/* Tabs Switcher */}
+      <div className="flex border-b border-slate-800 gap-2">
+        <button
+          type="button"
+          onClick={() => setActiveTab('balances')}
+          className={`flex items-center gap-2 px-3 py-2 text-xs font-bold rounded-t-xl transition border-b-2 cursor-pointer ${
+            activeTab === 'balances'
+              ? 'bg-slate-950 text-indigo-400 border-indigo-500 shadow-sm'
+              : 'text-slate-400 hover:text-slate-200 border-transparent hover:bg-slate-950/40'
+          }`}
+        >
+          <Layers className="w-3.5 h-3.5" />
+          <span>Product Stock Balances</span>
+          <span className="px-1.5 py-0.2 text-[10px] rounded-full bg-slate-800 text-slate-300 font-mono">
+            {itemsSummary.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('trail')}
+          className={`flex items-center gap-2 px-3 py-2 text-xs font-bold rounded-t-xl transition border-b-2 cursor-pointer ${
+            activeTab === 'trail'
+              ? 'bg-slate-950 text-indigo-400 border-indigo-500 shadow-sm'
+              : 'text-slate-400 hover:text-slate-200 border-transparent hover:bg-slate-950/40'
+          }`}
+        >
+          <Clock className="w-3.5 h-3.5" />
+          <span>Detailed Movement Audit Trail</span>
+          <span className="px-1.5 py-0.2 text-[10px] rounded-full bg-slate-800 text-slate-300 font-mono">
+            {transactions.length}
+          </span>
+        </button>
+      </div>
+
+      {/* Search Input */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search items by name or category..."
+            className="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-3 py-1.5 text-[11px] text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+          />
+        </div>
+      </div>
+
+      {/* Tab 1: Product Stock Balances */}
+      {activeTab === 'balances' && (
+        <div className="border border-slate-800 rounded-xl overflow-x-auto max-h-72 overflow-y-auto">
+          <table className="w-full text-left text-[11px] min-w-[550px] border-collapse">
+            <thead className="bg-slate-950 text-slate-400 uppercase text-[9px] font-bold border-b border-slate-800 sticky top-0">
+              <tr>
+                <th className="py-2 px-2.5">Product Name</th>
+                <th className="py-2 px-2 text-center">Packaging</th>
+                <th className="py-2 px-2 text-right">In Stock (Pkgs)</th>
+                <th className="py-2 px-2 text-right">Loose Qty</th>
+                <th className="py-2 px-2 text-right">Cost Rate</th>
+                <th className="py-2 px-2.5 text-right">Stock Valuation</th>
+                <th className="py-2 px-2 text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60 bg-slate-950/40">
+              {filteredItems.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-4 text-center text-slate-500">No products found</td>
+                </tr>
+              ) : (
+                filteredItems.map((item: any, iIdx: number) => {
+                  const name = item.productName || item.name || item.itemTitle || 'Item';
+                  const pkg = item.packageType ||
+                    (name.toLowerCase().includes('bag') || name.toLowerCase().includes('bori') || name.toLowerCase().includes('sugar') || name.toLowerCase().includes('suger') || name.toLowerCase().includes('atta') || name.toLowerCase().includes('rice') || name.toLowerCase().includes('daal') ? 'Bag' :
+                     name.toLowerCase().includes('box') || name.toLowerCase().includes('dabba') ? 'Box' :
+                     name.toLowerCase().includes('tin') || name.toLowerCase().includes('drum') ? 'Tin' :
+                     name.toLowerCase().includes('pack') ? 'Pack' : 'Carton');
+                  const pkgs = item.carton ?? item.closingStockCartons ?? item.currentCtn ?? Math.floor((item.closingStock ?? item.currentQuantity ?? 0) / (item.qtyInCarton || 1));
+                  const loose = item.closingStock ?? item.currentBalance ?? item.currentQuantity ?? 0;
+                  const unit = item.unit || (pkg === 'Bag' ? 'KG' : 'Units');
+                  const rate = item.purchasePrice ?? item.unitCost ?? 0;
+                  const value = item.totalStockValue ?? item.stockValue ?? (loose * rate);
+                  const isOut = item.status === 'OUT_OF_STOCK' || loose <= 0;
+                  const isLow = item.status === 'LOW_STOCK' || (!isOut && loose <= (item.minStockLevel || 10));
+
+                  return (
+                    <tr key={item.productId || item.id || iIdx} className="hover:bg-slate-800/40 transition">
+                      <td className="py-1.5 px-2.5 font-bold text-white">
+                        {name}
+                        <span className="block text-[9px] text-slate-500 font-normal">{item.category || 'General'}</span>
+                      </td>
+                      <td className="py-1.5 px-2 text-center text-sky-400 font-medium">
+                        {pkg}
+                      </td>
+                      <td className="py-1.5 px-2 text-right font-mono font-bold text-slate-200">
+                        {pkgs} {pkg}s
+                      </td>
+                      <td className="py-1.5 px-2 text-right font-mono font-bold text-emerald-400">
+                        {loose} {unit}
+                      </td>
+                      <td className="py-1.5 px-2 text-right font-mono text-slate-300">
+                        {currencySymbol()} {Number(rate).toLocaleString()}
+                      </td>
+                      <td className="py-1.5 px-2.5 text-right font-mono font-black text-white">
+                        {currencySymbol()} {Number(value).toLocaleString()}
+                      </td>
+                      <td className="py-1.5 px-2 text-center">
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
+                          isOut ? 'bg-rose-500/20 text-rose-400' : isLow ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'
+                        }`}>
+                          {isOut ? 'OUT' : isLow ? 'LOW' : 'IN STOCK'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Tab 2: Detailed Movement Audit Trail */}
+      {activeTab === 'trail' && (
+        <div className="border border-slate-800 rounded-xl overflow-x-auto max-h-72 overflow-y-auto">
+          <table className="w-full text-left text-[11px] min-w-[620px] border-collapse">
+            <thead className="bg-slate-950 text-slate-400 uppercase text-[9px] font-bold border-b border-slate-800 sticky top-0">
+              <tr>
+                <th className="py-2 px-2.5">Date</th>
+                <th className="py-2 px-2 text-center">Movement</th>
+                <th className="py-2 px-2">Item</th>
+                <th className="py-2 px-2">Ref / Party</th>
+                <th className="py-2 px-2 text-right">Pkgs &bull; Loose</th>
+                <th className="py-2 px-2 text-right">Balance</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60 bg-slate-950/40">
+              {filteredTransactions.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-4 text-center text-slate-500">No movement transactions found</td>
+                </tr>
+              ) : (
+                filteredTransactions.map((tx: any, tIdx: number) => {
+                  const isPurchaseTx = tx.movementType === 'PURCHASE';
+                  const isSaleReturn = tx.movementType === 'SALE_RETURN';
+                  const isPurchaseReturn = tx.movementType === 'PURCHASE_RETURN';
+                  const isInward = isPurchaseTx || isSaleReturn;
+                  const sign = isInward ? '+' : '-';
+                  const ctnChg = Math.abs(tx.cartonsChange || 0);
+                  const qtyChg = Math.abs(tx.quantityChange || 0);
+                  const resulting = tx.resultingBalance ?? tx.runningStockAfter ?? 0;
+
+                  return (
+                    <tr key={tx.id || tIdx} className="hover:bg-slate-800/40 transition">
+                      <td className="py-1.5 px-2.5 font-mono text-[10px] text-slate-400 whitespace-nowrap">
+                        {tx.date || 'Today'}
+                      </td>
+                      <td className="py-1.5 px-2 text-center">
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
+                          isInward ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                        }`}>
+                          {isPurchaseTx ? '📥 INWARD (PURCHASE)' : isSaleReturn ? '↩️ INWARD (RETURN)' : isPurchaseReturn ? '↪️ OUTWARD (RETURN)' : '📤 OUTWARD (SALE)'}
+                        </span>
+                      </td>
+                      <td className="py-1.5 px-2 font-bold text-white truncate max-w-[150px]">
+                        {tx.productName}
+                      </td>
+                      <td className="py-1.5 px-2 text-slate-300 truncate max-w-[160px]">
+                        <span className="block font-medium text-slate-200">{tx.referenceLabel || '-'}</span>
+                        <span className="text-[9px] text-slate-500">{tx.partyName || '-'}</span>
+                      </td>
+                      <td className={`py-1.5 px-2 text-right font-mono font-bold ${isInward ? 'text-sky-400' : 'text-amber-400'}`}>
+                        {sign}{ctnChg} Pkg &bull; {sign}{qtyChg} {tx.unit || 'Units'}
+                      </td>
+                      <td className="py-1.5 px-2 text-right font-mono font-bold text-white">
+                        {resulting} {tx.unit || 'Units'}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
