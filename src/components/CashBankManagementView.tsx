@@ -256,7 +256,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
         discount: 0,
         totalSettlement: numAmt,
         beforeFormatted: currentEntryAccount.balanceFormatted,
-        afterFormatted: `${afterBal.toFixed(2)} ${afterType}`,
+        afterFormatted: afterBal < 0.005 ? '0.00 (Settled)' : `${afterBal.toFixed(2)} ${afterType}`,
         afterBal,
         afterType,
       };
@@ -283,7 +283,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
         discount: calcDisc,
         totalSettlement,
         beforeFormatted: currentEntryAccount.balanceFormatted,
-        afterFormatted: `${afterBal.toFixed(2)} ${afterType}`,
+        afterFormatted: afterBal < 0.005 ? '0.00 (Settled)' : `${afterBal.toFixed(2)} ${afterType}`,
         afterBal,
         afterType,
       };

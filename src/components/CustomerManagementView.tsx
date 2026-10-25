@@ -398,7 +398,7 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
       `Customers_Directory_${new Date().toISOString().split('T')[0]}`,
       filteredCustomers,
       [
-        { header: 'Sr#', accessor: (c, idx) => c.srNo || idx + 1 },
+        { header: 'Sr#', accessor: (c, idx) => idx + 1 },
         { header: 'Date', accessor: (c) => c.regDate || '' },
         { header: 'Employee / Salesman', accessor: (c) => c.assignedSalesman || (c as any).salesman || '' },
         { header: 'C.Code', accessor: (c) => c.code || '' },
@@ -839,7 +839,7 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
                       <tr key={cust.id} className="hover:bg-slate-800/40 transition">
                         <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-400">
                           <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/60 text-[11px]">
-                            {cust.srNo ?? cust.sNo ?? (idx + 1)}
+                            {idx + 1}
                           </span>
                         </td>
                         <td className="py-2.5 px-3 font-mono font-bold text-orange-400">
