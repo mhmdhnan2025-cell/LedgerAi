@@ -72,15 +72,20 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
         .map(
           (r) => `<tr>
         <td class="strong">${esc(r.name)}</td>
-        <td class="num">${num(r.todaySales)} <span class="muted" style="font-size:9.5px">(${sym}${num(r.netProfit)})</span></td>
-        <td class="num">${num(r.monthSales || 0)} <span class="green" style="font-size:9.5px">(${sym}${num(r.monthNetProfit || 0)})</span></td>
-        <td class="num strong blue">${num(r.totalSales || 0)}</td>
+        <td class="num">
+          <div>${num(r.todaySales)}</div>
+          <div style="font-size:8px;color:#166534;font-weight:900">+${sym}${num(r.netProfit)}</div>
+        </td>
+        <td class="num">
+          <div>${num(r.monthSales || 0)}</div>
+          <div style="font-size:8px;color:#166534;font-weight:900">+${sym}${num(r.monthNetProfit || 0)}</div>
+        </td>
         <td class="num strong ${(r.totalNetProfit || r.netProfit || 0) >= 0 ? 'green' : 'red'}">${(r.totalNetProfit || r.netProfit || 0) >= 0 ? '+' : '&minus;'}${sym} ${num(Math.abs(r.totalNetProfit || r.netProfit || 0))}</td>
-        <td class="center"><span style="background:${(r.marginPct || 0) >= 0 ? '#dcfce7;color:#166534' : '#fee2e2;color:#991b1b'};padding:2px 6px;border-radius:4px;font-size:8.5px;font-weight:900">${(r.marginPct || 0).toFixed(1)}%</span></td>
+        <td class="center"><span style="background:${(r.marginPct || 0) >= 0 ? '#dcfce7;color:#166534' : '#fee2e2;color:#991b1b'};padding:2px 5px;border-radius:4px;font-size:8px;font-weight:900">${(r.marginPct || 0).toFixed(1)}%</span></td>
       </tr>`
         )
         .join('')
-    : noSalesRow;
+    : `<tr><td colspan="5" class="muted center">No salesman sales recorded on ${esc(data.dateLabel)}</td></tr>`;
 
   const toneClass = (direction: string) =>
     direction === 'in' ? 'green' : direction === 'out' ? 'red' : 'muted';
@@ -228,21 +233,27 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
 
   /* ---------- TABLES ---------- */
   table.al-t {
-    width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 11px; font-weight: 800;
+    width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 10px; font-weight: 800;
   }
   table.al-t th {
-    background: #e2e8f0; color: #0f172a; font-size: 9.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.2px;
-    padding: 8px 8px; text-align: left; border-top: 1px solid #cbd5e1; border-bottom: 2px solid #cbd5e1;
-    word-break: normal; white-space: normal; line-height: 1.3; vertical-align: bottom;
+    background: #e2e8f0; color: #0f172a; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.2px;
+    padding: 6px 4px; text-align: left; border-top: 1px solid #cbd5e1; border-bottom: 2px solid #cbd5e1;
+    word-break: break-word; overflow-wrap: break-word; white-space: normal !important; line-height: 1.2; vertical-align: middle;
+  }
+  table.al-t th.num {
+    text-align: right; white-space: normal !important; word-break: break-word;
+  }
+  table.al-t th.center {
+    text-align: center; white-space: normal !important;
   }
   table.al-t td {
-    padding: 8px 8px; border-bottom: 1.5px solid #eef2f7; color: #0f172a; font-weight: 800; font-size: 11px;
-    word-wrap: break-word; overflow-wrap: break-word;
+    padding: 6px 4px; border-bottom: 1.5px solid #eef2f7; color: #0f172a; font-weight: 800; font-size: 10px;
+    word-wrap: break-word; overflow-wrap: break-word; vertical-align: middle;
   }
   table.al-t tr:last-child td { border-bottom: none; }
   table.al-t tr:hover { background: #fbfcfe; }
-  table.al-t .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 800; }
-  table.al-t .center { text-align: center; }
+  table.al-t td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 800; font-size: 10.5px; }
+  table.al-t td.center { text-align: center; }
   .strong { font-weight: 900; color: #0f172a; }
   .green { color: #15803d; font-weight: 900; }
   .red { color: #dc2626; font-weight: 900; }
@@ -251,8 +262,8 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
   .purple { color: #6d28d9; font-weight: 900; }
   .muted { color: #475569; font-weight: 800; }
   .al-total {
-    display: flex; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 900;
-    padding: 10px 14px; background: #f1f5f9; border-top: 2px solid #cbd5e1; color: #0f172a;
+    display: flex; justify-content: space-between; gap: 8px; font-size: 11px; font-weight: 900;
+    padding: 8px 12px; background: #f1f5f9; border-top: 2px solid #cbd5e1; color: #0f172a;
   }
 
   /* ---------- CASH & BANK LIQUIDITY REGISTER (EXTRA BOLD & EXPANDED) ---------- */
@@ -323,8 +334,45 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
   }
 
   @media print {
-    html, body { background: #ffffff !important; margin: 0 !important; padding: 0 !important; }
-    .al-page { width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
+    @page { size: A4 portrait; margin: 4mm 5mm; }
+    html, body { background: #ffffff !important; margin: 0 !important; padding: 0 !important; font-size: 8.5px !important; }
+    .al-page { width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 0 !important; overflow: visible !important; }
+    .al-panel, .al-panel-full { overflow: visible !important; width: 100% !important; border: 1px solid #cbd5e1 !important; margin-top: 6px !important; }
+    .al-cards { gap: 6px !important; margin-top: 6px !important; }
+    .al-card { padding: 6px 8px !important; }
+    .al-card-t { font-size: 10.5px !important; }
+    .al-row { font-size: 9px !important; margin-top: 2px !important; }
+    .al-row .lbl { font-size: 9px !important; }
+    .al-row .val { font-size: 9px !important; }
+    .al-grid { gap: 6px !important; margin-top: 6px !important; }
+    table.al-t { width: 100% !important; table-layout: fixed !important; font-size: 7.5px !important; }
+    table.al-t th {
+      font-size: 7px !important; padding: 3px 2px !important; line-height: 1.1 !important;
+      white-space: normal !important; word-break: break-word !important;
+    }
+    table.al-t th.num { white-space: normal !important; }
+    table.al-t td {
+      font-size: 7.5px !important; padding: 3px 2px !important; line-height: 1.15 !important;
+    }
+    table.al-t td.num {
+      font-size: 7.5px !important; white-space: nowrap !important;
+    }
+    .al-head { padding: 8px 10px !important; }
+    .al-title { font-size: 15px !important; }
+    .al-strip { padding: 5px 8px !important; font-size: 9px !important; margin-top: 5px !important; }
+    .al-panel-h { padding: 5px 8px !important; }
+    .al-panel-h .t { font-size: 9.5px !important; }
+    .al-panel-cash .al-panel-h .t { font-size: 10px !important; }
+    .al-cash-row { padding: 4px 8px !important; font-size: 9px !important; }
+    .al-cash-row .amt { font-size: 9.5px !important; }
+    .al-cash-row.hl { padding: 6px 8px !important; margin-top: 4px !important; }
+    .al-cash-row.hl .lbl { font-size: 10px !important; }
+    .al-cash-row.hl .amt { font-size: 11px !important; }
+    .al-worth { margin-top: 6px !important; }
+    .al-worth > div { padding: 4px 6px !important; }
+    .al-worth .v { font-size: 11px !important; }
+    .al-sign { margin-top: 6px !important; padding-top: 4px !important; font-size: 8.5px !important; }
+    .al-foot { margin-top: 4px !important; padding-top: 3px !important; font-size: 7.5px !important; }
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   }
 </style>
@@ -465,9 +513,9 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
           <thead>
             <tr>
               <th style="width:34%">Salesman / Route</th>
-              <th class="num" style="width:22%">Opening (${sym})</th>
+              <th class="num" style="width:22%">Opening</th>
               <th class="num" style="width:22%">Today Sold</th>
-              <th class="num" style="width:22%;padding-right:12px">Closing (${sym})</th>
+              <th class="num" style="width:22%;padding-right:6px">Closing</th>
             </tr>
           </thead>
           <tbody>${khataRows}</tbody>
@@ -482,12 +530,11 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
         <table class="al-t">
           <thead>
             <tr>
-              <th style="width:28%">Sales Representative</th>
-              <th class="num" style="width:18%">Today (Sale/Pft)</th>
-              <th class="num" style="width:18%">Month (Sale/Pft)</th>
-              <th class="num" style="width:14%">Total Sold</th>
-              <th class="num" style="width:14%">Audited Pft</th>
-              <th class="center" style="width:8%">Margin</th>
+              <th style="width:30%">Salesman</th>
+              <th class="num" style="width:18%">Today</th>
+              <th class="num" style="width:18%">Month</th>
+              <th class="num" style="width:20%">Total Profit</th>
+              <th class="center" style="width:14%">Margin</th>
             </tr>
           </thead>
           <tbody>${profitRows}</tbody>
@@ -547,22 +594,24 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
       const isProfit = (b.netProfit || b.grossProfit || 0) >= 0;
       return `
         <tr>
-          <td><span style="font-weight:800;color:#0f172a">${esc(b.date)}</span></td>
+          <td>
+            <div style="font-weight:800;color:#0f172a;line-height:1.2">${esc(b.date)}</div>
+            <span style="${badgeStyle};padding:1px 4px;border-radius:3px;font-size:7px;font-weight:800;display:inline-block;margin-top:2px">${badgeText}</span>
+          </td>
           <td><span style="font-weight:900;color:#1e40af;font-family:monospace">${esc(b.billNumber)}</span></td>
-          <td style="font-weight:800;color:#0f172a">${esc(b.customerName)}</td>
-          <td style="color:#475569;font-weight:700;font-size:9.5px">${esc(b.salesmanName)}</td>
-          <td style="color:#334155;font-size:9.5px;max-width:180px;white-space:normal;line-height:1.2">${esc(b.itemsSummary)}</td>
+          <td style="font-weight:800;color:#0f172a;line-height:1.2;word-break:break-word">${esc(b.customerName)}</td>
+          <td style="color:#475569;font-weight:700;font-size:9px;word-break:break-word">${esc(b.salesmanName)}</td>
+          <td style="color:#334155;font-size:8.5px;white-space:normal;line-height:1.2;word-break:break-word">${esc(b.itemsSummary)}</td>
           <td class="num">${num(b.exVatRevenue)}</td>
           <td class="num muted">${num(b.cogs)}</td>
           <td class="num amber">${b.discountAmount > 0 ? `&minus;${num(b.discountAmount)}` : '0.00'}</td>
           <td class="num muted">${num(b.vatAmount)}</td>
           <td class="num strong blue">${num(b.netTotal)}</td>
           <td class="num strong ${isProfit ? 'green' : 'red'}">${isProfit ? '+' : '&minus;'}${sym} ${num(Math.abs(b.netProfit || b.grossProfit || 0))}</td>
-          <td class="center"><span style="background:${isProfit ? '#dcfce7;color:#166534' : '#fee2e2;color:#991b1b'};padding:2px 6px;border-radius:4px;font-size:8px;font-weight:900">${(b.marginPct || 0).toFixed(1)}%</span></td>
-          <td class="center"><span style="${badgeStyle};padding:1px 6px;border-radius:3px;font-size:7.5px;font-weight:800">${badgeText}</span></td>
+          <td class="center"><span style="background:${isProfit ? '#dcfce7;color:#166534' : '#fee2e2;color:#991b1b'};padding:2px 5px;border-radius:4px;font-size:8px;font-weight:900">${(b.marginPct || 0).toFixed(1)}%</span></td>
         </tr>
       `;
-    }).join('') : `<tr><td colspan="13" class="muted center" style="padding:16px 8px;font-weight:700">No sale bills recorded yet. Create sales in Invoicing to view live audited per-bill profits.</td></tr>`;
+    }).join('') : `<tr><td colspan="12" class="muted center" style="padding:16px 8px;font-weight:700">No sale bills recorded yet. Create sales in Invoicing to view live audited per-bill profits.</td></tr>`;
 
     const totalBillsRevenue = bills.reduce((s, b) => s + (b.exVatRevenue || 0), 0);
     const totalBillsCogs = bills.reduce((s, b) => s + (b.cogs || 0), 0);
@@ -581,19 +630,18 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
       <table class="al-t">
         <thead>
           <tr style="background:#f0f9ff">
-            <th style="width:7.5%">Date</th>
-            <th style="width:7.5%">Bill #</th>
-            <th style="width:16%">Customer Name</th>
-            <th style="width:10%">Sales Rep</th>
-            <th style="width:15%">Items Sold</th>
-            <th class="num" style="width:8%">Ex-VAT (${sym})</th>
-            <th class="num" style="width:7%">Cost COGS</th>
-            <th class="num" style="width:6%">Discount</th>
-            <th class="num" style="width:6%">VAT (5%)</th>
-            <th class="num" style="width:8%">Net Bill</th>
-            <th class="num" style="width:9%">Gross Profit</th>
-            <th class="center" style="width:5.5%">Margin</th>
-            <th class="center" style="width:4.5%">Period</th>
+            <th style="width:9%">Date</th>
+            <th style="width:7%">Bill #</th>
+            <th style="width:19%">Customer</th>
+            <th style="width:10%">Salesman</th>
+            <th style="width:14%">Items</th>
+            <th class="num" style="width:8%">Ex-VAT</th>
+            <th class="num" style="width:7%">Cost</th>
+            <th class="num" style="width:5%">Disc</th>
+            <th class="num" style="width:6%">VAT</th>
+            <th class="num" style="width:8%">Net Total</th>
+            <th class="num" style="width:9%">Profit</th>
+            <th class="center" style="width:8%">Margin</th>
           </tr>
         </thead>
         <tbody>
@@ -602,15 +650,14 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
         ${bills.length > 0 ? `
         <tfoot>
           <tr style="background:#f8fafc;border-top:2px solid #cbd5e1;font-weight:950">
-            <td colspan="5" class="strong blue" style="padding:8px">TOTAL BILLED SALES (${bills.length} Bills Audited):</td>
+            <td colspan="5" class="strong blue" style="padding:6px 4px">TOTAL BILLED SALES (${bills.length} Bills Audited):</td>
             <td class="num strong">${sym} ${num(totalBillsRevenue)}</td>
             <td class="num muted">${sym} ${num(totalBillsCogs)}</td>
             <td class="num amber">&minus;${sym} ${num(totalBillsDisc)}</td>
             <td class="num muted">${sym} ${num(totalBillsVat)}</td>
             <td class="num strong blue">${sym} ${num(totalBillsNet)}</td>
             <td class="num strong ${totalBillsProfit >= 0 ? 'green' : 'red'}">${totalBillsProfit >= 0 ? '+' : '&minus;'}${sym} ${num(Math.abs(totalBillsProfit))}</td>
-            <td class="center"><span style="background:${totalBillsProfit >= 0 ? '#dcfce7;color:#166534' : '#fee2e2;color:#991b1b'};padding:2px 6px;border-radius:4px;font-size:8px;font-weight:900">${totalBillsMargin.toFixed(1)}%</span></td>
-            <td></td>
+            <td class="center"><span style="background:${totalBillsProfit >= 0 ? '#dcfce7;color:#166534' : '#fee2e2;color:#991b1b'};padding:2px 5px;border-radius:4px;font-size:8px;font-weight:900">${totalBillsMargin.toFixed(1)}%</span></td>
           </tr>
         </tfoot>
         ` : ''}
@@ -628,11 +675,11 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
     <table class="al-t">
       <thead>
         <tr>
-          <th style="width:30%">Return Category</th>
+          <th style="width:34%">Return Category</th>
           <th class="num" style="width:17%">Today</th>
-          <th class="num" style="width:17%">This Month</th>
-          <th class="num" style="width:20%">Total Deducted (${sym})</th>
-          <th class="center" style="width:16%">Audit Impact</th>
+          <th class="num" style="width:17%">Month</th>
+          <th class="num" style="width:18%">Total Deducted</th>
+          <th class="center" style="width:14%">Impact</th>
         </tr>
       </thead>
       <tbody>
@@ -683,12 +730,12 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
         <table class="al-t">
           <thead>
             <tr style="background:#fffbeb">
-              <th style="width:12%">Date</th>
-              <th style="width:15%">Ref / Voucher #</th>
-              <th style="width:20%">Discount Type</th>
-              <th style="width:28%">Party / Customer Name</th>
-              <th class="num" style="width:15%">Discount (${sym})</th>
-              <th class="center" style="width:10%">Period</th>
+              <th style="width:11%">Date</th>
+              <th style="width:15%">Ref / Voucher</th>
+              <th style="width:18%">Type</th>
+              <th style="width:28%">Party / Customer</th>
+              <th class="num" style="width:16%">Discount</th>
+              <th class="center" style="width:12%">Period</th>
             </tr>
           </thead>
           <tbody>
@@ -712,10 +759,10 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
       <thead>
         <tr>
           <th style="width:34%">Discount Category</th>
-          <th class="num" style="width:16%">Today</th>
-          <th class="num" style="width:16%">This Month</th>
-          <th class="num" style="width:18%">Total Overall (${sym})</th>
-          <th class="center" style="width:16%">Profit Impact</th>
+          <th class="num" style="width:17%">Today</th>
+          <th class="num" style="width:17%">Month</th>
+          <th class="num" style="width:18%">Total (${sym})</th>
+          <th class="center" style="width:14%">Impact</th>
         </tr>
       </thead>
       <tbody>
@@ -755,12 +802,12 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
     <table class="al-t">
       <thead>
         <tr>
-          <th style="width:26%">Audit Timeline</th>
-          <th class="num" style="width:16%">Net Profit (${sym})</th>
-          <th class="num" style="width:12%">Margin %</th>
+          <th style="width:26%">Audit Period</th>
+          <th class="num" style="width:16%">Net Profit</th>
+          <th class="num" style="width:12%">Margin</th>
           <th class="num" style="width:16%">VAT Excluded</th>
-          <th class="num" style="width:16%">Discounts Deducted</th>
-          <th class="center" style="width:14%">Audit Status</th>
+          <th class="num" style="width:16%">Discounts</th>
+          <th class="center" style="width:14%">Status</th>
         </tr>
       </thead>
       <tbody>
