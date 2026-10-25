@@ -963,7 +963,7 @@ public getTenant(companyId?: string): DatabaseSchema {
               parsed.expenseAccounts = [...DEFAULT_SEED_EXPENSE_ACCOUNTS];
             }
             if (Array.isArray(parsed.expenses)) {
-              parsed.expenses = parsed.expenses.filter((e: any) => e && (e.category as string) !== 'Discount Allowed' && !e.id?.startsWith('exp-disc-'));
+              parsed.expenses = parsed.expenses.filter((e: any) => e && (e.category as string) !== 'Discount Allowed' && (e.category as string) !== 'Salary & Staff' && !e.id?.startsWith('exp-disc-') && !e.id?.startsWith('exp-sal-'));
             }
             if (!Array.isArray(parsed.vouchers)) {
               parsed.vouchers = [];
@@ -1262,11 +1262,11 @@ public getTenant(companyId?: string): DatabaseSchema {
             }
             const banks = tenantBanks;
 
-            // Purge legacy discount expenses from PostgreSQL so discount details are not duplicated
+            // Purge legacy discount and employee voucher settlement expenses from PostgreSQL so payments do not contaminate profit
             try {
               if (postgresService['pool']) {
                 await (postgresService['pool'] as any).query(
-                  "DELETE FROM expenses WHERE category = 'Discount Allowed' OR id LIKE 'exp-disc-%'"
+                  "DELETE FROM expenses WHERE category = 'Discount Allowed' OR category = 'Salary & Staff' OR id LIKE 'exp-disc-%' OR id LIKE 'exp-sal-%'"
                 );
               }
             } catch {}
@@ -5461,7 +5461,7 @@ ON CONFLICT (id) DO NOTHING;`);
   // EXPENSES CRUD & ALLOCATION
   public getExpenses(): Expense[] {
     return (this.data.expenses || []).filter(
-      (e) => e && (e.category as string) !== 'Discount Allowed' && !e.id?.startsWith('exp-disc-')
+      (e) => e && (e.category as string) !== 'Discount Allowed' && (e.category as string) !== 'Salary & Staff' && !e.id?.startsWith('exp-disc-') && !e.id?.startsWith('exp-sal-')
     );
   }
 
@@ -6217,7 +6217,7 @@ ON CONFLICT (id) DO NOTHING;`);
     const validBills = (this.data.saleBills || []).filter((b) => b.status !== 'Cancelled');
     const validReturns = (this.data.saleReturns || []).filter((r) => r.status !== 'CANCELLED');
     const validOrders = (this.data.orders || []).filter((o) => o.status !== 'Cancelled');
-    const expenses = this.data.expenses || [];
+    const expenses = (this.data.expenses || []).filter((e) => !e.id?.startsWith('exp-disc-') && !e.id?.startsWith('exp-sal-') && (e.category as string) !== 'Salary & Staff');
     const vouchers = (this.data.vouchers || []).filter((v) => v.status === 'POSTED');
 
     // Sale Bills totals (Ex-VAT, deducting bill discounts)
@@ -6452,7 +6452,7 @@ ON CONFLICT (id) DO NOTHING;`);
       .reduce((sum, v) => sum + (v.entries || []).reduce((esum, e) => esum + (Number(e.discount) || 0), 0), 0);
 
     const todayGrossProfit = Number((todayRevenue - todayCostOfGoods).toFixed(2));
-    const todayExpensesList = this.data.expenses.filter((e) => e.date === todayStr);
+    const todayExpensesList = (this.data.expenses || []).filter((e) => e.date === todayStr && !e.id?.startsWith('exp-disc-') && !e.id?.startsWith('exp-sal-') && (e.category as string) !== 'Salary & Staff');
     const todayExpenses = todayExpensesList.reduce((sum, e) => sum + (e.amount || 0), 0);
     const todayNetProfit = Number((todayGrossProfit - todayVoucherDiscounts - todayExpenses).toFixed(2));
 
@@ -10928,38 +10928,15 @@ ON CONFLICT (id) DO NOTHING;`);
       description: `Posted ${voucherType} Voucher #${voucherNumberFormatted} (JV# ${jvNumber}) for ${currencySymbol()} ${totalAmount.toLocaleString()} by ${userName}`,
     });
 
-    // Sync Expense, Discount Allowed, and Employee Salary line items into this.data.expenses so Daily Profit & Audit Report immediately record them!
+    // Sync operational expense line items into this.data.expenses.
+    // Note: Payments to Suppliers, Employees, or Customers are balance sheet settlements & cash out, NEVER deducted from daily profit!
     newVoucher.entries.forEach((e, idx) => {
-      const isExpense = e.accountType === 'Expense' || e.accountCode.startsWith('0301') || e.accountId.startsWith('exp-');
-      const isEmployee = e.accountType === 'Employee' || e.accountCode.startsWith('0401') || (this.data.employees || []).some((emp) => emp.id === e.accountId || emp.code === e.accountCode);
+      const isExpense = (e.accountType === 'Expense' || e.accountCode.startsWith('0301') || e.accountId.startsWith('exp-')) &&
+        e.accountType !== 'Supplier' && e.accountType !== 'Employee' && e.accountType !== 'Customer';
       const amt = Number((e.amount || e.payment || e.debit || 0).toFixed(2));
-      const disc = Number((e.discount || 0).toFixed(2));
       const isBank = newVoucher.voucherType === 'BP' || Boolean(newVoucher.bankAccountId);
 
-      // Employee Payment (Salary / Advance -> Deducts from Daily Profit)
-      if (isEmployee && amt > 0 && (newVoucher.voucherType === 'CP' || newVoucher.voucherType === 'BP')) {
-        const empExp: Expense = {
-          id: `exp-sal-${newVoucher.id}-${idx}`,
-          expenseNumber: `EXP-SAL-${newVoucher.voucherNumberFormatted}`,
-          category: 'Salary & Staff' as any,
-          title: `Salary / Advance: ${e.accountTitle}`,
-          amount: amt,
-          date: newVoucher.date,
-          scope: 'business_wide',
-          notes: `Payment to staff on ${newVoucher.voucherType} Voucher #${newVoucher.voucherNumberFormatted}`,
-          recordedBy: newVoucher.salesmanTitle || userName,
-          source: 'manual',
-          paymentMethod: isBank ? 'Bank' : 'Cash',
-          bankId: newVoucher.bankAccountId,
-          bankTitle: newVoucher.bankAccountTitle,
-          voucherId: newVoucher.id,
-          createdAt: newVoucher.createdAt,
-        };
-        if (!this.data.expenses) this.data.expenses = [];
-        this.data.expenses.push(empExp);
-      }
-
-      // 3. Normal Expense Accounts
+      // Normal Operational Expense Accounts (e.g. Rent, Petrol, Utilities)
       if (isExpense && amt > 0) {
         const expCategory = e.accountTitle.includes('(') ? e.accountTitle.split('(')[1].replace(')', '').trim() : 'Operational';
         const newExp: Expense = {
@@ -11030,37 +11007,14 @@ ON CONFLICT (id) DO NOTHING;`);
       );
     }
 
-    // Re-sync Expense and Employee Salary line items into this.data.expenses for the updated voucher
+    // Re-sync operational expense line items into this.data.expenses for the updated voucher
     (updatedVoucher.entries || []).forEach((e, entryIdx) => {
-      const isExpense = e.accountType === 'Expense' || (e.accountCode && e.accountCode.startsWith('0301')) || (e.accountId && e.accountId.startsWith('exp-'));
-      const isEmployee = e.accountType === 'Employee' || (e.accountCode && e.accountCode.startsWith('0401')) || (this.data.employees || []).some((emp) => emp.id === e.accountId || emp.code === e.accountCode);
+      const isExpense = (e.accountType === 'Expense' || (e.accountCode && e.accountCode.startsWith('0301')) || (e.accountId && e.accountId.startsWith('exp-'))) &&
+        e.accountType !== 'Supplier' && e.accountType !== 'Employee' && e.accountType !== 'Customer';
       const amt = Number((e.amount || e.payment || e.debit || 0).toFixed(2));
       const isBank = updatedVoucher.voucherType === 'BP' || Boolean(updatedVoucher.bankAccountId);
 
-      // Employee Payment (Salary / Advance)
-      if (isEmployee && amt > 0 && (updatedVoucher.voucherType === 'CP' || updatedVoucher.voucherType === 'BP')) {
-        const empExp: Expense = {
-          id: `exp-sal-${updatedVoucher.id}-${entryIdx}`,
-          expenseNumber: `EXP-SAL-${updatedVoucher.voucherNumberFormatted || updatedVoucher.voucherNumber}`,
-          category: 'Salary & Staff' as any,
-          title: `Salary / Advance: ${e.accountTitle}`,
-          amount: amt,
-          date: updatedVoucher.date,
-          scope: 'business_wide',
-          notes: `Payment to staff on ${updatedVoucher.voucherType} Voucher #${updatedVoucher.voucherNumberFormatted || updatedVoucher.voucherNumber}`,
-          recordedBy: updatedVoucher.salesmanTitle || userName,
-          source: 'manual',
-          paymentMethod: isBank ? 'Bank' : 'Cash',
-          bankId: updatedVoucher.bankAccountId,
-          bankTitle: updatedVoucher.bankAccountTitle,
-          voucherId: updatedVoucher.id,
-          createdAt: updatedVoucher.createdAt || updatedVoucher.updatedAt,
-        };
-        if (!this.data.expenses) this.data.expenses = [];
-        this.data.expenses.push(empExp);
-      }
-
-      // Normal Expense Accounts
+      // Normal Operational Expense Accounts
       if (isExpense && amt > 0) {
         const expCategory = e.accountTitle.includes('(') ? e.accountTitle.split('(')[1].replace(')', '').trim() : 'Operational';
         const newExp: Expense = {

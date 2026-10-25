@@ -544,6 +544,9 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
         e &&
         (e.category as string) !== 'Discount Allowed' &&
         !(e.id && e.id.startsWith('exp-disc-')) &&
+        !(e.id && e.id.startsWith('exp-sal-')) &&
+        (e.category as string) !== 'Salary & Staff' &&
+        (e.category as string) !== 'Salary' &&
         !(e as any).isDeleted &&
         (e as any).status !== 'DELETED' &&
         (e as any).status !== 'Deleted' &&
