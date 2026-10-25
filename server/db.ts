@@ -912,14 +912,32 @@ public getTenant(companyId?: string): DatabaseSchema {
             const distSupSeed = path.join(process.cwd(), 'dist', 'seeds', 'seed_40_suppliers.json');
             const supPath = fs.existsSync(supSeedFile) ? supSeedFile : (fs.existsSync(distSupSeed) ? distSupSeed : null);
 
-            if (parsed.customers.length !== 152) {
-              if (this._defaultData && this._defaultData.customers?.length === 152) {
-                console.log(`[DB] Syncing verified 152 customers for tenant ${cid}`);
-                parsed.customers = JSON.parse(JSON.stringify(this._defaultData.customers));
-              } else if (custPath) {
-                console.log(`[DB] Syncing verified 152 customers from seed for tenant ${cid}`);
-                parsed.customers = JSON.parse(fs.readFileSync(custPath, 'utf8'));
+            // Auto-deduplicate customers by code if duplicate records exist
+            const custCodeMap = new Map<string, Customer>();
+            for (const c of (parsed.customers || [])) {
+              const k = (c.code || c.accountCode || c.id || '').trim().toLowerCase();
+              if (!k) continue;
+              const existing = custCodeMap.get(k);
+              if (!existing) {
+                custCodeMap.set(k, c);
+              } else {
+                const existingBal = Math.abs(Number(existing.outstandingBalance) || Number(existing.openingBalance) || 0);
+                const currBal = Math.abs(Number(c.outstandingBalance) || Number(c.openingBalance) || 0);
+                const primary = (currBal > 0 && existingBal === 0) ? c : existing;
+                const secondary = primary === c ? existing : c;
+                custCodeMap.set(k, {
+                  ...secondary,
+                  ...primary,
+                  salesman: primary.salesman || secondary.salesman || primary.assignedSalesman || secondary.assignedSalesman || '',
+                  assignedSalesman: primary.assignedSalesman || secondary.assignedSalesman || primary.salesman || secondary.salesman || '',
+                  mobile: primary.mobile || secondary.mobile || '',
+                  contactPerson: (primary.contactPerson && primary.contactPerson !== 'Mr' ? primary.contactPerson : (secondary.contactPerson || primary.contactPerson || '')),
+                });
               }
+            }
+            if (custCodeMap.size > 0 && custCodeMap.size < parsed.customers.length) {
+              console.log(`[DB] Auto-deduplicated tenant ${cid} customers from ${parsed.customers.length} down to ${custCodeMap.size} unique accounts.`);
+              parsed.customers = Array.from(custCodeMap.values());
               try { fs.writeFileSync(tenantFile, JSON.stringify(parsed, null, 2), 'utf-8'); } catch {}
             }
             if (parsed.suppliers.length !== 40) {
@@ -1145,7 +1163,30 @@ public getTenant(companyId?: string): DatabaseSchema {
               };
             });
 
-            const customers = tenantCustomers;
+            // Deduplicate PostgreSQL customers by code, preserving live non-zero balances and rich metadata
+            const custMap = new Map<string, Customer>();
+            for (const c of tenantCustomers) {
+              const k = (c.code || c.accountCode || c.id || '').trim().toLowerCase();
+              if (!k) continue;
+              const existing = custMap.get(k);
+              if (!existing) {
+                custMap.set(k, c);
+              } else {
+                const existingBal = Math.abs(Number(existing.outstandingBalance) || Number(existing.openingBalance) || 0);
+                const currBal = Math.abs(Number(c.outstandingBalance) || Number(c.openingBalance) || 0);
+                const primary = (currBal > 0 && existingBal === 0) ? c : existing;
+                const secondary = primary === c ? existing : c;
+                custMap.set(k, {
+                  ...secondary,
+                  ...primary,
+                  salesman: primary.salesman || secondary.salesman || primary.assignedSalesman || secondary.assignedSalesman || '',
+                  assignedSalesman: primary.assignedSalesman || secondary.assignedSalesman || primary.salesman || secondary.salesman || '',
+                  mobile: primary.mobile || secondary.mobile || '',
+                  contactPerson: (primary.contactPerson && primary.contactPerson !== 'Mr' ? primary.contactPerson : (secondary.contactPerson || primary.contactPerson || '')),
+                });
+              }
+            }
+            const customers = Array.from(custMap.values());
             const restaurants = (pgData.restaurants && pgData.restaurants.length > 0)
               ? pgData.restaurants
               : ((current.restaurants && current.restaurants.length > 0) ? current.restaurants : []);
@@ -1333,6 +1374,9 @@ public getTenant(companyId?: string): DatabaseSchema {
             this.tenants.set(cid, { ...current, ...pgData, customers, restaurants, employees, suppliers, products, vouchers, banks, expenseAccounts, saleReturns, purchaseReturns, saleBills });
             this.persist(this.tenants.get(cid), cid);
           }
+        }
+        for (const [cid] of this.companies.entries()) {
+          await this.deduplicateCustomersInDatabase(cid);
         }
         this.recalculateAllLedgers();
 
@@ -5624,6 +5668,103 @@ ON CONFLICT (id) DO NOTHING;`);
     this.recalculateAllSupplierBalances();
   }
 
+  // PERMANENTLY MERGE & DEDUPLICATE CUSTOMERS ACROSS LOCAL & POSTGRESQL
+  public async deduplicateCustomersInDatabase(companyId?: string): Promise<{ merged: number; deleted: number }> {
+    const cid = getActiveCompanyId(companyId);
+    const tenant = this.getTenant(cid);
+    if (!tenant || !Array.isArray(tenant.customers)) return { merged: 0, deleted: 0 };
+
+    const byCode = new Map<string, Customer[]>();
+    for (const c of tenant.customers) {
+      const k = (c.code || c.accountCode || c.id || '').trim().toLowerCase();
+      if (!k) continue;
+      if (!byCode.has(k)) byCode.set(k, []);
+      byCode.get(k)!.push(c);
+    }
+
+    let mergedCount = 0;
+    let deletedCount = 0;
+    const cleanCustomers: Customer[] = [];
+    const deleteIds: string[] = [];
+
+    // Collect all customer IDs referenced in transactions
+    const referencedIds = new Set<string>();
+    for (const v of (tenant.vouchers || [])) {
+      for (const e of (v.entries || [])) {
+        if (e.accountId) referencedIds.add(e.accountId);
+      }
+    }
+    for (const b of (tenant.saleBills || [])) {
+      if (b.customerId) referencedIds.add(b.customerId);
+    }
+    for (const r of (tenant.saleReturns || [])) {
+      if (r.customerId) referencedIds.add(r.customerId);
+    }
+
+    for (const [code, group] of byCode.entries()) {
+      if (group.length === 1) {
+        cleanCustomers.push(group[0]);
+        continue;
+      }
+
+      mergedCount++;
+      // Priority 1: Record referenced in transactions
+      let primary = group.find((c) => referencedIds.has(c.id));
+      // Priority 2: Record with non-zero openingBalance
+      if (!primary) {
+        primary = group.find((c) => Math.abs(Number(c.openingBalance) || 0) > 0.001);
+      }
+      // Priority 3: Fallback to first
+      if (!primary) {
+        primary = group[0];
+      }
+
+      // Merge metadata from all secondary records into primary
+      for (const sec of group) {
+        if (sec.id === primary.id) continue;
+        deleteIds.push(sec.id);
+        deletedCount++;
+
+        if (!primary.mobile && sec.mobile) primary.mobile = sec.mobile;
+        if (!primary.mobile2 && sec.mobile2) primary.mobile2 = sec.mobile2;
+        if (!primary.telephones && sec.telephones) primary.telephones = sec.telephones;
+        if ((!primary.contactPerson || primary.contactPerson === 'Mr') && sec.contactPerson && sec.contactPerson !== 'Mr') {
+          primary.contactPerson = sec.contactPerson;
+        }
+        if (!primary.assignedSalesman && (sec.assignedSalesman || (sec as any).salesman)) {
+          primary.assignedSalesman = sec.assignedSalesman || (sec as any).salesman;
+          primary.salesman = primary.assignedSalesman;
+        }
+        if (!primary.salesman && (sec.salesman || sec.assignedSalesman)) {
+          primary.salesman = sec.salesman || sec.assignedSalesman;
+        }
+        if (!primary.city && sec.city) primary.city = sec.city;
+        if (!primary.area && sec.area) primary.area = sec.area;
+        if (!primary.sector && sec.sector) primary.sector = sec.sector;
+        if (!primary.address && sec.address) primary.address = sec.address;
+        if ((!primary.openingBalance || primary.openingBalance === 0) && sec.openingBalance) {
+          primary.openingBalance = sec.openingBalance;
+          primary.openingBalanceType = sec.openingBalanceType || 'DR';
+        }
+      }
+
+      cleanCustomers.push(primary);
+    }
+
+    tenant.customers = cleanCustomers;
+    this.persist(tenant, cid);
+    this.recalculateAllCustomerBalances();
+
+    // Clean up deleted duplicate customer rows from PostgreSQL
+    for (const delId of deleteIds) {
+      try {
+        await postgresService.deleteCustomer(delId, cid);
+      } catch {}
+    }
+
+    return { merged: mergedCount, deleted: deletedCount };
+  }
+
   // AUTHORITATIVELY SYNCHRONIZE ALL CUSTOMER BALANCES DYNAMICALLY
   public recalculateAllCustomerBalances(): void {
     const customers = this.data.customers || [];
@@ -7137,7 +7278,30 @@ ON CONFLICT (id) DO NOTHING;`);
     status?: string;
     search?: string;
   }): Customer[] {
-    let list = (this.data.customers || []).map((c) => {
+    // Deduplicate customers by code so multiple records NEVER leak to API or UI
+    const custCodeMap = new Map<string, any>();
+    for (const c of (this.data.customers || [])) {
+      const k = (c.code || c.accountCode || c.id || '').trim().toLowerCase();
+      if (!k) continue;
+      const existing = custCodeMap.get(k);
+      if (!existing) {
+        custCodeMap.set(k, c);
+      } else {
+        const existingBal = Math.abs(Number(existing.outstandingBalance) || Number(existing.openingBalance) || 0);
+        const currBal = Math.abs(Number(c.outstandingBalance) || Number(c.openingBalance) || 0);
+        const primary = (currBal > 0 && existingBal === 0) ? c : existing;
+        const secondary = primary === c ? existing : c;
+        custCodeMap.set(k, {
+          ...secondary,
+          ...primary,
+          salesman: primary.salesman || secondary.salesman || primary.assignedSalesman || secondary.assignedSalesman || '',
+          assignedSalesman: primary.assignedSalesman || secondary.assignedSalesman || primary.salesman || secondary.salesman || '',
+          mobile: primary.mobile || secondary.mobile || '',
+          contactPerson: (primary.contactPerson && primary.contactPerson !== 'Mr' ? primary.contactPerson : (secondary.contactPerson || primary.contactPerson || '')),
+        });
+      }
+    }
+    let list = Array.from(custCodeMap.values()).map((c) => {
       const openBal = c.openingBalance !== undefined && c.openingBalance !== null
         ? Number(c.openingBalance)
         : 0;
@@ -7321,6 +7485,16 @@ ON CONFLICT (id) DO NOTHING;`);
 
     // Auto-generate code if missing (format: 010104XXXX)
     let code = data.code || data.accountCode;
+
+    // Prevent duplicate customers by code or exact account title
+    const existing = this.data.customers.find((c) => 
+      (code && c.code && c.code.trim().toLowerCase() === code.trim().toLowerCase()) ||
+      (title && c.name && c.name.trim().toLowerCase() === title.toLowerCase()) ||
+      (title && c.accountTitle && c.accountTitle.trim().toLowerCase() === title.toLowerCase())
+    );
+    if (existing) {
+      return this.updateCustomer(existing.id, data, source, user);
+    }
     if (!code) {
       const existingNumericCodes = this.data.customers
         .map((c) => parseInt(c.code, 10))
@@ -10011,8 +10185,8 @@ ON CONFLICT (id) DO NOTHING;`);
 
     const accounts: GlAccountOption[] = [];
 
-    // Customers
-    (this.data.customers || []).forEach((c) => {
+    // Customers (100% de-duplicated, live balances)
+    this.getCustomers().forEach((c) => {
       const bal = (c.outstandingBalance !== undefined && c.outstandingBalance !== null && !isNaN(Number(c.outstandingBalance)))
         ? Number(c.outstandingBalance)
         : (c.openingBalanceType === 'CR' ? -Math.abs(Number(c.openingBalance) || 0) : Math.abs(Number(c.openingBalance) || 0));

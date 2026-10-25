@@ -1273,6 +1273,20 @@ app.patch('/api/customers/:id/status', (req, res) => {
   }
 });
 
+// Deduplicate customers across local & PostgreSQL database
+app.post('/api/customers/deduplicate', async (req, res) => {
+  try {
+    const result = await db.deduplicateCustomersInDatabase(req.body?.companyId || (req.headers['x-company-id'] as string));
+    res.json({
+      success: true,
+      ...result,
+      message: `Deduplication complete! Merged ${result.merged} duplicate customer groups and removed ${result.deleted} redundant records from system.`,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Delete ALL customers (A-Z) from local + PostgreSQL database (Settings > Customers)
 // NOTE: must be registered BEFORE /api/customers/:id so "delete-all" is not treated as an :id
 app.delete('/api/customers/delete-all', async (req, res) => {

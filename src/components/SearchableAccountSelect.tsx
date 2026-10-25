@@ -34,9 +34,20 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
   const internalInputRef = useRef<HTMLInputElement>(null);
   const activeInputRef = externalInputRef || internalInputRef;
 
-  // Guarantee valid array
+  // Guarantee valid, de-duplicated accounts array
   const safeAccounts = useMemo(() => {
-    return Array.isArray(accounts) ? accounts.filter((a): a is GlAccountOption => Boolean(a && a.id)) : [];
+    if (!Array.isArray(accounts)) return [];
+    const seen = new Set<string>();
+    const out: GlAccountOption[] = [];
+    for (const a of accounts) {
+      if (!a || !a.id) continue;
+      const key = `${a.type || ''}_${(a.code || a.id).trim().toLowerCase()}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push(a);
+      }
+    }
+    return out;
   }, [accounts]);
 
   // Tab categorization flags

@@ -494,9 +494,35 @@ export const CustomerManagementView: React.FC<CustomerManagementViewProps> = ({
     }
   };
 
-  // Filtered customer list
+  // Filtered customer list (100% de-duplicated by code/id)
   const filteredCustomers = useMemo(() => {
-    const filtered = customersList.filter((c) => {
+    // Defensive de-duplication: prioritize non-zero balance
+    const codeMap = new Map<string, Customer>();
+    for (const c of customersList) {
+      if (!c) continue;
+      const k = (c.code || c.accountCode || c.id || '').trim().toLowerCase();
+      if (!k) continue;
+      const existing = codeMap.get(k);
+      if (!existing) {
+        codeMap.set(k, c);
+      } else {
+        const existingBal = Math.abs(Number(existing.outstandingBalance) || Number(existing.openingBalance) || 0);
+        const currBal = Math.abs(Number(c.outstandingBalance) || Number(c.openingBalance) || 0);
+        const primary = (currBal > 0 && existingBal === 0) ? c : existing;
+        const secondary = primary === c ? existing : c;
+        codeMap.set(k, {
+          ...secondary,
+          ...primary,
+          salesman: primary.salesman || secondary.salesman || primary.assignedSalesman || secondary.assignedSalesman || '',
+          assignedSalesman: primary.assignedSalesman || secondary.assignedSalesman || primary.salesman || secondary.salesman || '',
+          mobile: primary.mobile || secondary.mobile || '',
+          contactPerson: (primary.contactPerson && primary.contactPerson !== 'Mr' ? primary.contactPerson : (secondary.contactPerson || primary.contactPerson || '')),
+        });
+      }
+    }
+    const deduped = Array.from(codeMap.values());
+
+    const filtered = deduped.filter((c) => {
       // Status filter
       if (statusFilter !== 'ALL' && c.status !== statusFilter) return false;
       // Group filter
