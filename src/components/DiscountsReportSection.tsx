@@ -36,10 +36,12 @@ export const DiscountsReportSection: React.FC<DiscountsReportSectionProps> = ({
     return new Date().toISOString().split('T')[0];
   });
   const [searchQuery, setSearchQuery] = useState('');
-  const [sourceFilter, setSourceFilter] = useState<'all' | 'invoice' | 'voucher'>('all');
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'invoice' | 'voucher' | 'sale_return' | 'purchase_return'>('all');
   const [items, setItems] = useState<DiscountReportItem[]>([]);
   const [totalBillDiscount, setTotalBillDiscount] = useState<number>(0);
   const [totalVoucherDiscount, setTotalVoucherDiscount] = useState<number>(0);
+  const [totalSaleReturnDiscount, setTotalSaleReturnDiscount] = useState<number>(0);
+  const [totalPurchaseReturnDiscount, setTotalPurchaseReturnDiscount] = useState<number>(0);
   const [totalDiscounts, setTotalDiscounts] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -52,6 +54,8 @@ export const DiscountsReportSection: React.FC<DiscountsReportSectionProps> = ({
       setItems(res.items || []);
       setTotalBillDiscount(res.totalBillDiscount || 0);
       setTotalVoucherDiscount(res.totalVoucherDiscount || 0);
+      setTotalSaleReturnDiscount(res.totalSaleReturnDiscount || 0);
+      setTotalPurchaseReturnDiscount(res.totalPurchaseReturnDiscount || 0);
       setTotalDiscounts(res.totalDiscounts || 0);
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to load Discounts Report');
@@ -90,6 +94,8 @@ export const DiscountsReportSection: React.FC<DiscountsReportSectionProps> = ({
       // Source filter
       if (sourceFilter === 'invoice' && !it.source.toLowerCase().includes('bill')) return false;
       if (sourceFilter === 'voucher' && !it.source.toLowerCase().includes('voucher') && !it.source.toLowerCase().includes('receipt') && !it.source.toLowerCase().includes('payment')) return false;
+      if (sourceFilter === 'sale_return' && !it.source.toLowerCase().includes('sale return')) return false;
+      if (sourceFilter === 'purchase_return' && !it.source.toLowerCase().includes('purchase return')) return false;
 
       // Text search
       if (!searchQuery.trim()) return true;
@@ -278,6 +284,8 @@ export const DiscountsReportSection: React.FC<DiscountsReportSectionProps> = ({
               <option value="all">All Discount Sources</option>
               <option value="invoice">Sale Bills (Invoices) Only</option>
               <option value="voucher">Cash/Bank Vouchers Only</option>
+              <option value="sale_return">Sale Returns Only</option>
+              <option value="purchase_return">Purchase Returns Only</option>
             </select>
           </div>
 
@@ -324,61 +332,99 @@ export const DiscountsReportSection: React.FC<DiscountsReportSectionProps> = ({
       {/* ------------------------------------------------------------- */}
       {/* SUMMARY KPI CARDS                                              */}
       {/* ------------------------------------------------------------- */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 no-print">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 no-print">
         {/* Total Discounts */}
-        <div className="bg-gradient-to-br from-amber-950/40 to-slate-900 border border-amber-800/40 rounded-xl p-3.5 shadow-sm">
+        <div className="bg-gradient-to-br from-amber-950/40 to-slate-900 border border-amber-800/40 rounded-xl p-3 shadow-sm">
           <div className="flex items-center justify-between text-xs text-amber-300/90 font-bold mb-1">
-            <span className="flex items-center gap-1.5">
-              <Percent className="w-4 h-4 text-amber-400" />
-              Total Discounts Allowed
+            <span className="flex items-center gap-1.5 truncate">
+              <Percent className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              Total Discounts
             </span>
-            <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded">
-              All Sources
+            <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1 py-0.5 rounded">
+              All
             </span>
           </div>
-          <div className="text-xl font-mono font-bold text-amber-400">
+          <div className="text-lg font-mono font-bold text-amber-400">
             {currencySymbol()} {filteredTotals.discount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
-          <div className="text-[11px] text-slate-400 mt-0.5">
-            100% deducted from business revenue &amp; net profit
+          <div className="text-[10px] text-slate-400 mt-0.5 truncate">
+            100% minus from profit
           </div>
         </div>
 
         {/* Sale Bills Discount */}
-        <div className="bg-gradient-to-br from-blue-950/30 to-slate-900 border border-blue-800/30 rounded-xl p-3.5 shadow-sm">
+        <div className="bg-gradient-to-br from-blue-950/30 to-slate-900 border border-blue-800/30 rounded-xl p-3 shadow-sm">
           <div className="flex items-center justify-between text-xs text-blue-300/90 font-bold mb-1">
-            <span className="flex items-center gap-1.5">
-              <Receipt className="w-4 h-4 text-blue-400" />
-              Sale Bill Discounts
+            <span className="flex items-center gap-1.5 truncate">
+              <Receipt className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+              Sale Bill Disc
             </span>
-            <span className="text-[10px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded">
+            <span className="text-[10px] bg-blue-500/20 text-blue-300 px-1 py-0.5 rounded">
               Invoices
             </span>
           </div>
-          <div className="text-xl font-mono font-bold text-blue-400">
+          <div className="text-lg font-mono font-bold text-blue-400">
             {currencySymbol()} {totalBillDiscount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
-          <div className="text-[11px] text-slate-400 mt-0.5">
-            Deducted at the time of invoice creation
+          <div className="text-[10px] text-slate-400 mt-0.5 truncate">
+            At invoice creation
           </div>
         </div>
 
         {/* Cash & Bank Voucher Discount */}
-        <div className="bg-gradient-to-br from-purple-950/30 to-slate-900 border border-purple-800/30 rounded-xl p-3.5 shadow-sm">
+        <div className="bg-gradient-to-br from-purple-950/30 to-slate-900 border border-purple-800/30 rounded-xl p-3 shadow-sm">
           <div className="flex items-center justify-between text-xs text-purple-300/90 font-bold mb-1">
-            <span className="flex items-center gap-1.5">
-              <Banknote className="w-4 h-4 text-purple-400" />
-              Cash/Bank Settlement Discounts
+            <span className="flex items-center gap-1.5 truncate">
+              <Banknote className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+              Voucher Disc
             </span>
-            <span className="text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded">
-              Vouchers
+            <span className="text-[10px] bg-purple-500/20 text-purple-300 px-1 py-0.5 rounded">
+              Khata
             </span>
           </div>
-          <div className="text-xl font-mono font-bold text-purple-400">
+          <div className="text-lg font-mono font-bold text-purple-400">
             {currencySymbol()} {totalVoucherDiscount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
-          <div className="text-[11px] text-slate-400 mt-0.5">
-            Deducted during Khata recovery &amp; payments
+          <div className="text-[10px] text-slate-400 mt-0.5 truncate">
+            Khata settlement
+          </div>
+        </div>
+
+        {/* Sale Return Discount */}
+        <div className="bg-gradient-to-br from-orange-950/30 to-slate-900 border border-orange-800/30 rounded-xl p-3 shadow-sm">
+          <div className="flex items-center justify-between text-xs text-orange-300/90 font-bold mb-1">
+            <span className="flex items-center gap-1.5 truncate">
+              <RefreshCw className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+              Sale Return Disc
+            </span>
+            <span className="text-[10px] bg-orange-500/20 text-orange-300 px-1 py-0.5 rounded">
+              Returns
+            </span>
+          </div>
+          <div className="text-lg font-mono font-bold text-orange-400">
+            {currencySymbol()} {totalSaleReturnDiscount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+          <div className="text-[10px] text-slate-400 mt-0.5 truncate">
+            Customer return credit
+          </div>
+        </div>
+
+        {/* Purchase Return Discount */}
+        <div className="bg-gradient-to-br from-teal-950/30 to-slate-900 border border-teal-800/30 rounded-xl p-3 shadow-sm">
+          <div className="flex items-center justify-between text-xs text-teal-300/90 font-bold mb-1">
+            <span className="flex items-center gap-1.5 truncate">
+              <Tag className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+              Purch Return Disc
+            </span>
+            <span className="text-[10px] bg-teal-500/20 text-teal-300 px-1 py-0.5 rounded">
+              Vendor
+            </span>
+          </div>
+          <div className="text-lg font-mono font-bold text-teal-400">
+            {currencySymbol()} {totalPurchaseReturnDiscount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+          <div className="text-[10px] text-slate-400 mt-0.5 truncate">
+            Vendor return concession
           </div>
         </div>
       </div>
@@ -440,6 +486,8 @@ export const DiscountsReportSection: React.FC<DiscountsReportSectionProps> = ({
               <tbody className="divide-y divide-slate-800/60 text-slate-300">
                 {filteredItems.map((it, idx) => {
                   const isInvoice = it.source.toLowerCase().includes('bill');
+                  const isSaleReturn = it.source.toLowerCase().includes('sale return');
+                  const isPurchaseReturn = it.source.toLowerCase().includes('purchase return');
                   return (
                     <tr key={it.id || idx} className="hover:bg-slate-800/40 transition">
                       <td className="py-2 px-3 text-center font-mono font-bold text-slate-500 text-[11px]">
@@ -456,6 +504,10 @@ export const DiscountsReportSection: React.FC<DiscountsReportSectionProps> = ({
                           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
                             isInvoice
                               ? 'bg-blue-500/10 text-blue-300 border border-blue-500/20'
+                              : isSaleReturn
+                              ? 'bg-orange-500/10 text-orange-300 border border-orange-500/20'
+                              : isPurchaseReturn
+                              ? 'bg-teal-500/10 text-teal-300 border border-teal-500/20'
                               : 'bg-purple-500/10 text-purple-300 border border-purple-500/20'
                           }`}
                         >

@@ -1235,6 +1235,12 @@ export interface AiLedgerAuditReport {
     todayVoucherDiscount: number;
     monthVoucherDiscount: number;
     totalVoucherDiscount: number;
+    todaySaleReturnDiscount?: number;
+    monthSaleReturnDiscount?: number;
+    totalSaleReturnDiscount?: number;
+    todayPurchaseReturnDiscount?: number;
+    monthPurchaseReturnDiscount?: number;
+    totalPurchaseReturnDiscount?: number;
     todayTotalDiscount: number;
     monthTotalDiscount: number;
     totalDiscounts: number;
@@ -1393,6 +1399,8 @@ export interface DiscountsReportResponse {
   items: DiscountReportItem[];
   totalBillDiscount: number;
   totalVoucherDiscount: number;
+  totalSaleReturnDiscount?: number;
+  totalPurchaseReturnDiscount?: number;
   totalDiscounts: number;
   count: number;
 }

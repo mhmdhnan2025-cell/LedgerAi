@@ -732,6 +732,20 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
           <td class="num strong purple">&minus; ${sym} ${num(data.discountsHead?.totalVoucherDiscount ?? 0)}</td>
           <td class="center"><span style="background:#ede9fe;color:#5b21b6;padding:2px 7px;border-radius:4px;font-size:8px;font-weight:800">Deducted</span></td>
         </tr>
+        <tr>
+          <td class="strong" style="color:#c2410c">Sale Return Discount (Customer Return Adjustment)</td>
+          <td class="num">${num(data.discountsHead?.todaySaleReturnDiscount ?? 0)}</td>
+          <td class="num">${num(data.discountsHead?.monthSaleReturnDiscount ?? 0)}</td>
+          <td class="num strong" style="color:#c2410c">&minus; ${sym} ${num(data.discountsHead?.totalSaleReturnDiscount ?? 0)}</td>
+          <td class="center"><span style="background:#ffedd5;color:#9a3412;padding:2px 7px;border-radius:4px;font-size:8px;font-weight:800">Adjusted</span></td>
+        </tr>
+        <tr>
+          <td class="strong" style="color:#0f766e">Purchase Return Discount (Supplier Concession)</td>
+          <td class="num">${num(data.discountsHead?.todayPurchaseReturnDiscount ?? 0)}</td>
+          <td class="num">${num(data.discountsHead?.monthPurchaseReturnDiscount ?? 0)}</td>
+          <td class="num strong" style="color:#0f766e">${sym} ${num(data.discountsHead?.totalPurchaseReturnDiscount ?? 0)}</td>
+          <td class="center"><span style="background:#ccfbf1;color:#115e59;padding:2px 7px;border-radius:4px;font-size:8px;font-weight:800">Vendor Credit</span></td>
+        </tr>
         <tr style="background:#f8fafc;border-top:1.5px solid #cbd5e1">
           <td class="strong green">TOTAL DISCOUNTS COMBINED</td>
           <td class="num strong green">&minus; ${sym} ${num(data.discountsHead?.todayTotalDiscount ?? 0)}</td>

@@ -11247,6 +11247,8 @@ ON CONFLICT (id) DO NOTHING;`);
     const items: DiscountReportItem[] = [];
     let totalBillDiscount = 0;
     let totalVoucherDiscount = 0;
+    let totalSaleReturnDiscount = 0;
+    let totalPurchaseReturnDiscount = 0;
 
     // 1. Sale Bills (Applied at Invoicing)
     for (const b of (this.data.saleBills || [])) {
@@ -11309,6 +11311,62 @@ ON CONFLICT (id) DO NOTHING;`);
       }
     }
 
+    // 3. Sale Returns (Customer Return Discounts / Adjustments)
+    for (const sr of (this.data.saleReturns || [])) {
+      if ((sr as any).status === 'Cancelled') continue;
+      const srDate = this.normalizeDateToYMD(sr.date);
+      if (normFrom && srDate < normFrom) continue;
+      if (normTo && srDate > normTo) continue;
+
+      const flatDisc = Number(sr.discount || 0);
+      const itemsDisc = (sr.items || []).reduce((sum, it) => sum + (Number(it.disc) || 0), 0);
+      const totalSrDisc = flatDisc + itemsDisc;
+
+      if (totalSrDisc > 0) {
+        totalSaleReturnDiscount += totalSrDisc;
+        items.push({
+          id: `disc-sr-${sr.id}`,
+          srNo: 0,
+          date: sr.date,
+          refNumber: sr.returnNumberFormatted || sr.returnNumber || `SR-${sr.id}`,
+          source: 'Sale Return',
+          partyName: sr.customerAccountTitle || sr.customerName || 'Customer',
+          partyCode: sr.customerCode || '',
+          amount: Number(sr.netTotal || sr.totalAmount || 0),
+          discountAmount: Number(totalSrDisc.toFixed(2)),
+          notes: (sr as any).remarks || sr.reason ? `Return: ${(sr as any).remarks || sr.reason}` : 'Sale Return Discount',
+        });
+      }
+    }
+
+    // 4. Purchase Returns (Supplier Return Discounts / Concessions)
+    for (const pr of (this.data.purchaseReturns || [])) {
+      if ((pr as any).status === 'Cancelled') continue;
+      const prDate = this.normalizeDateToYMD(pr.date);
+      if (normFrom && prDate < normFrom) continue;
+      if (normTo && prDate > normTo) continue;
+
+      const flatDisc = Number(pr.discount || 0);
+      const itemsDisc = (pr.items || []).reduce((sum, it) => sum + (Number(it.disc) || 0), 0);
+      const totalPrDisc = flatDisc + itemsDisc;
+
+      if (totalPrDisc > 0) {
+        totalPurchaseReturnDiscount += totalPrDisc;
+        items.push({
+          id: `disc-pr-${pr.id}`,
+          srNo: 0,
+          date: pr.date,
+          refNumber: pr.returnNumberFormatted || pr.returnNumber || `PR-${pr.id}`,
+          source: 'Purchase Return',
+          partyName: pr.supplierAccountTitle || pr.supplierName || 'Supplier',
+          partyCode: pr.supplierCode || '',
+          amount: Number(pr.netTotal || pr.totalAmount || 0),
+          discountAmount: Number(totalPrDisc.toFixed(2)),
+          notes: (pr as any).remarks || pr.reason ? `Return: ${(pr as any).remarks || pr.reason}` : 'Purchase Return Discount',
+        });
+      }
+    }
+
     // Sort descending by date, then refNumber
     items.sort((a, b) => {
       const cmpDate = b.date.localeCompare(a.date);
@@ -11320,11 +11378,13 @@ ON CONFLICT (id) DO NOTHING;`);
       it.srNo = idx + 1;
     });
 
-    const totalDiscounts = Number((totalBillDiscount + totalVoucherDiscount).toFixed(2));
+    const totalDiscounts = Number((totalBillDiscount + totalVoucherDiscount + totalSaleReturnDiscount + totalPurchaseReturnDiscount).toFixed(2));
     return {
       items,
       totalBillDiscount: Number(totalBillDiscount.toFixed(2)),
       totalVoucherDiscount: Number(totalVoucherDiscount.toFixed(2)),
+      totalSaleReturnDiscount: Number(totalSaleReturnDiscount.toFixed(2)),
+      totalPurchaseReturnDiscount: Number(totalPurchaseReturnDiscount.toFixed(2)),
       totalDiscounts,
       count: items.length,
     };

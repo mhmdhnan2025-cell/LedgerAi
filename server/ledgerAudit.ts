@@ -619,7 +619,7 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     const cost = buildCostLookup(products);
 
     const billExVatRevenue = (b: SaleBill): number => {
-      const billDiscount = Number(b.billDiscountAmount) || 0;
+      const billDiscount = Number(b.totalDiscount) || Number(b.billDiscountAmount) || 0;
       const vat = Number(b.totalVatAmount) || 0;
       if (b.grossAmount !== undefined && b.grossAmount > 0) {
         return Math.max(0, Number((b.grossAmount - billDiscount).toFixed(2)));
@@ -1081,13 +1081,64 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
       }
     }
 
+    // Helper for return discounts (flat discount + item discounts)
+    const getReturnDiscount = (r: { discount?: number; items?: Array<{ disc?: number }> }): number => {
+      const flat = Number(r.discount || 0);
+      const itemsDisc = (r.items || []).reduce((s, it) => s + (Number(it.disc) || 0), 0);
+      return flat + itemsDisc;
+    };
+
+    const todaySaleReturnDiscount = saleReturnsTodayList.reduce((s, r) => s + getReturnDiscount(r), 0);
+    const monthSaleReturnDiscount = saleReturnsMonthList.reduce((s, r) => s + getReturnDiscount(r), 0);
+    const totalSaleReturnDiscount = saleReturnsUpto.reduce((s, r) => s + getReturnDiscount(r), 0);
+
+    const todayPurchaseReturnDiscount = purchaseReturnsTodayList.reduce((s, r) => s + getReturnDiscount(r), 0);
+    const monthPurchaseReturnDiscount = purchaseReturnsMonthList.reduce((s, r) => s + getReturnDiscount(r), 0);
+    const totalPurchaseReturnDiscount = purchaseReturnsUpto.reduce((s, r) => s + getReturnDiscount(r), 0);
+
+    // From sale returns
+    for (const sr of saleReturnsUpto) {
+      if (!sr) continue;
+      const srDate = db.normalizeDateToYMD(sr.date);
+      const period = onDate(srDate) ? 'today' : (inMonth(srDate) ? 'this_month' : 'past');
+      const d = getReturnDiscount(sr);
+      if (d > 0) {
+        discountEntries.push({
+          date: sr.date,
+          refNumber: sr.returnNumberFormatted || sr.returnNumber || `SR-${sr.id}`,
+          source: 'Sale Return',
+          partyName: sr.customerAccountTitle || sr.customerName || 'Customer',
+          discountAmount: d,
+          period,
+        });
+      }
+    }
+
+    // From purchase returns
+    for (const pr of purchaseReturnsUpto) {
+      if (!pr) continue;
+      const prDate = db.normalizeDateToYMD(pr.date);
+      const period = onDate(prDate) ? 'today' : (inMonth(prDate) ? 'this_month' : 'past');
+      const d = getReturnDiscount(pr);
+      if (d > 0) {
+        discountEntries.push({
+          date: pr.date,
+          refNumber: pr.returnNumberFormatted || pr.returnNumber || `PR-${pr.id}`,
+          source: 'Purchase Return',
+          partyName: pr.supplierAccountTitle || pr.supplierName || 'Supplier',
+          discountAmount: d,
+          period,
+        });
+      }
+    }
+
     // Sort descending by date
     discountEntries.sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
 
     // Total Combined Discounts:
-    const todayTotalDiscount = Number((todayBillDiscount + todayVoucherDiscount).toFixed(2));
-    const monthTotalDiscount = Number((monthBillDiscount + monthVoucherDiscount).toFixed(2));
-    const totalDiscounts = Number((totalBillDiscount + totalVoucherDiscount).toFixed(2));
+    const todayTotalDiscount = Number((todayBillDiscount + todayVoucherDiscount + todaySaleReturnDiscount + todayPurchaseReturnDiscount).toFixed(2));
+    const monthTotalDiscount = Number((monthBillDiscount + monthVoucherDiscount + monthSaleReturnDiscount + monthPurchaseReturnDiscount).toFixed(2));
+    const totalDiscounts = Number((totalBillDiscount + totalVoucherDiscount + totalSaleReturnDiscount + totalPurchaseReturnDiscount).toFixed(2));
 
     // VAT Excluded:
     const todayVatExcluded = saleBillsToday.reduce((s, b) => s + (Number(b.totalVatAmount) || 0), 0);
@@ -1099,16 +1150,46 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     const monthExpenses = expenses.filter((e) => uptoDate(e.date) && inMonth(e.date)).reduce((s, e) => s + (Number(e.amount) || 0), 0);
     const totalExpenses = expenses.filter((e) => uptoDate(e.date)).reduce((s, e) => s + (Number(e.amount) || 0), 0);
 
-    // (cogsOfBills moved up)
+    // Return COGS & Ex-VAT helpers:
+    const cogsOfSaleReturns = (returnsList: SaleReturn[]) => cost.costOf(
+      returnsList.flatMap((r) => r.items || []).map((it) => ({
+        productId: it.productId,
+        itemTitle: it.itemTitle,
+        mcode: (it as any).mcode,
+        qty: it.qty,
+        rate: it.rate,
+        ctn: it.ctn,
+        ratePerCtn: it.ratePerCtn,
+      }))
+    );
 
-    const todayCogs = cogsOfBills(saleBillsToday);
-    const monthCogs = cogsOfBills(saleBillsMonth);
-    const totalCogs = cogsOfBills(saleBillsUpto);
+    const saleReturnExVat = (r: SaleReturn): number => {
+      const vat = Number(r.taxAmount) || 0;
+      return Math.max(0, Number(((Number(r.netTotal) || 0) - vat).toFixed(2)));
+    };
 
-    // Ex-VAT Revenues (post bill discount):
-    const todayExVatRevenue = saleBillsToday.reduce((s, b) => s + billExVatRevenue(b), 0) + ordersToday.reduce((s, o) => s + ((o.totalAmount || 0) - (o.discount || 0)), 0);
-    const monthExVatRevenue = saleBillsMonth.reduce((s, b) => s + billExVatRevenue(b), 0) + ordersMonth.reduce((s, o) => s + ((o.totalAmount || 0) - (o.discount || 0)), 0);
-    const totalExVatRevenue = saleBillsUpto.reduce((s, b) => s + billExVatRevenue(b), 0) + ordersUpto.reduce((s, o) => s + ((o.totalAmount || 0) - (o.discount || 0)), 0);
+    const todayReturnCogs = cogsOfSaleReturns(saleReturnsTodayList);
+    const monthReturnCogs = cogsOfSaleReturns(saleReturnsMonthList);
+    const totalReturnCogs = cogsOfSaleReturns(saleReturnsUpto);
+
+    const todaySaleReturnExVat = saleReturnsTodayList.reduce((s, r) => s + saleReturnExVat(r), 0);
+    const monthSaleReturnExVat = saleReturnsMonthList.reduce((s, r) => s + saleReturnExVat(r), 0);
+    const totalSaleReturnExVat = saleReturnsUpto.reduce((s, r) => s + saleReturnExVat(r), 0);
+
+    // Gross Ex-VAT Revenues (post trade bill discount):
+    const todayGrossExVatRevenue = saleBillsToday.reduce((s, b) => s + billExVatRevenue(b), 0) + ordersToday.reduce((s, o) => s + ((o.totalAmount || 0) - (o.discount || 0)), 0);
+    const monthGrossExVatRevenue = saleBillsMonth.reduce((s, b) => s + billExVatRevenue(b), 0) + ordersMonth.reduce((s, o) => s + ((o.totalAmount || 0) - (o.discount || 0)), 0);
+    const totalGrossExVatRevenue = saleBillsUpto.reduce((s, b) => s + billExVatRevenue(b), 0) + ordersUpto.reduce((s, o) => s + ((o.totalAmount || 0) - (o.discount || 0)), 0);
+
+    // Net Ex-VAT Revenues (deducting Sale Returns Ex-VAT):
+    const todayExVatRevenue = Math.max(0, Number((todayGrossExVatRevenue - todaySaleReturnExVat).toFixed(2)));
+    const monthExVatRevenue = Math.max(0, Number((monthGrossExVatRevenue - monthSaleReturnExVat).toFixed(2)));
+    const totalExVatRevenue = Math.max(0, Number((totalGrossExVatRevenue - totalSaleReturnExVat).toFixed(2)));
+
+    // Net COGS (deducting returned inventory cost):
+    const todayCogs = Math.max(0, Number((cogsOfBills(saleBillsToday) - todayReturnCogs).toFixed(2)));
+    const monthCogs = Math.max(0, Number((cogsOfBills(saleBillsMonth) - monthReturnCogs).toFixed(2)));
+    const totalCogs = Math.max(0, Number((cogsOfBills(saleBillsUpto) - totalReturnCogs).toFixed(2)));
 
     // Gross Profits:
     const todayGrossProfit = Number((todayExVatRevenue - todayCogs).toFixed(2));
@@ -1416,6 +1497,14 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
         todayVoucherDiscount,
         monthVoucherDiscount,
         totalVoucherDiscount,
+
+        todaySaleReturnDiscount,
+        monthSaleReturnDiscount,
+        totalSaleReturnDiscount,
+
+        todayPurchaseReturnDiscount,
+        monthPurchaseReturnDiscount,
+        totalPurchaseReturnDiscount,
 
         todayTotalDiscount,
         monthTotalDiscount,
