@@ -150,11 +150,15 @@ function saleCreditAdded(bill: SaleBill): number {
 function saleCashKept(bill: SaleBill): number {
   const received = Math.max(0, Number(bill.cashReceived) || 0);
   const change = Math.max(0, Number(bill.changeGiven) || 0);
-  const kept = received - change;
-  const billCash = Math.max(0, (Number(bill.netTotal) || 0) - (Number(bill.balanceReceivable) || 0));
+  const kept = Math.max(0, received - change);
   const recovered = bill.balanceRecovered ? Math.max(0, Number(bill.balanceRecoveredAmount) || 0) : 0;
-  if (kept > 0) return Math.max(kept, billCash + recovered);
-  return billCash + recovered;
+  if (bill.cashReceived !== undefined && bill.cashReceived !== null && (bill.cashReceived as any) !== '') {
+    return kept + recovered;
+  }
+  if (bill.paymentType === 'Cash') {
+    return (Number(bill.netTotal) || 0) + recovered;
+  }
+  return kept + recovered;
 }
 
 function cashMovementOn(ctx: LedgerContext, date: string): { cashIn: number; cashOut: number } {
@@ -167,7 +171,9 @@ function cashMovementOn(ctx: LedgerContext, date: string): { cashIn: number; cas
   for (const payment of ctx.payments) {
     if (db.normalizeDateToYMD(payment.paymentDate) !== date) continue;
     if ((payment.paymentMethod || 'Cash') !== 'Cash') continue;
-    if (payment.orderId && ctx.saleBills.some((b) => (b.id === payment.orderId || b.billNumber === payment.orderNumber) && Number(b.cashReceived) > 0)) continue;
+    if (payment.id?.startsWith('pay-sb-') || payment.id?.startsWith('pay-pb-')) continue;
+    if (payment.orderId && ctx.saleBills.some((b) => (b.id === payment.orderId || b.billNumber === payment.orderNumber))) continue;
+    if (payment.orderId && ctx.purchaseBills.some((b) => (b.id === payment.orderId || b.billNumber === payment.orderNumber))) continue;
     cashIn += Number(payment.amount) || 0;
   }
   for (const v of (ctx.vouchers || [])) {
@@ -193,12 +199,17 @@ function cashMovementOn(ctx: LedgerContext, date: string): { cashIn: number; cas
               (v.entries || []).some((e) => e.narration?.includes(bill.billNumber)))
     );
     if (hasVoucher) continue;
-    const paidCash = bill.isCash ? (Number(bill.paidAmount) || Number(bill.netTotal) || 0) : (Number(bill.paidAmount) || 0);
+    let paidCash = 0;
+    if (bill.paidAmount !== undefined && bill.paidAmount !== null && (bill.paidAmount as any) !== '') {
+      paidCash = Math.max(0, Number(bill.paidAmount) || 0);
+    } else if (bill.isCash) {
+      paidCash = Math.max(0, Number(bill.netTotal) || 0);
+    }
     cashOut += paidCash;
   }
   for (const expense of ctx.expenses) {
     if (db.normalizeDateToYMD(expense.date) !== date) continue;
-    if (expense.voucherId || (expense.id && expense.id.startsWith('exp-vch-'))) continue;
+    if (expense.voucherId || (expense.id && expense.id.startsWith('exp-vch-')) || (expense.id && expense.id.startsWith('exp-disc-')) || (expense.id && expense.id.startsWith('exp-sal-'))) continue;
     const pm = (expense.paymentMethod || 'Cash').toLowerCase();
     if (!pm.includes('bank') && !pm.includes('cheque') && !pm.includes('transfer')) {
       cashOut += Number(expense.amount) || 0;
@@ -1243,7 +1254,12 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     // 1) Cash purchases / paid on purchase bills today
     let todaySupplierCash = 0;
     for (const b of purchaseToday) {
-      const paid = b.isCash ? (Number(b.paidAmount) || Number(b.netTotal) || 0) : (Number(b.paidAmount) || 0);
+      let paid = 0;
+      if (b.paidAmount !== undefined && b.paidAmount !== null && (b.paidAmount as any) !== '') {
+        paid = Math.max(0, Number(b.paidAmount) || 0);
+      } else if (b.isCash) {
+        paid = Math.max(0, Number(b.netTotal) || 0);
+      }
       todaySupplierCash += paid;
     }
 
@@ -1310,6 +1326,9 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     }
     for (const p of payments) {
       if (db.normalizeDateToYMD(p.paymentDate || (p as any).date || '') !== auditDate) continue;
+      if (p.id?.startsWith('pay-sb-') || p.id?.startsWith('pay-pb-')) continue;
+      if (p.orderId && allSaleBills.some((b) => b.id === p.orderId || b.billNumber === p.orderNumber)) continue;
+      if (p.orderId && purchaseBills.some((b) => b.id === p.orderId || b.billNumber === p.orderNumber)) continue;
       if ((p.paymentMethod || 'Cash').toLowerCase().includes('cash')) {
         todayMarketWasooli += Number(p.amount) || 0;
       }

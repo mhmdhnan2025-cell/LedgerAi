@@ -10225,13 +10225,16 @@ ON CONFLICT (id) DO NOTHING;`);
     // Calculate real dynamic Cash In Hand from actual ledger
     const openingCash = Number(this.data.cashRegister?.openingCashBalance) || 0;
 
-    // Cash received from sale bills (Cash payments + Cash received on credit bills + Old Recoveries collected)
+    // Cash received from sale bills: exactly the cash received written by user at bill creation (+ any old balance recovered)
     const cashFromSales = (this.data.saleBills || []).reduce((sum, s) => {
+      if (!s || s.status === 'Cancelled') return sum;
       let billCash = 0;
-      if (s.paymentType === 'Cash') {
+      if (s.cashReceived !== undefined && s.cashReceived !== null && (s.cashReceived as any) !== '') {
+        const received = Math.max(0, Number(s.cashReceived) || 0);
+        const change = Math.max(0, Number(s.changeGiven) || 0);
+        billCash = Math.max(0, received - change);
+      } else if (s.paymentType === 'Cash') {
         billCash = Number(s.netTotal) || 0;
-      } else {
-        billCash = Number(s.cashReceived) || 0;
       }
       if (s.balanceRecovered && Number(s.balanceRecoveredAmount) > 0) {
         billCash += Number(s.balanceRecoveredAmount);
@@ -10239,20 +10242,27 @@ ON CONFLICT (id) DO NOTHING;`);
       return sum + billCash;
     }, 0);
 
-    // Cash received from orders
+    // Cash received from orders (excluding orders converted to sale bills)
+    const existingBillOrderIds = new Set((this.data.saleBills || []).map((b) => b.id || b.billNumber));
     const cashFromOrders = (this.data.orders || []).reduce((sum, o) => {
+      if (!o || o.status === 'Cancelled') return sum;
+      if (existingBillOrderIds.has(o.id) || existingBillOrderIds.has(o.orderNumber)) return sum;
       return sum + (Number(o.paidAmount) || 0);
     }, 0);
 
-    // Cash payments received directly
+    // Cash payments received directly (EXCLUDING payments logged at sale/purchase bill creation)
     const cashFromPayments = (this.data.payments || []).reduce((sum, p) => {
+      if (!p || p.status === 'Cancelled' || (p as any).isDeleted) return sum;
+      if (p.id?.startsWith('pay-sb-') || p.id?.startsWith('pay-pb-')) return sum;
+      if (p.orderId && (this.data.saleBills || []).some((b) => b.id === p.orderId || b.billNumber === p.orderNumber)) return sum;
+      if (p.orderId && (this.data.purchaseBills || []).some((b) => b.id === p.orderId || b.billNumber === p.orderNumber)) return sum;
       if (p.paymentMethod === 'Cash') return sum + (Number(p.amount) || 0);
       return sum;
     }, 0);
 
     // Cash received from Vouchers (CR vouchers + CB receipts)
     const cashFromVouchers = (this.data.vouchers || []).reduce((sum, v) => {
-      if (!v) return sum;
+      if (!v || v.status !== 'POSTED') return sum;
       if (v.voucherType === 'CR') return sum + (Number(v.totalAmount) || 0);
       if (v.voucherType === 'CB' && Array.isArray(v.entries)) {
         const rTotal = v.entries.reduce((acc, e) => acc + (Number(e?.receipt) || 0), 0);
@@ -10261,11 +10271,16 @@ ON CONFLICT (id) DO NOTHING;`);
       return sum;
     }, 0);
 
-    // Cash paid out for purchase bills
+    // Cash paid out for purchase bills (EXACTLY the paid amount written by user)
     const cashOutPurchases = (this.data.purchaseBills || []).reduce((sum, b) => {
-      if (!b) return sum;
-      if (b.isCash) return sum + (Number(b.netTotal) || 0);
-      return sum + (Number(b.paidAmount) || 0);
+      if (!b || b.status === 'Cancelled') return sum;
+      let paid = 0;
+      if (b.paidAmount !== undefined && b.paidAmount !== null && (b.paidAmount as any) !== '') {
+        paid = Math.max(0, Number(b.paidAmount) || 0);
+      } else if (b.isCash) {
+        paid = Math.max(0, Number(b.netTotal) || 0);
+      }
+      return sum + paid;
     }, 0);
 
     // Cash paid out for daily expenses
