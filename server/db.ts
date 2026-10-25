@@ -10005,6 +10005,10 @@ ON CONFLICT (id) DO NOTHING;`);
   }
 
   public getGlAccounts(): GlAccountOption[] {
+    // Authoritatively synchronize customer and supplier balances before assembling GL accounts
+    this.recalculateAllCustomerBalances();
+    this.recalculateAllSupplierBalances();
+
     const accounts: GlAccountOption[] = [];
 
     // Customers

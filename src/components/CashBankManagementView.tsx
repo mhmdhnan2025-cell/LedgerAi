@@ -197,7 +197,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
 
   useEffect(() => {
     loadPrimaryData();
-  }, []);
+  }, [activeTab]);
 
   // Update default narration based on tab
   useEffect(() => {

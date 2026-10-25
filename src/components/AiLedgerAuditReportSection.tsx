@@ -457,7 +457,7 @@ export const AiLedgerAuditReportSection: React.FC<AiLedgerAuditReportSectionProp
       {/* ---------------- PRINTABLE A4 REPORT ---------------- */}
       <div
         id="printable-audit-report"
-        className="bg-white rounded-xl overflow-hidden border border-slate-800 shadow-lg"
+        className="bg-white rounded-xl overflow-x-auto border border-slate-800 shadow-lg"
       >
         {isLoading || !parsed ? (
           <div className="p-16 text-center text-slate-500 flex flex-col items-center gap-3">

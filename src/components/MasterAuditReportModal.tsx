@@ -211,7 +211,7 @@ export const MasterAuditReportModal: React.FC<MasterAuditReportModalProps> = ({
           {!isLoading && parsed && (
             <div
               id="printable-audit-report"
-              className="bg-white rounded-xl overflow-hidden shadow-xl border border-slate-300 font-bold text-slate-900"
+              className="bg-white rounded-xl overflow-x-auto shadow-xl border border-slate-300 font-bold text-slate-900"
               style={{ fontWeight: 800 }}
             >
               <style>{parsed.styles}</style>

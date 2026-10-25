@@ -1068,6 +1068,33 @@ export interface AiLedgerAuditSalesmanProfit {
   todaySales: number;
   marginPct: number;
   netProfit: number;
+  monthSales?: number;
+  monthNetProfit?: number;
+  monthMarginPct?: number;
+  totalSales?: number;
+  totalNetProfit?: number;
+  totalMarginPct?: number;
+  billsCount?: number;
+}
+
+export interface AiLedgerAuditSaleBillProfit {
+  billId: string;
+  billNumber: string;
+  date: string;
+  customerId: string;
+  customerName: string;
+  salesmanName: string;
+  itemsSummary: string;
+  exVatRevenue: number;
+  cogs: number;
+  discountAmount: number;
+  vatAmount: number;
+  netTotal: number;
+  grossProfit: number;
+  netProfit: number;
+  marginPct: number;
+  period: 'today' | 'this_month' | 'past';
+  paymentType: string;
 }
 
 export interface AiLedgerAuditCashRow {
@@ -1165,6 +1192,9 @@ export interface AiLedgerAuditReport {
   salesmanKhata: AiLedgerAuditSalesmanKhata[];
   salesmanProfit: AiLedgerAuditSalesmanProfit[];
   totalSalesmenProfit: number;
+  totalSalesmenTodayProfit?: number;
+  totalSalesmenMonthProfit?: number;
+  salesBillsProfit?: AiLedgerAuditSaleBillProfit[];
   cash: {
     inflows: AiLedgerAuditCashRow[];
     bankRows: AiLedgerAuditCashRow[];

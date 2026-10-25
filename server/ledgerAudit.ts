@@ -6,6 +6,7 @@ import {
   AiLedgerAuditReturnsSummary,
   AiLedgerAuditSalesmanKhata,
   AiLedgerAuditSalesmanProfit,
+  AiLedgerAuditSaleBillProfit,
   Customer,
   Expense,
   Payment,
@@ -843,6 +844,8 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     const salesmanKhata: AiLedgerAuditSalesmanKhata[] = [];
     const salesmanProfit: AiLedgerAuditSalesmanProfit[] = [];
     let totalSalesmenProfit = 0;
+    let totalSalesmenTodayProfit = 0;
+    let totalSalesmenMonthProfit = 0;
 
     for (const entry of Array.from(salesmanMap.values())) {
       const bills = entry.bills.slice().sort((a, b) => db.normalizeDateToYMD(a.date).localeCompare(db.normalizeDateToYMD(b.date)));
@@ -863,6 +866,9 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
       }
 
       const todayBills = bills.filter((b) => onDate(b.date));
+      const monthBills = bills.filter((b) => inMonth(b.date));
+      const allBills = bills;
+
       const creditToday = todayBills.reduce((s, b) => s + saleCreditAdded(b), 0);
       const recoveredToday = todayBills.reduce(
         (s, b) => (b.balanceRecovered ? s + (Number(b.balanceRecoveredAmount) || 0) : s),
@@ -870,29 +876,54 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
       );
       const opening = closing - creditToday + recoveredToday;
       const todaySold = todayBills.reduce((s, b) => s + (Number(b.netTotal) || 0), 0);
+      const monthSold = monthBills.reduce((s, b) => s + (Number(b.netTotal) || 0), 0);
+      const totalSold = allBills.reduce((s, b) => s + (Number(b.netTotal) || 0), 0);
       const route = areas.length > 0 ? areas.slice(0, 2).join(', ') : 'Counter Sale/Direct';
 
       salesmanKhata.push({ name: entry.name, route, opening, todaySold, closing });
 
-      // Profit contribution on the audit date (revenue Ex-VAT - cost of goods)
-      const profitCogs = cost.costOf(
-        todayBills
-          .flatMap((b) => b.items || [])
-          .map((it) => ({
-            productId: it.productId,
-            itemTitle: it.itemTitle,
-            mcode: it.mcode,
-            qty: it.qty,
-            rate: it.rate,
-            ctn: it.ctn,
-            ratePerCtn: it.ratePerCtn,
-          }))
-      );
-      const todaySoldExVat = todayBills.reduce((s, b) => s + billExVatRevenue(b), 0);
-      const profit = todaySoldExVat - profitCogs;
-      const marginPct = todaySoldExVat > 0 ? (profit / todaySoldExVat) * 100 : 0;
-      salesmanProfit.push({ name: entry.name, todaySales: todaySold, marginPct, netProfit: profit });
-      totalSalesmenProfit += profit;
+      // Profit contributions (Ex-VAT Revenue - Cost of Goods):
+      const calcProfitForBills = (bList: SaleBill[]) => {
+        const exVatRev = bList.reduce((s, b) => s + billExVatRevenue(b), 0);
+        const cogs = cost.costOf(
+          bList
+            .flatMap((b) => b.items || [])
+            .map((it) => ({
+              productId: it.productId,
+              itemTitle: it.itemTitle,
+              mcode: it.mcode,
+              qty: it.qty,
+              rate: it.rate,
+              ctn: it.ctn,
+              ratePerCtn: it.ratePerCtn,
+            }))
+        );
+        const profit = Number((exVatRev - cogs).toFixed(2));
+        const margin = exVatRev > 0 ? (profit / exVatRev) * 100 : 0;
+        return { profit, margin };
+      };
+
+      const todayP = calcProfitForBills(todayBills);
+      const monthP = calcProfitForBills(monthBills);
+      const totalP = calcProfitForBills(allBills);
+
+      salesmanProfit.push({
+        name: entry.name,
+        todaySales: todaySold,
+        marginPct: todayP.margin || monthP.margin || totalP.margin,
+        netProfit: todayP.profit,
+        monthSales: monthSold,
+        monthNetProfit: monthP.profit,
+        monthMarginPct: monthP.margin,
+        totalSales: totalSold,
+        totalNetProfit: totalP.profit,
+        totalMarginPct: totalP.margin,
+        billsCount: allBills.length,
+      });
+
+      totalSalesmenTodayProfit += todayP.profit;
+      totalSalesmenMonthProfit += monthP.profit;
+      totalSalesmenProfit += (totalP.profit || todayP.profit);
     }
 
     salesmanKhata.sort((a, b) => b.todaySold - a.todaySold || b.closing - a.closing);
@@ -939,6 +970,48 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
 
     const totalVoucherDiscount = vouchers
       .reduce((sum, v) => sum + getVoucherDiscount(v), 0);
+
+    // Itemized Sales Bills & Profit Register for full transparency in Section 6B
+    const salesBillsProfit: AiLedgerAuditSaleBillProfit[] = allSaleBills.map((b) => {
+      const bDate = db.normalizeDateToYMD(b.date);
+      const period: 'today' | 'this_month' | 'past' = onDate(bDate)
+        ? 'today'
+        : (inMonth(bDate) ? 'this_month' : 'past');
+      const bCogs = cogsOfBills([b]);
+      const exVat = billExVatRevenue(b);
+      const billDisc = Number(b.billDiscountAmount) || Number(b.totalDiscount) || 0;
+      const billVat = Number(b.totalVatAmount) || 0;
+      const grossProfit = Number((exVat - bCogs).toFixed(2));
+      const netProfit = grossProfit;
+      const marginPct = exVat > 0 ? Number(((grossProfit / exVat) * 100).toFixed(1)) : 0;
+      const itemsSummary = (b.items || [])
+        .map((it) => {
+          const qty = it.ctn ? `${it.ctn} Ctn` : `${it.qty} ${it.unit || 'Units'}`;
+          return `${it.itemTitle || 'Item'} (${qty})`;
+        })
+        .join(', ');
+
+      return {
+        billId: b.id,
+        billNumber: b.billNumberFormatted || String(b.billNumber),
+        date: b.date,
+        customerId: b.customerId,
+        customerName: b.customerAccountTitle || b.customerName || 'Customer',
+        salesmanName: (b.salesmanName || b.user || 'Sales Staff').trim(),
+        itemsSummary: itemsSummary || 'Sale Items',
+        exVatRevenue: exVat,
+        cogs: bCogs,
+        discountAmount: billDisc,
+        vatAmount: billVat,
+        netTotal: Number(b.netTotal) || 0,
+        grossProfit,
+        netProfit,
+        marginPct,
+        period,
+        paymentType: b.paymentType || 'Account',
+      };
+    });
+    salesBillsProfit.sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
 
     // Collect itemized discount entries for full transparency in Section 8 (Discounts Audit Head)
     const discountEntries: Array<{
@@ -1296,6 +1369,9 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
       salesmanKhata,
       salesmanProfit,
       totalSalesmenProfit,
+      totalSalesmenTodayProfit,
+      totalSalesmenMonthProfit,
+      salesBillsProfit,
       cash: {
         inflows,
         bankRows,

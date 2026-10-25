@@ -71,10 +71,12 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
     ? data.salesmanProfit
         .map(
           (r) => `<tr>
-        <td>${esc(r.name)}</td>
-        <td class="num">${num(r.todaySales)}</td>
-        <td class="num">${r.todaySales > 0 ? pct(r.marginPct) : '0.0%'}</td>
-        <td class="num strong green">${sym} ${num(r.netProfit)}</td>
+        <td class="strong">${esc(r.name)}</td>
+        <td class="num">${num(r.todaySales)} <span class="muted" style="font-size:9.5px">(${sym}${num(r.netProfit)})</span></td>
+        <td class="num">${num(r.monthSales || 0)} <span class="green" style="font-size:9.5px">(${sym}${num(r.monthNetProfit || 0)})</span></td>
+        <td class="num strong blue">${num(r.totalSales || 0)}</td>
+        <td class="num strong ${(r.totalNetProfit || r.netProfit || 0) >= 0 ? 'green' : 'red'}">${(r.totalNetProfit || r.netProfit || 0) >= 0 ? '+' : '&minus;'}${sym} ${num(Math.abs(r.totalNetProfit || r.netProfit || 0))}</td>
+        <td class="center"><span style="background:${(r.marginPct || 0) >= 0 ? '#dcfce7;color:#166534' : '#fee2e2;color:#991b1b'};padding:2px 6px;border-radius:4px;font-size:8.5px;font-weight:900">${(r.marginPct || 0).toFixed(1)}%</span></td>
       </tr>`
         )
         .join('')
@@ -168,43 +170,49 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
   .al-strip .it b { font-weight: 900; }
   .al-strip .dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; display: inline-block; margin-right: 5px; }
 
-  /* ---------- 4 KPI CARDS ---------- */
+  /* ---------- 4 KPI CARDS (EXTRA BOLD & PROMINENT) ---------- */
   .al-cards {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; width: 100%;
-  }
-  .al-card {
-    background: #f8fafc; border: 1.5px solid #cbd5e1; border-top: 4px solid #2563eb;
-    border-radius: 8px; padding: 9px 12px; font-weight: 800;
-  }
-  .al-card-h { display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; }
-  .al-card-t { font-size: 11.5px; font-weight: 900; color: #0f172a; text-transform: uppercase; line-height: 1.2; }
-  .al-tag { font-size: 9px; font-weight: 900; text-align: right; text-transform: uppercase; line-height: 1.2; }
-  .al-row {
-    display: flex; justify-content: space-between; align-items: center; gap: 8px;
-    font-size: 10px; margin-top: 5px;
-  }
-  .al-row .lbl { color: #1e293b; font-weight: 800; }
-  .al-row .val { font-weight: 900; text-align: right; white-space: nowrap; font-size: 10.5px; }
-
-  /* ---------- PANELS & GRID ---------- */
-  .al-grid {
-    display: grid; grid-template-columns: 1.05fr 1fr; gap: 14px; margin-top: 12px; align-items: start; width: 100%;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 12px; width: 100%; box-sizing: border-box;
   }
   @media (max-width: 900px) {
+    .al-cards { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 520px) {
+    .al-cards { grid-template-columns: 1fr; }
+  }
+  .al-card {
+    background: #ffffff; border: 2px solid #94a3b8; border-top: 5px solid #2563eb;
+    border-radius: 10px; padding: 12px 14px; font-weight: 900; box-shadow: 0 2px 6px rgba(0,0,0,0.06); box-sizing: border-box;
+  }
+  .al-card-h { display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; margin-bottom: 8px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px; }
+  .al-card-t { font-size: 13.5px !important; font-weight: 950 !important; color: #0f172a; text-transform: uppercase; line-height: 1.2; letter-spacing: 0.3px; }
+  .al-tag { font-size: 10px !important; font-weight: 950 !important; text-align: right; text-transform: uppercase; line-height: 1.2; padding: 2px 7px; background: #f1f5f9; border-radius: 4px; border: 1px solid #cbd5e1; }
+  .al-row {
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    font-size: 11.5px !important; margin-top: 6px;
+  }
+  .al-row .lbl { color: #0f172a !important; font-weight: 900 !important; font-size: 11.5px !important; }
+  .al-row .val { font-weight: 950 !important; text-align: right; white-space: nowrap; font-size: 12px !important; font-family: monospace, sans-serif; letter-spacing: 0.2px; }
+
+  /* ---------- PANELS & GRID (PREVENTS TEXT CLIPPING) ---------- */
+  .al-grid {
+    display: grid; grid-template-columns: 1.15fr 1fr; gap: 14px; margin-top: 12px; align-items: start; width: 100%; box-sizing: border-box;
+  }
+  @media (max-width: 960px) {
     .al-grid { grid-template-columns: 1fr; }
   }
-  .al-col { display: flex; flex-direction: column; gap: 12px; }
+  .al-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; box-sizing: border-box; }
   .al-panel {
-    background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px; overflow: hidden; width: 100%;
+    background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px; overflow-x: auto; width: 100%; box-sizing: border-box;
   }
   .al-panel-full {
-    background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px; overflow: hidden; width: 100%; margin-top: 12px;
+    background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px; overflow-x: auto; width: 100%; margin-top: 12px; box-sizing: border-box;
   }
   .al-panel-h {
-    display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 9px 14px;
-    background: #f1f5f9; border-bottom: 2px solid #cbd5e1;
+    display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 14px;
+    background: #f1f5f9; border-bottom: 2px solid #cbd5e1; box-sizing: border-box;
   }
-  .al-panel-h .t { font-size: 11.5px; font-weight: 900; text-transform: uppercase; line-height: 1.25; letter-spacing: 0.3px; }
+  .al-panel-h .t { font-size: 12px; font-weight: 950; text-transform: uppercase; line-height: 1.3; letter-spacing: 0.3px; word-break: break-word; overflow-wrap: break-word; min-width: 0; }
   .al-panel-h .s {
     font-size: 9px; font-weight: 900; color: #334155; text-align: right; text-transform: uppercase;
     line-height: 1.2; background: #ffffff; padding: 2px 7px; border-radius: 4px; border: 1px solid #cbd5e1;
@@ -249,34 +257,34 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
 
   /* ---------- CASH & BANK LIQUIDITY REGISTER (EXTRA BOLD & EXPANDED) ---------- */
   .al-panel-cash .al-panel-h {
-    padding: 11px 16px; background: #e2e8f0; border-bottom: 2.5px solid #cbd5e1;
+    padding: 10px 14px; background: #e2e8f0; border-bottom: 2.5px solid #cbd5e1;
   }
   .al-panel-cash .al-panel-h .t {
-    font-size: 13.5px !important; font-weight: 900 !important; color: #0f172a !important; letter-spacing: 0.4px;
+    font-size: 12.5px !important; font-weight: 950 !important; color: #0f172a !important; letter-spacing: 0.3px;
   }
   .al-panel-cash .al-sec {
-    padding: 10px 16px 8px !important; font-size: 12px !important; font-weight: 900 !important;
-    color: #0f172a !important; background: #eef2f6 !important; border-top: 2.5px solid #cbd5e1 !important;
-    border-bottom: 1.5px solid #cbd5e1 !important; margin-top: 6px; letter-spacing: 0.5px;
+    padding: 8px 14px 6px !important; font-size: 11px !important; font-weight: 900 !important;
+    color: #0f172a !important; background: #eef2f6 !important; border-top: 2px solid #cbd5e1 !important;
+    border-bottom: 1.5px solid #cbd5e1 !important; margin-top: 4px; letter-spacing: 0.4px;
   }
   .al-panel-cash .al-sec:first-of-type { margin-top: 0; }
   .al-cash-row {
-    display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 10px 16px !important; font-size: 13px !important; font-weight: 900 !important;
-    border-bottom: 1.5px solid #eef2f7;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 8px 14px !important; font-size: 12px !important; font-weight: 900 !important;
+    border-bottom: 1.5px solid #eef2f7; box-sizing: border-box;
   }
   .al-cash-row:hover { background: #f8fafc; }
   .al-cash-row .lbl {
-    flex: 1; color: #000000 !important; font-weight: 900 !important; font-size: 13px !important; line-height: 1.35;
+    flex: 1; color: #0f172a !important; font-weight: 900 !important; font-size: 12px !important; line-height: 1.3; min-width: 0;
   }
   .al-cash-row .amt {
-    min-width: 100px; text-align: right; font-weight: 900 !important; font-size: 14.5px !important;
-    white-space: nowrap; letter-spacing: 0.3px;
+    text-align: right; font-weight: 950 !important; font-size: 13px !important;
+    white-space: nowrap; letter-spacing: 0.2px;
   }
   .al-cash-row .tag {
-    width: 74px; text-align: right; font-size: 9.5px !important; font-weight: 900 !important;
+    text-align: right; font-size: 9px !important; font-weight: 900 !important;
     color: #334155 !important; text-transform: uppercase; background: #f1f5f9;
-    padding: 3px 8px; border-radius: 4px; border: 1.5px solid #cbd5e1;
+    padding: 2px 6px; border-radius: 4px; border: 1px solid #cbd5e1; shrink: 0;
   }
   .al-cash-row.hl {
     background: #ecfdf5 !important; border-bottom: none; border-top: 3px solid #10b981 !important;
@@ -474,16 +482,18 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
         <table class="al-t">
           <thead>
             <tr>
-              <th style="width:34%">Sales Representative</th>
-              <th class="num" style="width:22%">Today Sales</th>
-              <th class="num" style="width:20%">Margin %</th>
-              <th class="num" style="width:24%;padding-right:12px">Net Profit (${sym})</th>
+              <th style="width:28%">Sales Representative</th>
+              <th class="num" style="width:18%">Today (Sale/Pft)</th>
+              <th class="num" style="width:18%">Month (Sale/Pft)</th>
+              <th class="num" style="width:14%">Total Sold</th>
+              <th class="num" style="width:14%">Audited Pft</th>
+              <th class="center" style="width:8%">Margin</th>
             </tr>
           </thead>
           <tbody>${profitRows}</tbody>
         </table>
         <div class="al-total">
-          <span>TOTAL SALESMEN PROFIT:</span>
+          <span>TOTAL SALESMEN PROFIT CONTRIBUTION:</span>
           <span class="green">${sym} ${num(data.totalSalesmenProfit)}</span>
         </div>
       </div>
@@ -524,6 +534,90 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
       </div>
     </div>
   </div>
+
+  <!-- ================= 6B. SALES BILLS & INVOICING PROFIT REGISTER ================= -->
+  ${(() => {
+    const bills = (data.salesBillsProfit || []);
+    const billRows = bills.length ? bills.map((b) => {
+      const isToday = b.period === 'today';
+      const badgeStyle = isToday
+        ? 'background:#dcfce7;color:#166534;border:1px solid #86efac'
+        : (b.period === 'this_month' ? 'background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd' : 'background:#f1f5f9;color:#475569;border:1px solid #cbd5e1');
+      const badgeText = isToday ? 'TODAY' : (b.period === 'this_month' ? 'THIS MONTH' : 'PAST');
+      const isProfit = (b.netProfit || b.grossProfit || 0) >= 0;
+      return `
+        <tr>
+          <td><span style="font-weight:800;color:#0f172a">${esc(b.date)}</span></td>
+          <td><span style="font-weight:900;color:#1e40af;font-family:monospace">${esc(b.billNumber)}</span></td>
+          <td style="font-weight:800;color:#0f172a">${esc(b.customerName)}</td>
+          <td style="color:#475569;font-weight:700;font-size:9.5px">${esc(b.salesmanName)}</td>
+          <td style="color:#334155;font-size:9.5px;max-width:180px;white-space:normal;line-height:1.2">${esc(b.itemsSummary)}</td>
+          <td class="num">${num(b.exVatRevenue)}</td>
+          <td class="num muted">${num(b.cogs)}</td>
+          <td class="num amber">${b.discountAmount > 0 ? `&minus;${num(b.discountAmount)}` : '0.00'}</td>
+          <td class="num muted">${num(b.vatAmount)}</td>
+          <td class="num strong blue">${num(b.netTotal)}</td>
+          <td class="num strong ${isProfit ? 'green' : 'red'}">${isProfit ? '+' : '&minus;'}${sym} ${num(Math.abs(b.netProfit || b.grossProfit || 0))}</td>
+          <td class="center"><span style="background:${isProfit ? '#dcfce7;color:#166534' : '#fee2e2;color:#991b1b'};padding:2px 6px;border-radius:4px;font-size:8px;font-weight:900">${(b.marginPct || 0).toFixed(1)}%</span></td>
+          <td class="center"><span style="${badgeStyle};padding:1px 6px;border-radius:3px;font-size:7.5px;font-weight:800">${badgeText}</span></td>
+        </tr>
+      `;
+    }).join('') : `<tr><td colspan="13" class="muted center" style="padding:16px 8px;font-weight:700">No sale bills recorded yet. Create sales in Invoicing to view live audited per-bill profits.</td></tr>`;
+
+    const totalBillsRevenue = bills.reduce((s, b) => s + (b.exVatRevenue || 0), 0);
+    const totalBillsCogs = bills.reduce((s, b) => s + (b.cogs || 0), 0);
+    const totalBillsDisc = bills.reduce((s, b) => s + (b.discountAmount || 0), 0);
+    const totalBillsVat = bills.reduce((s, b) => s + (b.vatAmount || 0), 0);
+    const totalBillsNet = bills.reduce((s, b) => s + (b.netTotal || 0), 0);
+    const totalBillsProfit = bills.reduce((s, b) => s + (b.netProfit || b.grossProfit || 0), 0);
+    const totalBillsMargin = totalBillsRevenue > 0 ? (totalBillsProfit / totalBillsRevenue) * 100 : 0;
+
+    return `
+    <div class="al-panel-full">
+      <div class="al-panel-h">
+        <div class="t" style="color:#0284c7">6B. SALES BILLS &amp; INVOICING PROFIT REGISTER (ITEMIZED PER-BILL AUDIT)</div>
+        <div class="s" style="color:#0369a1">INDIVIDUAL SALE PROFIT AUDIT</div>
+      </div>
+      <table class="al-t">
+        <thead>
+          <tr style="background:#f0f9ff">
+            <th style="width:7.5%">Date</th>
+            <th style="width:7.5%">Bill #</th>
+            <th style="width:16%">Customer Name</th>
+            <th style="width:10%">Sales Rep</th>
+            <th style="width:15%">Items Sold</th>
+            <th class="num" style="width:8%">Ex-VAT (${sym})</th>
+            <th class="num" style="width:7%">Cost COGS</th>
+            <th class="num" style="width:6%">Discount</th>
+            <th class="num" style="width:6%">VAT (5%)</th>
+            <th class="num" style="width:8%">Net Bill</th>
+            <th class="num" style="width:9%">Gross Profit</th>
+            <th class="center" style="width:5.5%">Margin</th>
+            <th class="center" style="width:4.5%">Period</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${billRows}
+        </tbody>
+        ${bills.length > 0 ? `
+        <tfoot>
+          <tr style="background:#f8fafc;border-top:2px solid #cbd5e1;font-weight:950">
+            <td colspan="5" class="strong blue" style="padding:8px">TOTAL BILLED SALES (${bills.length} Bills Audited):</td>
+            <td class="num strong">${sym} ${num(totalBillsRevenue)}</td>
+            <td class="num muted">${sym} ${num(totalBillsCogs)}</td>
+            <td class="num amber">&minus;${sym} ${num(totalBillsDisc)}</td>
+            <td class="num muted">${sym} ${num(totalBillsVat)}</td>
+            <td class="num strong blue">${sym} ${num(totalBillsNet)}</td>
+            <td class="num strong ${totalBillsProfit >= 0 ? 'green' : 'red'}">${totalBillsProfit >= 0 ? '+' : '&minus;'}${sym} ${num(Math.abs(totalBillsProfit))}</td>
+            <td class="center"><span style="background:${totalBillsProfit >= 0 ? '#dcfce7;color:#166534' : '#fee2e2;color:#991b1b'};padding:2px 6px;border-radius:4px;font-size:8px;font-weight:900">${totalBillsMargin.toFixed(1)}%</span></td>
+            <td></td>
+          </tr>
+        </tfoot>
+        ` : ''}
+      </table>
+    </div>
+    `;
+  })()}
 
   <!-- ================= RETURNS AUDIT SUMMARY ================= -->
   <div class="al-panel-full">
@@ -696,9 +790,10 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
         </tr>
       </tbody>
     </table>
-    <div style="font-size:8.5px;color:#475569;padding:6px 10px;background:#f8fafc;border-top:1px solid #e2e8f0;line-height:1.4;font-weight:700">
-      &bull; <b>Net Profit Calculation:</b> Net Profit = Gross Sales (Ex-VAT) &minus; Cost of Goods (COGS) &minus; Invoicing Discounts &minus; Cash/Bank Voucher Discounts &minus; Operating Expenses.<br/>
-      &bull; <b>Tax Compliance:</b> Total VAT collected of ${sym} ${num(data.profitCard?.totalVatExcluded ?? 0)} is 100% excluded from profit (Statutory government tax liability). All customer and voucher discounts are subtracted.
+    <div style="font-size:9px;color:#1e293b;padding:8px 12px;background:#f8fafc;border-top:1.5px solid #cbd5e1;line-height:1.5;font-weight:800">
+      &bull; <b>Sales Gross Profit (Trading Profit):</b> Gross Sales (Ex-VAT) &minus; Cost of Goods (COGS). <i>(Note: Invoicing trade discounts are deducted once at bill creation and are NEVER deducted twice.)</i><br/>
+      &bull; <b>Cash &amp; Bank Voucher Discounts:</b> Settlement deductions allowed during cash/bank recoveries are audited separately under Discounts Head (Section 8) and do not distort Sales Gross Margin.<br/>
+      &bull; <b>Statutory Tax Liability:</b> Total VAT collected of ${sym} ${num(data.profitCard?.totalVatExcluded ?? 0)} is 100% excluded from company profit (payable to Tax Authority).
     </div>
   </div>
 

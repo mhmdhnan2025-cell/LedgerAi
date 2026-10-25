@@ -501,13 +501,14 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
 
           <div className="flex items-center gap-2 shrink-0">
             <span
-              className={`text-xs font-bold font-mono px-2 py-0.5 rounded border ${
+              className={`text-xs font-black font-mono px-2.5 py-1 rounded-md border shadow-xs ${
                 selectedAccount.balanceType === 'DR'
-                  ? 'bg-amber-950/40 border-amber-800/60 text-amber-400'
-                  : 'bg-purple-950/40 border-purple-800/60 text-purple-300'
+                  ? 'bg-amber-950/70 border-amber-600/80 text-amber-300'
+                  : 'bg-purple-950/70 border-purple-600/80 text-purple-300'
               }`}
+              title="Authoritative live ledger balance"
             >
-              {selectedAccount.balanceFormatted || '0.00'}
+              Ledger: {selectedAccount.balanceFormatted || '0.00'}
             </span>
             <button
               type="button"
