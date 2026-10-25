@@ -39,6 +39,38 @@ async function deleteStale(table: 'customers' | 'suppliers' | 'products', keep: 
 }
 
 /**
+ * One-line health summary of the imported dataset as it currently sits in
+ * PostgreSQL, so every boot leaves a verifiable record in the deploy logs.
+ */
+async function logState(): Promise<void> {
+  const pool: any = (postgresService as any).pool;
+  if (!pool) return;
+  const cust = (
+    await pool.query(
+      `SELECT count(*)::int n, count(*) FILTER (WHERE outstanding_balance <> 0)::int nz,
+              coalesce(sum(outstanding_balance)::numeric, 0) total
+       FROM customers WHERE company_id = $1`,
+      [COMPANY_ID]
+    )
+  ).rows[0];
+  const sup = (
+    await pool.query(
+      `SELECT count(*)::int n, count(*) FILTER (WHERE payable_to_supplier <> 0)::int nz,
+              coalesce(sum(payable_to_supplier)::numeric, 0) total
+       FROM suppliers WHERE company_id = $1`,
+      [COMPANY_ID]
+    )
+  ).rows[0];
+  const prod = (
+    await pool.query(`SELECT count(*)::int n FROM products WHERE company_id = $1`, [COMPANY_ID])
+  ).rows[0];
+  console.log(
+    `[DatasetV2] state: customers=${cust.n} (receivable=${cust.nz}, net ${Number(cust.total).toFixed(2)}) | ` +
+      `suppliers=${sup.n} (payable=${sup.nz}, CR ${Number(sup.total).toFixed(2)}) | items=${prod.n}`
+  );
+}
+
+/**
  * Applies the verified items-report.csv / customers.pdf / finalRecieveable.pdf /
  * payable.pdf dataset (367 items, 343 customers, 155 receivables, 41 payables)
  * to PostgreSQL. Runs once, before the tenant merge, guarded by a system marker.
@@ -49,7 +81,10 @@ export async function runZafrDatasetV2Import(companyExists: (id: string) => bool
 
   try {
     const marker = await postgresService.getSystemSetting(MARKER_KEY);
-    if (marker === 'done') return;
+    if (marker === 'done') {
+      await logState();
+      return;
+    }
 
     const seed = loadSeed();
     if (!seed) {

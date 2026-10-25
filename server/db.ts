@@ -946,7 +946,13 @@ public getTenant(companyId?: string): DatabaseSchema {
             }
             // Only seed suppliers when the tenant genuinely has none - never
             // overwrite an existing supplier ledger based on a row count.
-            if (!Array.isArray(parsed.suppliers) || parsed.suppliers.length === 0) {
+            // When PostgreSQL is configured it owns the supplier ledger: seeding
+            // here would be migrated to PG by the next persist() and duplicate
+            // every supplier on each fresh container.
+            const pgOwnsSuppliers = Boolean(
+              process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.PG_CONNECTION_STRING
+            );
+            if ((!Array.isArray(parsed.suppliers) || parsed.suppliers.length === 0) && !pgOwnsSuppliers) {
               if (this._defaultData && Array.isArray(this._defaultData.suppliers) && this._defaultData.suppliers.length > 0) {
                 console.log(`[DB] Seeding suppliers for empty tenant ${cid}`);
                 parsed.suppliers = JSON.parse(JSON.stringify(this._defaultData.suppliers));
