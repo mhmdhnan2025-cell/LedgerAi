@@ -3,7 +3,7 @@ import path from 'path';
 import { postgresService } from '../postgres';
 
 const COMPANY_ID = 'comp-muocj00t-j3co';
-const MARKER_KEY = 'zafr_dataset_v2_import';
+const MARKER_KEY = 'zafr_dataset_v3_import';
 
 interface DatasetV2Seed {
   meta: { key: string; companyId: string; counts: { customers: number; products: number; suppliers: number } };
@@ -39,8 +39,8 @@ async function deleteStale(table: 'customers' | 'suppliers' | 'products', keep: 
 }
 
 /**
- * Applies the verified items-report.csv / customers.pdf / reciveballe.pdf /
- * payable.pdf dataset (367 items, 343 customers, 158 receivables, 41 payables)
+ * Applies the verified items-report.csv / customers.pdf / finalRecieveable.pdf /
+ * payable.pdf dataset (367 items, 343 customers, 155 receivables, 41 payables)
  * to PostgreSQL. Runs once, before the tenant merge, guarded by a system marker.
  */
 export async function runZafrDatasetV2Import(companyExists: (id: string) => boolean): Promise<void> {

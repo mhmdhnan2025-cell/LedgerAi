@@ -87,7 +87,7 @@ async function main() {
   console.log(`customers  : ${cust.n} | with receivable ${custWithBal.n} | CR rows ${custCr.n}`);
   console.log(`             opening total ${r2(Number(cust.open_total))} | outstanding total ${r2(Number(cust.out_total))}`);
   console.log(`suppliers  : ${sup.n} | with payable ${sup.nz} | payable total CR ${r2(Number(sup.total))}`);
-  console.log(`(expected receivable NET DR 320582.12 | payable CR 1270661.91)`);
+  console.log(`(expected receivable NET DR 357555.34 | payable CR 1270661.91)`);
 }
 
 main().catch((e) => {
