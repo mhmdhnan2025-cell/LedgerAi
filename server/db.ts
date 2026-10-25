@@ -778,8 +778,11 @@ class DatabaseService {
 
     let modified = false;
 
-    // 1. Ensure starter products
-    if (!Array.isArray(tenant.products) || tenant.products.length === 0) {
+    // 1. Ensure starter products (local demo rows only - PostgreSQL is owned by zafr_dataset_v2_import)
+    const pgOwnsProducts = Boolean(
+      process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.PG_CONNECTION_STRING
+    );
+    if ((!Array.isArray(tenant.products) || tenant.products.length === 0) && !pgOwnsProducts) {
       tenant.products = [
         {
           id: 'prod-zeera-01',

@@ -3,7 +3,7 @@ import path from 'path';
 import { postgresService } from '../postgres';
 
 const COMPANY_ID = 'comp-muocj00t-j3co';
-const MARKER_KEY = 'zafr_dataset_v3_import';
+const MARKER_KEY = 'zafr_dataset_v4_import';
 
 interface DatasetV2Seed {
   meta: { key: string; companyId: string; counts: { customers: number; products: number; suppliers: number } };
@@ -64,9 +64,60 @@ async function logState(): Promise<void> {
   const prod = (
     await pool.query(`SELECT count(*)::int n FROM products WHERE company_id = $1`, [COMPANY_ID])
   ).rows[0];
+
+  let diff = '';
+  try {
+    const seed = loadSeed();
+    if (seed) {
+      const seedCust = new Set(seed.customers.map((c: any) => String(c.id)));
+      const seedSup = new Set(seed.suppliers.map((s: any) => String(s.id)));
+      const seedProd = new Set(seed.products.map((p: any) => String(p.id)));
+
+      const custRows = (
+        await pool.query(
+          `SELECT id, account_title, outstanding_balance FROM customers
+           WHERE company_id = $1 AND outstanding_balance <> 0`,
+          [COMPANY_ID]
+        )
+      ).rows;
+      const supRows = (
+        await pool.query(
+          `SELECT id FROM suppliers WHERE company_id = $1 AND payable_to_supplier <> 0`,
+          [COMPANY_ID]
+        )
+      ).rows;
+      const prodRows = (
+        await pool.query(`SELECT id, name FROM products WHERE company_id = $1`, [COMPANY_ID])
+      ).rows;
+
+      const extraCust = custRows.filter((r: any) => !seedCust.has(String(r.id)));
+      const extraSup = supRows.filter((r: any) => !seedSup.has(String(r.id)));
+      const extraProd = prodRows.filter((r: any) => !seedProd.has(String(r.id)));
+      const gotIds = new Set(custRows.map((r: any) => String(r.id)));
+      const missingCust = [...seedCust].filter((id) => !gotIds.has(id)).length;
+
+      diff =
+        ` | diff: extraCustomers=${extraCust.length}` +
+        (extraCust.length
+          ? `[${extraCust
+              .slice(0, 6)
+              .map((r: any) => `${r.account_title}=${Number(r.outstanding_balance).toFixed(2)}`)
+              .join(', ')}]`
+          : '') +
+        ` missingReceivable=${missingCust} extraSuppliers=${extraSup.length}` +
+        ` extraItems=${extraProd.length}` +
+        (extraProd.length
+          ? `[${extraProd.slice(0, 6).map((r: any) => r.name).join(', ')}]`
+          : '');
+    }
+  } catch (e: any) {
+    diff = ` | diff-error=${e?.message || e}`;
+  }
+
   console.log(
     `[DatasetV2] state: customers=${cust.n} (receivable=${cust.nz}, net ${Number(cust.total).toFixed(2)}) | ` +
-      `suppliers=${sup.n} (payable=${sup.nz}, CR ${Number(sup.total).toFixed(2)}) | items=${prod.n}`
+      `suppliers=${sup.n} (payable=${sup.nz}, CR ${Number(sup.total).toFixed(2)}) | items=${prod.n}` +
+      diff
   );
 }
 
