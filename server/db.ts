@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { postgresService, PostgresStatus } from './postgres';
 import { runZafrOneTimeStockImport } from './seeds/zafr_one_time_import';
+import { runZafrDatasetV2Import } from './seeds/zafr_dataset_v2_import';
 import { findProductByBilingualName, areBilingualSynonyms } from './bilingualMatcher';
 import { MASTER_CUSTOMER_OPENING_BALANCES } from './customerOpeningBalances';
 import {
@@ -943,12 +944,14 @@ public getTenant(companyId?: string): DatabaseSchema {
               parsed.customers = Array.from(custCodeMap.values());
               try { fs.writeFileSync(tenantFile, JSON.stringify(parsed, null, 2), 'utf-8'); } catch {}
             }
-            if (parsed.suppliers.length !== 40) {
-              if (this._defaultData && this._defaultData.suppliers?.length === 40) {
-                console.log(`[DB] Syncing verified 40 suppliers for tenant ${cid}`);
+            // Only seed suppliers when the tenant genuinely has none - never
+            // overwrite an existing supplier ledger based on a row count.
+            if (!Array.isArray(parsed.suppliers) || parsed.suppliers.length === 0) {
+              if (this._defaultData && Array.isArray(this._defaultData.suppliers) && this._defaultData.suppliers.length > 0) {
+                console.log(`[DB] Seeding suppliers for empty tenant ${cid}`);
                 parsed.suppliers = JSON.parse(JSON.stringify(this._defaultData.suppliers));
               } else if (supPath) {
-                console.log(`[DB] Syncing verified 40 suppliers from seed for tenant ${cid}`);
+                console.log(`[DB] Seeding suppliers from seed for empty tenant ${cid}`);
                 parsed.suppliers = JSON.parse(fs.readFileSync(supPath, 'utf8'));
               }
               try { fs.writeFileSync(tenantFile, JSON.stringify(parsed, null, 2), 'utf-8'); } catch {}
@@ -1089,6 +1092,10 @@ public getTenant(companyId?: string): DatabaseSchema {
         // 1b. One-time ZAHRAT AL FAJR stock import (runs before tenant merge so the
         // loaded company data already includes the imported products)
         await runZafrOneTimeStockImport((id) => this.companies.has(id));
+
+        // 1c. One-time ZAHRAT AL FAJR items/customers/receivables/payables dataset
+        // (items-report.csv, customers.pdf, reciveballe.pdf, payable.pdf)
+        await runZafrDatasetV2Import((id) => this.companies.has(id));
 
         // 2. Load users
         const dbUsers = await postgresService.getAllUsers();
@@ -5846,14 +5853,6 @@ ON CONFLICT (id) DO NOTHING;`);
           c.openingBalance = masterRec.openingBalance;
           c.openingBalanceType = masterRec.openingBalanceType || 'DR';
         }
-      }
-      // Explicit baseline guarantees
-      if (norm === 'spicypointbfc') {
-        c.openingBalance = 2099;
-        c.openingBalanceType = 'DR';
-      } else if (norm === 'alqadrirestaurant') {
-        c.openingBalance = 173.48;
-        c.openingBalanceType = 'DR';
       }
     }
 
