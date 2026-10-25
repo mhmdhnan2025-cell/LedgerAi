@@ -627,6 +627,19 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
       return Math.max(0, Number((b.netTotal - vat).toFixed(2)));
     };
 
+    // COGS helper (available to all audit registers):
+    const cogsOfBills = (billsList: SaleBill[]) => cost.costOf(
+      billsList.flatMap((b) => b.items || []).map((it) => ({
+        productId: it.productId,
+        itemTitle: it.itemTitle,
+        mcode: it.mcode,
+        qty: it.qty,
+        rate: it.rate,
+        ctn: it.ctn,
+        ratePerCtn: it.ratePerCtn,
+      }))
+    );
+
     const inMonth = (dateStr: string) => db.normalizeDateToYMD(dateStr).slice(0, 7) === monthKey;
     const onDate = (dateStr: string) => db.normalizeDateToYMD(dateStr) === auditDate;
     const uptoDate = (dateStr: string) => db.normalizeDateToYMD(dateStr) <= auditDate;
@@ -1086,18 +1099,7 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     const monthExpenses = expenses.filter((e) => uptoDate(e.date) && inMonth(e.date)).reduce((s, e) => s + (Number(e.amount) || 0), 0);
     const totalExpenses = expenses.filter((e) => uptoDate(e.date)).reduce((s, e) => s + (Number(e.amount) || 0), 0);
 
-    // COGS helper:
-    const cogsOfBills = (billsList: SaleBill[]) => cost.costOf(
-      billsList.flatMap((b) => b.items || []).map((it) => ({
-        productId: it.productId,
-        itemTitle: it.itemTitle,
-        mcode: it.mcode,
-        qty: it.qty,
-        rate: it.rate,
-        ctn: it.ctn,
-        ratePerCtn: it.ratePerCtn,
-      }))
-    );
+    // (cogsOfBills moved up)
 
     const todayCogs = cogsOfBills(saleBillsToday);
     const monthCogs = cogsOfBills(saleBillsMonth);
