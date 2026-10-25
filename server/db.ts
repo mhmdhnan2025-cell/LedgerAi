@@ -10222,12 +10222,137 @@ ON CONFLICT (id) DO NOTHING;`);
   }
 
   public getCashAccounts(): CashAccount[] {
-    // Calculate real dynamic Cash In Hand from actual ledger
     const openingCash = Number(this.data.cashRegister?.openingCashBalance) || 0;
+    const cid = getActiveCompanyId();
+
+    // 1. Gather all unique users belonging to this company
+    const userMap = new Map<string, { id: string; name: string; username?: string; role?: string }>();
+
+    for (const u of (this.allUsers || [])) {
+      if (u.companyId === cid && u.name && u.name.trim()) {
+        const k = u.name.trim().toLowerCase();
+        if (!userMap.has(k)) {
+          userMap.set(k, { id: u.id, name: u.name.trim(), username: u.username, role: u.role });
+        }
+      }
+    }
+
+    for (const u of (this.data.users || [])) {
+      if (u.name && u.name.trim()) {
+        const k = u.name.trim().toLowerCase();
+        if (!userMap.has(k)) {
+          userMap.set(k, { id: u.id, name: u.name.trim(), username: u.username, role: u.role });
+        }
+      }
+    }
+
+    let companyUsers = Array.from(userMap.values());
+    if (companyUsers.length === 0) {
+      companyUsers = [{ id: 'usr-admin', name: 'Admin', username: 'admin', role: 'Admin' }];
+    }
+
+    // Sort: Non-admin users first, then admin
+    companyUsers.sort((a, b) => {
+      const aIsAdmin = a.name.toLowerCase() === 'admin';
+      const bIsAdmin = b.name.toLowerCase() === 'admin';
+      if (aIsAdmin && !bIsAdmin) return 1;
+      if (!aIsAdmin && bIsAdmin) return -1;
+      return 0;
+    });
+
+    const isUserMatch = (u: { id: string; name: string; username?: string }, nameOrId?: string): boolean => {
+      if (!nameOrId) return false;
+      const val = nameOrId.trim().toLowerCase();
+      if (!val) return false;
+      if (u.name && u.name.trim().toLowerCase() === val) return true;
+      if (u.username && u.username.trim().toLowerCase() === val) return true;
+      if (u.id && u.id.trim().toLowerCase() === val) return true;
+      return false;
+    };
+
+    const findMatchingUserIndex = (nameOrId?: string): number => {
+      if (!nameOrId) return 0;
+      const idx = companyUsers.findIndex((u) => isUserMatch(u, nameOrId));
+      return idx !== -1 ? idx : 0;
+    };
+
+    const findUserIndexForVoucher = (v: any): number => {
+      if (v.cashAccountId) {
+        const idx = companyUsers.findIndex((u, i) => {
+          const userAccId = i === 0 ? 'cash-0101010001' : `cash-${u.id || String(i + 1).padStart(4, '0')}`;
+          const userCode = `010101${String(i + 1).padStart(4, '0')}`;
+          return v.cashAccountId === userAccId || v.cashAccountId === userCode || v.cashAccountId === `cash-${u.id}`;
+        });
+        if (idx !== -1) return idx;
+      }
+      if (v.cashAccountTitle) {
+        const idx = companyUsers.findIndex((u) => v.cashAccountTitle?.toLowerCase().includes(u.name.toLowerCase()));
+        if (idx !== -1) return idx;
+      }
+      if (v.createdBy) {
+        const idx = companyUsers.findIndex((u) => isUserMatch(u, v.createdBy));
+        if (idx !== -1) return idx;
+      }
+      if (v.salesmanTitle) {
+        const idx = companyUsers.findIndex((u) => isUserMatch(u, v.salesmanTitle));
+        if (idx !== -1) return idx;
+      }
+      return 0;
+    };
+
+    const findUserIndexForSaleBill = (s: any): number => {
+      if (s.salesmanName) {
+        const idx = companyUsers.findIndex((u) => isUserMatch(u, s.salesmanName));
+        if (idx !== -1) return idx;
+      }
+      if (s.user) {
+        const idx = companyUsers.findIndex((u) => isUserMatch(u, s.user));
+        if (idx !== -1) return idx;
+      }
+      if (s.createdBy) {
+        const idx = companyUsers.findIndex((u) => isUserMatch(u, s.createdBy));
+        if (idx !== -1) return idx;
+      }
+      return 0;
+    };
+
+    const findUserIndexForPurchaseBill = (b: any): number => {
+      if (b.createdBy) {
+        const idx = companyUsers.findIndex((u) => isUserMatch(u, b.createdBy));
+        if (idx !== -1) return idx;
+      }
+      if (b.purchaserName) {
+        const idx = companyUsers.findIndex((u) => isUserMatch(u, b.purchaserName));
+        if (idx !== -1) return idx;
+      }
+      if (b.salesmanName) {
+        const idx = companyUsers.findIndex((u) => isUserMatch(u, b.salesmanName));
+        if (idx !== -1) return idx;
+      }
+      return 0;
+    };
+
+    const findUserIndexForExpense = (e: any): number => {
+      if (e.recordedBy) {
+        const idx = companyUsers.findIndex((u) => isUserMatch(u, e.recordedBy));
+        if (idx !== -1) return idx;
+      }
+      if (e.createdBy) {
+        const idx = companyUsers.findIndex((u) => isUserMatch(u, e.createdBy));
+        if (idx !== -1) return idx;
+      }
+      return 0;
+    };
+
+    const userCashIn = new Array(companyUsers.length).fill(0);
+    const userCashOut = new Array(companyUsers.length).fill(0);
+
+    // Opening cash balance belongs to primary user (index 0)
+    userCashIn[0] += openingCash;
 
     // Cash received from sale bills: exactly the cash received written by user at bill creation (+ any old balance recovered)
-    const cashFromSales = (this.data.saleBills || []).reduce((sum, s) => {
-      if (!s || s.status === 'Cancelled') return sum;
+    (this.data.saleBills || []).forEach((s) => {
+      if (!s || s.status === 'Cancelled') return;
       let billCash = 0;
       if (s.cashReceived !== undefined && s.cashReceived !== null && (s.cashReceived as any) !== '') {
         const received = Math.max(0, Number(s.cashReceived) || 0);
@@ -10239,110 +10364,142 @@ ON CONFLICT (id) DO NOTHING;`);
       if (s.balanceRecovered && Number(s.balanceRecoveredAmount) > 0) {
         billCash += Number(s.balanceRecoveredAmount);
       }
-      return sum + billCash;
-    }, 0);
+      const uIdx = findUserIndexForSaleBill(s);
+      userCashIn[uIdx] += billCash;
+    });
 
     // Cash received from orders (excluding orders converted to sale bills)
     const existingBillOrderIds = new Set((this.data.saleBills || []).map((b) => b.id || b.billNumber));
-    const cashFromOrders = (this.data.orders || []).reduce((sum, o) => {
-      if (!o || o.status === 'Cancelled') return sum;
-      if (existingBillOrderIds.has(o.id) || existingBillOrderIds.has(o.orderNumber)) return sum;
-      return sum + (Number(o.paidAmount) || 0);
-    }, 0);
+    (this.data.orders || []).forEach((o) => {
+      if (!o || o.status === 'Cancelled') return;
+      if (existingBillOrderIds.has(o.id) || existingBillOrderIds.has(o.orderNumber)) return;
+      const amt = Number(o.paidAmount) || 0;
+      const oAny = o as any;
+      const uIdx = findMatchingUserIndex(oAny.orderTaker || oAny.createdBy || oAny.salesmanName);
+      userCashIn[uIdx] += amt;
+    });
 
     // Cash payments received directly (EXCLUDING payments logged at sale/purchase bill creation)
-    const cashFromPayments = (this.data.payments || []).reduce((sum, p) => {
-      if (!p || p.status === 'Cancelled' || (p as any).isDeleted) return sum;
-      if (p.id?.startsWith('pay-sb-') || p.id?.startsWith('pay-pb-')) return sum;
-      if (p.orderId && (this.data.saleBills || []).some((b) => b.id === p.orderId || b.billNumber === p.orderNumber)) return sum;
-      if (p.orderId && (this.data.purchaseBills || []).some((b) => b.id === p.orderId || b.billNumber === p.orderNumber)) return sum;
-      if (p.paymentMethod === 'Cash') return sum + (Number(p.amount) || 0);
-      return sum;
-    }, 0);
+    (this.data.payments || []).forEach((p) => {
+      if (!p || p.status === 'Cancelled' || (p as any).isDeleted) return;
+      if (p.id?.startsWith('pay-sb-') || p.id?.startsWith('pay-pb-')) return;
+      if (p.orderId && (this.data.saleBills || []).some((b) => b.id === p.orderId || b.billNumber === p.orderNumber)) return;
+      if (p.orderId && (this.data.purchaseBills || []).some((b) => b.id === p.orderId || b.billNumber === p.orderNumber)) return;
+      if (p.paymentMethod === 'Cash') {
+        const amt = Number(p.amount) || 0;
+        const pAny = p as any;
+        const uIdx = findMatchingUserIndex(p.recordedBy || pAny.createdBy || pAny.salesmanName);
+        userCashIn[uIdx] += amt;
+      }
+    });
 
     // Cash received from Vouchers (CR vouchers + CB receipts)
-    const cashFromVouchers = (this.data.vouchers || []).reduce((sum, v) => {
-      if (!v || v.status !== 'POSTED') return sum;
-      if (v.voucherType === 'CR') return sum + (Number(v.totalAmount) || 0);
-      if (v.voucherType === 'CB' && Array.isArray(v.entries)) {
-        const rTotal = v.entries.reduce((acc, e) => acc + (Number(e?.receipt) || 0), 0);
-        return sum + rTotal;
+    (this.data.vouchers || []).forEach((v) => {
+      if (!v || v.status !== 'POSTED') return;
+      let amt = 0;
+      if (v.voucherType === 'CR') {
+        amt = Number(v.totalAmount) || 0;
+      } else if (v.voucherType === 'CB' && Array.isArray(v.entries)) {
+        amt = v.entries.reduce((acc, e) => acc + (Number(e?.receipt) || 0), 0);
       }
-      return sum;
-    }, 0);
+      if (amt > 0) {
+        const uIdx = findUserIndexForVoucher(v);
+        userCashIn[uIdx] += amt;
+      }
+    });
+
+    // Cash refunded in on Purchase Returns
+    (this.data.purchaseReturns || []).forEach((pr) => {
+      if (!pr || pr.status === 'CANCELLED') return;
+      const prAny = pr as any;
+      const pt = (prAny.paymentType || prAny.refundType || '').toLowerCase();
+      let amt = 0;
+      if (pr.isCash || pt === 'cash' || Number(prAny.cashReceived) > 0) {
+        amt = Number(prAny.cashReceived) || Number(pr.netTotal) || 0;
+      }
+      if (amt > 0) {
+        const uIdx = findMatchingUserIndex(prAny.createdBy);
+        userCashIn[uIdx] += amt;
+      }
+    });
 
     // Cash paid out for purchase bills (EXACTLY the paid amount written by user)
-    const cashOutPurchases = (this.data.purchaseBills || []).reduce((sum, b) => {
-      if (!b || b.status === 'Cancelled') return sum;
+    (this.data.purchaseBills || []).forEach((b) => {
+      if (!b || b.status === 'Cancelled') return;
       let paid = 0;
       if (b.paidAmount !== undefined && b.paidAmount !== null && (b.paidAmount as any) !== '') {
         paid = Math.max(0, Number(b.paidAmount) || 0);
       } else if (b.isCash) {
         paid = Math.max(0, Number(b.netTotal) || 0);
       }
-      return sum + paid;
-    }, 0);
+      if (paid > 0) {
+        const uIdx = findUserIndexForPurchaseBill(b);
+        userCashOut[uIdx] += paid;
+      }
+    });
 
     // Cash paid out for daily expenses
-    const cashOutExpenses = (this.data.expenses || []).reduce((sum, e) => {
-      if (!e) return sum;
+    (this.data.expenses || []).forEach((e) => {
+      if (!e) return;
       const pm = (e.paymentMethod || '').toLowerCase();
-      if (!pm || pm === 'cash' || pm === 'hand') return sum + (Number(e.amount) || 0);
-      return sum;
-    }, 0);
+      if (!pm || pm === 'cash' || pm === 'hand') {
+        const amt = Number(e.amount) || 0;
+        const uIdx = findUserIndexForExpense(e);
+        userCashOut[uIdx] += amt;
+      }
+    });
 
     // Cash paid out via Vouchers (CP vouchers + CB payments)
-    const cashOutVouchers = (this.data.vouchers || []).reduce((sum, v) => {
-      if (!v) return sum;
-      if (v.voucherType === 'CP') return sum + (Number(v.totalAmount) || 0);
-      if (v.voucherType === 'CB' && Array.isArray(v.entries)) {
-        const pTotal = v.entries.reduce((acc, e) => acc + (Number(e?.payment) || 0), 0);
-        return sum + pTotal;
+    (this.data.vouchers || []).forEach((v) => {
+      if (!v) return;
+      let amt = 0;
+      if (v.voucherType === 'CP') {
+        amt = Number(v.totalAmount) || 0;
+      } else if (v.voucherType === 'CB' && Array.isArray(v.entries)) {
+        amt = v.entries.reduce((acc, e) => acc + (Number(e?.payment) || 0), 0);
       }
-      return sum;
-    }, 0);
+      if (amt > 0) {
+        const uIdx = findUserIndexForVoucher(v);
+        userCashOut[uIdx] += amt;
+      }
+    });
 
     // Cash refunded on Sale Returns
-    const cashOutSaleReturns = (this.data.saleReturns || []).reduce((sum, sr) => {
-      if (!sr || sr.status === 'CANCELLED') return sum;
+    (this.data.saleReturns || []).forEach((sr) => {
+      if (!sr || sr.status === 'CANCELLED') return;
       const srAny = sr as any;
       const pt = (srAny.paymentType || srAny.refundType || '').toLowerCase();
+      let amt = 0;
       if (sr.isCash || pt === 'cash' || Number(srAny.cashPaid) > 0) {
-        return sum + (Number(srAny.cashPaid) || Number(sr.netTotal) || 0);
+        amt = Number(srAny.cashPaid) || Number(sr.netTotal) || 0;
       }
-      return sum;
-    }, 0);
-
-    // Cash refunded in on Purchase Returns
-    const cashInPurchaseReturns = (this.data.purchaseReturns || []).reduce((sum, pr) => {
-      if (!pr || pr.status === 'CANCELLED') return sum;
-      const prAny = pr as any;
-      const pt = (prAny.paymentType || prAny.refundType || '').toLowerCase();
-      if (pr.isCash || pt === 'cash' || Number(prAny.cashReceived) > 0) {
-        return sum + (Number(prAny.cashReceived) || Number(pr.netTotal) || 0);
+      if (amt > 0) {
+        const uIdx = findMatchingUserIndex(srAny.createdBy || srAny.salesmanName);
+        userCashOut[uIdx] += amt;
       }
-      return sum;
-    }, 0);
+    });
 
-    const netCashInHand = openingCash + cashFromSales + cashFromOrders + cashFromPayments + cashFromVouchers + cashInPurchaseReturns - cashOutPurchases - cashOutExpenses - cashOutVouchers - cashOutSaleReturns;
-    const absBalance = Number(Math.abs(netCashInHand).toFixed(2));
-    const balanceType: 'DR' | 'CR' = netCashInHand >= 0 ? 'DR' : 'CR';
+    const accounts: CashAccount[] = companyUsers.map((u, i) => {
+      const codeNum = String(1 + i).padStart(4, '0');
+      const accountCode = `010101${codeNum}`;
+      const id = i === 0 ? 'cash-0101010001' : `cash-${u.id || accountCode}`;
+      const net = userCashIn[i] - userCashOut[i];
+      const absBal = Number(Math.abs(net).toFixed(2));
+      return {
+        id,
+        companyId: cid,
+        accountCode,
+        title: `Cash in Hand (${u.name})`,
+        userId: u.id,
+        userName: u.name,
+        balance: absBal,
+        balanceType: absBal === 0 ? 'DR' : (net >= 0 ? 'DR' : 'CR'),
+        createdAt: '2026-10-06T00:00:00.000Z',
+        updatedAt: new Date().toISOString(),
+      };
+    });
 
-    // Single Real Cash in Hand Account (e.g. Hannan)
-    const nonAdminUser = (this.data.users || []).find((u) => u.name && u.name.toLowerCase() !== 'admin');
-    const cashTitle = nonAdminUser ? `Cash in Hand (${nonAdminUser.name})` : 'Cash in Hand (خزانہ)';
-
-    const singleCashAccount: CashAccount = {
-      id: 'cash-0101010001',
-      accountCode: '0101010001',
-      title: cashTitle,
-      balance: absBalance,
-      balanceType: absBalance === 0 ? 'DR' : balanceType,
-      createdAt: '2026-10-06T00:00:00.000Z',
-      updatedAt: new Date().toISOString(),
-    };
-
-    this.data.cashAccounts = [singleCashAccount];
+    this.data.cashAccounts = accounts;
     return this.data.cashAccounts;
   }
 

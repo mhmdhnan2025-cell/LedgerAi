@@ -370,8 +370,20 @@ export const AiLedgerAuditReportSection: React.FC<AiLedgerAuditReportSectionProp
                 <Wallet className="w-3 h-3 text-emerald-400" /> Cash In Hand
               </span>
               <span className="text-base font-black font-mono text-emerald-400 mt-1 block">
-                {report.currencySymbol} {fmt(report.cash.cashInHand)}
+                {report.currencySymbol} {fmt(report.cash.totalCompanyCashInHand !== undefined ? report.cash.totalCompanyCashInHand : report.cash.cashInHand)}
               </span>
+              {Array.isArray(report.cash.userCashAccounts) && report.cash.userCashAccounts.length > 1 && (
+                <div className="mt-2 space-y-1 border-t border-slate-800 pt-1.5">
+                  {report.cash.userCashAccounts.map((u) => (
+                    <div key={u.userId || u.userName} className="flex justify-between items-center text-[10px] font-mono">
+                      <span className="text-slate-400 truncate max-w-[130px]">{u.userName}:</span>
+                      <span className={u.balanceType === 'CR' ? 'text-rose-400 font-semibold' : 'text-emerald-400 font-semibold'}>
+                        {report.currencySymbol} {fmt(u.balance)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

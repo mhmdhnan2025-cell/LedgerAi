@@ -573,11 +573,27 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
           )}</span>
           <span class="tag">${data.cash.todayNet >= 0 ? 'SURPLUS' : 'DEFICIT'}</span>
         </div>
-        <div class="al-cash-row hl">
-          <span class="lbl">CASH IN HAND (Physical Vault)</span>
-          <span class="amt">${sym} ${num(data.cash.cashInHand)}</span>
-          <span class="tag">VERIFIED</span>
-        </div>
+        ${Array.isArray(data.cash.userCashAccounts) && data.cash.userCashAccounts.length > 0 ? `
+          <div class="al-sec" style="margin-top:8px"><span>COMPANY LOGINS CASH IN HAND</span><span>LOGIN WISE</span></div>
+          ${data.cash.userCashAccounts.map((u) => `
+            <div class="al-cash-row">
+              <span class="lbl">${esc(u.title || `Cash in Hand (${u.userName})`)}</span>
+              <span class="amt ${u.balanceType === 'CR' ? 'red' : 'green'}">${sym} ${num(u.balance)} ${u.balanceType || 'DR'}</span>
+              <span class="tag" style="background:#e0f2fe;color:#0369a1">LOGIN</span>
+            </div>
+          `).join('')}
+          <div class="al-cash-row hl" style="background:#0f172a;color:#ffffff;border-top:2px solid #38bdf8">
+            <span class="lbl" style="font-weight:900;letter-spacing:0.5px">TOTAL COMPANY CASH IN HAND</span>
+            <span class="amt" style="font-size:13px;font-weight:900;color:#38bdf8">${sym} ${num(data.cash.totalCompanyCashInHand !== undefined ? data.cash.totalCompanyCashInHand : data.cash.cashInHand)}</span>
+            <span class="tag" style="background:#0284c7;color:#fff">TOTAL</span>
+          </div>
+        ` : `
+          <div class="al-cash-row hl">
+            <span class="lbl">CASH IN HAND (Physical Vault)</span>
+            <span class="amt">${sym} ${num(data.cash.cashInHand)}</span>
+            <span class="tag">VERIFIED</span>
+          </div>
+        `}
       </div>
     </div>
   </div>

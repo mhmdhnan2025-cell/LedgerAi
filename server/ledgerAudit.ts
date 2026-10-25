@@ -1239,6 +1239,15 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     const todayNetCash = todayMove.cashIn - todayMove.cashOut;
     const cashInHand = openingCashBalance + todayNetCash;
 
+    // Login-wise Cash in Hand breakdown for all company users
+    const userCashAccounts = db.getCashAccounts().map((c) => ({
+      userId: c.userId,
+      userName: c.userName || c.title.replace(/^Cash in Hand \((.*)\)$/, '$1'),
+      title: c.title,
+      balance: c.balance,
+      balanceType: c.balanceType,
+    }));
+
     // Build comprehensive set of supplier IDs, codes, account titles for exact detection
     const supplierIds = new Set<string>();
     const supplierCodes = new Set<string>();
@@ -1483,6 +1492,8 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
         openingBalance: openingCashBalance,
         todayNet: todayNetCash,
         cashInHand,
+        userCashAccounts,
+        totalCompanyCashInHand: cashInHand,
       },
       worth: {
         stockValue: warehouseStockValue,

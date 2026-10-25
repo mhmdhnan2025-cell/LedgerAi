@@ -1203,6 +1203,14 @@ export interface AiLedgerAuditReport {
     openingBalance: number;
     todayNet: number;
     cashInHand: number;
+    userCashAccounts?: {
+      userId?: string;
+      userName: string;
+      title: string;
+      balance: number;
+      balanceType: 'DR' | 'CR';
+    }[];
+    totalCompanyCashInHand?: number;
   };
   worth: {
     stockValue: number;
@@ -1280,6 +1288,8 @@ export interface CashAccount {
   companyId?: string;
   accountCode: string;
   title: string;
+  userId?: string;
+  userName?: string;
   balance: number;
   balanceType: 'DR' | 'CR';
   createdAt?: string;

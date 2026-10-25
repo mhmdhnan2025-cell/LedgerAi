@@ -37,6 +37,7 @@ import {
   Supplier,
 } from '../types';
 import { api } from '../services/api';
+import { OfflineStorageService } from '../services/offlineStorage';
 import { currencySymbol } from '../utils/currency';
 import { CalendarModalPicker } from './CalendarModalPicker';
 import { SearchableAccountSelect } from './SearchableAccountSelect';
@@ -184,12 +185,26 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
       );
       setSalesmen(Array.isArray(salesData) ? salesData.filter(Boolean) : []);
 
-      // Default selected bank & cash account
+      // Default selected bank & cash account (default to logged-in user's cash account)
       if (Array.isArray(banksData) && banksData.length > 0 && !selectedBankId) {
         setSelectedBankId(banksData[0].id);
       }
-      if (Array.isArray(cashData) && cashData.length > 0 && !selectedCashAccountId) {
-        setSelectedCashAccountId(cashData[0].id);
+      if (Array.isArray(cashData) && cashData.length > 0) {
+        const activeUser = currentUser || OfflineStorageService.loadActiveUser();
+        const activeUserName = (activeUser?.name || activeUser?.username || '').toLowerCase().trim();
+        const activeUserId = (activeUser?.id || '').toLowerCase().trim();
+
+        const isCurrentValid = cashData.some((c) => c && c.id === selectedCashAccountId);
+        if (!selectedCashAccountId || !isCurrentValid) {
+          const matchingAcc = cashData.find((c) =>
+            (activeUserId && (c.userId?.toLowerCase() === activeUserId || c.id === `cash-${activeUserId}`)) ||
+            (activeUserName && (
+              (c.userName && c.userName.toLowerCase().trim() === activeUserName) ||
+              c.title.toLowerCase().includes(activeUserName)
+            ))
+          );
+          setSelectedCashAccountId(matchingAcc ? matchingAcc.id : cashData[0].id);
+        }
       }
     } catch (err: any) {
       console.error('Failed to load primary Cash/Bank data:', err);
@@ -558,6 +573,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
       salesmanTitle: selectedSalesman || undefined,
       totalAmount: Number(activeTotalAmount.toFixed(2)),
       entries: activeEntries,
+      createdBy: currentUser?.name || OfflineStorageService.loadActiveUser()?.name || 'Admin',
     };
 
     try {
@@ -621,7 +637,12 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
     setVoucherDate(v.date);
     setPoNumber(v.poNumber || '');
     if (v.bankAccountId) setSelectedBankId(v.bankAccountId);
-    if (v.cashAccountId) setSelectedCashAccountId(v.cashAccountId);
+    if (v.cashAccountId) {
+      setSelectedCashAccountId(v.cashAccountId);
+    } else if (v.cashAccountTitle) {
+      const match = safeCashAccounts.find((c) => c.title === v.cashAccountTitle);
+      if (match) setSelectedCashAccountId(match.id);
+    }
     if (v.salesmanTitle) setSelectedSalesman(v.salesmanTitle);
     setEntries(Array.isArray(v.entries) ? JSON.parse(JSON.stringify(v.entries)) : []);
 
@@ -1124,7 +1145,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                     >
                       {safeCashAccounts.map((c) => (
                         <option key={c.id} value={c.id}>
-                          {c.title}
+                          {c.title} ({Number(c.balance || 0).toFixed(2)} {c.balanceType || 'DR'})
                         </option>
                       ))}
                     </select>
