@@ -33,6 +33,7 @@ import {
   VoucherFilterParams,
   CashRecoveredReportItem,
   CashPaidReportItem,
+  DiscountsReportResponse,
   ExpenseAccount,
   SaleReturn,
   PurchaseReturn,
@@ -1922,6 +1923,15 @@ export const api = {
     if (toDate) query.set('toDate', toDate);
     const res = await fetch(`/api/reports/cash-paid?${query.toString()}`);
     if (!res.ok) throw new Error('Failed to load cash paid report');
+    return res.json();
+  },
+
+  async getDiscountsReport(fromDate?: string, toDate?: string): Promise<DiscountsReportResponse> {
+    const query = new URLSearchParams();
+    if (fromDate) query.set('fromDate', fromDate);
+    if (toDate) query.set('toDate', toDate);
+    const res = await fetch(`/api/reports/discounts?${query.toString()}`);
+    if (!res.ok) throw new Error('Failed to load discounts report');
     return res.json();
   },
 

@@ -28,6 +28,7 @@ import {
   BookOpen,
   Type,
   Users,
+  Percent,
 } from 'lucide-react';
 import { CompanyProfile, Customer, Product, PurchaseBill, SaleBill, Supplier, UserRole } from '../types';
 import { api } from '../services/api';
@@ -44,6 +45,7 @@ import { CustomerLedgerReportSection } from './CustomerLedgerReportSection';
 import { SupplierLedgerReportSection } from './SupplierLedgerReportSection';
 import { SaleReturnReportSection } from './SaleReturnReportSection';
 import { PurchaseReturnReportSection } from './PurchaseReturnReportSection';
+import { DiscountsReportSection } from './DiscountsReportSection';
 import { ErrorBoundary } from './ErrorBoundary';
 import { exportToCsv } from '../utils/exportCsv';
 
@@ -72,12 +74,12 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 }) => {
   // Breadcrumb / Report sub-tabs
   const [activeReportTab, setActiveReportTab] = useState<
-    'purchases' | 'sales' | 'partyReceivables' | 'supplierPayables' | 'profit' | 'stockHistory' | 'aiLedgerAudit' | 'cashRecovered' | 'cashPaid' | 'customerLedger' | 'supplierLedger' | 'saleReturns' | 'purchaseReturns'
+    'purchases' | 'sales' | 'partyReceivables' | 'supplierPayables' | 'profit' | 'stockHistory' | 'aiLedgerAudit' | 'cashRecovered' | 'cashPaid' | 'customerLedger' | 'supplierLedger' | 'saleReturns' | 'purchaseReturns' | 'discounts'
   >(() => {
     try {
       if (typeof window !== 'undefined') {
         const saved = sessionStorage.getItem('erp_active_report_tab');
-        if (saved && ['purchases', 'sales', 'partyReceivables', 'supplierPayables', 'profit', 'stockHistory', 'aiLedgerAudit', 'cashRecovered', 'cashPaid', 'customerLedger', 'supplierLedger', 'saleReturns', 'purchaseReturns'].includes(saved)) {
+        if (saved && ['purchases', 'sales', 'partyReceivables', 'supplierPayables', 'profit', 'stockHistory', 'aiLedgerAudit', 'cashRecovered', 'cashPaid', 'customerLedger', 'supplierLedger', 'saleReturns', 'purchaseReturns', 'discounts'].includes(saved)) {
           return saved as any;
         }
       }
@@ -523,6 +525,18 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-300" />
               <span>Master Audit Report</span>
             </button>
+            <button
+              onClick={() => setActiveReportTab('discounts')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                activeReportTab === 'discounts'
+                  ? 'bg-amber-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+              title="Itemized Discount Details (Cash/Bank Vouchers & Invoices)"
+            >
+              <Percent className="w-3.5 h-3.5 text-amber-300" />
+              <span>Discounts Report</span>
+            </button>
           </div>
         </div>
 
@@ -604,7 +618,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             </div>
           </div>
 
-          {onNavigateTab && activeReportTab !== 'aiLedgerAudit' && activeReportTab !== 'cashRecovered' && activeReportTab !== 'cashPaid' && (
+          {onNavigateTab && activeReportTab !== 'aiLedgerAudit' && activeReportTab !== 'cashRecovered' && activeReportTab !== 'cashPaid' && activeReportTab !== 'discounts' && (
             <button
               onClick={() => onNavigateTab(activeReportTab === 'purchases' ? 'purchasing' : 'sales')}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg border border-slate-700 text-xs font-semibold transition"
@@ -751,6 +765,13 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             suppliers={suppliers}
             onNavigateTab={onNavigateTab}
             onRefreshData={onRefreshData}
+          />
+        </ErrorBoundary>
+      ) : activeReportTab === 'discounts' ? (
+        <ErrorBoundary fallbackTitle="Party Discounts Report">
+          <DiscountsReportSection
+            companyProfile={companyProfile}
+            onNavigateTab={onNavigateTab}
           />
         </ErrorBoundary>
       ) : (

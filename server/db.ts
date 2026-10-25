@@ -63,6 +63,8 @@ import {
   NextVoucherNumbers,
   CashRecoveredReportItem,
   CashPaidReportItem,
+  DiscountReportItem,
+  DiscountsReportResponse,
   ExpenseAccount,
   SaleReturn,
   SaleReturnItem,
@@ -11232,6 +11234,99 @@ ON CONFLICT (id) DO NOTHING;`);
       totalAmount: Number(totalAmount.toFixed(2)),
       supplierAmount: Number(supplierAmount.toFixed(2)),
       expenseAmount: Number(expenseAmount.toFixed(2)),
+    };
+  }
+
+  // =========================================================================
+  // ITEMIZED DISCOUNTS REPORT
+  // =========================================================================
+  public getDiscountsReport(fromDate?: string, toDate?: string): DiscountsReportResponse {
+    const normFrom = fromDate ? this.normalizeDateToYMD(fromDate) : '';
+    const normTo = toDate ? this.normalizeDateToYMD(toDate) : '';
+
+    const items: DiscountReportItem[] = [];
+    let totalBillDiscount = 0;
+    let totalVoucherDiscount = 0;
+
+    // 1. Sale Bills (Applied at Invoicing)
+    for (const b of (this.data.saleBills || [])) {
+      if (b.status === 'Cancelled') continue;
+      const bDate = this.normalizeDateToYMD(b.date);
+      if (normFrom && bDate < normFrom) continue;
+      if (normTo && bDate > normTo) continue;
+
+      const d = Number(b.totalDiscount) || Number(b.billDiscountAmount) || 0;
+      if (d > 0) {
+        totalBillDiscount += d;
+        items.push({
+          id: `disc-bill-${b.id}`,
+          srNo: 0,
+          date: b.date,
+          refNumber: b.billNumberFormatted || `BILL-${b.billNumber}`,
+          source: 'Sale Bill (Invoice)',
+          partyName: b.customerAccountTitle || b.customerName || 'Customer',
+          partyCode: (b as any).customerCode || '',
+          amount: Number(b.netTotal || b.totalAmount || 0),
+          discountAmount: Number(d.toFixed(2)),
+          discountPercent: b.billDiscountPercent,
+          notes: b.lpoNo ? `LPO# ${b.lpoNo}` : 'Invoice Discount',
+        });
+      }
+    }
+
+    // 2. Vouchers (Cash & Bank Settlement Discounts)
+    for (const v of (this.data.vouchers || [])) {
+      if (v.status !== 'POSTED') continue;
+      const vDate = this.normalizeDateToYMD(v.date);
+      if (normFrom && vDate < normFrom) continue;
+      if (normTo && vDate > normTo) continue;
+
+      const vTypeLabel = v.voucherType === 'CR' ? 'Cash Receipt'
+        : v.voucherType === 'BR' ? 'Bank Receipt'
+        : v.voucherType === 'CP' ? 'Cash Payment'
+        : v.voucherType === 'BP' ? 'Bank Payment'
+        : v.voucherType === 'CB' ? 'Cash & Bank'
+        : 'Journal Voucher';
+
+      for (const e of (v.entries || [])) {
+        const d = Number(e.discount || 0);
+        if (d > 0) {
+          totalVoucherDiscount += d;
+          items.push({
+            id: `disc-vch-${v.id}-${e.id || Math.random().toString(36).substr(2, 5)}`,
+            srNo: 0,
+            date: v.date,
+            refNumber: v.voucherNumberFormatted || String(v.voucherNumber),
+            source: `${vTypeLabel} (${v.voucherType})`,
+            partyName: e.accountTitle || 'Customer / Party',
+            partyCode: e.accountCode || '',
+            amount: Number(e.amount || e.receipt || e.payment || 0),
+            discountAmount: Number(d.toFixed(2)),
+            discountPercent: e.discountPercent,
+            notes: e.narration || `${vTypeLabel} Settlement Discount`,
+          });
+        }
+      }
+    }
+
+    // Sort descending by date, then refNumber
+    items.sort((a, b) => {
+      const cmpDate = b.date.localeCompare(a.date);
+      if (cmpDate !== 0) return cmpDate;
+      return String(b.refNumber).localeCompare(String(a.refNumber));
+    });
+
+    items.forEach((it, idx) => {
+      it.srNo = idx + 1;
+    });
+
+    const totalDiscounts = Number((totalBillDiscount + totalVoucherDiscount).toFixed(2));
+    return {
+      items,
+      totalBillDiscount: Number(totalBillDiscount.toFixed(2)),
+      totalVoucherDiscount: Number(totalVoucherDiscount.toFixed(2)),
+      totalDiscounts,
+      count: items.length,
     };
   }
 

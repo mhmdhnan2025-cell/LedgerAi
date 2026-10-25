@@ -1374,6 +1374,29 @@ export interface CashPaidReportItem {
   category?: 'Supplier' | 'Expense' | 'Other';
 }
 
+export interface DiscountReportItem {
+  id: string;
+  srNo: number;
+  date: string;
+  refNumber: string;
+  source: string;
+  partyName: string;
+  partyCode?: string;
+  amount: number;
+  discountAmount: number;
+  discountPercent?: number;
+  notes?: string;
+  period?: 'today' | 'this_month' | 'past';
+}
+
+export interface DiscountsReportResponse {
+  items: DiscountReportItem[];
+  totalBillDiscount: number;
+  totalVoucherDiscount: number;
+  totalDiscounts: number;
+  count: number;
+}
+
 export interface NextVoucherNumbers {
   jvNumber: number;
   voucherNumbers: {

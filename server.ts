@@ -1691,6 +1691,19 @@ app.get('/api/reports/cash-paid', (req, res) => {
   }
 });
 
+app.get('/api/reports/discounts', (req, res) => {
+  try {
+    const { fromDate, toDate } = req.query;
+    const report = db.getDiscountsReport(
+      fromDate ? String(fromDate) : undefined,
+      toDate ? String(toDate) : undefined
+    );
+    res.json(report);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // -------------------------------------------------------------
 // CUSTOMER GENERAL LEDGER REPORT
 // -------------------------------------------------------------

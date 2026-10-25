@@ -702,54 +702,6 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
   </div>
 
   <!-- ================= 8. DISCOUNTS AUDIT HEAD ================= -->
-  ${(() => {
-    const discItems = (data.discountsHead?.discountEntries || []).filter((e: any) => Number(e.discountAmount) > 0);
-    const itemizedRows = discItems.map((e: any) => {
-      const isToday = e.period === 'today';
-      const badgeStyle = isToday
-        ? 'background:#dcfce7;color:#166534;border:1px solid #86efac'
-        : (e.period === 'this_month' ? 'background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd' : 'background:#f1f5f9;color:#475569;border:1px solid #cbd5e1');
-      const badgeText = isToday ? 'TODAY' : (e.period === 'this_month' ? 'THIS MONTH' : 'PAST');
-      return `
-        <tr>
-          <td><span style="font-weight:700;color:#0f172a">${e.date}</span></td>
-          <td><span style="font-weight:800;color:#1e40af;font-family:monospace">${e.refNumber}</span></td>
-          <td style="color:#475569;font-size:8.5px">${e.source}</td>
-          <td style="font-weight:700;color:#0f172a">${e.partyName}</td>
-          <td class="num strong amber">&minus; ${sym} ${num(e.discountAmount)}</td>
-          <td class="center"><span style="${badgeStyle};padding:1px 6px;border-radius:3px;font-size:7.5px;font-weight:800">${badgeText}</span></td>
-        </tr>
-      `;
-    }).join('');
-
-    const itemizedTable = discItems.length > 0 ? `
-      <div style="margin-top:8px;border-top:1px dashed #cbd5e1;padding-top:6px">
-        <div style="font-size:8.5px;font-weight:800;color:#b45309;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">
-          ITEMIZED DISCOUNT DETAILS (CASH/BANK VOUCHERS &amp; INVOICES)
-        </div>
-        <table class="al-t">
-          <thead>
-            <tr style="background:#fffbeb">
-              <th style="width:11%">Date</th>
-              <th style="width:15%">Ref / Voucher</th>
-              <th style="width:18%">Type</th>
-              <th style="width:28%">Party / Customer</th>
-              <th class="num" style="width:16%">Discount</th>
-              <th class="center" style="width:12%">Period</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemizedRows}
-          </tbody>
-        </table>
-      </div>
-    ` : `
-      <div style="margin-top:6px;padding:6px;background:#f8fafc;border-radius:4px;text-align:center;font-size:8.5px;color:#94a3b8;font-style:italic">
-        No individual customer or voucher discounts recorded yet.
-      </div>
-    `;
-
-    return `
   <div class="al-panel-full">
     <div class="al-panel-h">
       <div class="t" style="color:#d97706">8. DISCOUNTS AUDIT HEAD (DISCOUNT DEDUCTION REGISTER)</div>
@@ -789,9 +741,7 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
         </tr>
       </tbody>
     </table>
-    ${itemizedTable}
-  </div>`;
-  })()}
+  </div>
 
   <!-- ================= 9. OVERALL NET PROFIT & PERFORMANCE ================= -->
   <div class="al-panel-full">
