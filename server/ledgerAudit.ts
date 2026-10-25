@@ -1196,10 +1196,10 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     const monthGrossProfit = Number((monthExVatRevenue - monthCogs).toFixed(2));
     const totalGrossProfit = Number((totalExVatRevenue - totalCogs).toFixed(2));
 
-    // Net Profits (Gross Profit - Cash & Bank Voucher Discounts - Operating Expenses):
-    const todayNetProfit = Number((todayGrossProfit - todayVoucherDiscount - todayExpenses).toFixed(2));
-    const monthNetProfit = Number((monthGrossProfit - monthVoucherDiscount - monthExpenses).toFixed(2));
-    const totalNetProfit = Number((totalGrossProfit - totalVoucherDiscount - totalExpenses).toFixed(2));
+    // Net Profits (Gross Profit - Cash & Bank Voucher Discounts - Sale Return Discounts - Operating Expenses):
+    const todayNetProfit = Number((todayGrossProfit - todayVoucherDiscount - todaySaleReturnDiscount - todayExpenses).toFixed(2));
+    const monthNetProfit = Number((monthGrossProfit - monthVoucherDiscount - monthSaleReturnDiscount - monthExpenses).toFixed(2));
+    const totalNetProfit = Number((totalGrossProfit - totalVoucherDiscount - totalSaleReturnDiscount - totalExpenses).toFixed(2));
 
     const todayNetMargin = todayExVatRevenue > 0 ? (todayNetProfit / todayExVatRevenue) * 100 : 0;
     const monthMarginPct = monthExVatRevenue > 0 ? (monthNetProfit / monthExVatRevenue) * 100 : 0;

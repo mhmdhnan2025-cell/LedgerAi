@@ -803,7 +803,7 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
     </table>
     <div style="font-size:9px;color:#1e293b;padding:8px 12px;background:#f8fafc;border-top:1.5px solid #cbd5e1;line-height:1.5;font-weight:800">
       &bull; <b>Sales Gross Profit (Trading Profit):</b> Gross Sales (Ex-VAT) &minus; Cost of Goods (COGS). <i>(Note: Invoicing trade discounts are deducted once at bill creation and are NEVER deducted twice.)</i><br/>
-      &bull; <b>Cash &amp; Bank Voucher Discounts:</b> Settlement deductions allowed during cash/bank recoveries are audited separately under Discounts Head (Section 8) and do not distort Sales Gross Margin.<br/>
+      &bull; <b>Cash &amp; Bank &amp; Return Discounts:</b> Settlement deductions allowed during cash/bank recoveries and sale return discounts are audited separately under Discounts Head (Section 8) and are 100% deducted from Net Profit.<br/>
       &bull; <b>Statutory Tax Liability:</b> Total VAT collected of ${sym} ${num(data.profitCard?.totalVatExcluded ?? 0)} is 100% excluded from company profit (payable to Tax Authority).
     </div>
   </div>
