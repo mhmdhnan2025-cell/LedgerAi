@@ -530,7 +530,9 @@ export interface Employee {
   openingBalance?: number;
   openingBalanceType?: 'DR' | 'CR';
   balance?: number;
+  balanceType?: 'DR' | 'CR';
   totalPaid?: number;
+  totalSalaryDue?: number;
   createdAt?: string;
   updatedAt?: string;
 }

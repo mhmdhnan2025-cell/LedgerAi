@@ -330,9 +330,24 @@ export const EmployeeManagementView: React.FC<EmployeeManagementViewProps> = ({
     });
   }, [employees, searchQuery, selectedDesignationFilter, statusFilter]);
 
-  // Total calculated salary of the current filtered list (matching Image 2 & 3!)
+  // Total calculated salary, opening balance, paid, and closing balance of the current filtered list
   const totalSalarySum = useMemo(() => {
     return filteredEmployees.reduce((acc, curr) => acc + (Number(curr.salary) || 0), 0);
+  }, [filteredEmployees]);
+
+  const totalOpeningBalSum = useMemo(() => {
+    return filteredEmployees.reduce((acc, curr) => acc + (Number(curr.openingBalance) || 0), 0);
+  }, [filteredEmployees]);
+
+  const totalPaidSum = useMemo(() => {
+    return filteredEmployees.reduce((acc, curr) => acc + (Number(curr.totalPaid) || 0), 0);
+  }, [filteredEmployees]);
+
+  const totalClosingBalSum = useMemo(() => {
+    return filteredEmployees.reduce((acc, curr) => {
+      const b = Number(curr.balance !== undefined ? curr.balance : (Number(curr.salary || 0) - Number(curr.totalPaid || 0)));
+      return acc + ((curr.balanceType || 'CR') === 'DR' ? -b : b);
+    }, 0);
   }, [filteredEmployees]);
 
   return (
@@ -540,7 +555,8 @@ export const EmployeeManagementView: React.FC<EmployeeManagementViewProps> = ({
                     <th className="py-3 px-3.5 text-center">Salary Type</th>
                     <th className="py-3 px-3.5 text-right font-mono">Salary</th>
                     <th className="py-3 px-3.5 text-right font-mono text-amber-300">Opening Bal</th>
-                    <th className="py-3 px-3.5 text-right font-mono text-emerald-400">Balance</th>
+                    <th className="py-3 px-3.5 text-right font-mono text-rose-400">Total Paid</th>
+                    <th className="py-3 px-3.5 text-right font-mono text-emerald-400">Closing Bal</th>
                     <th className="py-3 px-3.5 text-center">Status</th>
                     <th className="py-3 px-3.5 text-center w-36">Action</th>
                   </tr>
@@ -548,7 +564,7 @@ export const EmployeeManagementView: React.FC<EmployeeManagementViewProps> = ({
                 <tbody className="divide-y divide-slate-800/80 font-medium">
                   {filteredEmployees.length === 0 ? (
                     <tr>
-                      <td colSpan={13} className="py-12 text-center text-slate-500">
+                      <td colSpan={14} className="py-12 text-center text-slate-500">
                         <Users className="w-8 h-8 mx-auto text-slate-600 mb-2" />
                         <p className="text-sm font-semibold text-slate-400">No employees found.</p>
                         <p className="text-xs text-slate-500 mt-0.5">
@@ -631,12 +647,28 @@ export const EmployeeManagementView: React.FC<EmployeeManagementViewProps> = ({
                             })} {emp.openingBalanceType || 'CR'}
                           </td>
 
-                          {/* CURRENT BAL */}
-                          <td className="py-3 px-3.5 text-right font-mono text-xs font-bold text-emerald-400 whitespace-nowrap">
-                            {Number(emp.balance ?? emp.openingBalance ?? 0).toLocaleString(undefined, {
+                          {/* TOTAL PAID */}
+                          <td className="py-3 px-3.5 text-right font-mono text-xs font-bold text-rose-400 whitespace-nowrap">
+                            {Number(emp.totalPaid || 0).toLocaleString(undefined, {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })}
+                          </td>
+
+                          {/* CLOSING BAL */}
+                          <td className="py-3 px-3.5 text-right font-mono text-xs font-black whitespace-nowrap">
+                            <span
+                              className={`px-2 py-0.5 rounded border ${
+                                (emp.balanceType || 'CR') === 'CR'
+                                  ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700/60'
+                                  : 'bg-rose-950/80 text-rose-300 border-rose-700/60'
+                              }`}
+                            >
+                              {Number(emp.balance !== undefined ? emp.balance : (Number(emp.salary || 0) - Number(emp.totalPaid || 0))).toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })} {emp.balanceType || 'CR'}
+                            </span>
                           </td>
 
                           {/* STATUS */}
@@ -715,13 +747,31 @@ export const EmployeeManagementView: React.FC<EmployeeManagementViewProps> = ({
                     >
                       TOTAL
                     </td>
-                    <td className="py-3 px-3.5 text-right font-mono font-black text-emerald-400 text-sm whitespace-nowrap">
+                    <td className="py-3 px-3.5 text-right font-mono font-black text-slate-200 text-sm whitespace-nowrap">
                       {totalSalarySum.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}
                     </td>
-                    <td colSpan={4} className="py-3 px-3.5 text-right text-xs text-slate-400">
+                    <td className="py-3 px-3.5 text-right font-mono text-xs text-amber-300 whitespace-nowrap">
+                      {totalOpeningBalSum.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </td>
+                    <td className="py-3 px-3.5 text-right font-mono font-bold text-rose-400 text-xs whitespace-nowrap">
+                      {totalPaidSum.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </td>
+                    <td className="py-3 px-3.5 text-right font-mono font-black text-emerald-400 text-sm whitespace-nowrap">
+                      {Math.abs(totalClosingBalSum).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })} {totalClosingBalSum >= 0 ? 'CR' : 'DR'}
+                    </td>
+                    <td colSpan={2} className="py-3 px-3.5 text-right text-xs text-slate-400">
                       {filteredEmployees.length} Staff
                     </td>
                   </tr>

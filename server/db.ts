@@ -2435,6 +2435,7 @@ public getTenant(companyId?: string): DatabaseSchema {
         );
       }
     }
+    this.recalculateAllEmployeeBalances(companyId);
     return tenant.employees;
   }
 
@@ -2479,6 +2480,8 @@ public getTenant(companyId?: string): DatabaseSchema {
       bankTitle: empData.bankTitle || '',
       bankAccount: empData.bankAccount || '',
       image: empData.image || '',
+      openingBalance: typeof empData.openingBalance === 'number' ? empData.openingBalance : (parseFloat(String(empData.openingBalance || 0)) || 0),
+      openingBalanceType: empData.openingBalanceType || 'CR',
       regDate: empData.regDate || new Date().toISOString().split('T')[0],
       status: empData.status || 'YES',
       createdAt: new Date().toISOString(),
@@ -2486,6 +2489,7 @@ public getTenant(companyId?: string): DatabaseSchema {
     };
 
     list.push(newEmp);
+    this.recalculateAllEmployeeBalances();
     this.logAudit({
       userId: 'user-admin',
       userName,
@@ -2530,10 +2534,13 @@ public getTenant(companyId?: string): DatabaseSchema {
       fullName: fullName || prev.fullName,
       salary: updates.salary !== undefined ? Number(updates.salary) : prev.salary,
       commissionAmount: updates.commissionAmount !== undefined ? Number(updates.commissionAmount) : prev.commissionAmount,
+      openingBalance: updates.openingBalance !== undefined ? Number(updates.openingBalance) : prev.openingBalance,
+      openingBalanceType: updates.openingBalanceType || prev.openingBalanceType || 'CR',
       updatedAt: new Date().toISOString(),
     };
 
     list[idx] = updated;
+    this.recalculateAllEmployeeBalances();
     this.logAudit({
       userId: 'user-admin',
       userName,
@@ -2571,6 +2578,7 @@ public getTenant(companyId?: string): DatabaseSchema {
       source: source as any,
       description: `Deleted employee record ${removed.fullName} (${removed.designation}, Code: ${removed.code}).`,
     });
+    this.recalculateAllEmployeeBalances();
     this.persist();
     return true;
   }
@@ -5669,6 +5677,7 @@ ON CONFLICT (id) DO NOTHING;`);
 
     this.recalculateAllCustomerBalances();
     this.recalculateAllSupplierBalances();
+    this.recalculateAllEmployeeBalances();
   }
 
   // PERMANENTLY MERGE & DEDUPLICATE CUSTOMERS ACROSS LOCAL & POSTGRESQL
@@ -6068,6 +6077,99 @@ ON CONFLICT (id) DO NOTHING;`);
       s.payableType = netPayable >= 0 ? 'CR' : 'DR';
       s.totalPurchases = Number(totalPurch.toFixed(2));
       // NOTE: s.openingBalance is permanent historical baseline and is NEVER mutated to 0 upon settlement!
+    }
+  }
+
+  // AUTHORITATIVELY SYNCHRONIZE ALL EMPLOYEE BALANCES
+  public recalculateAllEmployeeBalances(companyId?: string): void {
+    const cid = getActiveCompanyId(companyId);
+    const tenant = this.getTenant(cid);
+    if (!tenant || !Array.isArray(tenant.employees)) return;
+
+    const vouchers = (tenant.vouchers || []).filter((v) => v.status === 'POSTED');
+    const expenses = tenant.expenses || [];
+
+    for (const emp of tenant.employees) {
+      if (!emp) continue;
+
+      const empId = (emp.id || '').trim().toLowerCase();
+      const empBaseId = empId ? empId.replace(/_comp[_-].*$/, '') : '';
+      const empCode = (emp.code || '').trim().toLowerCase();
+      const empSalAcc = (emp.salesmanAcc || '').trim().toLowerCase();
+      const empTitle = (emp.accountTitle || '').trim().toLowerCase();
+      const empFullName = (emp.fullName || '').trim().toLowerCase();
+      const cleanEmpTitle = empTitle ? empTitle.replace(/[^a-z0-9]/g, '') : '';
+      const cleanEmpFull = empFullName ? empFullName.replace(/[^a-z0-9]/g, '') : '';
+
+      const matchesEmp = (id?: string, code?: string, title?: string) => {
+        const cId = (id || '').trim().toLowerCase();
+        const cBaseId = cId ? cId.replace(/_comp[_-].*$/, '') : '';
+        const cCode = (code || '').trim().toLowerCase();
+        const cTitle = (title || '').trim().toLowerCase();
+        const cleanCTitle = cTitle ? cTitle.replace(/[^a-z0-9]/g, '') : '';
+
+        if (empId && cId && (empId === cId || empBaseId === cBaseId || empId === cBaseId || empBaseId === cId)) return true;
+        if (empCode && cCode && empCode === cCode && !['0401040000', '0401', '0101', '0201'].includes(cCode)) return true;
+        if (empSalAcc && cCode && empSalAcc === cCode) return true;
+        if (empTitle && cTitle && (empTitle === cTitle || (cleanEmpTitle && cleanCTitle && cleanEmpTitle === cleanCTitle))) return true;
+        if (empFullName && cTitle && (empFullName === cTitle || (cleanEmpFull && cleanCTitle && cleanEmpFull === cleanCTitle))) return true;
+        return false;
+      };
+
+      // 1. Calculate Total Paid across all posted vouchers
+      let totalPaid = 0;
+      let jvDebit = 0;
+      let jvCredit = 0;
+
+      for (const v of vouchers) {
+        for (const e of (v.entries || [])) {
+          if (!matchesEmp(e.accountId, e.accountCode, e.accountTitle)) continue;
+          const amt = Number(e.amount || e.payment || 0);
+          if (v.voucherType === 'CP' || v.voucherType === 'BP') {
+            totalPaid += amt;
+          } else if (v.voucherType === 'CB') {
+            totalPaid += Number(e.payment || e.amount || 0);
+          } else if (v.voucherType === 'JV') {
+            jvDebit += Number(e.debit || 0);
+            jvCredit += Number(e.credit || 0);
+          }
+        }
+      }
+
+      // 2. Direct salary expenses (exclude vouchers to avoid double-counting)
+      for (const exp of expenses) {
+        if (exp.voucherId) continue;
+        const cat = String(exp.category || '').toLowerCase();
+        if (cat.includes('salaries') || cat.includes('salary') || cat.includes('staff')) {
+          if (matchesEmp(undefined, undefined, exp.title) || matchesEmp(undefined, undefined, exp.notes)) {
+            totalPaid += Number(exp.amount || 0);
+          }
+        }
+      }
+
+      totalPaid += jvDebit;
+
+      // 3. Opening Balance
+      const rawOB = Number(emp.openingBalance) || 0;
+      const obType = emp.openingBalanceType || 'CR';
+      const effectiveOB = obType === 'DR' ? -Math.abs(rawOB) : Math.abs(rawOB);
+
+      // 4. Monthly Salary & Commissions Due
+      const monthlySalary = Number(emp.salary) || 0;
+      const commission = Number(emp.commissionAmount) || 0;
+      const totalSalaryDue = monthlySalary + commission + jvCredit;
+
+      // 5. Net Closing Balance Payable to Employee:
+      // Opening (CR=+ / DR=-) + Salary Due - Total Paid
+      const netPayable = effectiveOB + totalSalaryDue - totalPaid;
+
+      emp.totalPaid = Number(totalPaid.toFixed(2));
+      emp.totalSalaryDue = Number(totalSalaryDue.toFixed(2));
+      emp.balance = Math.abs(Number(netPayable.toFixed(2)));
+      emp.balanceType = netPayable >= 0 ? 'CR' : 'DR';
+      emp.updatedAt = new Date().toISOString();
+
+      postgresService.upsertEmployee(emp, cid).catch(() => {});
     }
   }
 
@@ -10345,10 +10447,8 @@ ON CONFLICT (id) DO NOTHING;`);
 
     // Employees (Staff & Salesmen)
     (this.data.employees || []).forEach((emp) => {
-      const rawSalary = Number(emp.salary) || 0;
-      const totalPaid = Number(emp.totalPaid) || 0;
-      const rawBal = emp.balance !== undefined ? Number(emp.balance) : (rawSalary - totalPaid);
-      const isCr = rawBal >= 0;
+      const rawBal = emp.balance !== undefined ? Number(emp.balance) : (Number(emp.salary || 0) - Number(emp.totalPaid || 0));
+      const isCr = (emp.balanceType || 'CR') === 'CR';
       const cleanTitle = (emp.accountTitle || emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Employee').trim();
       accounts.push({
         id: emp.id,
@@ -12493,6 +12593,70 @@ ON CONFLICT (id) DO NOTHING;`);
 
     const entries: EmployeeLedgerEntry[] = [];
 
+    // Credit Salary and Commission Due for the employee in the ledger
+    if (!isAll && employee) {
+      const salAmt = Number(employee.salary) || 0;
+      const commAmt = Number(employee.commissionAmount) || 0;
+      const salDate = employee.regDate ? this.normalizeDateToYMD(employee.regDate) : normFrom;
+
+      if (salDate < normFrom) {
+        openingBalance += (salAmt + commAmt);
+      } else if (salDate <= normTo) {
+        if (salAmt > 0) {
+          entries.push({
+            id: `sal-due-${employee.id}`,
+            date: salDate,
+            refType: 'SAL#',
+            refNumber: `SAL-${employee.code}`,
+            narration: `Monthly Salary Due (${employee.salaryType || 'MONTHLY'})`,
+            debit: 0,
+            credit: salAmt,
+            balance: 0,
+            balanceType: 'CR',
+            createdAt: `${salDate}T00:00:01.000Z`,
+          } as any);
+        }
+        if (commAmt > 0) {
+          entries.push({
+            id: `comm-due-${employee.id}`,
+            date: salDate,
+            refType: 'COMM#',
+            refNumber: `COMM-${employee.code}`,
+            narration: 'Commission / Incentive Due',
+            debit: 0,
+            credit: commAmt,
+            balance: 0,
+            balanceType: 'CR',
+            createdAt: `${salDate}T00:00:02.000Z`,
+          } as any);
+        }
+      }
+    } else if (isAll) {
+      for (const emp of (this.data.employees || [])) {
+        const salAmt = Number(emp.salary) || 0;
+        const commAmt = Number(emp.commissionAmount) || 0;
+        const salDate = emp.regDate ? this.normalizeDateToYMD(emp.regDate) : normFrom;
+        if (salDate < normFrom) {
+          openingBalance += (salAmt + commAmt);
+        } else if (salDate <= normTo) {
+          if (salAmt > 0) {
+            entries.push({
+              id: `sal-due-${emp.id}`,
+              date: salDate,
+              refType: 'SAL#',
+              refNumber: `SAL-${emp.code}`,
+              narration: `Salary Due: ${emp.accountTitle || emp.fullName} (${emp.salaryType || 'MONTHLY'})`,
+              debit: 0,
+              credit: salAmt,
+              balance: 0,
+              balanceType: 'CR',
+              createdAt: `${salDate}T00:00:01.000Z`,
+            } as any);
+          }
+        }
+      }
+    }
+
     // Collect vouchers between normFrom and normTo
     for (const v of (this.data.vouchers || [])) {
       if (v.status !== 'POSTED') continue;
@@ -12577,6 +12741,7 @@ ON CONFLICT (id) DO NOTHING;`);
 
     const empTypePriority = (refType: string) => {
       if (refType.startsWith('OB')) return 0;
+      if (refType.startsWith('SAL') || refType.startsWith('COMM')) return 5;
       if (refType.startsWith('EXP')) return 10;
       return 20; // CP, BP, CB, JV
     };
