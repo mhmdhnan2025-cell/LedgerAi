@@ -21,6 +21,7 @@ import {
   ArrowRight,
   Eye,
   SlidersHorizontal,
+  Save,
 } from 'lucide-react';
 import {
   BankAccount,
@@ -74,7 +75,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
   });
 
   const [isLoading, setIsLoading] = useState(false);
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
   // Format today as DD-MM-YYYY
   const getTodayFormatted = () => {
@@ -98,6 +99,8 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
   const amountInputRef = useRef<HTMLInputElement>(null);
   const debitInputRef = useRef<HTMLInputElement>(null);
   const receiptInputRef = useRef<HTMLInputElement>(null);
+  const discountInputRef = useRef<HTMLInputElement>(null);
+  const postButtonRef = useRef<HTMLButtonElement>(null);
   const [selectedAccountId, setSelectedAccountId] = useState('');
   const [accountSearch, setAccountSearch] = useState('');
   const [chequeNo, setChequeNo] = useState('');
@@ -119,6 +122,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
 
   // Voucher Being Edited in Search View
   const [editingVoucherId, setEditingVoucherId] = useState<string | null>(null);
+  const [editingVoucher, setEditingVoucher] = useState<Voucher | null>(null);
 
   // Search Voucher Filters
   const [searchFilterType, setSearchFilterType] = useState<string>('all');
@@ -323,6 +327,8 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
   // Reset entire voucher form
   const resetVoucherForm = () => {
     setEditingVoucherId(null);
+    setEditingVoucher(null);
+    setEditingEntryIndex(null);
     setEntries([]);
     setPoNumber('');
     setSelectedSalesman('');
@@ -332,11 +338,11 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
   };
 
   // Add or Update Entry in Voucher Grid
-  const handleAddOrUpdateEntry = (e?: React.FormEvent) => {
+  const handleAddOrUpdateEntry = (e?: React.FormEvent, andPost: boolean = false) => {
     if (e) e.preventDefault();
     if (!currentEntryAccount) {
       setFeedback({ type: 'error', text: 'Please select an Account (G/L Account) first.' });
-      return;
+      return false;
     }
 
     let amt = parseFloat(entryAmount) || 0;
@@ -364,19 +370,19 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
     if (activeTab === 'journalVoucher') {
       if (dr <= 0 && cr <= 0) {
         setFeedback({ type: 'error', text: 'Please enter Debit or Credit amount.' });
-        return;
+        return false;
       }
       amt = dr > 0 ? dr : cr;
     } else if (activeTab === 'cashBook') {
       if (rcpt <= 0 && pymt <= 0) {
         setFeedback({ type: 'error', text: 'Please enter Receipt or Payment amount.' });
-        return;
+        return false;
       }
       amt = rcpt > 0 ? rcpt : pymt;
     } else {
       if (amt <= 0 && disc <= 0) {
         setFeedback({ type: 'error', text: 'Please enter a valid Amount or Discount.' });
-        return;
+        return false;
       }
     }
 
@@ -400,53 +406,79 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
       payment: pymt > 0 ? pymt : undefined,
     };
 
+    let nextEntries = [...entries];
     if (editingEntryIndex !== null) {
-      const updated = [...entries];
-      updated[editingEntryIndex] = newEntry;
-      setEntries(updated);
+      nextEntries[editingEntryIndex] = newEntry;
+      setEntries(nextEntries);
       setEditingEntryIndex(null);
     } else {
-      setEntries([...entries, newEntry]);
+      nextEntries.push(newEntry);
+      setEntries(nextEntries);
     }
 
     // Reset line items
-    setSelectedAccountId('');
-    setChequeNo('');
-    setChequeBank('');
-    setEntryAmount('');
-    setEntryDiscount('');
-    setDiscountType('amount');
-    setEntryDebit('');
-    setEntryCredit('');
-    setEntryReceipt('');
-    setEntryPayment('');
+    resetEntryLine();
     setFeedback(null);
 
-    // Keep cursor active in account search bar for rapid data entry
+    // If andPost is requested OR if editing an existing voucher, directly save/update the voucher to database!
+    if (andPost || editingVoucherId) {
+      handlePostVoucher(false, nextEntries);
+      return true;
+    }
+
+    // For new voucher: focus on the Post button so user can simply tap Enter to post!
     setTimeout(() => {
-      accountInputRef.current?.focus();
+      postButtonRef.current?.focus();
     }, 50);
+
+    return true;
   };
 
   const handleEditEntry = (idx: number) => {
     const item = entries[idx];
-    setSelectedAccountId(item.accountId || item.accountCode);
-    setNarration(item.narration);
+    if (!item) return;
+
+    const targetAcc = safeGlAccounts.find((a) => a && (
+      a.id === item.accountId ||
+      a.code === item.accountCode ||
+      (item.accountTitle && a.title.toLowerCase() === item.accountTitle.toLowerCase())
+    ));
+    if (targetAcc) {
+      setSelectedAccountId(targetAcc.id);
+    } else {
+      setSelectedAccountId(item.accountId || item.accountCode);
+    }
+
+    setNarration(item.narration || '');
     setChequeNo(item.chequeNo || '');
     setChequeDate(item.chequeDate || getTodayFormatted());
     setChequeBank(item.chequeBank || '');
-    setEntryAmount(String(item.amount || ''));
+    setEntryAmount(item.amount ? String(item.amount) : '');
     setEntryDiscount(item.discount !== undefined ? String(item.discount) : '');
     setDiscountType(item.discountType || 'amount');
-    setEntryDebit(String(item.debit || ''));
-    setEntryCredit(String(item.credit || ''));
-    setEntryReceipt(String(item.receipt || ''));
-    setEntryPayment(String(item.payment || ''));
+    setEntryDebit(item.debit ? String(item.debit) : '');
+    setEntryCredit(item.credit ? String(item.credit) : '');
+    setEntryReceipt(item.receipt ? String(item.receipt) : '');
+    setEntryPayment(item.payment ? String(item.payment) : '');
     setEditingEntryIndex(idx);
+
+    setTimeout(() => {
+      if (activeTab === 'journalVoucher') {
+        debitInputRef.current?.focus();
+        debitInputRef.current?.select();
+      } else if (activeTab === 'cashBook') {
+        receiptInputRef.current?.focus();
+        receiptInputRef.current?.select();
+      } else {
+        amountInputRef.current?.focus();
+        amountInputRef.current?.select();
+      }
+    }, 50);
   };
 
   const handleDeleteEntry = (idx: number) => {
-    setEntries(entries.filter((_, i) => i !== idx));
+    const nextEntries = entries.filter((_, i) => i !== idx);
+    setEntries(nextEntries);
     if (editingEntryIndex === idx) setEditingEntryIndex(null);
   };
 
@@ -461,16 +493,62 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
   const jvTotalCredit = entries.reduce((sum, e) => sum + (e.credit || 0), 0);
   const jvDifference = Math.abs(jvTotalDebit - jvTotalCredit);
 
+  // Global Keyboard Shortcuts (Ctrl+Enter to post voucher, Escape to cancel editing)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        // If an entry is currently in progress with selected account and amount, save & post it!
+        if (selectedAccountId && (entryAmount || entryDebit || entryCredit || entryReceipt || entryPayment)) {
+          handleAddOrUpdateEntry(undefined, true);
+        } else if (entries.length > 0) {
+          handlePostVoucher(false);
+        }
+      } else if (e.key === 'Escape') {
+        if (editingEntryIndex !== null) {
+          e.preventDefault();
+          setEditingEntryIndex(null);
+          resetEntryLine();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [
+    selectedAccountId,
+    entryAmount,
+    entryDebit,
+    entryCredit,
+    entryReceipt,
+    entryPayment,
+    entries,
+    editingVoucherId,
+    editingVoucher,
+    editingEntryIndex,
+    activeTab,
+    voucherDate,
+    selectedBankId,
+    selectedCashAccountId,
+    selectedSalesman,
+    poNumber,
+  ]);
+
   // Post Voucher
-  const handlePostVoucher = async (openNew: boolean = false) => {
-    if (entries.length === 0) {
+  const handlePostVoucher = async (openNew: boolean = false, customEntries?: VoucherEntry[]) => {
+    const activeEntries = customEntries || entries;
+    if (activeEntries.length === 0) {
       setFeedback({ type: 'error', text: 'Please add at least one entry line before posting.' });
       return;
     }
 
-    if (activeTab === 'journalVoucher' && jvDifference > 0.01) {
-      if (!window.confirm(`Warning: Journal Voucher is not balanced (Debit: ${jvTotalDebit}, Credit: ${jvTotalCredit}, Diff: ${jvDifference}). Do you want to proceed?`)) {
-        return;
+    if (activeTab === 'journalVoucher') {
+      const curJvDebit = activeEntries.reduce((sum, e) => sum + (e.debit || 0), 0);
+      const curJvCredit = activeEntries.reduce((sum, e) => sum + (e.credit || 0), 0);
+      const curDiff = Math.abs(curJvDebit - curJvCredit);
+      if (curDiff > 0.01) {
+        if (!window.confirm(`Warning: Journal Voucher is not balanced (Debit: ${curJvDebit}, Credit: ${curJvCredit}, Diff: ${curDiff}). Do you want to proceed?`)) {
+          return;
+        }
       }
     }
 
@@ -486,10 +564,17 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
     else if (activeTab === 'cashBook') { voucherType = 'CB'; vNumber = nextNumbers.voucherNumbers.CB; }
     else if (activeTab === 'journalVoucher') { voucherType = 'JV'; vNumber = nextNumbers.voucherNumbers.JV; }
 
+    const activeTotalAmount = activeEntries.reduce((sum, e) => {
+      if (activeTab === 'cashBook') return sum + (e.receipt || e.payment || e.amount || 0);
+      if (activeTab === 'journalVoucher') return sum + (e.debit || e.amount || 0);
+      return sum + (e.amount || 0);
+    }, 0);
+
     const payload: Partial<Voucher> = {
       voucherType,
-      jvNumber: editingVoucherId ? undefined : nextNumbers.jvNumber,
-      voucherNumber: editingVoucherId ? undefined : vNumber,
+      jvNumber: editingVoucher ? editingVoucher.jvNumber : (editingVoucherId ? undefined : nextNumbers.jvNumber),
+      voucherNumber: editingVoucher ? editingVoucher.voucherNumber : (editingVoucherId ? undefined : vNumber),
+      voucherNumberFormatted: editingVoucher?.voucherNumberFormatted,
       date: voucherDate,
       poNumber: poNumber.trim() || undefined,
       bankAccountId: activeTab.startsWith('bank') ? selectedBankId : undefined,
@@ -498,17 +583,23 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
       cashAccountTitle: activeTab.startsWith('cash') ? currentCashAccount?.title : undefined,
       salesmanId: selectedSalesman || undefined,
       salesmanTitle: selectedSalesman || undefined,
-      totalAmount: gridTotal,
-      entries,
+      totalAmount: Number(activeTotalAmount.toFixed(2)),
+      entries: activeEntries,
     };
 
     try {
       if (editingVoucherId) {
         await api.updateVoucher(editingVoucherId, payload);
-        setFeedback({ type: 'success', text: `Voucher updated and all ledger balances synced successfully!` });
+        setFeedback({
+          type: 'success',
+          text: `Voucher #${editingVoucher?.voucherNumberFormatted || ''} updated successfully! All ledger balances, customer accounts, and cash/bank synced!`,
+        });
       } else {
         await api.createVoucher(payload);
-        setFeedback({ type: 'success', text: `Voucher posted successfully! Ledger accounts and Tijori updated.` });
+        setFeedback({
+          type: 'success',
+          text: `Voucher posted successfully! Ledger accounts and Tijori updated.`,
+        });
       }
 
       await loadPrimaryData();
@@ -519,6 +610,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
       } else {
         setEntries([]);
         resetEntryLine();
+        setTimeout(() => accountInputRef.current?.focus(), 50);
       }
     } catch (err: any) {
       setFeedback({ type: 'error', text: err.message || 'Failed to post voucher' });
@@ -552,12 +644,13 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
   // Edit Voucher from Search View
   const handleEditVoucherFromSearch = (v: Voucher) => {
     setEditingVoucherId(v.id);
+    setEditingVoucher(v);
     setVoucherDate(v.date);
     setPoNumber(v.poNumber || '');
     if (v.bankAccountId) setSelectedBankId(v.bankAccountId);
     if (v.cashAccountId) setSelectedCashAccountId(v.cashAccountId);
     if (v.salesmanTitle) setSelectedSalesman(v.salesmanTitle);
-    setEntries(v.entries || []);
+    setEntries(Array.isArray(v.entries) ? JSON.parse(JSON.stringify(v.entries)) : []);
 
     if (v.voucherType === 'BR') setActiveTab('bankReceipt');
     else if (v.voucherType === 'BP') setActiveTab('bankPayment');
@@ -565,6 +658,12 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
     else if (v.voucherType === 'CP') setActiveTab('cashPayment');
     else if (v.voucherType === 'CB') setActiveTab('cashBook');
     else if (v.voucherType === 'JV') setActiveTab('journalVoucher');
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setFeedback({
+      type: 'info',
+      text: `Editing Voucher #${v.voucherNumberFormatted || v.voucherNumber} (JV #${v.jvNumber}). You can edit any line, amounts, dates, or accounts, then press Enter or click Save & Update.`,
+    });
   };
 
   // Delete Voucher
@@ -812,12 +911,16 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
           className={`p-3 rounded-xl border text-xs flex items-center justify-between animate-in fade-in duration-100 ${
             feedback.type === 'success'
               ? 'bg-emerald-950/80 border-emerald-700 text-emerald-200'
+              : feedback.type === 'info'
+              ? 'bg-sky-950/80 border-sky-700 text-sky-200'
               : 'bg-rose-950/80 border-rose-700 text-rose-200'
           }`}
         >
           <div className="flex items-center gap-2">
             {feedback.type === 'success' ? (
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            ) : feedback.type === 'info' ? (
+              <AlertCircle className="w-4 h-4 text-sky-400 shrink-0" />
             ) : (
               <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
             )}
@@ -836,24 +939,63 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
         <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
           {/* Panel Header Title (Matching Screenshot Blue Top Header) */}
           <div className="bg-sky-600/90 text-white px-5 py-2.5 font-bold text-sm tracking-wide flex items-center justify-between">
-            <span>
-              {activeTab === 'bankReceipt' && 'Bank Receipt Panel'}
-              {activeTab === 'bankPayment' && 'Bank Payment Panel'}
-              {activeTab === 'cashReceipt' && 'Cash Receipt Panel'}
-              {activeTab === 'cashPayment' && 'Cash Payment Panel'}
-              {activeTab === 'cashBook' && 'Cash Book Voucher Panel'}
-              {activeTab === 'journalVoucher' && 'Journal Voucher (JV) Panel'}
-            </span>
+            <div className="flex items-center gap-2">
+              <span>
+                {activeTab === 'bankReceipt' && 'Bank Receipt Panel'}
+                {activeTab === 'bankPayment' && 'Bank Payment Panel'}
+                {activeTab === 'cashReceipt' && 'Cash Receipt Panel'}
+                {activeTab === 'cashPayment' && 'Cash Payment Panel'}
+                {activeTab === 'cashBook' && 'Cash Book Voucher Panel'}
+                {activeTab === 'journalVoucher' && 'Journal Voucher (JV) Panel'}
+              </span>
+              {editingVoucher && (
+                <span className="bg-amber-500 text-slate-950 font-black px-2 py-0.5 rounded text-xs uppercase tracking-wider">
+                  Editing #{editingVoucher.voucherNumberFormatted || editingVoucher.voucherNumber}
+                </span>
+              )}
+            </div>
             {editingVoucherId && (
               <button
                 type="button"
                 onClick={resetVoucherForm}
-                className="text-xs bg-slate-900/60 hover:bg-slate-900 text-white px-2.5 py-1 rounded transition"
+                className="text-xs bg-slate-900/80 hover:bg-slate-900 text-white font-bold px-3 py-1 rounded-lg transition border border-white/20 cursor-pointer shadow-xs"
               >
                 Cancel Edit
               </button>
             )}
           </div>
+
+          {/* Active Editing Voucher Banner */}
+          {editingVoucher && (
+            <div className="bg-amber-950/70 border-b border-amber-600/40 px-5 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs text-amber-200">
+              <div className="flex items-center gap-2">
+                <span className="flex h-2.5 w-2.5 rounded-full bg-amber-400 animate-ping" />
+                <span className="font-bold text-white text-sm">
+                  Editing Voucher #{editingVoucher.voucherNumberFormatted || editingVoucher.voucherNumber} (JV #{editingVoucher.jvNumber})
+                </span>
+                <span className="text-amber-300/80">
+                  • Date: {voucherDate} • Lines: {entries.length} • Total: {currencySymbol()} {Number(gridTotal || 0).toFixed(2)}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handlePostVoucher(false)}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3 py-1.5 rounded-lg text-xs transition cursor-pointer flex items-center gap-1.5 shadow"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Save &amp; Update Voucher</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={resetVoucherForm}
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-3 py-1.5 rounded-lg text-xs transition cursor-pointer"
+                >
+                  Cancel Edit
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="p-4 sm:p-5 space-y-4">
             {/* Top Control Bar Row */}
@@ -864,7 +1006,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                 <input
                   type="text"
                   readOnly
-                  value={editingVoucherId ? 'EDIT' : (nextNumbers?.jvNumber ?? 19694)}
+                  value={editingVoucher ? editingVoucher.jvNumber : (nextNumbers?.jvNumber ?? 19694)}
                   className="w-20 bg-slate-800/80 border border-slate-700 rounded px-2.5 py-1 text-center font-bold text-slate-200 outline-none"
                 />
               </div>
@@ -876,7 +1018,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                   <input
                     type="text"
                     readOnly
-                    value={nextNumbers?.voucherNumbers?.BR ?? 1}
+                    value={editingVoucher ? (editingVoucher.voucherNumberFormatted || editingVoucher.voucherNumber) : (nextNumbers?.voucherNumbers?.BR ?? 1)}
                     className="w-16 bg-slate-800/80 border border-slate-700 rounded px-2.5 py-1 text-center font-bold text-slate-200 outline-none"
                   />
                 </div>
@@ -888,7 +1030,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                   <input
                     type="text"
                     readOnly
-                    value={nextNumbers?.voucherNumbers?.BP ?? 1}
+                    value={editingVoucher ? (editingVoucher.voucherNumberFormatted || editingVoucher.voucherNumber) : (nextNumbers?.voucherNumbers?.BP ?? 1)}
                     className="w-16 bg-slate-800/80 border border-slate-700 rounded px-2.5 py-1 text-center font-bold text-slate-200 outline-none"
                   />
                 </div>
@@ -900,7 +1042,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                   <input
                     type="text"
                     readOnly
-                    value={nextNumbers?.voucherNumbers?.CR ?? 5514}
+                    value={editingVoucher ? (editingVoucher.voucherNumberFormatted || editingVoucher.voucherNumber) : (nextNumbers?.voucherNumbers?.CR ?? 5514)}
                     className="w-20 bg-slate-800/80 border border-slate-700 rounded px-2.5 py-1 text-center font-bold text-slate-200 outline-none"
                   />
                 </div>
@@ -912,7 +1054,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                   <input
                     type="text"
                     readOnly
-                    value={nextNumbers?.voucherNumbers?.CP ?? 1025}
+                    value={editingVoucher ? (editingVoucher.voucherNumberFormatted || editingVoucher.voucherNumber) : (nextNumbers?.voucherNumbers?.CP ?? 1025)}
                     className="w-20 bg-slate-800/80 border border-slate-700 rounded px-2.5 py-1 text-center font-bold text-slate-200 outline-none"
                   />
                 </div>
@@ -924,7 +1066,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                   <input
                     type="text"
                     readOnly
-                    value={nextNumbers?.voucherNumbers?.CB ?? 101}
+                    value={editingVoucher ? (editingVoucher.voucherNumberFormatted || editingVoucher.voucherNumber) : (nextNumbers?.voucherNumbers?.CB ?? 101)}
                     className="w-16 bg-slate-800/80 border border-slate-700 rounded px-2.5 py-1 text-center font-bold text-slate-200 outline-none"
                   />
                 </div>
@@ -1035,6 +1177,28 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
               </div>
             </div>
 
+            {/* Editing Line Banner */}
+            {editingEntryIndex !== null && (
+              <div className="bg-sky-950/70 border border-sky-600/50 px-4 py-2 rounded-xl text-xs text-sky-200 flex items-center justify-between animate-in fade-in duration-100">
+                <div className="flex items-center gap-2">
+                  <Edit2 className="w-3.5 h-3.5 text-sky-400" />
+                  <span>
+                    Editing Line #{editingEntryIndex + 1}: <strong className="text-white">{entries[editingEntryIndex]?.accountTitle}</strong> — Change any values below and click <strong>"Save"</strong> or press <strong>Enter</strong>
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingEntryIndex(null);
+                    resetEntryLine();
+                  }}
+                  className="text-sky-300 hover:text-white underline text-[11px] cursor-pointer"
+                >
+                  Cancel Line Edit
+                </button>
+              </div>
+            )}
+
             {/* Entry Input Row (Matching Screenshots Table Header & Input Row) */}
             <form onSubmit={handleAddOrUpdateEntry} className="bg-slate-950/70 border border-slate-800 rounded-xl p-3 space-y-2">
               <div className="grid grid-cols-1 md:grid-cols-12 gap-2 text-xs items-end">
@@ -1069,6 +1233,11 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                     accounts={safeGlAccounts}
                     selectedAccountId={selectedAccountId}
                     currentTab={activeTab}
+                    onEnterEmpty={() => {
+                      if (entries.length > 0) {
+                        handlePostVoucher(false);
+                      }
+                    }}
                     onSelectAccount={(id) => {
                       setSelectedAccountId(id);
                       if (id) {
@@ -1295,7 +1464,12 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
-                          handleAddOrUpdateEntry(e as any);
+                          if ((activeTab === 'cashReceipt' || activeTab === 'bankReceipt') && discountInputRef.current) {
+                            discountInputRef.current.focus();
+                            discountInputRef.current.select();
+                          } else {
+                            handleAddOrUpdateEntry(e as any, false);
+                          }
                         }
                       }}
                       placeholder="0.00"
@@ -1339,6 +1513,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                       </div>
                     </div>
                     <input
+                      ref={discountInputRef}
                       type="number"
                       step="any"
                       min="0"
@@ -1347,7 +1522,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
-                          handleAddOrUpdateEntry(e as any);
+                          handleAddOrUpdateEntry(e as any, false);
                         }
                       }}
                       placeholder={discountType === 'percentage' ? 'e.g. 10%' : '0.00'}
@@ -1552,12 +1727,18 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                   </button>
 
                   <button
+                    ref={postButtonRef}
                     type="button"
+                    tabIndex={0}
                     onClick={() => handlePostVoucher(false)}
                     disabled={isLoading || entries.length === 0}
-                    className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg transition disabled:opacity-50 cursor-pointer shadow-sm"
+                    className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold rounded-lg transition disabled:opacity-50 cursor-pointer shadow-sm flex items-center gap-2 focus:ring-2 focus:ring-emerald-400 focus:outline-none"
+                    title={editingVoucherId ? 'Save & update this voucher (Enter / Ctrl+Enter)' : 'Post voucher to ledgers (Enter / Ctrl+Enter)'}
                   >
-                    {editingVoucherId ? 'Save & Update' : 'Post'}
+                    <span>{editingVoucherId ? 'Save & Update Voucher' : 'Post Voucher'}</span>
+                    <span className="bg-emerald-800/80 px-1.5 py-0.5 rounded text-[10px] text-emerald-200 font-mono border border-emerald-500/50">
+                      Enter ↵
+                    </span>
                   </button>
                 </div>
               </div>

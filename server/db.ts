@@ -10920,6 +10920,71 @@ ON CONFLICT (id) DO NOTHING;`);
 
     list[idx] = updatedVoucher;
 
+    // Clean up any previously synced expenses for this voucher
+    if (this.data.expenses) {
+      this.data.expenses = this.data.expenses.filter((e) =>
+        e.voucherId !== oldVoucher.id &&
+        !e.id.startsWith(`exp-${oldVoucher.id}`) &&
+        !e.id.startsWith(`exp-sal-${oldVoucher.id}`) &&
+        !e.id.startsWith(`exp-disc-${oldVoucher.id}`)
+      );
+    }
+
+    // Re-sync Expense and Employee Salary line items into this.data.expenses for the updated voucher
+    (updatedVoucher.entries || []).forEach((e, entryIdx) => {
+      const isExpense = e.accountType === 'Expense' || (e.accountCode && e.accountCode.startsWith('0301')) || (e.accountId && e.accountId.startsWith('exp-'));
+      const isEmployee = e.accountType === 'Employee' || (e.accountCode && e.accountCode.startsWith('0401')) || (this.data.employees || []).some((emp) => emp.id === e.accountId || emp.code === e.accountCode);
+      const amt = Number((e.amount || e.payment || e.debit || 0).toFixed(2));
+      const isBank = updatedVoucher.voucherType === 'BP' || Boolean(updatedVoucher.bankAccountId);
+
+      // Employee Payment (Salary / Advance)
+      if (isEmployee && amt > 0 && (updatedVoucher.voucherType === 'CP' || updatedVoucher.voucherType === 'BP')) {
+        const empExp: Expense = {
+          id: `exp-sal-${updatedVoucher.id}-${entryIdx}`,
+          expenseNumber: `EXP-SAL-${updatedVoucher.voucherNumberFormatted || updatedVoucher.voucherNumber}`,
+          category: 'Salary & Staff' as any,
+          title: `Salary / Advance: ${e.accountTitle}`,
+          amount: amt,
+          date: updatedVoucher.date,
+          scope: 'business_wide',
+          notes: `Payment to staff on ${updatedVoucher.voucherType} Voucher #${updatedVoucher.voucherNumberFormatted || updatedVoucher.voucherNumber}`,
+          recordedBy: updatedVoucher.salesmanTitle || userName,
+          source: 'manual',
+          paymentMethod: isBank ? 'Bank' : 'Cash',
+          bankId: updatedVoucher.bankAccountId,
+          bankTitle: updatedVoucher.bankAccountTitle,
+          voucherId: updatedVoucher.id,
+          createdAt: updatedVoucher.createdAt || updatedVoucher.updatedAt,
+        };
+        if (!this.data.expenses) this.data.expenses = [];
+        this.data.expenses.push(empExp);
+      }
+
+      // Normal Expense Accounts
+      if (isExpense && amt > 0) {
+        const expCategory = e.accountTitle.includes('(') ? e.accountTitle.split('(')[1].replace(')', '').trim() : 'Operational';
+        const newExp: Expense = {
+          id: `exp-${updatedVoucher.id}-${entryIdx}`,
+          expenseNumber: `EXP-${updatedVoucher.voucherNumberFormatted || updatedVoucher.voucherNumber}`,
+          category: expCategory as any,
+          title: e.accountTitle,
+          amount: amt,
+          date: updatedVoucher.date,
+          scope: 'business_wide',
+          notes: e.narration || `${updatedVoucher.voucherType} Voucher #${updatedVoucher.voucherNumberFormatted || updatedVoucher.voucherNumber}`,
+          recordedBy: updatedVoucher.salesmanTitle || userName,
+          source: 'manual',
+          paymentMethod: isBank ? 'Bank' : 'Cash',
+          bankId: updatedVoucher.bankAccountId,
+          bankTitle: updatedVoucher.bankAccountTitle,
+          voucherId: updatedVoucher.id,
+          createdAt: updatedVoucher.createdAt || updatedVoucher.updatedAt,
+        };
+        if (!this.data.expenses) this.data.expenses = [];
+        this.data.expenses.push(newExp);
+      }
+    });
+
     this.logAudit({
       userId: 'user-admin',
       userName,
