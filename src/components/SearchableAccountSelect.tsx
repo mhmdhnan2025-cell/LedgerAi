@@ -12,7 +12,6 @@ interface SearchableAccountSelectProps {
   className?: string;
   inputRef?: React.RefObject<HTMLInputElement | null>;
   onEnterNext?: () => void;
-  onEnterEmpty?: () => void;
   currentTab?: string;
 }
 
@@ -26,7 +25,6 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
   className = '',
   inputRef: externalInputRef,
   onEnterNext,
-  onEnterEmpty,
   currentTab = 'cashReceipt',
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -588,10 +586,6 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
                 });
               } else if (e.key === 'Enter') {
                 e.preventDefault();
-                if (!searchTerm.trim() && onEnterEmpty) {
-                  onEnterEmpty();
-                  return;
-                }
                 if (isOpen && filteredAccounts.length > 0 && highlightedIndex >= 0 && highlightedIndex < filteredAccounts.length) {
                   handleSelect(filteredAccounts[highlightedIndex]);
                   if (onEnterNext) onEnterNext();

@@ -100,7 +100,6 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
   const debitInputRef = useRef<HTMLInputElement>(null);
   const receiptInputRef = useRef<HTMLInputElement>(null);
   const discountInputRef = useRef<HTMLInputElement>(null);
-  const postButtonRef = useRef<HTMLButtonElement>(null);
   const [selectedAccountId, setSelectedAccountId] = useState('');
   const [accountSearch, setAccountSearch] = useState('');
   const [chequeNo, setChequeNo] = useState('');
@@ -338,7 +337,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
   };
 
   // Add or Update Entry in Voucher Grid
-  const handleAddOrUpdateEntry = (e?: React.FormEvent, andPost: boolean = false) => {
+  const handleAddOrUpdateEntry = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!currentEntryAccount) {
       setFeedback({ type: 'error', text: 'Please select an Account (G/L Account) first.' });
@@ -418,17 +417,16 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
 
     // Reset line items
     resetEntryLine();
-    setFeedback(null);
-
-    // If andPost is requested OR if editing an existing voucher, directly save/update the voucher to database!
-    if (andPost || editingVoucherId) {
-      handlePostVoucher(false, nextEntries);
-      return true;
+    if (editingVoucherId) {
+      setFeedback({ type: 'info', text: 'Line updated in voucher. Click "Save & Update Voucher" button to save all changes.' });
+    } else {
+      setFeedback(null);
     }
 
-    // For new voucher: focus on the Post button so user can simply tap Enter to post!
+    // Keep cursor active in account search bar for rapid data entry
     setTimeout(() => {
-      postButtonRef.current?.focus();
+      const searchInput = document.getElementById('account-search-input');
+      if (searchInput) searchInput.focus();
     }, 50);
 
     return true;
@@ -493,18 +491,10 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
   const jvTotalCredit = entries.reduce((sum, e) => sum + (e.credit || 0), 0);
   const jvDifference = Math.abs(jvTotalDebit - jvTotalCredit);
 
-  // Global Keyboard Shortcuts (Ctrl+Enter to post voucher, Escape to cancel editing)
+  // Global Keyboard Shortcuts (Escape to cancel line editing)
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        e.preventDefault();
-        // If an entry is currently in progress with selected account and amount, save & post it!
-        if (selectedAccountId && (entryAmount || entryDebit || entryCredit || entryReceipt || entryPayment)) {
-          handleAddOrUpdateEntry(undefined, true);
-        } else if (entries.length > 0) {
-          handlePostVoucher(false);
-        }
-      } else if (e.key === 'Escape') {
+      if (e.key === 'Escape') {
         if (editingEntryIndex !== null) {
           e.preventDefault();
           setEditingEntryIndex(null);
@@ -514,24 +504,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
     };
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [
-    selectedAccountId,
-    entryAmount,
-    entryDebit,
-    entryCredit,
-    entryReceipt,
-    entryPayment,
-    entries,
-    editingVoucherId,
-    editingVoucher,
-    editingEntryIndex,
-    activeTab,
-    voucherDate,
-    selectedBankId,
-    selectedCashAccountId,
-    selectedSalesman,
-    poNumber,
-  ]);
+  }, [editingEntryIndex]);
 
   // Post Voucher
   const handlePostVoucher = async (openNew: boolean = false, customEntries?: VoucherEntry[]) => {
@@ -662,7 +635,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setFeedback({
       type: 'info',
-      text: `Editing Voucher #${v.voucherNumberFormatted || v.voucherNumber} (JV #${v.jvNumber}). You can edit any line, amounts, dates, or accounts, then press Enter or click Save & Update.`,
+      text: `Editing Voucher #${v.voucherNumberFormatted || v.voucherNumber} (JV #${v.jvNumber}). You can edit any line, amounts, dates, or accounts, then click Save & Update Voucher.`,
     });
   };
 
@@ -1183,7 +1156,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                 <div className="flex items-center gap-2">
                   <Edit2 className="w-3.5 h-3.5 text-sky-400" />
                   <span>
-                    Editing Line #{editingEntryIndex + 1}: <strong className="text-white">{entries[editingEntryIndex]?.accountTitle}</strong> — Change any values below and click <strong>"Save"</strong> or press <strong>Enter</strong>
+                    Editing Line #{editingEntryIndex + 1}: <strong className="text-white">{entries[editingEntryIndex]?.accountTitle}</strong> — Change any values below and click <strong>"Update Line"</strong>
                   </span>
                 </div>
                 <button
@@ -1233,11 +1206,6 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                     accounts={safeGlAccounts}
                     selectedAccountId={selectedAccountId}
                     currentTab={activeTab}
-                    onEnterEmpty={() => {
-                      if (entries.length > 0) {
-                        handlePostVoucher(false);
-                      }
-                    }}
                     onSelectAccount={(id) => {
                       setSelectedAccountId(id);
                       if (id) {
@@ -1468,7 +1436,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                             discountInputRef.current.focus();
                             discountInputRef.current.select();
                           } else {
-                            handleAddOrUpdateEntry(e as any, false);
+                            handleAddOrUpdateEntry(e as any);
                           }
                         }
                       }}
@@ -1522,7 +1490,7 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
-                          handleAddOrUpdateEntry(e as any, false);
+                          handleAddOrUpdateEntry(e as any);
                         }
                       }}
                       placeholder={discountType === 'percentage' ? 'e.g. 10%' : '0.00'}
@@ -1727,18 +1695,13 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                   </button>
 
                   <button
-                    ref={postButtonRef}
                     type="button"
-                    tabIndex={0}
                     onClick={() => handlePostVoucher(false)}
                     disabled={isLoading || entries.length === 0}
-                    className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold rounded-lg transition disabled:opacity-50 cursor-pointer shadow-sm flex items-center gap-2 focus:ring-2 focus:ring-emerald-400 focus:outline-none"
-                    title={editingVoucherId ? 'Save & update this voucher (Enter / Ctrl+Enter)' : 'Post voucher to ledgers (Enter / Ctrl+Enter)'}
+                    className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold rounded-lg transition disabled:opacity-50 cursor-pointer shadow-sm flex items-center gap-2"
+                    title={editingVoucherId ? 'Save & update this voucher' : 'Post voucher to ledgers'}
                   >
                     <span>{editingVoucherId ? 'Save & Update Voucher' : 'Post Voucher'}</span>
-                    <span className="bg-emerald-800/80 px-1.5 py-0.5 rounded text-[10px] text-emerald-200 font-mono border border-emerald-500/50">
-                      Enter ↵
-                    </span>
                   </button>
                 </div>
               </div>
