@@ -209,7 +209,7 @@ function cashMovementOn(ctx: LedgerContext, date: string): { cashIn: number; cas
   }
   for (const expense of ctx.expenses) {
     if (db.normalizeDateToYMD(expense.date) !== date) continue;
-    if (expense.voucherId || (expense.id && expense.id.startsWith('exp-vch-')) || (expense.id && expense.id.startsWith('exp-disc-')) || (expense.id && expense.id.startsWith('exp-sal-'))) continue;
+    if (expense.voucherId || (expense.id && expense.id.startsWith('exp-vch-')) || (expense.id && expense.id.startsWith('exp-disc-'))) continue;
     const pm = (expense.paymentMethod || 'Cash').toLowerCase();
     if (!pm.includes('bank') && !pm.includes('cheque') && !pm.includes('transfer')) {
       cashOut += Number(expense.amount) || 0;
@@ -555,9 +555,6 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
         e &&
         (e.category as string) !== 'Discount Allowed' &&
         !(e.id && e.id.startsWith('exp-disc-')) &&
-        !(e.id && e.id.startsWith('exp-sal-')) &&
-        (e.category as string) !== 'Salary & Staff' &&
-        (e.category as string) !== 'Salary' &&
         !(e as any).isDeleted &&
         (e as any).status !== 'DELETED' &&
         (e as any).status !== 'Deleted' &&
@@ -594,6 +591,7 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     );
     const customers = db.getCustomers() || [];
     const suppliers = db.getSuppliers() || [];
+    const employees = db.getEmployees() || [];
     const products = db.getProducts() || [];
     const restaurants = db.getRestaurants() || [];
     const company = db.getCompanyProfile();
@@ -1159,10 +1157,55 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     const monthVatExcluded = saleBillsMonth.reduce((s, b) => s + (Number(b.totalVatAmount) || 0), 0);
     const totalVatExcluded = saleBillsUpto.reduce((s, b) => s + (Number(b.totalVatAmount) || 0), 0);
 
-    // Operating Expenses:
-    const todayExpenses = expenses.filter((e) => onDate(e.date)).reduce((s, e) => s + (Number(e.amount) || 0), 0);
-    const monthExpenses = expenses.filter((e) => uptoDate(e.date) && inMonth(e.date)).reduce((s, e) => s + (Number(e.amount) || 0), 0);
-    const totalExpenses = expenses.filter((e) => uptoDate(e.date)).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    // Direct Operating Expenses (Salaries, Petrol, Utilities, Rent, Misc recorded in expenses table):
+    const todayDirectExpenses = expenses.filter((e) => onDate(e.date)).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const monthDirectExpenses = expenses.filter((e) => uptoDate(e.date) && inMonth(e.date)).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const totalDirectExpenses = expenses.filter((e) => uptoDate(e.date)).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+
+    // Employee Salary paid via Vouchers (CP, CB, BP):
+    const employeeIds = new Set<string>();
+    const employeeCodes = new Set<string>();
+    const employeeTitles = new Set<string>();
+    for (const emp of employees) {
+      if (emp.id) employeeIds.add(emp.id);
+      if (emp.code) employeeCodes.add(emp.code.toLowerCase().trim());
+      if (emp.accountTitle) employeeTitles.add(emp.accountTitle.toLowerCase().trim());
+      if (emp.fullName) employeeTitles.add(emp.fullName.toLowerCase().trim());
+    }
+
+    const isEmployeeEntry = (e: any): boolean => {
+      if (!e) return false;
+      if (e.accountType === 'Employee') return true;
+      const code = String(e.accountCode || '').toLowerCase().trim();
+      if (code.startsWith('0401')) return true;
+      if (e.accountId && employeeIds.has(e.accountId)) return true;
+      if (code && employeeCodes.has(code)) return true;
+      const title = String(e.accountTitle || '').toLowerCase().trim();
+      if (title && (employeeTitles.has(title) || title.includes('salary') || title.includes('staff'))) return true;
+      return false;
+    };
+
+    let todayEmployeeVoucherSalary = 0;
+    let monthEmployeeVoucherSalary = 0;
+    let totalEmployeeVoucherSalary = 0;
+
+    for (const v of vouchers) {
+      if (v.status !== 'POSTED') continue;
+      const vDate = db.normalizeDateToYMD(v.date);
+      for (const e of (v.entries || [])) {
+        if (isEmployeeEntry(e)) {
+          const amt = Number(e.amount || e.payment || e.debit || 0);
+          if (onDate(vDate)) todayEmployeeVoucherSalary += amt;
+          if (uptoDate(vDate) && inMonth(vDate)) monthEmployeeVoucherSalary += amt;
+          if (uptoDate(vDate)) totalEmployeeVoucherSalary += amt;
+        }
+      }
+    }
+
+    // Total Operating Expenses (combining Direct Expenses + Employee Voucher Salaries + Cash & Bank Settlement Voucher Discounts):
+    const todayExpenses = Number((todayDirectExpenses + todayEmployeeVoucherSalary + todayVoucherDiscount).toFixed(2));
+    const monthExpenses = Number((monthDirectExpenses + monthEmployeeVoucherSalary + monthVoucherDiscount).toFixed(2));
+    const totalExpenses = Number((totalDirectExpenses + totalEmployeeVoucherSalary + totalVoucherDiscount).toFixed(2));
 
     // Return COGS & Ex-VAT helpers:
     const cogsOfSaleReturns = (returnsList: SaleReturn[]) => cost.costOf(
@@ -1210,10 +1253,10 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     const monthGrossProfit = Number((monthExVatRevenue - monthCogs).toFixed(2));
     const totalGrossProfit = Number((totalExVatRevenue - totalCogs).toFixed(2));
 
-    // Net Profits (Gross Profit - Cash & Bank Voucher Discounts - Sale Return Discounts - Operating Expenses):
-    const todayNetProfit = Number((todayGrossProfit - todayVoucherDiscount - todaySaleReturnDiscount - todayExpenses).toFixed(2));
-    const monthNetProfit = Number((monthGrossProfit - monthVoucherDiscount - monthSaleReturnDiscount - monthExpenses).toFixed(2));
-    const totalNetProfit = Number((totalGrossProfit - totalVoucherDiscount - totalSaleReturnDiscount - totalExpenses).toFixed(2));
+    // Net Profits (Gross Profit - Sale Return Discounts - Total Operating Expenses including Voucher Discounts & Salaries):
+    const todayNetProfit = Number((todayGrossProfit - todaySaleReturnDiscount - todayExpenses).toFixed(2));
+    const monthNetProfit = Number((monthGrossProfit - monthSaleReturnDiscount - monthExpenses).toFixed(2));
+    const totalNetProfit = Number((totalGrossProfit - totalSaleReturnDiscount - totalExpenses).toFixed(2));
 
     const todayNetMargin = todayExVatRevenue > 0 ? (todayNetProfit / todayExVatRevenue) * 100 : 0;
     const monthMarginPct = monthExVatRevenue > 0 ? (monthNetProfit / monthExVatRevenue) * 100 : 0;
@@ -1363,30 +1406,19 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     if (todayPRCash > 0) {
       inflows.push({ label: 'Cash from Purchase Returns', value: todayPRCash, tag: 'PUR RETURN', direction: 'in' });
     }
-    // Bill discount shown in Cash Inflows
+    // Only Bill discount shown in Cash Inflows as requested by user
     inflows.push({
       label: 'Sale Bill Discount (Invoicing)',
       value: todayBillDiscount,
       tag: 'DISCOUNT',
       direction: 'memo',
     });
-    // Sale return discount shown in Cash Inflows
-    inflows.push({
-      label: 'Sale Return Discount (Customer Adjustment)',
-      value: todaySaleReturnDiscount,
-      tag: 'DISCOUNT',
-      direction: 'memo',
-    });
 
-    // Cash & Bank discount added into daily expenses as requested
-    const totalDailyExpenses = Number((todayExpenses + todayVoucherDiscount).toFixed(2));
     inflows.push(
       { label: 'Today Paid to Supplier (Mill / Vendor Cash)', value: todaySupplierCash, tag: 'SUPPLIER', direction: 'out' },
       {
-        label: todayVoucherDiscount > 0
-          ? `Daily Expense (Operating: ${symbol} ${num(todayExpenses)} + Khata Discount: ${symbol} ${num(todayVoucherDiscount)})`
-          : 'Daily Expense (Salaries, Petrol, Utilities, Misc)',
-        value: totalDailyExpenses,
+        label: 'Daily Expense (Salaries, Petrol, Utilities, Misc)',
+        value: todayExpenses,
         tag: 'EXPENSE',
         direction: 'out',
       }

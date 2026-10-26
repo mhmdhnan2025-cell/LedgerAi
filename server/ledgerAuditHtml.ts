@@ -476,7 +476,6 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
     <span class="it">Today Rev: <b class="strong">${sym} ${num(data.strip.todayRevenue)}</b></span>
     <span class="it">Today Profit: <b class="${data.strip.netProfit >= 0 ? 'green' : 'red'}">${data.strip.netProfit >= 0 ? '+' : ''}${sym} ${num(data.strip.netProfit)}</b></span>
     <span class="it">Month Profit: <b class="${(data.profitCard?.monthNetProfit ?? data.strip.monthNetProfit ?? 0) >= 0 ? 'green' : 'red'}">${(data.profitCard?.monthNetProfit ?? data.strip.monthNetProfit ?? 0) >= 0 ? '+' : ''}${sym} ${num(data.profitCard?.monthNetProfit ?? data.strip.monthNetProfit ?? 0)}</b></span>
-    <span class="it">Overall Profit: <b class="${(data.profitCard?.totalNetProfit ?? data.strip.totalNetProfit ?? 0) >= 0 ? 'green' : 'red'}">${(data.profitCard?.totalNetProfit ?? data.strip.totalNetProfit ?? 0) >= 0 ? '+' : ''}${sym} ${num(data.profitCard?.totalNetProfit ?? data.strip.totalNetProfit ?? 0)}</b></span>
     <span class="it">Discounts: <b class="amber">&minus;${sym} ${num(data.discountsHead?.todayTotalDiscount ?? data.strip.todayDiscount ?? 0)}</b></span>
     <span class="it">Udhaar Due: <b class="amber">${sym} ${num(data.strip.receivables)}</b></span>
     <span class="it">Stock: <b class="blue">${sym} ${num(data.strip.warehouseStock)}</b></span>
@@ -614,9 +613,9 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
           </thead>
           <tbody>${profitRows}</tbody>
         </table>
-        <div class="al-total">
-          <span>TOTAL SALESMEN PROFIT CONTRIBUTION:</span>
-          <span class="green">${sym} ${num(data.totalSalesmenProfit)}</span>
+        <div class="al-total" style="display:flex;justify-content:space-between;align-items:center">
+          <span>SALESMEN PROFIT:</span>
+          <span>Today: <b class="green">${sym} ${num(data.totalSalesmenTodayProfit || 0)}</b> &bull; Month: <b class="blue">${sym} ${num(data.totalSalesmenMonthProfit || 0)}</b></span>
         </div>
       </div>
     </div>
@@ -662,7 +661,7 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
   <!-- ================= 8. OVERALL NET PROFIT & PERFORMANCE ================= -->
   <div class="al-panel-full">
     <div class="al-panel-h">
-      <div class="t" style="color:#059669">8. OVERALL NET PROFIT &amp; PERFORMANCE (P&amp;L AUDIT REGISTER)</div>
+      <div class="t" style="color:#059669">8. NET PROFIT &amp; PERFORMANCE (TODAY &amp; MONTH AUDIT REGISTER)</div>
       <div class="s" style="color:#047857">ACTUAL AUDITED PROFIT</div>
     </div>
     <table class="al-t">
@@ -692,14 +691,6 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
           <td class="num muted">${sym} ${num(data.profitCard?.monthVatExcluded ?? 0)}</td>
           <td class="num amber">&minus;${sym} ${num(data.discountsHead?.monthTotalDiscount ?? 0)}</td>
           <td class="center"><span style="background:${(data.profitCard?.monthNetProfit ?? 0) >= 0 ? '#dcfce7;color:#166534' : '#fee2e2;color:#991b1b'};padding:2px 7px;border-radius:4px;font-size:8px;font-weight:800">${(data.profitCard?.monthNetProfit ?? 0) >= 0 ? 'PROFIT' : 'LOSS'}</span></td>
-        </tr>
-        <tr style="background:#f8fafc;border-top:1.5px solid #cbd5e1">
-          <td class="strong blue">OVERALL NET PROFIT (ALL TIME)</td>
-          <td class="num strong ${(data.profitCard?.totalNetProfit ?? 0) >= 0 ? 'green' : 'red'}">${(data.profitCard?.totalNetProfit ?? 0) >= 0 ? '+' : '&minus;'}${sym} ${num(Math.abs(data.profitCard?.totalNetProfit ?? 0))}</td>
-          <td class="num strong">${pct(data.profitCard?.totalMarginPct ?? 0)}</td>
-          <td class="num muted">${sym} ${num(data.profitCard?.totalVatExcluded ?? 0)}</td>
-          <td class="num strong red">&minus;${sym} ${num(data.discountsHead?.totalDiscounts ?? 0)}</td>
-          <td class="center"><span style="background:${(data.profitCard?.totalNetProfit ?? 0) >= 0 ? '#dbeafe;color:#1e40af' : '#fee2e2;color:#991b1b'};padding:2px 7px;border-radius:4px;font-size:8px;font-weight:800">AUDIT VERIFIED</span></td>
         </tr>
       </tbody>
     </table>

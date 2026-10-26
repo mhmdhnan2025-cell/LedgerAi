@@ -5477,7 +5477,7 @@ ON CONFLICT (id) DO NOTHING;`);
   // EXPENSES CRUD & ALLOCATION
   public getExpenses(): Expense[] {
     return (this.data.expenses || []).filter(
-      (e) => e && (e.category as string) !== 'Discount Allowed' && (e.category as string) !== 'Salary & Staff' && !e.id?.startsWith('exp-disc-') && !e.id?.startsWith('exp-sal-')
+      (e) => e && (e.category as string) !== 'Discount Allowed' && !e.id?.startsWith('exp-disc-')
     );
   }
 
@@ -6225,7 +6225,7 @@ ON CONFLICT (id) DO NOTHING;`);
     const validBills = (this.data.saleBills || []).filter((b) => b.status !== 'Cancelled');
     const validReturns = (this.data.saleReturns || []).filter((r) => r.status !== 'CANCELLED');
     const validOrders = (this.data.orders || []).filter((o) => o.status !== 'Cancelled');
-    const expenses = (this.data.expenses || []).filter((e) => !e.id?.startsWith('exp-disc-') && !e.id?.startsWith('exp-sal-') && (e.category as string) !== 'Salary & Staff');
+    const expenses = (this.data.expenses || []).filter((e) => !e.id?.startsWith('exp-disc-'));
     const vouchers = (this.data.vouchers || []).filter((v) => v.status === 'POSTED');
 
     // Sale Bills totals (Ex-VAT, deducting bill discounts)
@@ -6460,7 +6460,7 @@ ON CONFLICT (id) DO NOTHING;`);
       .reduce((sum, v) => sum + (v.entries || []).reduce((esum, e) => esum + (Number(e.discount) || 0), 0), 0);
 
     const todayGrossProfit = Number((todayRevenue - todayCostOfGoods).toFixed(2));
-    const todayExpensesList = (this.data.expenses || []).filter((e) => e.date === todayStr && !e.id?.startsWith('exp-disc-') && !e.id?.startsWith('exp-sal-') && (e.category as string) !== 'Salary & Staff');
+    const todayExpensesList = (this.data.expenses || []).filter((e) => e.date === todayStr && !e.id?.startsWith('exp-disc-'));
     const todayExpenses = todayExpensesList.reduce((sum, e) => sum + (e.amount || 0), 0);
     const todayNetProfit = Number((todayGrossProfit - todayVoucherDiscounts - todayExpenses).toFixed(2));
 
