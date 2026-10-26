@@ -1360,15 +1360,37 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     if (todayPRCash > 0) {
       inflows.push({ label: 'Cash from Purchase Returns', value: todayPRCash, tag: 'PUR RETURN', direction: 'in' });
     }
+    // Bill discount shown in Cash Inflows
+    inflows.push({
+      label: 'Sale Bill Discount (Invoicing)',
+      value: todayBillDiscount,
+      tag: 'DISCOUNT',
+      direction: 'memo',
+    });
+    // Sale return discount shown in Cash Inflows
+    inflows.push({
+      label: 'Sale Return Discount (Customer Adjustment)',
+      value: todaySaleReturnDiscount,
+      tag: 'DISCOUNT',
+      direction: 'memo',
+    });
+
+    // Cash & Bank discount added into daily expenses as requested
+    const totalDailyExpenses = Number((todayExpenses + todayVoucherDiscount).toFixed(2));
     inflows.push(
       { label: 'Today Paid to Supplier (Mill / Vendor Cash)', value: todaySupplierCash, tag: 'SUPPLIER', direction: 'out' },
-      { label: 'Daily Expense (Salaries, Petrol, Utilities, Misc)', value: todayExpenses, tag: 'EXPENSE', direction: 'out' }
+      {
+        label: todayVoucherDiscount > 0
+          ? `Daily Expense (Operating: ${symbol} ${num(todayExpenses)} + Khata Discount: ${symbol} ${num(todayVoucherDiscount)})`
+          : 'Daily Expense (Salaries, Petrol, Utilities, Misc)',
+        value: totalDailyExpenses,
+        tag: 'EXPENSE',
+        direction: 'out',
+      }
     );
     if (todaySRCash > 0) {
       inflows.push({ label: 'Cash Refunded on Sales Returns', value: todaySRCash, tag: 'SALE RETURN', direction: 'out' });
     }
-    // Note: Discounts are excluded from Cash Liquidity Register to avoid double writing,
-    // and are comprehensively tracked in Section 8 (Discounts Audit Head).
 
     const bankRows: AiLedgerAuditCashRow[] = [
       { label: 'Bank Received (Direct Online / Raast / Cheques)', value: todayBank.bankIn, tag: 'BANK IN', direction: 'in' },
