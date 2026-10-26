@@ -1352,6 +1352,9 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     const todaySRCash = saleReturnsTodayList.filter((r) => r.isCash).reduce((s, r) => s + (Number(r.netTotal) || 0), 0);
     const todayCounterCashSales = Math.max(0, todayMove.cashIn - todayMarketWasooli - todayPRCash);
 
+    const currency = (company?.currency || 'PKR').trim() || 'PKR';
+    const symbol = currencySymbolOf(currency);
+
     const inflows: AiLedgerAuditCashRow[] = [
       { label: 'Total Cash Received (Cash In)', value: todayMove.cashIn, tag: 'CASH IN', direction: 'in' },
       { label: 'Market Udhaar Wasooli (Credit Recovery)', value: todayMarketWasooli, tag: 'WASOOLI', direction: 'in' },
@@ -1409,8 +1412,6 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     // COMPANY PROFILE (from Company Registration / Settings)
     // -------------------------------------------------------------
     const companyName = (company?.name || 'AI LEDGER WHOLESALE ERP').trim();
-    const currency = (company?.currency || 'PKR').trim() || 'PKR';
-    const symbol = currencySymbolOf(currency);
     const companyInfo: AiLedgerAuditCompany = {
       name: companyName,
       tagline: (company?.tagline || '').trim(),
