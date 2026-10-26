@@ -107,6 +107,14 @@
   }
 
   /* AI Ledger Master Business Audit Report - print only the A4 sheet with 100% root suppression */
+  body.is-printing-audit {
+    margin: 0 !important;
+    padding: 0 !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
+  }
+
   body.is-printing-audit #root {
     display: none !important;
   }
@@ -121,7 +129,12 @@
     background: #ffffff !important;
     color: #000000 !important;
     box-shadow: none !important;
-    overflow: visible !important;
+    overflow: hidden !important;
+    max-height: 290mm !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   body.is-printing-audit #active-audit-print-container * {
@@ -135,7 +148,15 @@
   body.printing-audit .al-panel,
   body.printing-audit .al-panel-full,
   body.printing-audit .al-page {
-    overflow: visible !important;
+    overflow: hidden !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  body.is-printing-audit .no-print,
+  body.printing-audit .no-print,
+  .no-print {
+    display: none !important;
   }
 
   body.printing-audit #root > div > *:not(:has(#printable-audit-report)) {
