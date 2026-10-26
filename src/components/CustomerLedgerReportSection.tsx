@@ -172,8 +172,12 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
         } catch {}
       }
       setSelectedCustomer(targetCust);
-      if (targetCust) setCustomerSearch('');
-      handleGenerateReport(targetCust);
+      if (targetCust) {
+        setCustomerSearch('');
+        handleGenerateReport(targetCust);
+      } else {
+        setReport(null);
+      }
     };
 
     if (initialCustomers && initialCustomers.length > 0) {
@@ -187,11 +191,11 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
         if (Array.isArray(list) && list.length > 0) {
           resolveAndGenerate(list);
         } else {
-          handleGenerateReport(null);
+          setReport(null);
         }
       } catch (err) {
         console.warn('Failed to load customers for ledger report:', err);
-        handleGenerateReport(null);
+        setReport(null);
       }
     };
     fetchCustomers();
@@ -287,16 +291,41 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
   const handleSelectCustomer = (c: Customer | null) => {
     setSelectedCustomer(c);
     try {
-      if (c) {
+      if (c && c.id !== 'ALL') {
         sessionStorage.setItem('erp_selected_customer_ledger_id', c.id || c.code);
       } else {
-        sessionStorage.setItem('erp_selected_customer_ledger_id', 'ALL');
+        sessionStorage.removeItem('erp_selected_customer_ledger_id');
       }
     } catch {}
     setCustomerSearch('');
     setIsDropdownOpen(false);
-    handleGenerateReport(c);
+    if (c) {
+      handleGenerateReport(c);
+    } else {
+      setReport(null);
+    }
   };
+
+  const displayEntries = useMemo(() => {
+    if (!report || !report.entries) return [];
+    if (!selectedCustomer || selectedCustomer.id === 'ALL' || selectedCustomer.code === 'ALL') {
+      return report.entries;
+    }
+    const targetTitleLower = (selectedCustomer.accountTitle || selectedCustomer.name || '').trim().toLowerCase();
+    const targetIdLower = (selectedCustomer.id || '').trim().toLowerCase();
+    const targetBaseId = targetIdLower.replace(/_comp[_-].*$/, '');
+
+    return report.entries.filter((entry) => {
+      const entryTitle = (entry.customerAccountTitle || entry.customerName || '').trim().toLowerCase();
+      if (entryTitle && targetTitleLower && entryTitle === targetTitleLower) return true;
+      const entId = (entry.entityId || entry.id || '').trim().toLowerCase();
+      if (entId && (entId === targetIdLower || entId === targetBaseId)) return true;
+      if (entry.narration && entry.narration.startsWith('[') && !entry.narration.toLowerCase().startsWith(`[${targetTitleLower}`)) {
+        return false;
+      }
+      return true;
+    });
+  }, [report, selectedCustomer]);
 
   const handleToggleDropdown = () => {
     setIsDropdownOpen((prev) => {
@@ -436,7 +465,7 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
               onClick={handleToggleDropdown}
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white flex items-center justify-between cursor-pointer hover:border-slate-600 transition"
             >
-              <span className={`truncate ${selectedCustomer ? 'text-white font-semibold flex items-center gap-1.5' : 'text-sky-300 font-bold'}`}>
+              <span className={`truncate ${selectedCustomer ? 'text-white font-semibold flex items-center gap-1.5' : 'text-slate-400 font-medium'}`}>
                 {selectedCustomer ? (
                   <>
                     {selectedCustomer.srNo ? (
@@ -449,7 +478,7 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
                     </span>
                   </>
                 ) : (
-                  'All Accounts / Nothing Selected'
+                  '-- Select Customer / Restaurant Account --'
                 )}
               </span>
               <div className="flex items-center gap-1.5 ml-2 shrink-0">
@@ -503,11 +532,11 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
                   </div>
                 </div>
                 <div className="overflow-y-auto max-h-56 divide-y divide-slate-700/50">
-                  {/* Option 0: Nothing Selected / All Accounts */}
+                  {/* Option 0: Consolidated All Accounts */}
                   <div
-                    onClick={() => handleSelectCustomer(null)}
+                    onClick={() => handleSelectCustomer({ id: 'ALL', code: 'ALL', accountTitle: 'All Customer Accounts (Consolidated)' } as any)}
                     className={`p-2.5 text-xs cursor-pointer flex items-center justify-between transition border-b border-slate-700/80 ${
-                      selectedCustomer === null
+                      selectedCustomer?.id === 'ALL'
                         ? 'bg-sky-500/20 text-sky-200 font-bold border-l-4 border-l-sky-500'
                         : 'text-slate-200 hover:bg-slate-700/60'
                     }`}
@@ -515,8 +544,8 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
                     <div className="flex items-center gap-2">
                       <span className="text-sky-400 font-bold text-sm">★</span>
                       <div>
-                        <div className="font-bold text-white">All Accounts / Nothing Selected</div>
-                        <div className="text-[11px] text-slate-400">Combined ledger of all customer accounts with full transaction history</div>
+                        <div className="font-bold text-white">Consolidated: All Customer Accounts</div>
+                        <div className="text-[11px] text-slate-400">Combined ledger statement of all 343 customer accounts</div>
                       </div>
                     </div>
                     <span className="text-[10px] px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold">
@@ -709,7 +738,40 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
         </div>
       </div>
 
+      {/* Clean Selection Prompt (When No Account Selected) */}
+      {!selectedCustomer && !report && !isLoading && (
+        <div className="bg-white text-slate-900 rounded-xl shadow-xl p-8 border border-slate-200 text-center">
+          <div className="max-w-md mx-auto py-10">
+            <div className="w-16 h-16 bg-sky-100 text-sky-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-inner">
+              <Building2 className="w-8 h-8" />
+            </div>
+            <h3 className="text-lg font-black text-slate-900 mb-2">Select a Customer / Restaurant Account</h3>
+            <p className="text-xs text-slate-600 mb-6 leading-relaxed">
+              Please select an Account Title / Customer from the dropdown above to view their clean ledger statement, opening balance, and transaction history.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={handleToggleDropdown}
+                className="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold transition shadow-sm cursor-pointer inline-flex items-center gap-1.5"
+              >
+                <Search className="w-3.5 h-3.5" />
+                <span>Select Customer Account</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSelectCustomer({ id: 'ALL', code: 'ALL', accountTitle: 'All Customer Accounts (Consolidated)' } as any)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition border border-slate-300 cursor-pointer"
+              >
+                View Consolidated (All Accounts)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Report Canvas (Exact Match to Image 1: General Ledger Reporting) */}
+      {(report || isLoading) && (
       <div className="bg-white text-slate-900 rounded-xl shadow-xl p-6 sm:p-8 font-sans border border-slate-200 print:shadow-none print:border-none print:p-0 print:m-0">
         {/* Header (Branded Company Header) */}
         <div className="text-center pb-4 border-b border-slate-300">
@@ -810,14 +872,14 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
               </tr>
 
               {/* Transaction Rows */}
-              {!report || report.entries.length === 0 ? (
+              {!report || displayEntries.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-8 text-center text-slate-500 font-sans text-xs">
                     {isLoading ? 'Generating general ledger report...' : 'No transactions recorded within selected date range.'}
                   </td>
                 </tr>
               ) : (
-                report.entries.map((entry, idx) => {
+                displayEntries.map((entry, idx) => {
                   const isDebit = entry.debit > 0;
                   const isCredit = entry.credit > 0;
 
@@ -961,6 +1023,7 @@ export const CustomerLedgerReportSection: React.FC<CustomerLedgerReportSectionPr
           </div>
         </div>
       </div>
+      )}
 
       {/* Confirmation Modal */}
       {confirmEntry && (

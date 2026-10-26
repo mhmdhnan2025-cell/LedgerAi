@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   FileSpreadsheet,
   Printer,
@@ -164,8 +164,12 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
         } catch {}
       }
       setSelectedSupplier(targetSupp);
-      if (targetSupp) setSupplierSearch('');
-      handleGenerateReport(targetSupp);
+      if (targetSupp) {
+        setSupplierSearch('');
+        handleGenerateReport(targetSupp);
+      } else {
+        setReport(null);
+      }
     };
 
     if (initialSuppliers && initialSuppliers.length > 0) {
@@ -179,11 +183,11 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
         if (Array.isArray(list) && list.length > 0) {
           resolveAndGenerate(list);
         } else {
-          handleGenerateReport(null);
+          setReport(null);
         }
       } catch (err) {
         console.warn('Failed to load suppliers for ledger report:', err);
-        handleGenerateReport(null);
+        setReport(null);
       }
     };
     fetchSuppliers();
@@ -266,16 +270,41 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
   const handleSelectSupplier = (s: Supplier | null) => {
     setSelectedSupplier(s);
     try {
-      if (s) {
+      if (s && s.id !== 'ALL') {
         sessionStorage.setItem('erp_selected_supplier_ledger_id', s.id || s.code);
       } else {
-        sessionStorage.setItem('erp_selected_supplier_ledger_id', 'ALL');
+        sessionStorage.removeItem('erp_selected_supplier_ledger_id');
       }
     } catch {}
     setSupplierSearch('');
     setIsDropdownOpen(false);
-    handleGenerateReport(s);
+    if (s) {
+      handleGenerateReport(s);
+    } else {
+      setReport(null);
+    }
   };
+
+  const displayEntries = useMemo(() => {
+    if (!report || !report.entries) return [];
+    if (!selectedSupplier || selectedSupplier.id === 'ALL' || selectedSupplier.code === 'ALL') {
+      return report.entries;
+    }
+    const targetTitleLower = (selectedSupplier.accountTitle || selectedSupplier.title || selectedSupplier.name || '').trim().toLowerCase();
+    const targetIdLower = (selectedSupplier.id || '').trim().toLowerCase();
+    const targetBaseId = targetIdLower.replace(/_comp[_-].*$/, '');
+
+    return report.entries.filter((entry) => {
+      const entryTitle = (entry.supplierAccountTitle || entry.supplierName || '').trim().toLowerCase();
+      if (entryTitle && targetTitleLower && entryTitle === targetTitleLower) return true;
+      const entId = (entry.entityId || entry.id || '').trim().toLowerCase();
+      if (entId && (entId === targetIdLower || entId === targetBaseId)) return true;
+      if (entry.narration && entry.narration.startsWith('[') && !entry.narration.toLowerCase().startsWith(`[${targetTitleLower}`)) {
+        return false;
+      }
+      return true;
+    });
+  }, [report, selectedSupplier]);
 
   const handleToggleDropdown = () => {
     setIsDropdownOpen((prev) => {
@@ -415,10 +444,10 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
               onClick={handleToggleDropdown}
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white flex items-center justify-between cursor-pointer hover:border-slate-600 transition"
             >
-              <span className={`truncate ${selectedSupplier ? 'text-white font-semibold' : 'text-purple-300 font-bold'}`}>
+              <span className={`truncate ${selectedSupplier ? 'text-white font-semibold' : 'text-slate-400 font-medium'}`}>
                 {selectedSupplier
                   ? `${selectedSupplier.code || selectedSupplier.accountNumber || ''} - ${selectedSupplier.accountTitle || selectedSupplier.title || selectedSupplier.name}`
-                  : 'All Accounts / Nothing Selected'}
+                  : '-- Select Supplier Account --'}
               </span>
               <div className="flex items-center gap-1.5 ml-2 shrink-0">
                 {selectedSupplier && (
@@ -471,11 +500,11 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
                   </div>
                 </div>
                 <div className="overflow-y-auto max-h-56 divide-y divide-slate-700/50">
-                  {/* Option 0: Nothing Selected / All Accounts */}
+                  {/* Option 0: Consolidated All Accounts */}
                   <div
-                    onClick={() => handleSelectSupplier(null)}
+                    onClick={() => handleSelectSupplier({ id: 'ALL', code: 'ALL', accountTitle: 'All Supplier Accounts (Consolidated)' } as any)}
                     className={`p-2.5 text-xs cursor-pointer flex items-center justify-between transition border-b border-slate-700/80 ${
-                      selectedSupplier === null
+                      selectedSupplier?.id === 'ALL'
                         ? 'bg-purple-500/20 text-purple-200 font-bold border-l-4 border-l-purple-500'
                         : 'text-slate-200 hover:bg-slate-700/60'
                     }`}
@@ -483,8 +512,8 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
                     <div className="flex items-center gap-2">
                       <span className="text-purple-400 font-bold text-sm">★</span>
                       <div>
-                        <div className="font-bold text-white">All Accounts / Nothing Selected</div>
-                        <div className="text-[11px] text-slate-400">Combined ledger of all supplier accounts with full transaction history</div>
+                        <div className="font-bold text-white">Consolidated: All Supplier Accounts</div>
+                        <div className="text-[11px] text-slate-400">Combined ledger statement of all 76 supplier accounts</div>
                       </div>
                     </div>
                     <span className="text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-bold">
@@ -666,7 +695,40 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
         </div>
       </div>
 
+      {/* Clean Selection Prompt (When No Supplier Selected) */}
+      {!selectedSupplier && !report && !isLoading && (
+        <div className="bg-white text-slate-900 rounded-xl shadow-xl p-8 border border-slate-200 text-center">
+          <div className="max-w-md mx-auto py-10">
+            <div className="w-16 h-16 bg-purple-100 text-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-inner">
+              <Truck className="w-8 h-8" />
+            </div>
+            <h3 className="text-lg font-black text-slate-900 mb-2">Select a Supplier Account</h3>
+            <p className="text-xs text-slate-600 mb-6 leading-relaxed">
+              Please select a Supplier Account from the dropdown above to view their clean purchase ledger, payments, and payable statement.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={handleToggleDropdown}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold transition shadow-sm cursor-pointer inline-flex items-center gap-1.5"
+              >
+                <Search className="w-3.5 h-3.5" />
+                <span>Select Supplier Account</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSelectSupplier({ id: 'ALL', code: 'ALL', accountTitle: 'All Supplier Accounts (Consolidated)' } as any)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition border border-slate-300 cursor-pointer"
+              >
+                View Consolidated (All Suppliers)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Report Canvas (Exact Match to General Ledger Reporting) */}
+      {(report || isLoading) && (
       <div className="bg-white text-slate-900 rounded-xl shadow-xl p-6 sm:p-8 font-sans border border-slate-200 print:shadow-none print:border-none print:p-0 print:m-0">
         {/* Header (Branded Company Header) */}
         <div className="text-center pb-4 border-b border-slate-300">
@@ -766,14 +828,14 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
               </tr>
 
               {/* Transaction Rows */}
-              {!report || report.entries.length === 0 ? (
+              {!report || displayEntries.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-8 text-center text-slate-500 font-sans text-xs">
                     {isLoading ? 'Generating supplier general ledger report...' : 'No transactions recorded within selected date range.'}
                   </td>
                 </tr>
               ) : (
-                report.entries.map((entry, idx) => {
+                displayEntries.map((entry, idx) => {
                   const isDebit = entry.debit > 0;
                   const isCredit = entry.credit > 0;
 
@@ -919,6 +981,7 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
           </div>
         </div>
       </div>
+      )}
 
       {/* Confirmation Modal */}
       {confirmEntry && (

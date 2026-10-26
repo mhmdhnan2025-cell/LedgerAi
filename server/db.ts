@@ -8559,8 +8559,12 @@ ON CONFLICT (id) DO NOTHING;`);
     const custAssignedSm = matchedCustomer ? (matchedCustomer.assignedSalesman || (matchedCustomer as any).salesman || '').trim() : '';
     const resolvedSalesman = (billData.salesmanName || billData.salesmanId || custAssignedSm || user.name || 'Sales Staff').trim();
 
+    const uniqueBillId = billData.id && !this.data.saleBills.some((b) => b.id === billData.id)
+      ? billData.id
+      : `sb-${billNumber}-${Date.now().toString(36)}`;
+
     const newSaleBill: SaleBill = {
-      id: `sb-${billNumber}`,
+      id: uniqueBillId,
       billNumber,
       lpoNo: (billData.lpoNo || '').trim(),
       date: billDate,
@@ -11719,28 +11723,43 @@ ON CONFLICT (id) DO NOTHING;`);
     const targetCodes = new Set<string>();
     const targetTitles = new Set<string>();
 
+    const otherCustomerIds = new Set<string>();
+    const otherCustomerCodes = new Set<string>();
+    const otherCustomerTitles = new Set<string>();
+
+    const isGenericCustId = (cIdStr?: string) => {
+      if (!cIdStr) return true;
+      const s = cIdStr.trim().toLowerCase();
+      return s === 'cust-1' || s === 'cust-01' || s === 'cash' || s === 'card' || s === 'walk-in' || s === 'pos' || s === 'guest' || s === 'all';
+    };
+
+    const isGenericCustCode = (cStr?: string) => {
+      if (!cStr) return true;
+      const s = cStr.trim().toLowerCase();
+      return !s || s === '0101040000' || s === '0101' || s === '0201010000' || s === '0201' || s === '0301' || s === 'all';
+    };
+
     if (!isAll && customer) {
-      if (customer.id && customer.id.trim()) {
+      if (customer.id && customer.id.trim() && !isGenericCustId(customer.id)) {
         const idLower = customer.id.trim().toLowerCase();
         targetIds.add(idLower);
         const stripped = idLower.replace(/_comp[_-].*$/, '');
-        if (stripped) targetIds.add(stripped);
+        if (stripped && !isGenericCustId(stripped)) targetIds.add(stripped);
       }
-      if (customerId && customerId.trim() && customerId.toLowerCase() !== 'all') {
+      if (customerId && customerId.trim() && customerId.toLowerCase() !== 'all' && !isGenericCustId(customerId)) {
         const cidLower = customerId.trim().toLowerCase();
         targetIds.add(cidLower);
         const stripped = cidLower.replace(/_comp[_-].*$/, '');
-        if (stripped) targetIds.add(stripped);
+        if (stripped && !isGenericCustId(stripped)) targetIds.add(stripped);
       }
 
-      const isGeneric = (cStr: string) => !cStr || cStr === '0101040000' || cStr === '0101' || cStr === '0201010000' || cStr === '0201' || cStr === '0301';
-      if (customer.code && !isGeneric(customer.code.trim())) {
+      if (customer.code && !isGenericCustCode(customer.code.trim())) {
         targetCodes.add(customer.code.trim().toLowerCase());
       }
-      if (customer.accountCode && !isGeneric(customer.accountCode.trim())) {
+      if (customer.accountCode && !isGenericCustCode(customer.accountCode.trim())) {
         targetCodes.add(customer.accountCode.trim().toLowerCase());
       }
-      if (customer.manualCode && !isGeneric(customer.manualCode.trim())) {
+      if (customer.manualCode && !isGenericCustCode(customer.manualCode.trim())) {
         targetCodes.add(customer.manualCode.trim().toLowerCase());
       }
 
@@ -11749,6 +11768,29 @@ ON CONFLICT (id) DO NOTHING;`);
       }
       if (customer.name && customer.name.trim().length > 1) {
         targetTitles.add(customer.name.trim().toLowerCase());
+      }
+
+      // Collect all other customers' IDs, codes, and titles for strict negative matching
+      for (const other of (this.data.customers || [])) {
+        if (!other) continue;
+        const oIdLower = (other.id || '').trim().toLowerCase();
+        const oBaseId = oIdLower ? oIdLower.replace(/_comp[_-].*$/, '') : '';
+        if (oIdLower && (targetIds.has(oIdLower) || (oBaseId && targetIds.has(oBaseId)))) continue;
+        const oCode = (other.code || other.accountCode || '').trim().toLowerCase();
+        if (oCode && targetCodes.has(oCode)) continue;
+        const oTitle = (other.accountTitle || other.name || '').trim().toLowerCase();
+        if (oTitle && targetTitles.has(oTitle)) continue;
+
+        if (oTitle && oTitle.length > 1) {
+          otherCustomerTitles.add(oTitle);
+        }
+        if (oIdLower && !isGenericCustId(oIdLower)) {
+          otherCustomerIds.add(oIdLower);
+          if (oBaseId && !isGenericCustId(oBaseId)) otherCustomerIds.add(oBaseId);
+        }
+        if (oCode && !isGenericCustCode(oCode)) {
+          otherCustomerCodes.add(oCode);
+        }
       }
     }
 
@@ -11761,19 +11803,35 @@ ON CONFLICT (id) DO NOTHING;`);
       const normCode = (code || '').trim().toLowerCase();
       const normTitle = (title || '').trim().toLowerCase();
 
-      // 1. Direct ID match
-      if (normId && (targetIds.has(normId) || (normBaseId && targetIds.has(normBaseId)))) {
-        return true;
+      // 1. Direct Title match
+      if (normTitle) {
+        if (targetTitles.has(normTitle)) {
+          return true;
+        }
+        // If this explicit title belongs to another customer in the database, reject immediately!
+        if (otherCustomerTitles.has(normTitle)) {
+          return false;
+        }
       }
 
-      // 2. Direct Code match (if not generic)
-      if (normCode && targetCodes.has(normCode)) {
-        return true;
+      // 2. Direct ID match (exclude generic IDs)
+      if (normId && !isGenericCustId(normId)) {
+        if (targetIds.has(normId) || (normBaseId && targetIds.has(normBaseId))) {
+          return true;
+        }
+        if (otherCustomerIds.has(normId) || (normBaseId && otherCustomerIds.has(normBaseId))) {
+          return false;
+        }
       }
 
-      // 3. Direct Title match
-      if (normTitle && targetTitles.has(normTitle)) {
-        return true;
+      // 3. Direct Code match (exclude generic codes)
+      if (normCode && !isGenericCustCode(normCode)) {
+        if (targetCodes.has(normCode)) {
+          return true;
+        }
+        if (otherCustomerCodes.has(normCode)) {
+          return false;
+        }
       }
 
       // 4. Normalized/canonical title match (removing punctuation and whitespace)
@@ -12024,7 +12082,9 @@ ON CONFLICT (id) DO NOTHING;`);
     for (const p of (this.data.payments || [])) {
       if ((p as any).isDeleted || p.status === 'Cancelled' || (p as any).status === 'DELETED') continue;
       if (p.orderId && (this.data.saleBills || []).some((sb) => (sb.id === p.orderId || sb.billNumber === p.orderNumber) && Number(sb.cashReceived) > 0)) continue;
-      if (!matchesCustomer(p.restaurantId || (p as any).customerId)) continue;
+      // Skip supplier payments
+      if ((p as any).supplierId && !p.restaurantId && !(p as any).customerId) continue;
+      if (!matchesCustomer(p.restaurantId || (p as any).customerId, (p as any).customerCode, p.restaurantName || (p as any).customerName)) continue;
       const pDate = this.normalizeDateToYMD(p.paymentDate || p.date || (p as any).createdAt || '');
       if (pDate < normFrom || pDate > normTo) continue;
       if (entries.some((e) => e.entityId === p.id)) continue;
@@ -12183,25 +12243,40 @@ ON CONFLICT (id) DO NOTHING;`);
     const targetSuppCodes = new Set<string>();
     const targetSuppTitles = new Set<string>();
 
+    const otherSupplierIds = new Set<string>();
+    const otherSupplierCodes = new Set<string>();
+    const otherSupplierTitles = new Set<string>();
+
+    const isGenericSuppId = (sIdStr?: string) => {
+      if (!sIdStr) return true;
+      const s = sIdStr.trim().toLowerCase();
+      return s === 'sup-1' || s === 'supp-1' || s === 'cash' || s === 'local' || s === 'vendor' || s === 'all';
+    };
+
+    const isGenericSuppCode = (sStr?: string) => {
+      if (!sStr) return true;
+      const s = sStr.trim().toLowerCase();
+      return !s || s === '0201010000' || s === '0201' || s === '0401010000' || s === '0401' || s === '0101040000' || s === 'all';
+    };
+
     if (!isAll && supplier) {
-      if (supplier.id && supplier.id.trim()) {
+      if (supplier.id && supplier.id.trim() && !isGenericSuppId(supplier.id)) {
         const idLower = supplier.id.trim().toLowerCase();
         targetSuppIds.add(idLower);
         const stripped = idLower.replace(/_comp[_-].*$/, '');
-        if (stripped) targetSuppIds.add(stripped);
+        if (stripped && !isGenericSuppId(stripped)) targetSuppIds.add(stripped);
       }
-      if (supplierId && supplierId.trim() && supplierId.toLowerCase() !== 'all') {
+      if (supplierId && supplierId.trim() && supplierId.toLowerCase() !== 'all' && !isGenericSuppId(supplierId)) {
         const sIdLower = supplierId.trim().toLowerCase();
         targetSuppIds.add(sIdLower);
         const stripped = sIdLower.replace(/_comp[_-].*$/, '');
-        if (stripped) targetSuppIds.add(stripped);
+        if (stripped && !isGenericSuppId(stripped)) targetSuppIds.add(stripped);
       }
 
-      const isGeneric = (sStr: string) => !sStr || sStr === '0201010000' || sStr === '0201' || sStr === '0101040000' || sStr === '0101';
-      if (supplier.code && !isGeneric(supplier.code.trim())) {
+      if (supplier.code && !isGenericSuppCode(supplier.code.trim())) {
         targetSuppCodes.add(supplier.code.trim().toLowerCase());
       }
-      if (supplier.accountNumber && !isGeneric(supplier.accountNumber.trim())) {
+      if (supplier.accountNumber && !isGenericSuppCode(supplier.accountNumber.trim())) {
         targetSuppCodes.add(supplier.accountNumber.trim().toLowerCase());
       }
 
@@ -12214,6 +12289,29 @@ ON CONFLICT (id) DO NOTHING;`);
       if (supplier.name && supplier.name.trim().length > 1) {
         targetSuppTitles.add(supplier.name.trim().toLowerCase());
       }
+
+      // Collect all other suppliers' IDs, codes, and titles for strict negative matching
+      for (const other of (this.data.suppliers || [])) {
+        if (!other) continue;
+        const oIdLower = (other.id || '').trim().toLowerCase();
+        const oBaseId = oIdLower ? oIdLower.replace(/_comp[_-].*$/, '') : '';
+        if (oIdLower && (targetSuppIds.has(oIdLower) || (oBaseId && targetSuppIds.has(oBaseId)))) continue;
+        const oCode = (other.code || other.accountNumber || '').trim().toLowerCase();
+        if (oCode && targetSuppCodes.has(oCode)) continue;
+        const oTitle = (other.accountTitle || other.title || other.name || '').trim().toLowerCase();
+        if (oTitle && targetSuppTitles.has(oTitle)) continue;
+
+        if (oTitle && oTitle.length > 1) {
+          otherSupplierTitles.add(oTitle);
+        }
+        if (oIdLower && !isGenericSuppId(oIdLower)) {
+          otherSupplierIds.add(oIdLower);
+          if (oBaseId && !isGenericSuppId(oBaseId)) otherSupplierIds.add(oBaseId);
+        }
+        if (oCode && !isGenericSuppCode(oCode)) {
+          otherSupplierCodes.add(oCode);
+        }
+      }
     }
 
     const matchesSupplier = (id?: string, code?: string, title?: string) => {
@@ -12225,19 +12323,34 @@ ON CONFLICT (id) DO NOTHING;`);
       const normCode = (code || '').trim().toLowerCase();
       const normTitle = (title || '').trim().toLowerCase();
 
-      // 1. Direct ID match
-      if (normId && (targetSuppIds.has(normId) || (normBaseId && targetSuppIds.has(normBaseId)))) {
-        return true;
+      // 1. Direct Title match
+      if (normTitle) {
+        if (targetSuppTitles.has(normTitle)) {
+          return true;
+        }
+        if (otherSupplierTitles.has(normTitle)) {
+          return false;
+        }
       }
 
-      // 2. Direct Code match (if not generic)
-      if (normCode && targetSuppCodes.has(normCode)) {
-        return true;
+      // 2. Direct ID match (exclude generic IDs)
+      if (normId && !isGenericSuppId(normId)) {
+        if (targetSuppIds.has(normId) || (normBaseId && targetSuppIds.has(normBaseId))) {
+          return true;
+        }
+        if (otherSupplierIds.has(normId) || (normBaseId && otherSupplierIds.has(normBaseId))) {
+          return false;
+        }
       }
 
-      // 3. Direct Title match
-      if (normTitle && targetSuppTitles.has(normTitle)) {
-        return true;
+      // 3. Direct Code match (if not generic)
+      if (normCode && !isGenericSuppCode(normCode)) {
+        if (targetSuppCodes.has(normCode)) {
+          return true;
+        }
+        if (otherSupplierCodes.has(normCode)) {
+          return false;
+        }
       }
 
       // 4. Normalized/canonical title match (removing punctuation and whitespace)
@@ -12355,7 +12468,12 @@ ON CONFLICT (id) DO NOTHING;`);
       const pDate = this.normalizeDateToYMD(p.paymentDate || p.date || (p as any).createdAt || '');
       if (pDate >= normFrom) continue;
       if (p.orderId && (this.data.purchaseBills || []).some((pb) => (pb.id === p.orderId || pb.billNumber === p.orderNumber) && Number(pb.paidAmount) > 0)) continue;
-      if (matchesSupplier((p as any).supplierId || p.restaurantId)) {
+      // Skip customer receipts / payments (never include customer restaurants in supplier ledger)
+      const pSuppId = (p as any).supplierId;
+      const pSuppName = (p as any).supplierName;
+      if (!pSuppId && !pSuppName) continue;
+      if (p.restaurantId || (p as any).customerId) continue;
+      if (matchesSupplier(pSuppId, undefined, pSuppName)) {
         calcOpening -= Number(p.amount || 0);
       }
     }
@@ -12518,11 +12636,16 @@ ON CONFLICT (id) DO NOTHING;`);
     for (const p of (this.data.payments || [])) {
       if ((p as any).isDeleted || p.status === 'Cancelled' || (p as any).status === 'DELETED') continue;
       if (p.orderId && (this.data.purchaseBills || []).some((pb) => (pb.id === p.orderId || pb.billNumber === p.orderNumber) && Number(pb.paidAmount) > 0)) continue;
-      if (!matchesSupplier((p as any).supplierId || p.restaurantId)) continue;
+      // Skip customer receipts / payments (never include customer restaurants in supplier ledger)
+      const pSuppId = (p as any).supplierId;
+      const pSuppName = (p as any).supplierName;
+      if (!pSuppId && !pSuppName) continue;
+      if (p.restaurantId || (p as any).customerId) continue;
+      if (!matchesSupplier(pSuppId, undefined, pSuppName)) continue;
       const pDate = this.normalizeDateToYMD(p.paymentDate || p.date || (p as any).createdAt || '');
       if (pDate < normFrom || pDate > normTo) continue;
       if (entries.some((e) => e.entityId === p.id)) continue;
-      const partyTag = isAll ? `[${(p as any).supplierName || p.restaurantName || 'Supplier'}] ` : '';
+      const partyTag = isAll ? `[${pSuppName || 'Supplier'}] ` : '';
 
       entries.push({
         id: p.id,
@@ -12537,8 +12660,8 @@ ON CONFLICT (id) DO NOTHING;`);
         balanceType: 'CR',
         entityId: p.id,
         entityType: 'payment',
-        supplierName: (p as any).supplierName || p.restaurantName || 'Supplier',
-        supplierAccountTitle: (p as any).supplierName || p.restaurantName || 'Supplier',
+        supplierName: pSuppName || 'Supplier',
+        supplierAccountTitle: pSuppName || 'Supplier',
         createdAt: (p as any).createdAt || `${pDate}T12:00:00.000Z`,
       } as any);
     }
