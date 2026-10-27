@@ -9714,9 +9714,9 @@ ON CONFLICT (id) DO NOTHING;`);
     productId?: string;
     category?: string;
     movementType?: string;
-    timeframe?: 'day' | 'week' | 'month' | 'custom';
+    timeframe?: 'day' | 'week' | 'month' | 'all' | 'custom';
   }): StockMovementReport {
-    const timeframe = filters?.timeframe || 'day';
+    const timeframe = filters?.timeframe || 'month';
     const today = new Date();
     const todayStr = this.normalizeDateToYMD(today.toISOString().split('T')[0]);
     let fromDate = filters?.fromDate ? this.normalizeDateToYMD(filters.fromDate) : '';
@@ -9732,6 +9732,8 @@ ON CONFLICT (id) DO NOTHING;`);
       } else if (timeframe === 'month') {
         const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
         fromDate = this.normalizeDateToYMD(monthStart.toISOString().split('T')[0]);
+      } else if (timeframe === 'all') {
+        fromDate = '2026-01-01';
       } else {
         fromDate = '2026-01-01';
       }
@@ -9750,9 +9752,13 @@ ON CONFLICT (id) DO NOTHING;`);
         const found = products.find((x) => (x.mcode && x.mcode.toLowerCase() === m) || (x.sku && x.sku.toLowerCase() === m));
         if (found) return found;
       }
-      if (it.itemTitle) {
-        const clean = String(it.itemTitle).trim().toLowerCase();
-        const found = products.find((x) => x.name.toLowerCase() === clean || (x.itemTitle && x.itemTitle.toLowerCase() === clean) || areBilingualSynonyms(x.name, it.itemTitle));
+      const rawTitle = String(it.itemTitle || it.name || it.productName || '').trim().toLowerCase();
+      if (rawTitle) {
+        const found = products.find((x) => 
+          x.name.toLowerCase() === rawTitle || 
+          (x.itemTitle && x.itemTitle.toLowerCase() === rawTitle) || 
+          areBilingualSynonyms(x.name, rawTitle)
+        );
         if (found) return found;
       }
       return undefined;

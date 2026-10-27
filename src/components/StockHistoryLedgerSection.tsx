@@ -44,9 +44,12 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
   // View sub-tab: 'summary' (Product-wise stock balance) or 'transactions' (Chronological movement log)
   const [activeSubView, setActiveSubView] = useState<'summary' | 'transactions'>('summary');
 
-  // Timeframe filter: day, week, month, custom
-  const [timeframe, setTimeframe] = useState<'day' | 'week' | 'month' | 'custom'>('day');
-  const [fromDate, setFromDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  // Timeframe filter: day, week, month, all, custom (Defaults to 'month' so all active transactions are immediately visible)
+  const [timeframe, setTimeframe] = useState<'day' | 'week' | 'month' | 'all' | 'custom'>('month');
+  const [fromDate, setFromDate] = useState<string>(() => {
+    const today = new Date();
+    return new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+  });
   const [toDate, setToDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
 
   // Dropdown filters
@@ -96,7 +99,7 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
   }, [timeframe, fromDate, toDate, selectedProductId, selectedCategory, movementTypeFilter]);
 
   // Handle timeframe change presets
-  const handleTimeframeSelect = (tf: 'day' | 'week' | 'month' | 'custom') => {
+  const handleTimeframeSelect = (tf: 'day' | 'week' | 'month' | 'all' | 'custom') => {
     setTimeframe(tf);
     const today = new Date();
     const endStr = today.toISOString().split('T')[0];
@@ -112,6 +115,9 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
     } else if (tf === 'month') {
       const m = new Date(today.getFullYear(), today.getMonth(), 1);
       setFromDate(m.toISOString().split('T')[0]);
+      setToDate(endStr);
+    } else if (tf === 'all') {
+      setFromDate('2026-01-01');
       setToDate(endStr);
     }
   };
@@ -389,8 +395,8 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
         <div className="mt-4 pt-4 border-t border-slate-800 space-y-3">
           {/* Row 1: Period Selection */}
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
-            {/* Day / Week / Month / Dates Toggle */}
-            <div className="sm:col-span-5 flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+            {/* Day / Week / Month / All-Time / Dates Toggle */}
+            <div className="sm:col-span-6 flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
               <button
                 type="button"
                 onClick={() => handleTimeframeSelect('day')}
@@ -420,6 +426,15 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
               </button>
               <button
                 type="button"
+                onClick={() => handleTimeframeSelect('all')}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
+                  timeframe === 'all' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                All-Time (مکمل)
+              </button>
+              <button
+                type="button"
                 onClick={() => setTimeframe('custom')}
                 className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
                   timeframe === 'custom' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
@@ -431,7 +446,7 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
 
             {/* Custom Date Pickers or Audit Period Badge */}
             {timeframe === 'custom' ? (
-              <div className="sm:col-span-7 flex items-center gap-2">
+              <div className="sm:col-span-6 flex items-center gap-2">
                 <div className="flex-1">
                   <input
                     type="date"
@@ -451,12 +466,12 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
                 </div>
               </div>
             ) : (
-              <div className="sm:col-span-7 text-xs text-slate-400 font-mono bg-slate-950/60 px-3 py-1.5 rounded-lg border border-slate-800 flex items-center justify-between">
+              <div className="sm:col-span-6 text-xs text-slate-400 font-mono bg-slate-950/60 px-3 py-1.5 rounded-lg border border-slate-800 flex items-center justify-between">
                 <span>
                   Audit Period: <span className="text-white font-bold">{fromDate}</span> to <span className="text-white font-bold">{toDate}</span>
                 </span>
                 <span className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider">
-                  {timeframe === 'day' ? 'Today' : timeframe === 'week' ? 'Past 7 Days' : 'This Month'}
+                  {timeframe === 'day' ? 'Today' : timeframe === 'week' ? 'Past 7 Days' : timeframe === 'month' ? 'This Month' : timeframe === 'all' ? 'All-Time Movements' : 'Custom Dates'}
                 </span>
               </div>
             )}
@@ -569,6 +584,34 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
               className="px-3 py-1.5 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/40 rounded-lg text-xs font-semibold transition cursor-pointer"
             >
               Clear Filter
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Smart Helper Banner when viewing a day/period with 0 movements */}
+      {timeframe === 'day' && dynamicTotals.inwardUnits === 0 && dynamicTotals.outwardUnits === 0 && (
+        <div className="bg-amber-950/40 border border-amber-800/60 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2 text-amber-300">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>
+              Aaj (<strong>{fromDate}</strong>) koi new sale ya purchase bill save nahi hua. Pichlay tamaam bills dekhnay k liye <strong>'Monthly'</strong> ya <strong>'All-Time'</strong> par click karein.
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => handleTimeframeSelect('month')}
+              className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-bold text-xs transition cursor-pointer"
+            >
+              This Month (October)
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTimeframeSelect('all')}
+              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded font-bold text-xs transition cursor-pointer"
+            >
+              All-Time (مکمل ریکارڈ)
             </button>
           </div>
         </div>
@@ -772,12 +815,13 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
                     <th className="py-2.5 px-3 text-right">Selling Rate</th>
                     <th className="py-2.5 px-3 text-right">Stock Value</th>
                     <th className="py-2.5 px-3 text-center">Status</th>
+                    <th className="py-2.5 px-3 text-center">Audit Log</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 font-mono">
                   {filteredSummaryItems.length === 0 ? (
                     <tr>
-                      <td colSpan={15} className="text-center py-8 text-slate-500 font-sans">
+                      <td colSpan={16} className="text-center py-8 text-slate-500 font-sans">
                         No products match your criteria.
                       </td>
                     </tr>
@@ -853,6 +897,20 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
                             </span>
                           )}
                         </td>
+                        <td className="py-2.5 px-3 text-center font-sans">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedProductId(it.productId);
+                              setActiveSubView('transactions');
+                            }}
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 rounded text-[10px] font-bold transition cursor-pointer"
+                            title={`View movement audit trail for ${it.name}`}
+                          >
+                            <Clock className="w-3 h-3" />
+                            <span>Log</span>
+                          </button>
+                        </td>
                       </tr>
                     ))
                   )}
@@ -889,6 +947,7 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
                       {currencySymbol()} {dynamicTotals.stockValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
                     <td className="py-2.5 px-3 text-center text-slate-500 font-normal">-</td>
+                    <td className="py-2.5 px-3 text-center text-slate-500 font-normal">-</td>
                   </tr>
                 </tfoot>
               </table>
@@ -904,6 +963,25 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
             <div className="text-xs text-slate-400 mb-3">
               Chronological log of every item movement. Shows exactly which salesman sold which item in what bill, protecting against unauthorized leakage.
             </div>
+
+            {/* Active Single Product Filter Pill */}
+            {selectedProductObj && (
+              <div className="flex items-center justify-between bg-indigo-950/60 border border-indigo-700/60 rounded-xl px-3.5 py-2 mb-3 text-xs shadow-xs">
+                <div className="flex items-center gap-2 text-indigo-200">
+                  <Boxes className="w-4 h-4 text-indigo-400 shrink-0" />
+                  <span>
+                    Showing movements for: <strong className="text-white">{selectedProductObj.name}</strong> ({selectedProductObj.mcode || 'ITM'})
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedProductId('')}
+                  className="px-2.5 py-1 bg-indigo-800/80 hover:bg-indigo-700 text-white rounded text-[11px] font-bold transition cursor-pointer"
+                >
+                  Show All Products
+                </button>
+              </div>
+            )}
 
             <div className="overflow-x-auto rounded-xl border border-slate-800 max-h-[600px] overflow-y-auto">
               <table className="w-full text-left text-xs border-collapse">
@@ -973,8 +1051,43 @@ export const StockHistoryLedgerSection: React.FC<StockHistoryLedgerSectionProps>
 
                   {filteredTransactions.length === 0 ? (
                     <tr>
-                      <td colSpan={12} className="text-center py-8 text-slate-500 font-sans">
-                        No transactions recorded for the selected filter.
+                      <td colSpan={12} className="text-center py-10 px-4">
+                        <div className="w-12 h-12 mx-auto rounded-full bg-slate-800 flex items-center justify-center text-slate-400 mb-3">
+                          <Clock className="w-6 h-6" />
+                        </div>
+                        <h4 className="text-sm font-bold text-white mb-1">
+                          No Movement Transactions Recorded for {fromDate === toDate ? fromDate : `${fromDate} to ${toDate}`}
+                        </h4>
+                        <p className="text-xs text-slate-400 max-w-md mx-auto mb-4">
+                          {timeframe === 'day'
+                            ? `Aaj (${fromDate}) koi purchase ya sale bill record nahi hua. Pichlay tamaam movement records dekhnay k liye 'Monthly' ya 'All-Time' select karein.`
+                            : `Is selected filter ya period k mutabiq koi movements nahi mili.`}
+                        </p>
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleTimeframeSelect('month')}
+                            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition cursor-pointer"
+                          >
+                            View This Month
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleTimeframeSelect('all')}
+                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-bold transition cursor-pointer"
+                          >
+                            View All-Time (مکمل ریکارڈ)
+                          </button>
+                          {selectedProductId && (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedProductId('')}
+                              className="px-3 py-1.5 bg-indigo-950/80 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-700 rounded-lg text-xs font-bold transition cursor-pointer"
+                            >
+                              Clear Product Filter
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ) : (

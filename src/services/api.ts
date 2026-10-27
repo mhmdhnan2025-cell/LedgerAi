@@ -1565,7 +1565,7 @@ export const api = {
     productId?: string;
     category?: string;
     movementType?: string;
-    timeframe?: 'day' | 'week' | 'month' | 'custom';
+    timeframe?: 'day' | 'week' | 'month' | 'all' | 'custom';
   }): Promise<StockMovementReport> {
     const params = new URLSearchParams();
     if (filters) {

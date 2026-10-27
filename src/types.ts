@@ -1023,7 +1023,7 @@ export interface StockMovementSummaryItem {
 }
 
 export interface StockMovementReport {
-  timeframe: 'day' | 'week' | 'month' | 'custom';
+  timeframe: 'day' | 'week' | 'month' | 'all' | 'custom';
   fromDate: string;
   toDate: string;
   totalOpeningUnits: number;

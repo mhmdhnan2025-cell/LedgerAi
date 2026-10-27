@@ -1434,7 +1434,7 @@ app.get('/api/inventory/movement-history', (req, res) => {
       productId: productId ? String(productId) : undefined,
       category: category ? String(category) : undefined,
       movementType: movementType ? String(movementType) : undefined,
-      timeframe: (timeframe as any) || 'day',
+      timeframe: (timeframe as any) || 'month',
     });
     res.json(report);
   } catch (err: any) {
