@@ -6807,11 +6807,11 @@ ON CONFLICT (id) DO NOTHING;`);
   ): PurchaseBill {
     const list = this.getPurchaseBills();
 
-    // Auto-generate sequential bill number e.g. "1713"
+    // Auto-generate sequential bill number e.g. "1757"
     let billNumber = billData.billNumber && billData.billNumber.trim();
-    if (!billNumber) {
-      const numbers = list.map((b) => parseInt(b.billNumber, 10)).filter((n) => !isNaN(n));
-      const maxNum = numbers.length > 0 ? Math.max(...numbers) : 1712;
+    const numbers = list.map((b) => parseInt(b.billNumber, 10)).filter((n) => !isNaN(n));
+    const maxNum = numbers.length > 0 ? Math.max(...numbers) : 1713;
+    if (!billNumber || list.some((b) => b.billNumber === billNumber)) {
       billNumber = String(maxNum + 1);
     }
 
@@ -8456,11 +8456,11 @@ ON CONFLICT (id) DO NOTHING;`);
 
     // Auto-generate Bill Number (sequential)
     let billNumber = billData.billNumber ? billData.billNumber.trim() : '';
-    if (!billNumber) {
-      const existingNumeric = this.data.saleBills
-        .map((b) => parseInt(b.billNumber, 10))
-        .filter((n) => !isNaN(n));
-      const maxNum = existingNumeric.length > 0 ? Math.max(...existingNumeric) : 6761;
+    const existingNumeric = this.data.saleBills
+      .map((b) => parseInt(b.billNumber, 10))
+      .filter((n) => !isNaN(n));
+    const maxNum = existingNumeric.length > 0 ? Math.max(...existingNumeric) : 1000;
+    if (!billNumber || this.data.saleBills.some((b) => b.billNumber === billNumber)) {
       billNumber = String(maxNum + 1);
     }
 

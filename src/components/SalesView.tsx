@@ -208,8 +208,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
     setCustomerTrn('');
     setPartyBalanceBefore(0);
     setIsCashCustomer(false);
-    const nextNum = (parseInt(billNumber, 10) || 6762) + 1;
-    setBillNumber(String(nextNum));
+    loadNextBillNumber();
     if (onCancelEdit) {
       onCancelEdit();
     }
@@ -915,8 +914,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
       setCustomerTrn('');
       setPartyBalanceBefore(0);
       setIsCashCustomer(false);
-      const nextNum = (parseInt(billNumber, 10) || 6762) + 1;
-      setBillNumber(String(nextNum));
+      await loadNextBillNumber();
       setLpoNo('');
 
       // Reload updated customer balance

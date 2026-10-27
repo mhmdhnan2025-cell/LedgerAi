@@ -174,8 +174,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
     setPaidAmount(0);
     setVendorBillNumber('');
     setGatePassNumber('');
-    const nextNum = (parseInt(billNumber.replace(/\D/g, ''), 10) || 1714) + 1;
-    setBillNumber(String(nextNum));
+    fetchNextBillNumber();
     if (onCancelEdit) {
       onCancelEdit();
     }
@@ -374,9 +373,10 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
     }
   };
 
-  // Fetch highest bill number to auto-increment
-  useEffect(() => {
-    api.getPurchases().then((list) => {
+  // Fetch highest bill number to auto-increment sequentially
+  const fetchNextBillNumber = async () => {
+    try {
+      const list = await api.getPurchases();
       if (list && list.length > 0) {
         const nums = list
           .map((b) => parseInt(b.billNumber.replace(/\D/g, ''), 10))
@@ -384,9 +384,17 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
         if (nums.length > 0) {
           const maxNum = Math.max(...nums);
           setBillNumber(String(maxNum + 1));
+          return;
         }
       }
-    }).catch(() => {});
+      setBillNumber('1714');
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    fetchNextBillNumber();
   }, []);
 
   // Handle Cash Checkbox Change
@@ -844,9 +852,8 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
         setIsCash(false);
       }
 
-      // Increment next bill number
-      const nextNum = (parseInt(billNumber.replace(/\D/g, ''), 10) || 1714) + 1;
-      setBillNumber(String(nextNum));
+      // Determine next sequential bill number from database
+      await fetchNextBillNumber();
 
       // Trigger app-wide silent background data refresh
       if (onRefreshData) {

@@ -173,7 +173,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   // Fetch bills on mount and when filters change
   useEffect(() => {
     loadReportData();
-  }, [payableFilter]);
+  }, [payableFilter, fromDate, toDate, selectedAccountId]);
 
   const loadReportData = async () => {
     setIsLoading(true);

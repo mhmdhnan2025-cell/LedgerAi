@@ -66,52 +66,6 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
   const [itemFilterSearch, setItemFilterSearch] = useState('');
   const itemFilterDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Quick Date Range Presets (As requested in sample picture)
-  const applyDatePreset = (preset: 'all' | 'today' | 'yesterday' | 'week' | '7days' | 'month' | 'last_month' | 'year') => {
-    setActiveDatePreset(preset);
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-
-    if (preset === 'all') {
-      setFromDate('');
-      setToDate('');
-    } else if (preset === 'today') {
-      setFromDate(todayStr);
-      setToDate(todayStr);
-    } else if (preset === 'yesterday') {
-      const y = new Date();
-      y.setDate(today.getDate() - 1);
-      const yStr = y.toISOString().split('T')[0];
-      setFromDate(yStr);
-      setToDate(yStr);
-    } else if (preset === 'week') {
-      const startOfWeek = new Date();
-      const day = startOfWeek.getDay();
-      const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1); // Monday
-      startOfWeek.setDate(diff);
-      setFromDate(startOfWeek.toISOString().split('T')[0]);
-      setToDate(todayStr);
-    } else if (preset === '7days') {
-      const past7 = new Date();
-      past7.setDate(today.getDate() - 7);
-      setFromDate(past7.toISOString().split('T')[0]);
-      setToDate(todayStr);
-    } else if (preset === 'month') {
-      const startMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-      setFromDate(startMonth.toISOString().split('T')[0]);
-      setToDate(todayStr);
-    } else if (preset === 'last_month') {
-      const startLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-      const endLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
-      setFromDate(startLastMonth.toISOString().split('T')[0]);
-      setToDate(endLastMonth.toISOString().split('T')[0]);
-    } else if (preset === 'year') {
-      const startYear = new Date(today.getFullYear(), 0, 1);
-      setFromDate(startYear.toISOString().split('T')[0]);
-      setToDate(todayStr);
-    }
-  };
-
   // Sales Bills Data
   const [saleBills, setSaleBills] = useState<SaleBill[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -121,6 +75,82 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
   // Details Modal
   const [activeBillDetail, setActiveBillDetail] = useState<SaleBill | null>(null);
   const [receiptModalBill, setReceiptModalBill] = useState<SaleBill | null>(null);
+
+  const loadSaleBills = async (overrideFrom?: string, overrideTo?: string) => {
+    setIsLoading(true);
+    setErrorMsg(null);
+    try {
+      const fDate = overrideFrom !== undefined ? overrideFrom : fromDate;
+      const tDate = overrideTo !== undefined ? overrideTo : toDate;
+      const data = await api.getSales({
+        fromDate: fDate || undefined,
+        toDate: tDate || undefined,
+        mobileNo: mobileFilter.trim() || undefined,
+        billNo: billNumberFilter.trim() || undefined,
+        customerId: selectedCustomerId || undefined,
+        salesmanId: selectedSalesman || undefined,
+        orderBy,
+      });
+      setSaleBills(data);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to fetch sales reports.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Quick Date Range Presets (As requested in sample picture)
+  const applyDatePreset = (preset: 'all' | 'today' | 'yesterday' | 'week' | '7days' | 'month' | 'last_month' | 'year') => {
+    setActiveDatePreset(preset);
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+
+    let newFrom = '';
+    let newTo = '';
+
+    if (preset === 'all') {
+      newFrom = '';
+      newTo = '';
+    } else if (preset === 'today') {
+      newFrom = todayStr;
+      newTo = todayStr;
+    } else if (preset === 'yesterday') {
+      const y = new Date();
+      y.setDate(today.getDate() - 1);
+      const yStr = y.toISOString().split('T')[0];
+      newFrom = yStr;
+      newTo = yStr;
+    } else if (preset === 'week') {
+      const startOfWeek = new Date();
+      const day = startOfWeek.getDay();
+      const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1); // Monday
+      startOfWeek.setDate(diff);
+      newFrom = startOfWeek.toISOString().split('T')[0];
+      newTo = todayStr;
+    } else if (preset === '7days') {
+      const past7 = new Date();
+      past7.setDate(today.getDate() - 7);
+      newFrom = past7.toISOString().split('T')[0];
+      newTo = todayStr;
+    } else if (preset === 'month') {
+      const startMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      newFrom = startMonth.toISOString().split('T')[0];
+      newTo = todayStr;
+    } else if (preset === 'last_month') {
+      const startLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      const endLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+      newFrom = startLastMonth.toISOString().split('T')[0];
+      newTo = endLastMonth.toISOString().split('T')[0];
+    } else if (preset === 'year') {
+      const startYear = new Date(today.getFullYear(), 0, 1);
+      newFrom = startYear.toISOString().split('T')[0];
+      newTo = todayStr;
+    }
+
+    setFromDate(newFrom);
+    setToDate(newTo);
+    loadSaleBills(newFrom, newTo);
+  };
 
   const loadCustomers = async () => {
     try {
@@ -149,33 +179,17 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
     }
   };
 
-  const loadSaleBills = async () => {
-    setIsLoading(true);
-    setErrorMsg(null);
-    try {
-      const data = await api.getSales({
-        fromDate: fromDate || undefined,
-        toDate: toDate || undefined,
-        mobileNo: mobileFilter.trim() || undefined,
-        billNo: billNumberFilter.trim() || undefined,
-        customerId: selectedCustomerId || undefined,
-        salesmanId: selectedSalesman || undefined,
-        orderBy,
-      });
-      setSaleBills(data);
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to fetch sales reports.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   useEffect(() => {
     loadCustomers();
     loadProducts();
     loadSalesmen();
     loadSaleBills();
   }, []);
+
+  // Auto-refresh when dropdown filters change
+  useEffect(() => {
+    loadSaleBills();
+  }, [orderBy, selectedCustomerId, selectedSalesman]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -396,7 +410,6 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
               type="button"
               onClick={() => {
                 applyDatePreset(preset.id as any);
-                setTimeout(loadSaleBills, 50);
               }}
               className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap transition cursor-pointer ${
                 activeDatePreset === preset.id
