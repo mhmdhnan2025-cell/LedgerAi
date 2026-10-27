@@ -1399,6 +1399,50 @@ public getTenant(companyId?: string): DatabaseSchema {
         }
         this.recalculateAllLedgers();
 
+        // Auto-heal purchase bills where carton items were excluded from grossAmount / netTotal
+        const healPurchaseBills = (pbList: PurchaseBill[], companyId: string): boolean => {
+          let changed = false;
+          for (const b of (pbList || [])) {
+            if (Array.isArray(b.items) && b.items.length > 0) {
+              const itemsTotal = b.items.reduce((acc: number, it: any) => acc + (Number(it.amount) || 0), 0);
+              const loadExp = Number(b.loadExp) || 0;
+              const isLoadExpDeduction = Boolean(b.isLoadExpDeduction);
+              const expectedNet = Number((itemsTotal + (isLoadExpDeduction ? -loadExp : loadExp)).toFixed(2));
+              if (Math.abs(Number(b.netTotal) - expectedNet) > 0.05 && expectedNet > 0) {
+                console.log(`[AutoHeal] Correcting purchase bill #${b.billNumber} (${b.id}) netTotal from ${b.netTotal} to ${expectedNet}`);
+                const expectedGross = Number(b.items.reduce((acc: number, it: any) => acc + Math.max(0, (Number(it.amount) || 0) - (Number(it.vatAmount) || 0)), 0).toFixed(2));
+                const expectedVat = Number(b.items.reduce((acc: number, it: any) => acc + (Number(it.vatAmount) || 0), 0).toFixed(2));
+                const expectedQty = b.items.reduce((acc: number, it: any) => {
+                  const intake = it.totalIntakeQty !== undefined && Number(it.totalIntakeQty) > 0
+                    ? Number(it.totalIntakeQty)
+                    : ((Number(it.ctn || 0) * Number(it.qtyPerCtn || 1)) + Number(it.qty || 0));
+                  return acc + intake;
+                }, 0);
+                const paid = Number(b.paidAmount) || 0;
+                b.grossAmount = expectedGross;
+                b.totalVatAmount = expectedVat;
+                b.netTotal = expectedNet;
+                b.totalQty = expectedQty;
+                b.remainingBalance = Math.max(0, Number((expectedNet - paid).toFixed(2)));
+                changed = true;
+                postgresService.upsertPurchaseBill(b, companyId).catch(() => {});
+              }
+            }
+          }
+          return changed;
+        };
+
+        for (const [cid, tenant] of this.tenants.entries()) {
+          if (healPurchaseBills(tenant.purchaseBills, cid)) {
+            this.recalculateAllLedgers();
+            this.persist(tenant, cid);
+          }
+        }
+        if (healPurchaseBills(this.data.purchaseBills, getActiveCompanyId())) {
+          this.recalculateAllLedgers();
+          this.persist();
+        }
+
         const counts = await postgresService.getTableCounts();
         const totalRows = Object.values(counts).reduce((a, b) => a + b, 0);
         if (totalRows === 0) {
@@ -7269,13 +7313,52 @@ ON CONFLICT (id) DO NOTHING;`);
 
     // 3. Merge updated bill fields
     const newItems = updatedData.items || oldBill.items;
-    const totalCtn = updatedData.totalCtn !== undefined ? updatedData.totalCtn : newItems.reduce((acc, it) => acc + (it.ctn || 0), 0);
-    const totalQty = updatedData.totalQty !== undefined ? updatedData.totalQty : newItems.reduce((acc, it) => acc + (it.qty || 0), 0);
-    const grossAmount = updatedData.grossAmount !== undefined ? updatedData.grossAmount : newItems.reduce((acc, it) => acc + (it.qty * it.rate), 0);
-    const totalVatAmount = updatedData.totalVatAmount !== undefined ? updatedData.totalVatAmount : newItems.reduce((acc, it) => acc + (it.vatAmount || 0), 0);
-    const netTotal = updatedData.netTotal !== undefined ? updatedData.netTotal : Number((grossAmount + totalVatAmount).toFixed(2));
-    const paidAmount = updatedData.paidAmount !== undefined ? Number(updatedData.paidAmount) : oldBill.paidAmount;
-    const remainingBalance = updatedData.remainingBalance !== undefined ? Number(updatedData.remainingBalance) : Math.max(0, Number((netTotal - paidAmount).toFixed(2)));
+    const totalCtn = updatedData.totalCtn !== undefined
+      ? Number(updatedData.totalCtn)
+      : newItems.reduce((acc, it) => acc + (Number(it.ctn) || 0), 0);
+
+    const totalQty = updatedData.totalQty !== undefined
+      ? Number(updatedData.totalQty)
+      : newItems.reduce((acc, it) => {
+          const intake = it.totalIntakeQty !== undefined && Number(it.totalIntakeQty) > 0
+            ? Number(it.totalIntakeQty)
+            : ((Number(it.ctn || 0) * Number(it.qtyPerCtn || 1)) + Number(it.qty || 0));
+          return acc + intake;
+        }, 0);
+
+    const calcItemGross = (it: PurchaseBillItem): number => {
+      if (typeof it.amount === 'number' && it.amount > 0) {
+        return Math.max(0, Number((it.amount - (Number(it.vatAmount) || 0)).toFixed(2)));
+      }
+      const ctnVal = (Number(it.ctn) || 0) * (Number(it.ratePerCtn) || 0);
+      const qtyVal = (Number(it.qty) || 0) * (Number(it.rate) || 0);
+      const disc = Number(it.discount) || 0;
+      return Math.max(0, Number((ctnVal + qtyVal - disc).toFixed(2)));
+    };
+
+    const grossAmount = updatedData.grossAmount !== undefined
+      ? Number(updatedData.grossAmount)
+      : Number(newItems.reduce((acc, it) => acc + calcItemGross(it), 0).toFixed(2));
+
+    const totalVatAmount = updatedData.totalVatAmount !== undefined
+      ? Number(updatedData.totalVatAmount)
+      : Number(newItems.reduce((acc, it) => acc + (Number(it.vatAmount) || 0), 0).toFixed(2));
+
+    const loadExp = updatedData.loadExp !== undefined ? Number(updatedData.loadExp) : (Number(oldBill.loadExp) || 0);
+    const isLoadExpDeduction = updatedData.isLoadExpDeduction !== undefined ? Boolean(updatedData.isLoadExpDeduction) : Boolean(oldBill.isLoadExpDeduction);
+    const itemsTotal = newItems.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
+    const netTotal = updatedData.netTotal !== undefined
+      ? Number(updatedData.netTotal)
+      : Number((itemsTotal + (isLoadExpDeduction ? -loadExp : loadExp)).toFixed(2));
+
+    const paidAmount = updatedData.paidAmount !== undefined ? Number(updatedData.paidAmount) : (Number(oldBill.paidAmount) || 0);
+    const remainingBalance = updatedData.remainingBalance !== undefined
+      ? Number(updatedData.remainingBalance)
+      : Math.max(0, Number((netTotal - paidAmount).toFixed(2)));
+
+    const partyBalanceBefore = updatedData.partyBalanceBefore !== undefined
+      ? Number(updatedData.partyBalanceBefore)
+      : (oldBill.partyBalanceBefore !== undefined ? Number(oldBill.partyBalanceBefore) : 0);
 
     const newBill: PurchaseBill = {
       ...oldBill,
@@ -7287,6 +7370,7 @@ ON CONFLICT (id) DO NOTHING;`);
       netTotal,
       paidAmount,
       remainingBalance,
+      partyBalanceBefore,
       items: newItems,
       date: updatedData.date ? this.normalizeDateToYMD(updatedData.date) : oldBill.date,
       updatedAt: new Date().toISOString(),
@@ -8806,7 +8890,16 @@ ON CONFLICT (id) DO NOTHING;`);
     const newItems = updatedData.items || oldBill.items;
     const totalCtn = updatedData.totalCtn !== undefined ? updatedData.totalCtn : newItems.reduce((acc, it) => acc + (it.ctn || 0), 0);
     const totalQty = updatedData.totalQty !== undefined ? updatedData.totalQty : newItems.reduce((acc, it) => acc + (it.qty || 0), 0);
-    const grossAmount = updatedData.grossAmount !== undefined ? updatedData.grossAmount : newItems.reduce((acc, it) => acc + (it.qty * it.rate), 0);
+    const calcSaleItemGross = (it: any): number => {
+      if (typeof it.amount === 'number' && it.amount > 0) {
+        return Math.max(0, Number((it.amount - (Number(it.vatAmount) || 0)).toFixed(2)));
+      }
+      const ctnVal = (Number(it.ctn) || 0) * (Number(it.ratePerCtn) || 0);
+      const qtyVal = (Number(it.qty) || 0) * (Number(it.rate) || 0);
+      const disc = Number(it.discount) || 0;
+      return Math.max(0, Number((ctnVal + qtyVal - disc).toFixed(2)));
+    };
+    const grossAmount = updatedData.grossAmount !== undefined ? updatedData.grossAmount : Number(newItems.reduce((acc, it) => acc + calcSaleItemGross(it), 0).toFixed(2));
     const netTotal = updatedData.netTotal !== undefined ? updatedData.netTotal : grossAmount;
     const cashReceived = updatedData.cashReceived !== undefined ? Number(updatedData.cashReceived) : oldBill.cashReceived;
     const balanceReceivable = updatedData.balanceReceivable !== undefined ? Number(updatedData.balanceReceivable) : Math.max(0, Number((netTotal - cashReceived).toFixed(2)));

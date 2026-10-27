@@ -483,12 +483,30 @@ export const PurchaseBillVoucherModal: React.FC<PurchaseBillVoucherModalProps> =
                 </span>
               </div>
 
-              <div className="flex justify-between font-black text-xs border-t border-dashed border-slate-800 print:border-gray-400 pt-1.5">
-                <span className="text-amber-400 print:text-black uppercase">Balance Remaining (Payable):</span>
-                <span className="font-mono text-amber-400 print:text-black text-sm">
+              <div className="flex justify-between font-bold text-xs pt-0.5">
+                <span className="text-amber-400 print:text-black">This Bill Remaining:</span>
+                <span className="font-mono text-amber-400 print:text-black">
                   {currency} {remainingBalance.toFixed(2)}
                 </span>
               </div>
+
+              {!bill.isCash && (
+                <>
+                  <div className="flex justify-between text-slate-400 print:text-gray-700 text-xs pt-1 border-t border-slate-800/60 print:border-gray-300">
+                    <span>Previous Balance (سابقہ واجبات):</span>
+                    <span className="font-mono font-bold text-slate-200 print:text-black">
+                      {currency} {(Number(bill.partyBalanceBefore) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between font-black text-xs border-t-2 border-slate-700 print:border-black pt-1.5 bg-slate-900/60 print:bg-transparent p-1.5 rounded">
+                    <span className="text-emerald-400 print:text-black uppercase">Total Net Payable (کل واجب الادا):</span>
+                    <span className="font-mono text-emerald-400 print:text-black text-sm">
+                      {currency} {((Number(bill.partyBalanceBefore) || 0) + remainingBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 

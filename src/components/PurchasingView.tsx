@@ -129,6 +129,16 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
     setGatePassNumber(bill.gatePassNumber || '');
     setBillDate(bill.date || new Date().toISOString().split('T')[0]);
     setSelectedSupplierId(bill.supplierId || '');
+    let prevBal = Number(bill.partyBalanceBefore) || 0;
+    const sup = suppliers.find((s) => s.id === bill.supplierId);
+    if (sup && sup.payableToSupplier !== undefined) {
+      const liveBal = Number(sup.payableToSupplier) || 0;
+      const billPayable = Number(bill.remainingBalance !== undefined ? bill.remainingBalance : (Number(bill.netTotal || 0) - Number(bill.paidAmount || 0)));
+      if (bill.partyBalanceBefore === undefined || bill.partyBalanceBefore === null || (billPayable > 0 && Math.abs(prevBal - liveBal) < 0.01)) {
+        prevBal = Number((liveBal - billPayable).toFixed(2));
+      }
+    }
+    setPartyBalanceBefore(prevBal);
     setIsCash(Boolean(bill.isCash));
     setCashSupplierName(bill.isCash ? (bill.supplierAccountTitle || '') : '');
     setDiscountType(bill.discountType || 'Amount');
@@ -209,6 +219,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
 
   // Account / Supplier selection
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
+  const [partyBalanceBefore, setPartyBalanceBefore] = useState<number>(0);
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
   const [accountSearch, setAccountSearch] = useState('');
   const accountDropdownRef = useRef<HTMLDivElement>(null);
@@ -430,6 +441,12 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
   const selectedSupplier = suppliers.find((s) => s.id === selectedSupplierId);
   const partyBalance = selectedSupplier ? (selectedSupplier.payableToSupplier ?? selectedSupplier.balanceOwed ?? 0) : 0;
 
+  useEffect(() => {
+    if (!editingBillId) {
+      setPartyBalanceBefore(selectedSupplier ? (selectedSupplier.payableToSupplier ?? selectedSupplier.balanceOwed ?? 0) : 0);
+    }
+  }, [selectedSupplierId, selectedSupplier, editingBillId]);
+
   // Handle Item Selection from dropdown (Image 2 & Image 4)
   const handleSelectItem = (prod: Product) => {
     setSelectedProductId(prod.id);
@@ -638,6 +655,8 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
   }, [isCash, netTotal]);
 
   const remainingPayableBalance = parseFloat((netTotal - (Number(paidAmount) || 0)).toFixed(2));
+  const currentPreviousBalance = isCash ? 0 : partyBalanceBefore;
+  const newTotalPayableBalance = isCash ? 0 : Number((currentPreviousBalance + remainingPayableBalance).toFixed(2));
 
   // Active product lookup for instant cost popup & stock verification
   const activeProduct = React.useMemo(() => {
@@ -761,9 +780,16 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
         discountType,
         vatType,
         items: itemsToSave,
+        totalCtn: totalBillCtn,
+        totalQty: totalBillQty,
+        grossAmount: grossBillAmount,
+        totalVatAmount: totalBillVatAmount,
+        netTotal,
         loadExp: numLoadExp,
         isLoadExpDeduction,
         paidAmount: Number(paidAmount) || 0,
+        remainingBalance: remainingPayableBalance,
+        partyBalanceBefore: currentPreviousBalance,
         notes: notes.trim(),
         addToStock: true, // Directly adds stock to inventory!
         customerName: companyProfile?.name || 'APEX FOOD SUPPLIES LTD.',
@@ -1938,11 +1964,29 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
             </div>
 
             <div className="grid grid-cols-2 items-center gap-2 text-xs font-semibold">
-              <span className="text-amber-400">Balance:</span>
+              <span className="text-amber-400">This Bill Balance:</span>
               <span className="text-right font-mono font-bold text-amber-400">
                 {currencySymbol()} {remainingPayableBalance.toFixed(2)}
               </span>
             </div>
+
+            {!isCash && (selectedSupplierId || selectedSupplier) && (
+              <>
+                <div className="grid grid-cols-2 items-center gap-2 text-xs font-semibold pt-1 border-t border-slate-800/80">
+                  <span className="text-slate-400">Previous Balance:</span>
+                  <span className="text-right font-mono font-bold text-slate-300">
+                    {currencySymbol()} {currentPreviousBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 items-center gap-2 text-xs font-bold pt-1.5 border-t border-slate-700 bg-slate-950/80 p-2 rounded-lg">
+                  <span className="text-emerald-400 uppercase tracking-wide">Total Payable Balance:</span>
+                  <span className="text-right font-mono font-black text-emerald-400 text-sm">
+                    {currencySymbol()} {newTotalPayableBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </>
+            )}
 
             {/* ACTION BUTTON (User requested: remove Add to Stock button, save report directly to Settings > Reports > Purchase Details) */}
             <div className="flex flex-wrap items-center justify-end gap-2 pt-3 border-t border-slate-800/90">
