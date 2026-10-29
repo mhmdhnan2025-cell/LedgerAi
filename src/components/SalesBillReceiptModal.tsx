@@ -135,6 +135,27 @@ export const SalesBillReceiptModal: React.FC<SalesBillReceiptModalProps> = ({
   onEditBill,
 }) => {
   const [printFormat, setPrintFormat] = useState<'a4' | 'thermal'>('a4');
+  const [activeCompanyProfile, setActiveCompanyProfile] = useState<CompanyProfile | null>(companyProfile || null);
+
+  useEffect(() => {
+    if (companyProfile) {
+      setActiveCompanyProfile(companyProfile);
+    }
+    const cached = localStorage.getItem('erp_company_profile');
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (parsed) {
+          setActiveCompanyProfile((prev) => ({ ...(prev || {}), ...parsed }));
+        }
+      } catch {}
+    }
+    api.getCompanyProfile().then((res) => {
+      if (res?.company) {
+        setActiveCompanyProfile((prev) => ({ ...(prev || {}), ...res.company }));
+      }
+    }).catch(() => {});
+  }, [companyProfile]);
   const [copied, setCopied] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -197,24 +218,25 @@ export const SalesBillReceiptModal: React.FC<SalesBillReceiptModalProps> = ({
   // ---------------------------------------------------------------
   // Company letterhead (from registered profile only)
   // ---------------------------------------------------------------
-  const companyName = companyProfile?.name || 'Wholesale Food Trading Co.';
-  const legalLine = companyProfile?.tagline || companyProfile?.businessType || '';
-  const companyPhone = companyProfile?.phone || '';
-  const companyPhone2 = companyProfile?.phone2 || '';
+  const activeProf = activeCompanyProfile || companyProfile;
+  const companyName = activeProf?.name || 'Wholesale Food Trading Co.';
+  const legalLine = activeProf?.tagline || activeProf?.businessType || '';
+  const companyPhone = activeProf?.phone || '';
+  const companyPhone2 = activeProf?.phone2 || '';
   const phoneLine = [companyPhone, companyPhone2].filter(Boolean).join(', ');
-  const companyAddress = companyProfile?.address || '';
-  const companyCity = companyProfile?.city || '';
+  const companyAddress = activeProf?.address || '';
+  const companyCity = activeProf?.city || '';
   const fullAddress = [companyAddress, companyCity].filter(Boolean).join(', ');
-  const poBox = companyProfile?.poBox || '';
-  const nameAr = companyProfile?.nameAr || companyName;
-  const companyTrn = companyProfile?.trn || companyProfile?.ntn || '';
-  const companyEmail = companyProfile?.email || '';
-  const cur = (companyProfile?.currency || 'PKR').trim().toUpperCase();
+  const poBox = activeProf?.poBox || '';
+  const nameAr = activeProf?.nameAr || companyName;
+  const companyTrn = activeProf?.trn || activeProf?.ntn || '';
+  const companyEmail = activeProf?.email || '';
+  const cur = (activeProf?.currency || 'AED').trim().toUpperCase();
 
-  const bankAccountTitle = companyProfile?.bankAccountTitle || '';
-  const bankName = companyProfile?.bankName || '';
-  const bankAccountNo = companyProfile?.bankAccountNo || '';
-  const iban = companyProfile?.iban || '';
+  const bankAccountTitle = activeProf?.bankAccountTitle || '';
+  const bankName = activeProf?.bankName || '';
+  const bankAccountNo = activeProf?.bankAccountNo || '';
+  const iban = activeProf?.iban || '';
 
   const nameWords = companyName.trim().split(/\s+/).filter(Boolean);
   const companyInitials =
@@ -242,7 +264,8 @@ export const SalesBillReceiptModal: React.FC<SalesBillReceiptModalProps> = ({
 
   const totalInWords = amountInWords(netTotal, cur);
   const isThermal = printFormat === 'thermal';
-  const logoPx = Math.min(Math.max(Number(companyProfile?.logoSize) || 56, 24), 200);
+  const logoUrl = activeProf?.logo || '';
+  const logoPx = Math.min(Math.max(Number(activeProf?.logoSize) || 80, 24), 360);
   const twoCol = isThermal ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2';
   const headerGrid = isThermal ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-[1fr_auto_1fr]';
 
@@ -279,87 +302,7 @@ export const SalesBillReceiptModal: React.FC<SalesBillReceiptModalProps> = ({
     const originalTitle = document.title;
     document.title = documentTitle;
     setTimeout(() => { document.title = originalTitle; }, 3000);
-    const srcEl = document.getElementById('printable-sales-receipt');
-    if (!srcEl) {
-      window.print();
-      return;
-    }
-
-    const oldContainer = document.getElementById('active-print-container');
-    if (oldContainer) oldContainer.remove();
-
-    const printContainer = document.createElement('div');
-    printContainer.id = 'active-print-container';
-    printContainer.innerHTML = srcEl.outerHTML;
-
-    // Remove buttons and print:hidden elements
-    printContainer.querySelectorAll('.print\\:hidden, .print-hidden, button').forEach((el) => el.remove());
-
-    const oldStyle = document.getElementById('dynamic-print-page-style');
-    if (oldStyle) oldStyle.remove();
-
-    const pageStyle = document.createElement('style');
-    pageStyle.id = 'dynamic-print-page-style';
-    if (isThermal) {
-      pageStyle.textContent = `
-        @page {
-          size: 80mm auto;
-          margin: 0;
-        }
-        @media print {
-          html, body {
-            width: 80mm !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: white !important;
-          }
-          #active-print-container {
-            width: 78mm !important;
-            max-width: 78mm !important;
-            margin: 0 auto !important;
-            padding: 1.5mm 2mm !important;
-          }
-        }
-      `;
-    } else {
-      pageStyle.textContent = `
-        @page {
-          size: A4 portrait;
-          margin: 6mm 8mm;
-        }
-        @media print {
-          #active-print-container {
-            width: 100% !important;
-            max-width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-        }
-      `;
-    }
-
-    document.head.appendChild(pageStyle);
-    document.body.appendChild(printContainer);
-    document.body.classList.add('is-printing-slip');
-
-    const cleanup = () => {
-      document.body.classList.remove('is-printing-slip');
-      if (printContainer && printContainer.parentNode) {
-        printContainer.remove();
-      }
-      if (pageStyle && pageStyle.parentNode) {
-        pageStyle.remove();
-      }
-      window.removeEventListener('afterprint', cleanup);
-    };
-
-    window.addEventListener('afterprint', cleanup);
-
-    window.focus();
-    setTimeout(() => {
-      window.print();
-      setTimeout(cleanup, 2500);
-    }, 150);
+    printCleanDocument('printable-sales-receipt', documentTitle, isThermal ? 'thermal' : 'portrait');
   };
 
   const handleCopyWhatsApp = () => {
@@ -545,74 +488,68 @@ Thank you for your business!`;
             ref={printRef}
             className={`p-4 sm:p-7 bg-white text-slate-900 mx-auto transition-all ${
               isThermal
-                ? 'max-w-[380px] text-[11px] print:max-w-none print:w-[80mm] print:p-2'
+                ? 'max-w-[380px] text-[11px] is-thermal-receipt print:max-w-none print:w-[80mm] print:p-1.5'
                 : 'max-w-3xl text-[11.5px] print:max-w-none print:w-full print:p-6'
             }`}
           >
           {/* ---------------- LETTERHEAD ---------------- */}
-          <div className="pb-3 mb-3 border-b-2 border-slate-800">
-            <div className={`grid ${headerGrid} gap-4 items-start`}>
-              {/* Left — English block */}
-              <div className="leading-snug text-slate-800">
-                <h1 className="text-[24px] sm:text-[30px] font-black uppercase tracking-tight text-[#0f7b3f] leading-none">
-                  {companyName}
-                </h1>
-                {legalLine && (
-                  <div className="font-black text-slate-800 mt-1 text-[13px] uppercase leading-tight">{legalLine}</div>
-                )}
-                <div className="mt-1.5 space-y-0.5">
-                  {phoneLine && (
-                    <div>
-                      <span className="font-black">Phone:</span> {phoneLine}
-                    </div>
-                  )}
-                  {companyEmail && (
-                    <div>
-                      <span className="font-black">Email:</span> {companyEmail}
-                    </div>
-                  )}
-                  {fullAddress && (
-                    <div>
-                      <span className="font-black">Address:</span> {fullAddress}
-                    </div>
-                  )}
-                  {poBox && (
-                    <div>
-                      <span className="font-black">P.O. Box:</span> {poBox}
-                    </div>
-                  )}
+          {isThermal ? (
+            <div className="flex flex-col items-center text-center space-y-1 pb-3 mb-3 border-b-2 border-slate-800">
+              {logoUrl ? (
+                <img
+                  src={logoUrl}
+                  alt={companyName}
+                  className="object-contain mx-auto mb-1"
+                  style={{ width: `${Math.min(logoPx, 220)}px`, maxHeight: `${Math.min(logoPx, 180)}px` }}
+                />
+              ) : (
+                <div
+                  className="rounded-full border-2 border-[#0f7b3f] flex items-center justify-center mx-auto mb-1"
+                  style={{ width: `${Math.min(logoPx, 90)}px`, height: `${Math.min(logoPx, 90)}px` }}
+                >
+                  <span className="text-[#0f7b3f] font-black tracking-tight" style={{ fontSize: Math.max(12, Math.round(Math.min(logoPx, 90) * 0.34)) }}>
+                    {companyInitials}
+                  </span>
                 </div>
+              )}
+              <h1 className="text-[17px] font-black uppercase tracking-tight text-[#0f7b3f] leading-tight">
+                {companyName}
+              </h1>
+              {legalLine && (
+                <div className="font-bold text-slate-700 text-[11px] leading-tight">{legalLine}</div>
+              )}
+              <div className="text-[10.5px] text-slate-600 leading-tight space-y-0.5">
+                {phoneLine && <div>Tel: <span className="font-semibold text-slate-800">{phoneLine}</span></div>}
+                {fullAddress && <div>{fullAddress}</div>}
+                {poBox && <div>P.O. Box: {poBox}</div>}
               </div>
-
-              {/* Center — logo, TAX INVOICE badge, TRN */}
-              <div className={`flex flex-col items-center gap-1 ${isThermal ? 'w-full mt-2' : ''}`}>
-                {companyProfile?.logo ? (
-                  <img src={companyProfile.logo} alt="" className="object-contain" style={{ width: logoPx, height: logoPx }} />
-                ) : (
-                  <div className="rounded-full border-2 border-[#0f7b3f] flex items-center justify-center" style={{ width: logoPx, height: logoPx }}>
-                    <span className="text-[#0f7b3f] font-black tracking-tight" style={{ fontSize: Math.max(12, Math.round(logoPx * 0.34)) }}>{companyInitials}</span>
-                  </div>
-                )}
-                <div className="text-[#0f7b3f] font-black text-[12.5px] uppercase tracking-wide leading-tight text-center">
-                  {companyName}
-                </div>
-                <div className="bg-[#0f7b3f] text-white font-black text-[13px] px-3.5 py-1 tracking-wider uppercase shadow-xs">
-                  TAX INVOICE
-                </div>
-                <div className="font-black text-[17px] text-black font-mono tracking-wider mt-1 text-center">
-                  TRN: {companyTrn || companyProfile?.trn || companyProfile?.ntn || companyProfile?.vatNumber || '100234567800003'}
-                </div>
+              <div className="mt-1 inline-block bg-[#0f7b3f] text-white font-black text-[12px] px-3.5 py-0.5 uppercase tracking-wider shadow-xs">
+                TAX INVOICE
               </div>
-
-              {/* Right — Arabic block (only if Arabic company name configured) */}
-              {!isThermal && nameAr && (
-                <div className="leading-snug text-slate-800 text-right" dir="rtl">
-                  <div className="text-[#0f7b3f] font-black text-[22px] leading-none">{nameAr}</div>
-                  {legalLine && <div className="font-black mt-1 text-[12px] leading-tight">{legalLine}</div>}
+              <div className="font-mono font-black text-[14.5px] text-black tracking-wide mt-0.5">
+                TRN: {companyTrn || activeProf?.trn || activeProf?.ntn || activeProf?.vatNumber || '100234567800003'}
+              </div>
+            </div>
+          ) : (
+            <div className="pb-3 mb-3 border-b-2 border-slate-800">
+              <div className={`grid ${headerGrid} gap-4 items-start`}>
+                {/* Left — English block */}
+                <div className="leading-snug text-slate-800">
+                  <h1 className="text-[24px] sm:text-[30px] font-black uppercase tracking-tight text-[#0f7b3f] leading-none">
+                    {companyName}
+                  </h1>
+                  {legalLine && (
+                    <div className="font-black text-slate-800 mt-1 text-[13px] uppercase leading-tight">{legalLine}</div>
+                  )}
                   <div className="mt-1.5 space-y-0.5">
                     {phoneLine && (
                       <div>
-                        <span className="font-black">Tel:</span> {phoneLine}
+                        <span className="font-black">Phone:</span> {phoneLine}
+                      </div>
+                    )}
+                    {companyEmail && (
+                      <div>
+                        <span className="font-black">Email:</span> {companyEmail}
                       </div>
                     )}
                     {fullAddress && (
@@ -627,9 +564,54 @@ Thank you for your business!`;
                     )}
                   </div>
                 </div>
-              )}
+
+                {/* Center — logo, TAX INVOICE badge, TRN */}
+                <div className="flex flex-col items-center gap-1">
+                  {logoUrl ? (
+                    <img src={logoUrl} alt="" className="object-contain" style={{ width: logoPx, height: logoPx }} />
+                  ) : (
+                    <div className="rounded-full border-2 border-[#0f7b3f] flex items-center justify-center" style={{ width: logoPx, height: logoPx }}>
+                      <span className="text-[#0f7b3f] font-black tracking-tight" style={{ fontSize: Math.max(12, Math.round(logoPx * 0.34)) }}>{companyInitials}</span>
+                    </div>
+                  )}
+                  <div className="text-[#0f7b3f] font-black text-[12.5px] uppercase tracking-wide leading-tight text-center">
+                    {companyName}
+                  </div>
+                  <div className="bg-[#0f7b3f] text-white font-black text-[13px] px-3.5 py-1 tracking-wider uppercase shadow-xs">
+                    TAX INVOICE
+                  </div>
+                  <div className="font-black text-[17px] text-black font-mono tracking-wider mt-1 text-center">
+                    TRN: {companyTrn || activeProf?.trn || activeProf?.ntn || activeProf?.vatNumber || '100234567800003'}
+                  </div>
+                </div>
+
+                {/* Right — Arabic block (only if Arabic company name configured) */}
+                {nameAr && (
+                  <div className="leading-snug text-slate-800 text-right" dir="rtl">
+                    <div className="text-[#0f7b3f] font-black text-[22px] leading-none">{nameAr}</div>
+                    {legalLine && <div className="font-black mt-1 text-[12px] leading-tight">{legalLine}</div>}
+                    <div className="mt-1.5 space-y-0.5">
+                      {phoneLine && (
+                        <div>
+                          <span className="font-black">Tel:</span> {phoneLine}
+                        </div>
+                      )}
+                      {fullAddress && (
+                        <div>
+                          <span className="font-black">Address:</span> {fullAddress}
+                        </div>
+                      )}
+                      {poBox && (
+                        <div>
+                          <span className="font-black">P.O. Box:</span> {poBox}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* ---------------- CUSTOMER + INVOICE META ---------------- */}
           <div className="border border-slate-400 mb-3">
@@ -883,35 +865,51 @@ Thank you for your business!`;
               <div className="text-[10.5px] text-slate-600">Total ({cur}) in Words:</div>
               <div className="font-black text-[12.5px] uppercase leading-snug mt-0.5">{totalInWords}</div>
 
-              <div className="grid grid-cols-4 border border-slate-400 mt-2.5">
-                <div className="text-center px-1 py-1.5 border-r border-slate-400">
-                  <div className="font-black leading-tight text-slate-800 text-[10.5px]">Opening Balance</div>
+              {isThermal ? (
+                <div className="border border-slate-400 mt-2 text-xs font-mono bg-white">
+                  <div className="grid grid-cols-2 divide-x divide-slate-400 border-b border-slate-400">
+                    <div className="p-1.5 flex flex-col justify-between">
+                      <span className="text-[9.5px] uppercase font-bold text-slate-600">Opening Balance</span>
+                      <span className="font-black text-[12.5px] text-slate-900">{money(openingBalance)}</span>
+                    </div>
+                    <div className="p-1.5 flex flex-col justify-between bg-emerald-50/40">
+                      <span className="text-[9.5px] uppercase font-bold text-slate-600">Current Bill</span>
+                      <span className="font-black text-[12.5px] text-[#0f7b3f]">{money(currentBillAmount)}</span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 divide-x divide-slate-400">
+                    <div className="p-1.5 flex flex-col justify-between">
+                      <span className="text-[9.5px] uppercase font-bold text-slate-600">Amount Paid</span>
+                      <span className="font-black text-[12.5px] text-blue-700">{money(cashPaid)}</span>
+                    </div>
+                    <div className="p-1.5 flex flex-col justify-between bg-rose-50/40">
+                      <span className="text-[9.5px] uppercase font-bold text-slate-600">Closing Balance</span>
+                      <span className="font-black text-[12.5px] text-[#c1121f]">{money(closingBalance)}</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="text-center px-1 py-1.5 border-r border-slate-400">
-                  <div className="font-black leading-tight text-slate-800 text-[10.5px]">Current Bill</div>
+              ) : (
+                <div className="border border-slate-400 mt-2.5">
+                  <table className="w-full table-fixed border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-400 bg-slate-50 text-[10.5px] font-black text-slate-800">
+                        <th className="py-1 px-1.5 text-center border-r border-slate-400 w-1/4">Opening Balance</th>
+                        <th className="py-1 px-1.5 text-center border-r border-slate-400 w-1/4">Current Bill</th>
+                        <th className="py-1 px-1.5 text-center border-r border-slate-400 w-1/4">Amount Paid</th>
+                        <th className="py-1 px-1.5 text-center w-1/4">Closing Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="font-mono font-black text-[12px]">
+                        <td className="py-1.5 px-1.5 text-center border-r border-slate-400 overflow-hidden text-ellipsis whitespace-nowrap">{money(openingBalance)}</td>
+                        <td className="py-1.5 px-1.5 text-center border-r border-slate-400 text-[#0f7b3f] overflow-hidden text-ellipsis whitespace-nowrap">{money(currentBillAmount)}</td>
+                        <td className="py-1.5 px-1.5 text-center border-r border-slate-400 text-blue-700 overflow-hidden text-ellipsis whitespace-nowrap">{money(cashPaid)}</td>
+                        <td className="py-1.5 px-1.5 text-center text-[#c1121f] overflow-hidden text-ellipsis whitespace-nowrap">{money(closingBalance)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
-                <div className="text-center px-1 py-1.5 border-r border-slate-400">
-                  <div className="font-black leading-tight text-slate-800 text-[10.5px]">Amount Paid</div>
-                </div>
-                <div className="text-center px-1 py-1.5">
-                  <div className="font-black leading-tight text-slate-800 text-[10.5px]">Closing Balance</div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-4 border border-slate-400 border-t-0">
-                <div className="text-center px-1 py-1.5 border-r border-slate-400 font-black text-[12px] font-mono">
-                  {money(openingBalance)}
-                </div>
-                <div className="text-center px-1 py-1.5 border-r border-slate-400 font-black text-[12px] font-mono text-[#0f7b3f]">
-                  {money(currentBillAmount)}
-                </div>
-                <div className="text-center px-1 py-1.5 border-r border-slate-400 font-black text-[12px] font-mono text-blue-700">
-                  {money(cashPaid)}
-                </div>
-                <div className="text-center px-1 py-1.5 font-black text-[12px] font-mono text-[#c1121f]">
-                  {money(closingBalance)}
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Right: totals box */}

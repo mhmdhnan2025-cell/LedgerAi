@@ -783,6 +783,18 @@ class PostgresService {
         await client.query(`ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS opening_balance NUMERIC(15,2) DEFAULT 0;`);
         await client.query(`ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS opening_balance_type VARCHAR(10) DEFAULT 'CR';`);
 
+        // Company profile column migrations for logo, styling and banking
+        await client.query(`ALTER TABLE company_profile ADD COLUMN IF NOT EXISTS logo TEXT;`);
+        await client.query(`ALTER TABLE company_profile ADD COLUMN IF NOT EXISTS logo_size NUMERIC DEFAULT 56;`);
+        await client.query(`ALTER TABLE company_profile ADD COLUMN IF NOT EXISTS trn VARCHAR(100);`);
+        await client.query(`ALTER TABLE company_profile ADD COLUMN IF NOT EXISTS email VARCHAR(255);`);
+        await client.query(`ALTER TABLE company_profile ADD COLUMN IF NOT EXISTS po_box VARCHAR(100);`);
+        await client.query(`ALTER TABLE company_profile ADD COLUMN IF NOT EXISTS name_ar VARCHAR(255);`);
+        await client.query(`ALTER TABLE company_profile ADD COLUMN IF NOT EXISTS bank_account_title VARCHAR(255);`);
+        await client.query(`ALTER TABLE company_profile ADD COLUMN IF NOT EXISTS bank_name VARCHAR(255);`);
+        await client.query(`ALTER TABLE company_profile ADD COLUMN IF NOT EXISTS bank_account_no VARCHAR(255);`);
+        await client.query(`ALTER TABLE company_profile ADD COLUMN IF NOT EXISTS iban VARCHAR(255);`);
+
         // Indexes for performance
         await client.query(`
           CREATE INDEX IF NOT EXISTS idx_companies_invite_code ON companies(invite_code);
@@ -1186,12 +1198,60 @@ class PostgresService {
           client.query('SELECT * FROM purchase_returns WHERE company_id = $1 ORDER BY id DESC;', [companyId]),
         ]);
 
-        const extractItem = (row: any) => ({
-          ...(row.data || {}),
-          ...row,
-          companyId,
-          data: undefined,
-        });
+        const extractItem = (row: any) => {
+          let d: any = {};
+          if (row.data) {
+            if (typeof row.data === 'string') {
+              try { d = JSON.parse(row.data); } catch { d = {}; }
+            } else if (typeof row.data === 'object') {
+              d = row.data;
+            }
+          }
+          return {
+            ...d,
+            ...row,
+            companyId,
+            data: undefined,
+          };
+        };
+
+        const extractCompanyProfile = (row: any): CompanyProfile => {
+          let d: any = {};
+          if (row.data) {
+            if (typeof row.data === 'string') {
+              try { d = JSON.parse(row.data); } catch { d = {}; }
+            } else if (typeof row.data === 'object') {
+              d = row.data;
+            }
+          }
+          return {
+            ...d,
+            id: row.id || d.id || `comp-prof-${companyId}`,
+            companyId: row.company_id || d.companyId || companyId,
+            name: row.name || d.name || '',
+            ownerName: row.owner_name || d.ownerName || '',
+            phone: row.phone || d.phone || '',
+            city: row.city || d.city || '',
+            address: row.address || d.address || '',
+            businessType: row.business_type || d.businessType || 'Wholesale Food & Grains',
+            ntn: row.ntn || d.ntn || '',
+            tagline: row.tagline || d.tagline || '',
+            currency: row.currency || d.currency || 'AED',
+            isRegistered: row.is_registered !== undefined ? Boolean(row.is_registered) : (d.isRegistered !== undefined ? Boolean(d.isRegistered) : true),
+            email: d.email || row.email || '',
+            trn: row.trn || d.trn || '',
+            poBox: row.po_box || d.poBox || '',
+            nameAr: row.name_ar || d.nameAr || '',
+            bankAccountTitle: row.bank_account_title || d.bankAccountTitle || '',
+            bankName: row.bank_name || d.bankName || '',
+            bankAccountNo: row.bank_account_no || d.bankAccountNo || '',
+            iban: row.iban || d.iban || '',
+            logo: row.logo || d.logo || '',
+            logoSize: Number(row.logo_size !== undefined && row.logo_size !== null ? row.logo_size : (d.logoSize || 56)),
+            notes: d.notes || row.notes || '',
+            registeredAt: d.registeredAt || row.registered_at || row.updated_at || '',
+          };
+        };
 
         const extractCustomer = (row: any): Customer => {
           const d = row.data || {};
@@ -1414,7 +1474,7 @@ class PostgresService {
         };
 
         const users: User[] = usersRes.rows.map(extractItem);
-        const companyProfile: CompanyProfile | null = compRes.rows[0] ? extractItem(compRes.rows[0]) : null;
+        const companyProfile: CompanyProfile | null = compRes.rows[0] ? extractCompanyProfile(compRes.rows[0]) : null;
         const cashRegister: CashRegister | null = cashRes.rows[0] ? extractItem(cashRes.rows[0]) : null;
         const employees: Employee[] = empRes.rows.map(extractItem);
         const customers: Customer[] = custRes.rows.map(extractCustomer);
@@ -1695,8 +1755,12 @@ class PostgresService {
     try {
       const id = profile.id || `comp-prof-${companyId}`;
       await this.pool.query(
-        `INSERT INTO company_profile (id, company_id, name, owner_name, phone, city, address, business_type, ntn, tagline, currency, is_registered, data, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
+        `INSERT INTO company_profile (
+           id, company_id, name, owner_name, phone, city, address, business_type, ntn, tagline, currency, is_registered,
+           logo, logo_size, trn, email, po_box, name_ar, bank_account_title, bank_name, bank_account_no, iban,
+           data, updated_at
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, NOW())
          ON CONFLICT (id) DO UPDATE SET
            company_id = EXCLUDED.company_id,
            name = EXCLUDED.name,
@@ -1709,6 +1773,16 @@ class PostgresService {
            tagline = EXCLUDED.tagline,
            currency = EXCLUDED.currency,
            is_registered = EXCLUDED.is_registered,
+           logo = EXCLUDED.logo,
+           logo_size = EXCLUDED.logo_size,
+           trn = EXCLUDED.trn,
+           email = EXCLUDED.email,
+           po_box = EXCLUDED.po_box,
+           name_ar = EXCLUDED.name_ar,
+           bank_account_title = EXCLUDED.bank_account_title,
+           bank_name = EXCLUDED.bank_name,
+           bank_account_no = EXCLUDED.bank_account_no,
+           iban = EXCLUDED.iban,
            data = EXCLUDED.data,
            updated_at = NOW();`,
         [
@@ -1724,6 +1798,16 @@ class PostgresService {
           profile.tagline || '',
           profile.currency || 'AED',
           Boolean(profile.isRegistered),
+          profile.logo || '',
+          Number(profile.logoSize) || 56,
+          profile.trn || '',
+          profile.email || '',
+          profile.poBox || '',
+          profile.nameAr || '',
+          profile.bankAccountTitle || '',
+          profile.bankName || '',
+          profile.bankAccountNo || '',
+          profile.iban || '',
           JSON.stringify(profile),
         ]
       );

@@ -7,7 +7,7 @@
 export function printCleanDocument(
   elementId: string,
   documentTitle?: string,
-  orientation: 'portrait' | 'landscape' = 'portrait'
+  orientation: 'portrait' | 'landscape' | 'thermal' = 'portrait'
 ): void {
   const srcEl = document.getElementById(elementId);
   if (!srcEl) {
@@ -50,21 +50,24 @@ export function printCleanDocument(
   const oldStyle = document.getElementById('dynamic-print-page-style');
   if (oldStyle) oldStyle.remove();
 
+  const isThermal = orientation === 'thermal';
   const isLandscape = orientation === 'landscape';
   const pageStyle = document.createElement('style');
   pageStyle.id = 'dynamic-print-page-style';
+
+  const pageRule = isThermal
+    ? `@page { size: 80mm auto; margin: 1.5mm 1mm; }`
+    : `@page { size: ${isLandscape ? 'A4 landscape' : 'A4 portrait'}; margin: ${isLandscape ? '5mm 6mm' : '7mm 6mm'}; }`;
+
   pageStyle.textContent = `
-    @page {
-      size: ${isLandscape ? 'A4 landscape' : 'A4 portrait'};
-      margin: ${isLandscape ? '5mm 6mm' : '7mm 6mm'};
-    }
+    ${pageRule}
     @media print {
       html, body {
         background: white !important;
         color: black !important;
         margin: 0 !important;
         padding: 0 !important;
-        width: 100% !important;
+        width: ${isThermal ? '80mm' : '100%'} !important;
         height: auto !important;
         min-height: 0 !important;
         max-height: none !important;
@@ -82,16 +85,17 @@ export function printCleanDocument(
         display: block !important;
         visibility: visible !important;
         position: static !important;
-        width: 100% !important;
-        max-width: 100% !important;
+        width: ${isThermal ? '76mm' : '100%'} !important;
+        max-width: ${isThermal ? '76mm' : '100%'} !important;
         height: auto !important;
         min-height: 0 !important;
         max-height: none !important;
-        margin: 0 !important;
-        padding: 0 !important;
+        margin: ${isThermal ? '0 auto' : '0'} !important;
+        padding: ${isThermal ? '1.5mm 1mm' : '0'} !important;
         background: white !important;
         color: black !important;
         overflow: visible !important;
+        font-size: ${isThermal ? '11px' : 'inherit'} !important;
       }
 
       #active-print-container * {
@@ -101,7 +105,13 @@ export function printCleanDocument(
         text-shadow: none !important;
       }
 
-      /* CRITICAL: Overwrite any scroll container, height limits, and overflow so all rows paginate naturally */
+      /* Suppress sticky positioning on tables */
+      #active-print-container thead,
+      #active-print-container th {
+        position: static !important;
+        top: auto !important;
+      }
+            /* CRITICAL: Overwrite any scroll container, height limits, and overflow so all rows paginate naturally */
       #active-print-container div,
       #active-print-container section,
       #active-print-container [class*="max-h-"],

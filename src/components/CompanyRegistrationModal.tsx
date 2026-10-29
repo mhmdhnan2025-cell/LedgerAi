@@ -215,6 +215,9 @@ export const CompanyRegistrationModal: React.FC<CompanyRegistrationModalProps> =
 
       const data = await res.json();
       if (data.company) {
+        try {
+          localStorage.setItem('erp_company_profile', JSON.stringify(data.company));
+        } catch {}
         onRegistered(data.company);
         if (onClose) onClose();
       }
@@ -397,9 +400,9 @@ export const CompanyRegistrationModal: React.FC<CompanyRegistrationModalProps> =
               </div>
             </div>
             <div className="flex items-center gap-4 flex-wrap">
-              <div className="w-20 h-20 rounded-lg bg-white border border-slate-600 flex items-center justify-center overflow-hidden p-1 shrink-0">
+              <div className="w-24 h-24 rounded-lg bg-white border border-slate-600 flex items-center justify-center overflow-hidden p-1 shrink-0 shadow-inner">
                 {logo ? (
-                  <img src={logo} alt="Company logo preview" className="object-contain" style={{ width: Math.min(logoSize, 76), height: Math.min(logoSize, 76) }} />
+                  <img src={logo} alt="Company logo preview" className="object-contain max-h-full max-w-full" style={{ width: `${Math.min(logoSize, 92)}px`, height: `${Math.min(logoSize, 92)}px` }} />
                 ) : (
                   <span className="text-3xl font-black text-slate-400">{(name || 'C').trim().charAt(0).toUpperCase()}</span>
                 )}
@@ -407,19 +410,19 @@ export const CompanyRegistrationModal: React.FC<CompanyRegistrationModalProps> =
               <div className="flex-1 min-w-[200px] space-y-1">
                 <div className="flex items-center justify-between text-xs text-slate-400">
                   <span className="font-semibold">Bill Logo Size</span>
-                  <span className="font-bold text-amber-300">{logoSize}px</span>
+                  <span className="font-bold text-amber-300 text-sm">{logoSize}px</span>
                 </div>
                 <input
                   id="input-company-logo-size"
                   type="range"
                   min={24}
-                  max={140}
+                  max={320}
                   step={2}
                   value={logoSize}
                   onChange={(e) => setLogoSize(Number(e.target.value))}
-                  className="w-full accent-amber-500"
+                  className="w-full accent-amber-500 h-2 bg-slate-700 rounded-lg cursor-pointer"
                 />
-                <p className="text-[10px] text-slate-500">Sales bill par logo ka size (24px se 140px tak adjust karein).</p>
+                <p className="text-[10.5px] text-slate-400 font-medium">Sales bill par logo ka size ({logoSize}px) adjust karein (24px se 320px tak bara kar sakte hain).</p>
               </div>
             </div>
           </div>

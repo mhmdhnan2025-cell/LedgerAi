@@ -99,6 +99,20 @@
     border: none !important;
   }
 
+  /* Thermal slip print styling - clean, compact, no huge margins */
+  body.is-thermal-printing #active-print-container,
+  body.is-thermal-printing #printable-sales-receipt,
+  #active-print-container.is-thermal-mode,
+  #active-print-container .is-thermal-receipt {
+    width: 76mm !important;
+    max-width: 76mm !important;
+    margin: 0 auto !important;
+    padding: 1.5mm 1mm !important;
+    box-shadow: none !important;
+    border: none !important;
+    font-size: 11px !important;
+  }
+
   /* Keep the invoice's shaded table headers / totals boxes when printing */
   #printable-sales-receipt,
   #printable-sales-receipt * {

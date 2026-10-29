@@ -1850,7 +1850,9 @@ public getTenant(companyId?: string): DatabaseSchema {
       bankName: (profile.bankName || '').trim() || '',
       bankAccountNo: (profile.bankAccountNo || '').trim() || '',
       iban: (profile.iban || '').trim() || '',
-      currency: profile.currency || 'PKR',
+      currency: profile.currency || 'AED',
+      logo: profile.logo || '',
+      logoSize: Number(profile.logoSize) || 56,
       isRegistered: true,
       registeredAt: this.data.companyProfile?.registeredAt || now,
       notes: profile.notes || '',
@@ -1869,6 +1871,9 @@ public getTenant(companyId?: string): DatabaseSchema {
       description: `Company "${newCompany.name}" officially registered in AI Ledger by ${user} (${newCompany.ownerName}, ${newCompany.city}).`,
     });
     this.persist();
+    postgresService.upsertCompanyProfile(newCompany, getActiveCompanyId()).catch((err) =>
+      console.warn('[PostgreSQL registerCompany upsert error]:', err.message)
+    );
     return newCompany;
   }
 
@@ -1885,7 +1890,7 @@ public getTenant(companyId?: string): DatabaseSchema {
       address: '',
       city: '',
       businessType: 'Wholesale Food & Grains',
-      currency: 'PKR',
+      currency: 'AED',
       isRegistered: false,
       registeredAt: new Date().toISOString(),
     };
@@ -1898,6 +1903,21 @@ public getTenant(companyId?: string): DatabaseSchema {
       phone: updates.phone !== undefined ? updates.phone.trim() : current.phone,
       city: updates.city !== undefined ? updates.city.trim() : current.city,
       address: updates.address !== undefined ? updates.address.trim() : current.address,
+      logo: updates.logo !== undefined ? updates.logo : current.logo,
+      logoSize: updates.logoSize !== undefined ? Number(updates.logoSize) : (current.logoSize || 56),
+      trn: updates.trn !== undefined ? updates.trn.trim() : (current.trn || ''),
+      email: updates.email !== undefined ? updates.email.trim() : (current.email || ''),
+      tagline: updates.tagline !== undefined ? updates.tagline.trim() : (current.tagline || ''),
+      poBox: updates.poBox !== undefined ? updates.poBox.trim() : (current.poBox || ''),
+      nameAr: updates.nameAr !== undefined ? updates.nameAr.trim() : (current.nameAr || ''),
+      bankAccountTitle: updates.bankAccountTitle !== undefined ? updates.bankAccountTitle.trim() : (current.bankAccountTitle || ''),
+      bankName: updates.bankName !== undefined ? updates.bankName.trim() : (current.bankName || ''),
+      bankAccountNo: updates.bankAccountNo !== undefined ? updates.bankAccountNo.trim() : (current.bankAccountNo || ''),
+      iban: updates.iban !== undefined ? updates.iban.trim() : (current.iban || ''),
+      currency: updates.currency !== undefined ? updates.currency.trim() : (current.currency || 'AED'),
+      businessType: updates.businessType !== undefined ? updates.businessType.trim() : (current.businessType || 'Wholesale Food & Grains'),
+      ntn: updates.ntn !== undefined ? updates.ntn.trim() : (current.ntn || ''),
+      notes: updates.notes !== undefined ? updates.notes : (current.notes || ''),
       isRegistered: true,
     };
 

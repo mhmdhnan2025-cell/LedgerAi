@@ -246,7 +246,7 @@ app.post('/api/company/register', (req, res) => {
     }
 
     const company = db.registerCompany(
-      { name, ownerName, phone, city, address, businessType, ntn, tagline, notes },
+      req.body,
       source || 'manual',
       userName || 'Admin'
     );
