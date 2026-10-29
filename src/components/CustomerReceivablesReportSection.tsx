@@ -959,11 +959,11 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
 
   // Handle Print Action matching Image 2
   const handlePrint = () => {
-    printCleanDocument('party-receivable-printable', `Party_Receivable_Report_${subtitleDate}`);
+    printCleanDocument('party-receivable-printable', `Party_Receivable_Report_${subtitleDate}`, 'landscape');
   };
 
   const handleSavePdf = () => {
-    printCleanDocument('party-receivable-printable', `Party_Receivable_Report_${subtitleDate}`);
+    printCleanDocument('party-receivable-printable', `Party_Receivable_Report_${subtitleDate}`, 'landscape');
   };
 
   // Handle Export CSV
@@ -1023,53 +1023,10 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
   return (
     <div className="space-y-4">
       {/* ------------------------------------------------------------- */}
-      {/* PRINT STYLESHEET                                              */}
+      {/* SCREEN SCROLL & PRINT STYLES                                   */}
       {/* ------------------------------------------------------------- */}
       <style>{`
-        @media print {
-          body * {
-            visibility: hidden;
-          }
-          #party-receivable-printable, #party-receivable-printable * {
-            visibility: visible;
-          }
-          #party-receivable-printable {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            background: white !important;
-            color: black !important;
-            padding: 0 !important;
-            margin: 0 !important;
-          }
-          .print-hide {
-            display: none !important;
-          }
-          table {
-            width: 100% !important;
-            border-collapse: collapse !important;
-            font-size: 10px !important;
-          }
-          th {
-            background-color: #1a2332 !important;
-            color: white !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-            border: 1px solid #334155 !important;
-            padding: 5px 6px !important;
-          }
-          td {
-            border: 1px solid #cbd5e1 !important;
-            padding: 4px 6px !important;
-            color: black !important;
-          }
-          .highlight-row {
-            background-color: #fffde7 !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-          }
-        }
+        /* Screen mode scroll & sticky lock */
         .party-rec-table-container {
           max-height: calc(100vh - 210px);
           min-height: 480px;
@@ -1102,6 +1059,50 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
           background-color: #0f172a !important;
           color: #ffffff !important;
           box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.25) !important;
+        }
+
+        /* Print mode: remove sticky headers & height chokes so every row paginates cleanly without floating header glitch */
+        @media print {
+          .party-rec-table-container {
+            max-height: none !important;
+            min-height: 0 !important;
+            height: auto !important;
+            overflow: visible !important;
+            position: static !important;
+          }
+          .party-rec-table thead,
+          .party-rec-table thead th,
+          .party-rec-table tfoot,
+          .party-rec-table tfoot td {
+            position: static !important;
+            top: auto !important;
+            bottom: auto !important;
+            box-shadow: none !important;
+            transform: none !important;
+          }
+          .party-rec-table table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+            font-size: 10px !important;
+          }
+          .party-rec-table th {
+            background-color: #1a2332 !important;
+            color: white !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+            border: 1px solid #334155 !important;
+            padding: 4px 6px !important;
+          }
+          .party-rec-table td {
+            border: 1px solid #cbd5e1 !important;
+            padding: 4px 6px !important;
+            color: black !important;
+          }
+          .highlight-row {
+            background-color: #fffde7 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
         }
       `}</style>
 

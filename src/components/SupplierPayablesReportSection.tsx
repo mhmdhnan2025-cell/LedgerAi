@@ -161,11 +161,11 @@ export const SupplierPayablesReportSection: React.FC<SupplierPayablesReportSecti
   }, [rows]);
 
   const handlePrint = useCallback(() => {
-    printCleanDocument('party-payables-printable', `Party_Payables_Report_${todayDDMMYYYY()}`);
+    printCleanDocument('party-payables-printable', `Party_Payables_Report_${todayDDMMYYYY()}`, 'landscape');
   }, []);
 
   const handleSavePdf = useCallback(() => {
-    printCleanDocument('party-payables-printable', `Party_Payables_Report_${todayDDMMYYYY()}`);
+    printCleanDocument('party-payables-printable', `Party_Payables_Report_${todayDDMMYYYY()}`, 'landscape');
   }, []);
 
   const columns = [

@@ -2315,3 +2315,55 @@ html[data-theme="dark"] .auth-card {
   color: #ffffff !important;
   border: 1px solid #581c87 !important;
 }
+
+
+/* UNIVERSAL PRINT CLEANUP: Remove height constraints, scrollbars, and floating sticky headers across all ERP printouts */
+@media print {
+  [class*="overflow-"],
+  [class*="max-h-"],
+  .party-rec-table-container,
+  .overflow-x-auto,
+  .overflow-y-auto {
+    max-height: none !important;
+    min-height: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+    position: static !important;
+  }
+
+  thead,
+  tfoot,
+  [class*="sticky"],
+  .party-rec-table thead,
+  .party-rec-table thead th,
+  .party-rec-table tfoot,
+  .party-rec-table tfoot td {
+    position: static !important;
+    top: auto !important;
+    bottom: auto !important;
+    transform: none !important;
+    box-shadow: none !important;
+    z-index: auto !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+  tbody {
+    display: table-row-group !important;
+  }
+  tfoot {
+    display: table-footer-group !important;
+  }
+  tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Reset min-width that might push columns off the right margin */
+  table [class*="min-w-"] {
+    min-width: 0 !important;
+  }
+}
