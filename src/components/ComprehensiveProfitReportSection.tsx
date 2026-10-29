@@ -583,12 +583,14 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
         { header: 'Category', accessor: (it) => it.category },
         { header: 'Qty Sold', accessor: (it) => it.qtySold },
         { header: 'Ctn Sold', accessor: (it) => it.ctnSold },
-        { header: 'Avg Cost', accessor: (it) => it.avgPurchaseRate },
+        { header: 'Avg Cost (Incl. VAT)', accessor: (it) => it.avgPurchaseRate },
         { header: 'Avg Sale / Rate', accessor: (it) => it.avgSaleRate },
+        { header: 'Sale Revenue (Incl. VAT)', accessor: (it) => it.totalRevenueWithVat || (it.totalRevenue + (it.totalVatAmount || 0)) },
         { header: 'Sale Revenue (Ex-VAT)', accessor: (it) => it.totalRevenue },
         { header: 'Sales VAT', accessor: (it) => it.totalVatAmount || 0 },
         { header: 'Discount Deducted', accessor: (it) => it.totalDiscountAmount || 0 },
-        { header: 'COGS / Purchase Cost', accessor: (it) => it.totalCostOfGoods },
+        { header: 'COGS (Incl. VAT)', accessor: (it) => it.totalCostOfGoods },
+        { header: 'COGS (Ex-VAT)', accessor: (it) => Number((it.totalCostOfGoods / 1.05).toFixed(2)) },
         { header: 'Net Profit', accessor: (it) => it.netProfit },
         { header: 'Margin %', accessor: (it) => it.profitMarginPct },
         { header: 'In Stock / Warehouse', accessor: (it) => it.currentRemainingStock },
@@ -606,10 +608,11 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
         { header: 'Salesman', accessor: (b) => b.salesmanName },
         { header: 'Cartons', accessor: (b) => b.totalCtn },
         { header: 'Quantity', accessor: (b) => b.totalQty },
-        { header: 'Gross Sale', accessor: (b) => b.grossAmount },
+        { header: 'Gross Sale (Incl. VAT)', accessor: (b) => b.grossAmountWithVat || (b.netTotal + b.billDiscount) },
+        { header: 'Gross Sale (Ex-VAT)', accessor: (b) => b.grossAmount },
         { header: 'Discount', accessor: (b) => b.billDiscount },
-        { header: 'Net Total', accessor: (b) => b.netTotal },
-        { header: 'Cost of Goods', accessor: (b) => b.costOfGoods },
+        { header: 'Net Total (Incl. VAT)', accessor: (b) => b.netTotal },
+        { header: 'COGS (Incl. VAT)', accessor: (b) => b.costOfGoods },
         { header: 'Net Profit', accessor: (b) => b.netProfit },
         { header: 'Margin %', accessor: (b) => b.profitMarginPct },
       ]);
@@ -1309,12 +1312,12 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
                     <th className="py-2.5 px-3">Category</th>
                     <th className="py-2.5 px-3 text-center">Cartons</th>
                     <th className="py-2.5 px-3 text-center">Quantity</th>
-                    <th className="py-2.5 px-3 text-right">Avg Cost</th>
-                    <th className="py-2.5 px-3 text-right">Avg Sale</th>
-                    <th className="py-2.5 px-3 text-right">Sale Rev (Ex-VAT)</th>
+                    <th className="py-2.5 px-3 text-right">Avg Cost (Incl. VAT)</th>
+                    <th className="py-2.5 px-3 text-right">Avg Sale Rate</th>
+                    <th className="py-2.5 px-3 text-right">Sale Rev (Incl. VAT)</th>
                     <th className="py-2.5 px-3 text-right">Sales VAT</th>
                     <th className="py-2.5 px-3 text-right">Discount</th>
-                    <th className="py-2.5 px-3 text-right">COGS (Cost)</th>
+                    <th className="py-2.5 px-3 text-right">COGS (Incl. VAT)</th>
                     <th className="py-2.5 px-3 text-right text-emerald-400 font-extrabold">Net Profit</th>
                     <th className="py-2.5 px-3 text-right">Margin %</th>
                     <th className="py-2.5 px-3 text-center">In Stock / Warehouse</th>
@@ -1364,7 +1367,10 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
                                 <td className="py-2 px-3 text-center text-white font-bold font-mono">{tier.qtySold > 0 ? tier.qtySold : '—'}</td>
                                 <td className="py-2 px-3 text-right text-slate-400 font-mono">{currencySymbol()} {tier.avgPurchaseRate.toLocaleString()}</td>
                                 <td className="py-2 px-3 text-right text-indigo-300 font-bold font-mono">{currencySymbol()} {tier.rate.toLocaleString()}</td>
-                                <td className="py-2 px-3 text-right font-bold text-white font-mono">{currencySymbol()} {tier.totalRevenue.toLocaleString()}</td>
+                                <td className="py-2 px-3 text-right font-bold text-white font-mono">
+                                  <div>{currencySymbol()} {(tier.totalRevenueWithVat ?? (tier.totalRevenue + tier.totalVatAmount)).toLocaleString()}</div>
+                                  <div className="text-[9.5px] text-slate-400 font-normal font-sans">Ex-VAT: {currencySymbol()} {tier.totalRevenue.toLocaleString()}</div>
+                                </td>
                                 <td className="py-2 px-3 text-right font-mono">
                                   <span className="text-[11px] text-slate-400 font-medium">
                                     +{currencySymbol()} {tier.totalVatAmount.toLocaleString()}
@@ -1373,7 +1379,10 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
                                 <td className="py-2 px-3 text-right text-amber-400 font-semibold font-mono">
                                   {tier.totalDiscountAmount > 0 ? `-${currencySymbol()} ${tier.totalDiscountAmount.toLocaleString()}` : '—'}
                                 </td>
-                                <td className="py-2 px-3 text-right text-slate-400 font-mono">{currencySymbol()} {tier.totalCostOfGoods.toLocaleString()}</td>
+                                <td className="py-2 px-3 text-right text-slate-300 font-mono">
+                                  <div className="font-bold text-slate-200">{currencySymbol()} {tier.totalCostOfGoods.toLocaleString()}</div>
+                                  <div className="text-[9.5px] text-slate-400 font-normal font-sans">Ex-VAT: {currencySymbol()} {Number((tier.totalCostOfGoods / 1.05).toFixed(2)).toLocaleString()}</div>
+                                </td>
                                 <td className="py-2 px-3 text-right font-bold text-xs font-mono">
                                   <span className={`px-2 py-0.5 rounded border inline-block ${
                                     tier.netProfit >= 0
@@ -1420,7 +1429,10 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
                               <td className="py-2.5 px-3 text-right text-slate-200 font-mono font-bold">
                                 {currencySymbol()} {it.avgSaleRate.toLocaleString()} <span className="text-[9px] text-slate-400 font-normal">(Avg)</span>
                               </td>
-                              <td className="py-2.5 px-3 text-right font-black text-white font-mono">{currencySymbol()} {it.totalRevenue.toLocaleString()}</td>
+                              <td className="py-2.5 px-3 text-right font-black text-white font-mono">
+                                <div>{currencySymbol()} {(it.totalRevenueWithVat ?? (it.totalRevenue + (it.totalVatAmount || 0))).toLocaleString()}</div>
+                                <div className="text-[10px] text-emerald-400/80 font-normal font-sans">Ex-VAT: {currencySymbol()} {it.totalRevenue.toLocaleString()}</div>
+                              </td>
                               <td className="py-2.5 px-3 text-right font-mono">
                                 <span className="text-[11px] text-emerald-300 font-black">
                                   +{currencySymbol()} {(it.totalVatAmount || 0).toLocaleString()}
@@ -1429,7 +1441,10 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
                               <td className="py-2.5 px-3 text-right text-amber-400 font-bold font-mono">
                                 {(it.totalDiscountAmount || 0) > 0 ? `-${currencySymbol()} ${(it.totalDiscountAmount || 0).toLocaleString()}` : '—'}
                               </td>
-                              <td className="py-2.5 px-3 text-right text-slate-300 font-mono font-bold">{currencySymbol()} {it.totalCostOfGoods.toLocaleString()}</td>
+                              <td className="py-2.5 px-3 text-right text-slate-300 font-mono font-bold">
+                                <div className="font-bold text-white">{currencySymbol()} {it.totalCostOfGoods.toLocaleString()}</div>
+                                <div className="text-[10px] text-slate-400 font-normal font-sans">Ex-VAT: {currencySymbol()} {Number((it.totalCostOfGoods / 1.05).toFixed(2)).toLocaleString()}</div>
+                              </td>
                               <td className="py-2.5 px-3 text-right font-black text-emerald-300 text-sm font-mono">
                                 <span className={`px-2.5 py-1 rounded border inline-block shadow-sm font-black ${
                                   netP >= 0
@@ -1493,7 +1508,10 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
                           <td className="py-2.5 px-3 text-center text-white font-bold">{it.qtySold}</td>
                           <td className="py-2.5 px-3 text-right text-slate-400">{currencySymbol()} {it.avgPurchaseRate.toLocaleString()}</td>
                           <td className="py-2.5 px-3 text-right text-slate-200">{currencySymbol()} {it.avgSaleRate.toLocaleString()}</td>
-                          <td className="py-2.5 px-3 text-right font-bold text-white">{currencySymbol()} {it.totalRevenue.toLocaleString()}</td>
+                          <td className="py-2.5 px-3 text-right font-bold text-white">
+                              <div>{currencySymbol()} {(it.totalRevenueWithVat ?? (it.totalRevenue + (it.totalVatAmount || 0))).toLocaleString()}</div>
+                              <div className="text-[9.5px] text-slate-400 font-normal font-sans">Ex-VAT: {currencySymbol()} {it.totalRevenue.toLocaleString()}</div>
+                            </td>
                           <td className="py-2.5 px-3 text-right text-slate-400">
                             <span className="text-[11px] text-slate-400 font-medium">
                               +{currencySymbol()} {(it.totalVatAmount || 0).toLocaleString()}
@@ -1502,7 +1520,10 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
                           <td className="py-2.5 px-3 text-right text-amber-400 font-semibold">
                             {(it.totalDiscountAmount || 0) > 0 ? `-${currencySymbol()} ${(it.totalDiscountAmount || 0).toLocaleString()}` : '—'}
                           </td>
-                          <td className="py-2.5 px-3 text-right text-slate-400">{currencySymbol()} {it.totalCostOfGoods.toLocaleString()}</td>
+                          <td className="py-2.5 px-3 text-right text-slate-300 font-mono">
+                              <div className="font-bold text-slate-200">{currencySymbol()} {it.totalCostOfGoods.toLocaleString()}</div>
+                              <div className="text-[9.5px] text-slate-400 font-normal font-sans">Ex-VAT: {currencySymbol()} {Number((it.totalCostOfGoods / 1.05).toFixed(2)).toLocaleString()}</div>
+                            </td>
                           <td className="py-2.5 px-3 text-right font-black text-emerald-400 text-sm">
                             <span className={`px-2 py-0.5 rounded border inline-block shadow-sm ${
                               netP >= 0
@@ -1566,10 +1587,10 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
                     <th className="py-2.5 px-3">Salesman</th>
                     <th className="py-2.5 px-3 text-center">Items</th>
                     <th className="py-2.5 px-3 text-center">Cartons</th>
-                    <th className="py-2.5 px-3 text-right">Gross Total</th>
+                    <th className="py-2.5 px-3 text-right">Gross Total (Incl. VAT)</th>
                     <th className="py-2.5 px-3 text-right">Discount</th>
-                    <th className="py-2.5 px-3 text-right">Net Total</th>
-                    <th className="py-2.5 px-3 text-right">COGS / Purchase Cost</th>
+                    <th className="py-2.5 px-3 text-right">Net Total (Incl. VAT)</th>
+                    <th className="py-2.5 px-3 text-right">COGS (Incl. VAT)</th>
                     <th className="py-2.5 px-3 text-right text-emerald-400 font-extrabold">Bill Profit</th>
                     <th className="py-2.5 px-3 text-right">Margin %</th>
                     <th className="py-2.5 px-3 text-center">Actions</th>
@@ -1593,12 +1614,18 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
                         <td className="py-2.5 px-3 font-sans text-slate-400">{b.salesmanName}</td>
                         <td className="py-2.5 px-3 text-center text-slate-300">{b.itemsCount}</td>
                         <td className="py-2.5 px-3 text-center text-slate-300">{b.totalCtn}</td>
-                        <td className="py-2.5 px-3 text-right text-slate-300">{currencySymbol()} {b.grossAmount.toLocaleString()}</td>
+                        <td className="py-2.5 px-3 text-right text-slate-300">
+                          <div className="font-bold text-white">{currencySymbol()} {(b.grossAmountWithVat ?? (b.netTotal + b.billDiscount)).toLocaleString()}</div>
+                          <div className="text-[9.5px] text-slate-400 font-normal font-sans">Ex-VAT: {currencySymbol()} {b.grossAmount.toLocaleString()}</div>
+                        </td>
                         <td className="py-2.5 px-3 text-right text-rose-400">
                           {b.billDiscount > 0 ? `-${currencySymbol()} ${b.billDiscount.toLocaleString()}` : '-'}
                         </td>
                         <td className="py-2.5 px-3 text-right font-bold text-white">{currencySymbol()} {b.netTotal.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right text-slate-400">{currencySymbol()} {b.costOfGoods.toLocaleString()}</td>
+                        <td className="py-2.5 px-3 text-right text-slate-300 font-mono">
+                          <div className="font-bold text-slate-200">{currencySymbol()} {b.costOfGoods.toLocaleString()}</div>
+                          <div className="text-[9.5px] text-slate-400 font-normal font-sans">Ex-VAT: {currencySymbol()} {Number((b.costOfGoods / 1.05).toFixed(2)).toLocaleString()}</div>
+                        </td>
                         <td className="py-2.5 px-3 text-right font-bold text-emerald-400">
                           {currencySymbol()} {b.netProfit.toLocaleString()}
                         </td>
@@ -1670,8 +1697,8 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
                     <th className="py-2.5 px-3 text-center">Bills Count</th>
                     <th className="py-2.5 px-3 text-center">Cartons</th>
                     <th className="py-2.5 px-3 text-center">Quantity</th>
-                    <th className="py-2.5 px-3 text-right">Total Sale / Revenue</th>
-                    <th className="py-2.5 px-3 text-right">COGS / Purchase Cost</th>
+                    <th className="py-2.5 px-3 text-right">Total Sale (Incl. VAT)</th>
+                    <th className="py-2.5 px-3 text-right">COGS (Incl. VAT)</th>
                     <th className="py-2.5 px-3 text-right text-emerald-400 font-extrabold">Customer Profit</th>
                     <th className="py-2.5 px-3 text-right">Margin %</th>
                     <th className="py-2.5 px-3 text-right">Ledger Udhaar (Bal)</th>
@@ -1757,8 +1784,8 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
                     <th className="py-2.5 px-3 text-center">Bills Made</th>
                     <th className="py-2.5 px-3 text-center">Cartons Sold</th>
                     <th className="py-2.5 px-3 text-center">Quantity Sold</th>
-                    <th className="py-2.5 px-3 text-right">Total Sale / Revenue</th>
-                    <th className="py-2.5 px-3 text-right">COGS / Purchase Cost</th>
+                    <th className="py-2.5 px-3 text-right">Total Sale (Incl. VAT)</th>
+                    <th className="py-2.5 px-3 text-right">COGS (Incl. VAT)</th>
                     <th className="py-2.5 px-3 text-right text-emerald-400 font-extrabold">Salesman Profit</th>
                     <th className="py-2.5 px-3 text-right">Margin %</th>
                     <th className="py-2.5 px-3 text-center">Customers Handled (Hover)</th>

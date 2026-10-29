@@ -1281,7 +1281,7 @@ export function generateProfitByItemReportDoc(format: 'html' | 'doc' = 'html') {
       <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right;">${it.qtySold} (${it.ctnSold} CTN)</td>
       <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right;">${currencySymbol()} ${it.avgSaleRate.toFixed(2)}</td>
       <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right;">${currencySymbol()} ${(it.avgPurchaseRate || 0).toFixed(2)}</td>
-      <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold;">${currencySymbol()} ${it.totalRevenue.toLocaleString()}</td>
+      <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold;">${currencySymbol()} ${(it.totalRevenueWithVat || (it.totalRevenue + (it.totalVatAmount || 0))).toLocaleString()}</td>
       <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; color: ${it.grossProfit >= 0 ? '#10b981' : '#ef4444'}; font-weight: bold;">
         ${currencySymbol()} ${it.grossProfit.toLocaleString()}
       </td>
@@ -1319,8 +1319,8 @@ export function generateProfitByItemReportDoc(format: 'html' | 'doc' = 'html') {
           <th>Category</th>
           <th style="text-align: right;">Qty Sold</th>
           <th style="text-align: right;">Avg Sale Rate</th>
-          <th style="text-align: right;">Cost Rate</th>
-          <th style="text-align: right;">Total Revenue</th>
+          <th style="text-align: right;">Cost Rate (Incl. VAT)</th>
+          <th style="text-align: right;">Total Revenue (Incl. VAT)</th>
           <th style="text-align: right;">Gross Profit</th>
           <th style="text-align: right;">Margin %</th>
         </tr>
@@ -1392,8 +1392,8 @@ export function generateProfitByBillReportDoc(format: 'html' | 'doc' = 'html') {
           <th>Customer Name</th>
           <th>Salesman</th>
           <th style="text-align: center;">Items</th>
-          <th style="text-align: right;">Sale Amount</th>
-          <th style="text-align: right;">Cost of Goods</th>
+          <th style="text-align: right;">Sale Amount (Incl. VAT)</th>
+          <th style="text-align: right;">Cost of Goods (Incl. VAT)</th>
           <th style="text-align: right;">Gross Profit</th>
           <th style="text-align: right;">Margin %</th>
         </tr>

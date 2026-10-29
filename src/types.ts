@@ -835,10 +835,14 @@ export interface ItemProfitRateTier {
   ctnSold: number;
   avgPurchaseRate: number;
   totalRevenue: number;
+  totalRevenueWithVat?: number;
   totalVatAmount: number;
   totalDiscountAmount: number;
   netRevenue: number;
+  netRevenueWithVat?: number;
   totalCostOfGoods: number;
+  cogsWithVat?: number;
+  cogsWithoutVat?: number;
   grossProfit: number;
   netProfit: number;
   profitMarginPct: number;
@@ -855,7 +859,10 @@ export interface ItemProfitReportItem {
   avgPurchaseRate: number;
   avgSaleRate: number;
   totalRevenue: number;
+  totalRevenueWithVat?: number;
   totalCostOfGoods: number;
+  cogsWithVat?: number;
+  cogsWithoutVat?: number;
   grossProfit: number;
   netProfit?: number;
   totalVatAmount?: number;
@@ -883,6 +890,7 @@ export interface BillProfitReportItem {
   totalCtn: number;
   totalQty: number;
   grossAmount: number;
+  grossAmountWithVat?: number;
   billDiscount: number;
   vatAmount: number;
   netTotal: number;
