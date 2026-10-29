@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Printer, X, Share2, CheckCircle2, Receipt, Save, Edit2 } from 'lucide-react';
+import { Printer, X, Share2, CheckCircle2, Receipt, Save, Edit2, Download } from 'lucide-react';
 import { CompanyProfile, Customer, SaleBill } from '../types';
 import { api } from '../services/api';
 

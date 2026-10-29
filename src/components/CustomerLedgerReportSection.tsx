@@ -18,7 +18,9 @@ import {
   AlertTriangle,
   CheckCircle2,
   Loader2,
+  Download,
 } from 'lucide-react';
+import { printCleanDocument } from '../utils/printUtils';
 import { Customer, CustomerLedgerReport, CustomerLedgerEntry, CompanyProfile } from '../types';
 import { api } from '../services/api';
 import { currencySymbol } from '../utils/currency';

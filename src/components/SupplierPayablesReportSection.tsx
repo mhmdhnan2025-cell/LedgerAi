@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Search, Printer, FileSpreadsheet, RefreshCw, Building2, BookOpen, Filter } from 'lucide-react';
+import { Search, Printer, FileSpreadsheet, RefreshCw, Building2, BookOpen, Filter, Download } from 'lucide-react';
+import { printCleanDocument } from '../utils/printUtils';
 import { Supplier, CompanyProfile } from '../types';
 import { exportToCsv } from '../utils/exportCsv';
 

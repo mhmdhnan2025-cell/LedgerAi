@@ -19,7 +19,9 @@ import {
   CheckCircle2,
   Loader2,
   Truck,
+  Download,
 } from 'lucide-react';
+import { printCleanDocument } from '../utils/printUtils';
 import { Supplier, SupplierLedgerReport, SupplierLedgerEntry, CompanyProfile } from '../types';
 import { api } from '../services/api';
 import { currencySymbol } from '../utils/currency';
