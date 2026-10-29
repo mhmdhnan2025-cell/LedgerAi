@@ -1,4 +1,4 @@
-import { db } from './db.js';
+import { db, getProductPurchaseCostWithVat } from './db.js';
 import {
   AiLedgerAuditCashRow,
   AiLedgerAuditCompany,
@@ -84,15 +84,17 @@ export function currencySymbolOf(currency: string): string {
 }
 
 // -------------------------------------------------------------
-// COST OF GOODS (identical deterministic engine as Profit Report)
+// COST OF GOODS (identical deterministic engine with 5% purchase VAT as Profit Report)
 // -------------------------------------------------------------
 function buildCostLookup(products: Product[]) {
   const map = new Map<string, { unitCost: number; ctnCost: number; qtyInCarton: number }>();
   for (const p of products) {
-    const unitCost = p.purchasePrice || p.averagePurchaseCost || p.lastPurchasePrice || (p.sellingPrice ? p.sellingPrice * 0.75 : 0) || 0;
-    const qtyInCarton = p.qtyInCarton && p.qtyInCarton > 1 ? p.qtyInCarton : 1;
-    const ctnCost = (p.ctnPurchaseRate && p.ctnPurchaseRate > 0) ? p.ctnPurchaseRate : ((p as any).ctnPrice || (unitCost * qtyInCarton));
-    const obj = { unitCost, ctnCost, qtyInCarton };
+    const costInfo = getProductPurchaseCostWithVat(p);
+    const obj = {
+      unitCost: costInfo.unitCostWithVat,
+      ctnCost: costInfo.ctnCostWithVat,
+      qtyInCarton: costInfo.qtyInCarton,
+    };
     if (p.id) map.set(p.id, obj);
     if (p.name) map.set(p.name.toLowerCase().trim(), obj);
     if (p.itemTitle) map.set(p.itemTitle.toLowerCase().trim(), obj);
@@ -108,9 +110,9 @@ function buildCostLookup(products: Product[]) {
         if (entry === undefined && it.itemTitle) entry = map.get(it.itemTitle.toLowerCase().trim());
         if (entry === undefined && it.mcode) entry = map.get(it.mcode.toLowerCase().trim());
 
-        const unitCost = entry ? entry.unitCost : (it.rate > 0 ? it.rate * 0.75 : 0);
-        const qtyInCarton = entry ? entry.qtyInCarton : 1;
-        const ctnCost = entry ? entry.ctnCost : (unitCost * qtyInCarton);
+        const fallback = entry ? undefined : getProductPurchaseCostWithVat(undefined, it.rate);
+        const unitCost = entry ? entry.unitCost : fallback!.unitCostWithVat;
+        const ctnCost = entry ? entry.ctnCost : fallback!.ctnCostWithVat;
 
         const ctn = Number(it.ctn) || 0;
         const qty = Number(it.qty) || 0;

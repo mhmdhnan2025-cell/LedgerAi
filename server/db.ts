@@ -708,6 +708,49 @@ function isBillAllowedForUser(billDate?: string, user?: { id?: string; name?: st
   return bDateStr === todayUtc || bDateStr === todayLocal;
 }
 
+export function getProductPurchaseCostWithVat(
+  p?: Product,
+  fallbackRate?: number
+): { unitCostWithVat: number; ctnCostWithVat: number; qtyInCarton: number } {
+  if (!p) {
+    const rawRate = fallbackRate && fallbackRate > 0 ? fallbackRate * 0.75 : 0;
+    const withVat = Number((rawRate * 1.05).toFixed(2));
+    return { unitCostWithVat: withVat, ctnCostWithVat: withVat, qtyInCarton: 1 };
+  }
+
+  const baseUnitCost = Number(
+    p.purchasePrice ||
+    p.averagePurchaseCost ||
+    p.lastPurchasePrice ||
+    (p.sellingPrice ? p.sellingPrice * 0.75 : 0) ||
+    1
+  );
+  const qInCtn = (p.qtyInCarton && p.qtyInCarton > 0) ? p.qtyInCarton : 1;
+
+  let baseCtnCost = Number(p.ctnPurchaseRate || 0);
+  // If ctnPurchaseRate is 0 or anomalous (less than unit cost when carton has multiple units):
+  if (!baseCtnCost || (qInCtn > 1 && baseCtnCost < baseUnitCost)) {
+    baseCtnCost = baseUnitCost * qInCtn;
+  }
+
+  const expectedCtnBeforeTax = baseUnitCost * qInCtn;
+  const ctnRatio = expectedCtnBeforeTax > 0 ? (baseCtnCost / expectedCtnBeforeTax) : 1.0;
+
+  let unitCostWithVat: number;
+  let ctnCostWithVat: number;
+
+  // Check if ctnPurchaseRate already includes ~5% VAT (between 1.035 and 1.065):
+  if (ctnRatio >= 1.035 && ctnRatio <= 1.065) {
+    ctnCostWithVat = Number(baseCtnCost.toFixed(2));
+    unitCostWithVat = Number((baseUnitCost * 1.05).toFixed(2));
+  } else {
+    unitCostWithVat = Number((baseUnitCost * 1.05).toFixed(2));
+    ctnCostWithVat = Number((baseCtnCost * 1.05).toFixed(2));
+  }
+
+  return { unitCostWithVat, ctnCostWithVat, qtyInCarton: qInCtn };
+}
+
 class DatabaseService {
   private _defaultData: DatabaseSchema;
   private tenants: Map<string, DatabaseSchema> = new Map();
@@ -6329,14 +6372,15 @@ ON CONFLICT (id) DO NOTHING;`);
     // Synchronize all ledgers first
     this.recalculateAllLedgers();
 
-    // Helper map to quickly lookup product cost
-    const productCostMap = new Map<string, { product: Product; purchaseCost: number }>();
+    // Helper map to quickly lookup product cost (inclusive of 5% purchase VAT)
+    const productCostMap = new Map<string, { product: Product; purchaseCost: number; unitCostWithVat: number; ctnCostWithVat: number; qtyInCarton: number }>();
     for (const p of this.data.products || []) {
-      const cost = p.purchasePrice || p.averagePurchaseCost || p.lastPurchasePrice || (p.sellingPrice * 0.75) || 1;
-      productCostMap.set(p.id, { product: p, purchaseCost: cost });
-      if (p.name) productCostMap.set(p.name.toLowerCase().trim(), { product: p, purchaseCost: cost });
-      if (p.itemTitle) productCostMap.set(p.itemTitle.toLowerCase().trim(), { product: p, purchaseCost: cost });
-      if (p.mcode) productCostMap.set(p.mcode.toLowerCase().trim(), { product: p, purchaseCost: cost });
+      const costInfo = getProductPurchaseCostWithVat(p);
+      const obj = { product: p, purchaseCost: costInfo.unitCostWithVat, ...costInfo };
+      productCostMap.set(p.id, obj);
+      if (p.name) productCostMap.set(p.name.toLowerCase().trim(), obj);
+      if (p.itemTitle) productCostMap.set(p.itemTitle.toLowerCase().trim(), obj);
+      if (p.mcode) productCostMap.set(p.mcode.toLowerCase().trim(), obj);
     }
 
     const calcBillCogs = (items: SaleBillItem[]) => {
@@ -6345,10 +6389,9 @@ ON CONFLICT (id) DO NOTHING;`);
         let matched = it.productId ? productCostMap.get(it.productId) : undefined;
         if (!matched && it.itemTitle) matched = productCostMap.get(it.itemTitle.toLowerCase().trim());
         if (!matched && it.mcode) matched = productCostMap.get(it.mcode.toLowerCase().trim());
-        const unitCost = matched ? matched.purchaseCost : (it.rate > 0 ? it.rate * 0.75 : 0);
-        const prod = matched?.product;
-        const qInCtn = (prod?.qtyInCarton && prod.qtyInCarton > 0) ? prod.qtyInCarton : (it.qtyPerCtn || 1);
-        const ctnCost = (prod?.ctnPurchaseRate && prod.ctnPurchaseRate > 0) ? prod.ctnPurchaseRate : (unitCost * qInCtn);
+        const fallback = matched ? undefined : getProductPurchaseCostWithVat(undefined, it.rate);
+        const unitCost = matched ? matched.unitCostWithVat : fallback!.unitCostWithVat;
+        const ctnCost = matched ? matched.ctnCostWithVat : fallback!.ctnCostWithVat;
         const ctnUnits = Number(it.ctn) || 0;
         const looseUnits = Number(it.qty) || 0;
         cogs += (ctnUnits * ctnCost) + (looseUnits * unitCost);
@@ -6388,7 +6431,7 @@ ON CONFLICT (id) DO NOTHING;`);
       for (const it of (r.items || [])) {
         let matched = it.productId ? productCostMap.get(it.productId) : undefined;
         if (!matched && it.itemTitle) matched = productCostMap.get(it.itemTitle.toLowerCase().trim());
-        const uCost = matched ? matched.purchaseCost : 0;
+        const uCost = matched ? matched.unitCostWithVat : getProductPurchaseCostWithVat(undefined, it.rate).unitCostWithVat;
         totalReturnsCogs += (Number(it.qty) || 0) * uCost;
       }
     }
@@ -6553,14 +6596,15 @@ ON CONFLICT (id) DO NOTHING;`);
 
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // Helper map to quickly lookup product cost
-    const productCostMap = new Map<string, { product: Product; purchaseCost: number }>();
+    // Helper map to quickly lookup product cost (inclusive of 5% purchase VAT)
+    const productCostMap = new Map<string, { product: Product; purchaseCost: number; unitCostWithVat: number; ctnCostWithVat: number; qtyInCarton: number }>();
     for (const p of this.data.products || []) {
-      const cost = p.purchasePrice || p.averagePurchaseCost || p.lastPurchasePrice || (p.sellingPrice * 0.75) || 1;
-      productCostMap.set(p.id, { product: p, purchaseCost: cost });
-      if (p.name) productCostMap.set(p.name.toLowerCase().trim(), { product: p, purchaseCost: cost });
-      if (p.itemTitle) productCostMap.set(p.itemTitle.toLowerCase().trim(), { product: p, purchaseCost: cost });
-      if (p.mcode) productCostMap.set(p.mcode.toLowerCase().trim(), { product: p, purchaseCost: cost });
+      const costInfo = getProductPurchaseCostWithVat(p);
+      const obj = { product: p, purchaseCost: costInfo.unitCostWithVat, ...costInfo };
+      productCostMap.set(p.id, obj);
+      if (p.name) productCostMap.set(p.name.toLowerCase().trim(), obj);
+      if (p.itemTitle) productCostMap.set(p.itemTitle.toLowerCase().trim(), obj);
+      if (p.mcode) productCostMap.set(p.mcode.toLowerCase().trim(), obj);
     }
 
     const todayBills = (this.data.saleBills || []).filter((b) => b.date === todayStr && b.status !== 'Cancelled');
@@ -6570,17 +6614,14 @@ ON CONFLICT (id) DO NOTHING;`);
     let todayCostOfGoods = 0;
 
     for (const b of todayBills) {
-      const bDisc = Number(b.billDiscountAmount) || 0;
-      const bVat = Number(b.totalVatAmount) || 0;
-      const exVat = b.grossAmount !== undefined && b.grossAmount > 0 ? (b.grossAmount - bDisc) : (b.netTotal - bVat);
-      todayRevenue += exVat;
+      // Net revenue with VAT is b.netTotal (Sale incl. VAT after discount)
+      todayRevenue += Number(b.netTotal) || 0;
       for (const it of (b.items || [])) {
         let matched = it.productId ? productCostMap.get(it.productId) : undefined;
         if (!matched && it.itemTitle) matched = productCostMap.get(it.itemTitle.toLowerCase().trim());
-        const uCost = matched ? matched.purchaseCost : (it.rate > 0 ? it.rate * 0.75 : 0);
-        const prod = matched?.product;
-        const qInCtn = (prod?.qtyInCarton && prod.qtyInCarton > 0) ? prod.qtyInCarton : (it.qtyPerCtn || 1);
-        const ctnCost = (prod?.ctnPurchaseRate && prod.ctnPurchaseRate > 0) ? prod.ctnPurchaseRate : (uCost * qInCtn);
+        const fallback = matched ? undefined : getProductPurchaseCostWithVat(undefined, it.rate);
+        const uCost = matched ? matched.unitCostWithVat : fallback!.unitCostWithVat;
+        const ctnCost = matched ? matched.ctnCostWithVat : fallback!.ctnCostWithVat;
         todayCostOfGoods += (Number(it.ctn || 0) * ctnCost) + (Number(it.qty || 0) * uCost);
       }
     }
@@ -9220,14 +9261,16 @@ ON CONFLICT (id) DO NOTHING;`);
     const bills = this.getSaleBills(filters);
     const products = this.data.products;
 
-    // Helper map to quickly lookup product cost
-    const productCostMap = new Map<string, { product: Product; purchaseCost: number }>();
+    // Helper map to quickly lookup product cost (inclusive of 5% purchase VAT)
+    const productCostMap = new Map<string, { product: Product; purchaseCost: number; unitCostWithVat: number; ctnCostWithVat: number; qtyInCarton: number }>();
     for (const p of products) {
-      const cost = p.purchasePrice || p.averagePurchaseCost || p.lastPurchasePrice || (p.sellingPrice * 0.75) || 1;
-      productCostMap.set(p.id, { product: p, purchaseCost: cost });
-      if (p.name) productCostMap.set(p.name.toLowerCase(), { product: p, purchaseCost: cost });
-      if (p.itemTitle) productCostMap.set(p.itemTitle.toLowerCase(), { product: p, purchaseCost: cost });
-      if (p.mcode) productCostMap.set(p.mcode.toLowerCase(), { product: p, purchaseCost: cost });
+      const costInfo = getProductPurchaseCostWithVat(p);
+      const obj = { product: p, purchaseCost: costInfo.unitCostWithVat, ...costInfo };
+      productCostMap.set(p.id, obj);
+      if (p.name) productCostMap.set(p.name.toLowerCase().trim(), obj);
+      if (p.itemTitle) productCostMap.set(p.itemTitle.toLowerCase().trim(), obj);
+      if (p.mcode) productCostMap.set(p.mcode.toLowerCase().trim(), obj);
+      if (p.sku) productCostMap.set(p.sku.toLowerCase().trim(), obj);
     }
 
     // 1. PER ITEM BREAKDOWN (WITH DISTINCT SALE RATE & VAT TIER BREAKDOWN)
@@ -9279,13 +9322,14 @@ ON CONFLICT (id) DO NOTHING;`);
           matched = productCostMap.get(it.mcode.toLowerCase().trim());
         }
 
-        const unitCost = matched ? matched.purchaseCost : (it.rate > 0 ? it.rate * 0.75 : 0);
+        const fallback = matched ? undefined : getProductPurchaseCostWithVat(undefined, it.rate);
+        const unitCostWithVat = matched ? matched.unitCostWithVat : fallback!.unitCostWithVat;
+        const ctnCostWithVat = matched ? matched.ctnCostWithVat : fallback!.ctnCostWithVat;
         const prod = matched?.product;
-        const qInCtn = (prod?.qtyInCarton && prod.qtyInCarton > 0) ? prod.qtyInCarton : (it.qtyPerCtn || 1);
-        const ctnCost = (prod?.ctnPurchaseRate && prod.ctnPurchaseRate > 0) ? prod.ctnPurchaseRate : (unitCost * qInCtn);
+        const qInCtn = matched ? matched.qtyInCarton : (it.qtyPerCtn || 1);
         const ctnUnits = Number(it.ctn) || 0;
         const looseUnits = Number(it.qty) || 0;
-        const itemCost = Number(((ctnUnits * ctnCost) + (looseUnits * unitCost)).toFixed(2));
+        const itemCost = Number(((ctnUnits * ctnCostWithVat) + (looseUnits * unitCostWithVat)).toFixed(2));
         const itemRevenue = ((it as any).baseAmt !== undefined && (it as any).baseAmt > 0)
           ? Number((it as any).baseAmt)
           : ((it.amount ? (it.amount - (it.vatAmount || 0)) : ((ctnUnits * (it.ratePerCtn || 0)) + (looseUnits * it.rate))));
@@ -9313,7 +9357,7 @@ ON CONFLICT (id) DO NOTHING;`);
             totalDiscountAmount: 0,
             totalSaleRates: 0,
             saleRateCounts: 0,
-            purchaseCostRate: unitCost,
+            purchaseCostRate: unitCostWithVat,
             matchedProduct: matched?.product,
             tiersMap: new Map(),
           });
@@ -9391,8 +9435,8 @@ ON CONFLICT (id) DO NOTHING;`);
             itemRevenue * ctnRatio,
             itemVat * ctnRatio,
             itemTotalDisc * ctnRatio,
-            ctnUnits * ctnCost,
-            ctnCost
+            ctnUnits * ctnCostWithVat,
+            ctnCostWithVat
           );
 
           addTier(
@@ -9404,8 +9448,8 @@ ON CONFLICT (id) DO NOTHING;`);
             itemRevenue * looseRatio,
             itemVat * looseRatio,
             itemTotalDisc * looseRatio,
-            looseUnits * unitCost,
-            unitCost
+            looseUnits * unitCostWithVat,
+            unitCostWithVat
           );
         } else if (ctnUnits > 0) {
           addTier(
@@ -9417,8 +9461,8 @@ ON CONFLICT (id) DO NOTHING;`);
             itemRevenue,
             itemVat,
             itemTotalDisc,
-            ctnUnits * ctnCost,
-            ctnCost
+            ctnUnits * ctnCostWithVat,
+            ctnCostWithVat
           );
         } else {
           addTier(
@@ -9430,8 +9474,8 @@ ON CONFLICT (id) DO NOTHING;`);
             itemRevenue,
             itemVat,
             itemTotalDisc,
-            looseUnits * unitCost,
-            unitCost
+            looseUnits * unitCostWithVat,
+            unitCostWithVat
           );
         }
       }
@@ -9533,13 +9577,12 @@ ON CONFLICT (id) DO NOTHING;`);
         if (!matched && it.mcode) {
           matched = productCostMap.get(it.mcode.toLowerCase().trim());
         }
-        const unitCost = matched ? matched.purchaseCost : (it.rate > 0 ? it.rate * 0.75 : 0);
-        const prod = matched?.product;
-        const qInCtn = (prod?.qtyInCarton && prod.qtyInCarton > 0) ? prod.qtyInCarton : (it.qtyPerCtn || 1);
-        const ctnCost = (prod?.ctnPurchaseRate && prod.ctnPurchaseRate > 0) ? prod.ctnPurchaseRate : (unitCost * qInCtn);
+        const fallback = matched ? undefined : getProductPurchaseCostWithVat(undefined, it.rate);
+        const unitCostWithVat = matched ? matched.unitCostWithVat : fallback!.unitCostWithVat;
+        const ctnCostWithVat = matched ? matched.ctnCostWithVat : fallback!.ctnCostWithVat;
         const ctnUnits = Number(it.ctn) || 0;
         const looseUnits = Number(it.qty) || 0;
-        billCostOfGoods += (ctnUnits * ctnCost) + (looseUnits * unitCost);
+        billCostOfGoods += (ctnUnits * ctnCostWithVat) + (looseUnits * unitCostWithVat);
         billVatTotal += Number(it.vatAmount || 0);
       }
 
@@ -9549,10 +9592,11 @@ ON CONFLICT (id) DO NOTHING;`);
       const saleRevenueBeforeTax = Number((bill.grossAmount !== undefined
         ? bill.grossAmount
         : (bill.netTotal - billVatTotal + billDiscountAmount)).toFixed(2));
-      // Sales VAT is added to profit:
-      const grossProfit = Number(((saleRevenueBeforeTax + billVatTotal) - billCostOfGoods).toFixed(2));
+      const grossRevWithVat = Number((saleRevenueBeforeTax + billVatTotal).toFixed(2));
+      // Gross Profit = Gross Sale incl. VAT - Purchase Cost incl. VAT:
+      const grossProfit = Number((grossRevWithVat - billCostOfGoods).toFixed(2));
       const billDiscount = billDiscountAmount || Number(bill.totalDiscount) || 0;
-      // Net Profit includes Sales VAT and deducts bill discount:
+      // Net Profit = Net Total incl. VAT (after bill discount) - Purchase Cost incl. VAT:
       const netProfit = Number((bill.netTotal - billCostOfGoods).toFixed(2));
       const profitMarginPct = bill.netTotal > 0 ? Number(((netProfit / bill.netTotal) * 100).toFixed(1)) : 0;
 
@@ -9635,13 +9679,12 @@ ON CONFLICT (id) DO NOTHING;`);
         let matched = it.productId ? productCostMap.get(it.productId) : undefined;
         if (!matched && it.itemTitle) matched = productCostMap.get(it.itemTitle.toLowerCase().trim());
         if (!matched && it.mcode) matched = productCostMap.get(it.mcode.toLowerCase().trim());
-        const uCost = matched ? matched.purchaseCost : (it.rate > 0 ? it.rate * 0.75 : 0);
-        const prod = matched?.product;
-        const qInCtn = (prod?.qtyInCarton && prod.qtyInCarton > 0) ? prod.qtyInCarton : (it.qtyPerCtn || 1);
-        const ctnCost = (prod?.ctnPurchaseRate && prod.ctnPurchaseRate > 0) ? prod.ctnPurchaseRate : (uCost * qInCtn);
+        const fallback = matched ? undefined : getProductPurchaseCostWithVat(undefined, it.rate);
+        const unitCostWithVat = matched ? matched.unitCostWithVat : fallback!.unitCostWithVat;
+        const ctnCostWithVat = matched ? matched.ctnCostWithVat : fallback!.ctnCostWithVat;
         const ctnUnits = Number(it.ctn) || 0;
         const looseUnits = Number(it.qty) || 0;
-        billCost += (ctnUnits * ctnCost) + (looseUnits * uCost);
+        billCost += (ctnUnits * ctnCostWithVat) + (looseUnits * unitCostWithVat);
       }
       rec.totalCostOfGoods += billCost;
     }
@@ -9726,13 +9769,12 @@ ON CONFLICT (id) DO NOTHING;`);
         let matched = it.productId ? productCostMap.get(it.productId) : undefined;
         if (!matched && it.itemTitle) matched = productCostMap.get(it.itemTitle.toLowerCase().trim());
         if (!matched && it.mcode) matched = productCostMap.get(it.mcode.toLowerCase().trim());
-        const uCost = matched ? matched.purchaseCost : (it.rate > 0 ? it.rate * 0.75 : 0);
-        const prod = matched?.product;
-        const qInCtn = (prod?.qtyInCarton && prod.qtyInCarton > 0) ? prod.qtyInCarton : (it.qtyPerCtn || 1);
-        const ctnCost = (prod?.ctnPurchaseRate && prod.ctnPurchaseRate > 0) ? prod.ctnPurchaseRate : (uCost * qInCtn);
+        const fallback = matched ? undefined : getProductPurchaseCostWithVat(undefined, it.rate);
+        const unitCostWithVat = matched ? matched.unitCostWithVat : fallback!.unitCostWithVat;
+        const ctnCostWithVat = matched ? matched.ctnCostWithVat : fallback!.ctnCostWithVat;
         const ctnUnits = Number(it.ctn) || 0;
         const looseUnits = Number(it.qty) || 0;
-        billCost += (ctnUnits * ctnCost) + (looseUnits * uCost);
+        billCost += (ctnUnits * ctnCostWithVat) + (looseUnits * unitCostWithVat);
       }
       rec.totalCostOfGoods += billCost;
       const billProfit = bill.netTotal - billCost;
@@ -9780,9 +9822,9 @@ ON CONFLICT (id) DO NOTHING;`);
     const totalSalesVolume = Number(bills.reduce((s, b) => s + (b.netTotal || 0), 0).toFixed(2));
     const totalSalesTaxCollected = Number(bills.reduce((s, b) => s + (b.totalVatAmount || 0), 0).toFixed(2));
     const totalSalesBeforeTax = Number((totalSalesVolume - totalSalesTaxCollected).toFixed(2));
-    const totalCostOfGoods = Number(perBill.reduce((s, b) => s + b.costOfGoods, 0).toFixed(2));
-    const totalInputTaxPaid = Number((totalCostOfGoods * 0.05).toFixed(2));
-    const totalCostWithTax = Number((totalCostOfGoods + totalInputTaxPaid).toFixed(2));
+    const totalCostWithTax = Number(perBill.reduce((s, b) => s + b.costOfGoods, 0).toFixed(2));
+    const totalCostOfGoods = Number((totalCostWithTax / 1.05).toFixed(2));
+    const totalInputTaxPaid = Number((totalCostWithTax - totalCostOfGoods).toFixed(2));
 
     // Deduct voucher cash discounts from profit (as requested by user)
     const normFrom = filters?.fromDate ? this.normalizeDateToYMD(filters.fromDate) : '';
@@ -9793,12 +9835,12 @@ ON CONFLICT (id) DO NOTHING;`);
 
     const totalBillDiscounts = Number(bills.reduce((s, b) => s + (b.totalDiscount || b.billDiscountAmount || 0), 0).toFixed(2));
     const profitWithoutTax = Number((totalSalesBeforeTax - totalCostOfGoods - totalVoucherDiscounts).toFixed(2));
-    // Sales VAT is added to profit:
-    const profitWithTax = Number((totalSalesVolume - totalCostOfGoods - totalVoucherDiscounts).toFixed(2));
-    const totalGrossProfit = Number((totalSalesVolume + totalBillDiscounts - totalCostOfGoods).toFixed(2));
+    // Sales VAT is added to sales revenue, and purchase VAT is included in cost:
+    const profitWithTax = Number((totalSalesVolume - totalCostWithTax - totalVoucherDiscounts).toFixed(2));
+    const totalGrossProfit = Number((totalSalesVolume + totalBillDiscounts - totalCostWithTax).toFixed(2));
     const totalDiscountsGiven = Number((totalBillDiscounts + totalVoucherDiscounts).toFixed(2));
     const totalNetProfit = profitWithTax;
-    const netVatPayable = totalSalesTaxCollected;
+    const netVatPayable = Number((totalSalesTaxCollected - totalInputTaxPaid).toFixed(2));
     const overallMarginPct = totalSalesVolume > 0 ? Number(((totalNetProfit / totalSalesVolume) * 100).toFixed(1)) : 0;
     const totalQtySold = bills.reduce((s, b) => s + (b.totalQty || 0), 0);
     const totalCtnSold = Number(bills.reduce((s, b) => s + (b.totalCtn || 0), 0).toFixed(2));
