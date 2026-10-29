@@ -586,7 +586,7 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
         { header: 'Avg Cost', accessor: (it) => it.avgPurchaseRate },
         { header: 'Avg Sale / Rate', accessor: (it) => it.avgSaleRate },
         { header: 'Sale Revenue (Ex-VAT)', accessor: (it) => it.totalRevenue },
-        { header: 'VAT Excluded', accessor: (it) => it.totalVatAmount || 0 },
+        { header: 'Sales VAT', accessor: (it) => it.totalVatAmount || 0 },
         { header: 'Discount Deducted', accessor: (it) => it.totalDiscountAmount || 0 },
         { header: 'COGS / Purchase Cost', accessor: (it) => it.totalCostOfGoods },
         { header: 'Net Profit', accessor: (it) => it.netProfit },
@@ -874,7 +874,7 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
             <ArrowUpRight className="w-5 h-5 text-emerald-400" />
           </div>
           <div className="text-[11px] text-slate-300 mt-1 font-mono">
-            Sale excl. VAT ({currencySymbol()} {(summary.totalSalesBeforeTax ?? summary.totalSalesVolume).toLocaleString()}) - COGS ({currencySymbol()} {(summary.totalCostOfGoods || 0).toLocaleString()}){(summary.totalDiscountsGiven || 0) > 0 ? ` - Discounts (${currencySymbol()} ${(summary.totalDiscountsGiven || 0).toLocaleString()})` : ''}
+            Sale incl. VAT ({currencySymbol()} {summary.totalSalesVolume.toLocaleString()}) - COGS ({currencySymbol()} {(summary.totalCostOfGoods || 0).toLocaleString()}){(summary.totalDiscountsGiven || 0) > 0 ? ` - Discounts (${currencySymbol()} ${(summary.totalDiscountsGiven || 0).toLocaleString()})` : ''}
           </div>
           <div className="text-[10px] text-emerald-400/90 mt-0.5 font-semibold">
             Margin: {summary.overallMarginPct}% • Sold: {summary.totalCtnSold || 0} CTN + {summary.totalQtySold || 0} QTY
@@ -885,17 +885,17 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
         <div className="bg-gradient-to-br from-cyan-950/60 via-slate-900 to-slate-900 border border-cyan-500/50 rounded-xl p-3.5 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-cyan-300 uppercase tracking-wide">
-              Customer VAT Collected
+              Sales Output VAT
             </span>
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-800 font-mono font-bold">
-              Non-Profit Liability
+              Included in Profit
             </span>
           </div>
           <div className="text-lg sm:text-xl font-black font-mono text-cyan-300 mt-1">
             {currencySymbol()} {(summary.totalSalesTaxCollected ?? 0).toLocaleString()}
           </div>
           <div className="text-[11px] text-slate-300 mt-1 font-mono">
-            5% Output Tax collected on customer bills (Kept separate from profit)
+            5% Output Tax collected on customer bills (Added into profit)
           </div>
           <div className="text-[10px] text-cyan-400/80 mt-0.5">
             Net VAT Payable to FTA: {currencySymbol()} {(summary.netVatPayable ?? 0).toLocaleString()}
@@ -1312,7 +1312,7 @@ export const ComprehensiveProfitReportSection: React.FC<ComprehensiveProfitRepor
                     <th className="py-2.5 px-3 text-right">Avg Cost</th>
                     <th className="py-2.5 px-3 text-right">Avg Sale</th>
                     <th className="py-2.5 px-3 text-right">Sale Rev (Ex-VAT)</th>
-                    <th className="py-2.5 px-3 text-right">VAT Excluded</th>
+                    <th className="py-2.5 px-3 text-right">Sales VAT</th>
                     <th className="py-2.5 px-3 text-right">Discount</th>
                     <th className="py-2.5 px-3 text-right">COGS (Cost)</th>
                     <th className="py-2.5 px-3 text-right text-emerald-400 font-extrabold">Net Profit</th>

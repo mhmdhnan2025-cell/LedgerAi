@@ -420,7 +420,7 @@ export const AiLedgerAuditReportSection: React.FC<AiLedgerAuditReportSectionProp
               </span>
             </div>
             <div className="bg-slate-900 border border-indigo-500/30 rounded-xl p-3">
-              <span className="text-[10px] text-indigo-400 font-bold uppercase block">VAT Excluded (Tax Liability)</span>
+              <span className="text-[10px] text-indigo-400 font-bold uppercase block">Sales VAT (Included in Profit)</span>
               <span className="text-base font-black font-mono text-indigo-300">
                 {report.currencySymbol} {fmt(report.profitCard?.totalVatExcluded ?? 0)}
               </span>

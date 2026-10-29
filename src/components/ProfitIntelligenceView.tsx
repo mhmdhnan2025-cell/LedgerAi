@@ -152,7 +152,7 @@ export const ProfitIntelligenceView: React.FC<ProfitIntelligenceViewProps> = ({
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
               <div className="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
                 <span>Sale Revenue</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 font-bold border border-emerald-500/30">Ex-VAT</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 font-bold border border-emerald-500/30">Incl. VAT</span>
               </div>
               <div className="text-2xl font-black text-white mt-2">
                 {currencySymbol()} {(diagnosis?.totalRevenue ?? 0).toLocaleString()}
@@ -161,7 +161,7 @@ export const ProfitIntelligenceView: React.FC<ProfitIntelligenceViewProps> = ({
                 <span>COGS: {currencySymbol()} {(diagnosis?.totalCostOfGoods ?? 0).toLocaleString()}</span>
               </div>
               <div className="text-[11px] text-indigo-400 mt-1 font-medium">
-                VAT Excluded: {currencySymbol()} {(diagnosis?.totalVatExcluded ?? 0).toLocaleString()}
+                Sales VAT (Included): {currencySymbol()} {(diagnosis?.totalVatExcluded ?? 0).toLocaleString()}
               </div>
             </div>
 
@@ -248,7 +248,7 @@ export const ProfitIntelligenceView: React.FC<ProfitIntelligenceViewProps> = ({
             </div>
             <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-300">
               <span className="bg-slate-800 px-2 py-1 rounded border border-slate-700">
-                VAT Excluded (Tax Liability): <strong className="text-indigo-400">{currencySymbol()} {(diagnosis?.totalVatExcluded ?? 0).toLocaleString()}</strong>
+                Sales VAT (Included in Profit): <strong className="text-indigo-400">{currencySymbol()} {(diagnosis?.totalVatExcluded ?? 0).toLocaleString()}</strong>
               </span>
               <span className="bg-slate-800 px-2 py-1 rounded border border-slate-700">
                 Sale Bill Discounts: <strong className="text-amber-400">&minus;{currencySymbol()} {(diagnosis?.totalBillDiscounts ?? 0).toLocaleString()}</strong>

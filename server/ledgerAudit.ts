@@ -907,9 +907,9 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
 
       salesmanKhata.push({ name: entry.name, route, opening, todaySold, closing });
 
-      // Profit contributions (Ex-VAT Revenue - Cost of Goods):
+      // Profit contributions (Revenue inclusive of Sales VAT - Cost of Goods):
       const calcProfitForBills = (bList: SaleBill[]) => {
-        const exVatRev = bList.reduce((s, b) => s + billExVatRevenue(b), 0);
+        const rev = bList.reduce((s, b) => s + (Number(b.netTotal) || 0), 0);
         const cogs = cost.costOf(
           bList
             .flatMap((b) => b.items || [])
@@ -923,8 +923,8 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
               ratePerCtn: it.ratePerCtn,
             }))
         );
-        const profit = Number((exVatRev - cogs).toFixed(2));
-        const margin = exVatRev > 0 ? (profit / exVatRev) * 100 : 0;
+        const profit = Number((rev - cogs).toFixed(2));
+        const margin = rev > 0 ? (profit / rev) * 100 : 0;
         return { profit, margin };
       };
 
@@ -1003,12 +1003,16 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
         ? 'today'
         : (inMonth(bDate) ? 'this_month' : 'past');
       const bCogs = cogsOfBills([b]);
-      const exVat = billExVatRevenue(b);
       const billDisc = Number(b.billDiscountAmount) || Number(b.totalDiscount) || 0;
       const billVat = Number(b.totalVatAmount) || 0;
-      const grossProfit = Number((exVat - bCogs).toFixed(2));
-      const netProfit = grossProfit;
-      const marginPct = exVat > 0 ? Number(((grossProfit / exVat) * 100).toFixed(1)) : 0;
+      const netTotal = Number(b.netTotal) || 0;
+      const grossRevWithVat = (b.grossAmount !== undefined && b.grossAmount > 0)
+        ? Number((b.grossAmount + billVat).toFixed(2))
+        : Number((netTotal + billDisc).toFixed(2));
+      const grossProfit = Number((grossRevWithVat - bCogs).toFixed(2));
+      // Net Profit includes Sales VAT and deducts bill discount:
+      const netProfit = Number((netTotal - bCogs).toFixed(2));
+      const marginPct = netTotal > 0 ? Number(((netProfit / netTotal) * 100).toFixed(1)) : 0;
       const itemsSummary = (b.items || [])
         .map((it) => {
           const qty = it.ctn ? `${it.ctn} Ctn` : `${it.qty} ${it.unit || 'Units'}`;
@@ -1024,11 +1028,11 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
         customerName: b.customerAccountTitle || b.customerName || 'Customer',
         salesmanName: (b.salesmanName || b.user || 'Sales Staff').trim(),
         itemsSummary: itemsSummary || 'Sale Items',
-        exVatRevenue: exVat,
+        exVatRevenue: netTotal,
         cogs: bCogs,
         discountAmount: billDisc,
         vatAmount: billVat,
-        netTotal: Number(b.netTotal) || 0,
+        netTotal,
         grossProfit,
         netProfit,
         marginPct,
@@ -1229,38 +1233,39 @@ export function buildAiLedgerMasterAuditReport(requestedDate?: string): {
     const monthReturnCogs = cogsOfSaleReturns(saleReturnsMonthList);
     const totalReturnCogs = cogsOfSaleReturns(saleReturnsUpto);
 
-    const todaySaleReturnExVat = saleReturnsTodayList.reduce((s, r) => s + saleReturnExVat(r), 0);
-    const monthSaleReturnExVat = saleReturnsMonthList.reduce((s, r) => s + saleReturnExVat(r), 0);
-    const totalSaleReturnExVat = saleReturnsUpto.reduce((s, r) => s + saleReturnExVat(r), 0);
+    // Sale returns net amounts (with VAT):
+    const todaySaleReturnAmt = saleReturnsTodayList.reduce((s, r) => s + (Number(r.netTotal) || 0), 0);
+    const monthSaleReturnAmt = saleReturnsMonthList.reduce((s, r) => s + (Number(r.netTotal) || 0), 0);
+    const totalSaleReturnAmt = saleReturnsUpto.reduce((s, r) => s + (Number(r.netTotal) || 0), 0);
 
-    // Gross Ex-VAT Revenues (post trade bill discount):
-    const todayGrossExVatRevenue = saleBillsToday.reduce((s, b) => s + billExVatRevenue(b), 0) + ordersToday.reduce((s, o) => s + ((o.totalAmount || 0) - (o.discount || 0)), 0);
-    const monthGrossExVatRevenue = saleBillsMonth.reduce((s, b) => s + billExVatRevenue(b), 0) + ordersMonth.reduce((s, o) => s + ((o.totalAmount || 0) - (o.discount || 0)), 0);
-    const totalGrossExVatRevenue = saleBillsUpto.reduce((s, b) => s + billExVatRevenue(b), 0) + ordersUpto.reduce((s, o) => s + ((o.totalAmount || 0) - (o.discount || 0)), 0);
+    // Gross Revenues inclusive of Sales VAT (post trade bill discount):
+    const todayGrossRevenue = saleBillsToday.reduce((s, b) => s + (Number(b.netTotal) || 0), 0) + ordersToday.reduce((s, o) => s + ((o.totalAmount || 0) - (o.discount || 0)), 0);
+    const monthGrossRevenue = saleBillsMonth.reduce((s, b) => s + (Number(b.netTotal) || 0), 0) + ordersMonth.reduce((s, o) => s + ((o.totalAmount || 0) - (o.discount || 0)), 0);
+    const totalGrossRevenue = saleBillsUpto.reduce((s, b) => s + (Number(b.netTotal) || 0), 0) + ordersUpto.reduce((s, o) => s + ((o.totalAmount || 0) - (o.discount || 0)), 0);
 
-    // Net Ex-VAT Revenues (deducting Sale Returns Ex-VAT):
-    const todayExVatRevenue = Math.max(0, Number((todayGrossExVatRevenue - todaySaleReturnExVat).toFixed(2)));
-    const monthExVatRevenue = Math.max(0, Number((monthGrossExVatRevenue - monthSaleReturnExVat).toFixed(2)));
-    const totalExVatRevenue = Math.max(0, Number((totalGrossExVatRevenue - totalSaleReturnExVat).toFixed(2)));
+    // Net Revenues (deducting Sale Returns):
+    const todayRevenue = Math.max(0, Number((todayGrossRevenue - todaySaleReturnAmt).toFixed(2)));
+    const monthRevenue = Math.max(0, Number((monthGrossRevenue - monthSaleReturnAmt).toFixed(2)));
+    const totalRevenue = Math.max(0, Number((totalGrossRevenue - totalSaleReturnAmt).toFixed(2)));
 
     // Net COGS (deducting returned inventory cost):
     const todayCogs = Math.max(0, Number((cogsOfBills(saleBillsToday) - todayReturnCogs).toFixed(2)));
     const monthCogs = Math.max(0, Number((cogsOfBills(saleBillsMonth) - monthReturnCogs).toFixed(2)));
     const totalCogs = Math.max(0, Number((cogsOfBills(saleBillsUpto) - totalReturnCogs).toFixed(2)));
 
-    // Gross Profits:
-    const todayGrossProfit = Number((todayExVatRevenue - todayCogs).toFixed(2));
-    const monthGrossProfit = Number((monthExVatRevenue - monthCogs).toFixed(2));
-    const totalGrossProfit = Number((totalExVatRevenue - totalCogs).toFixed(2));
+    // Gross Profits (with Sales VAT included):
+    const todayGrossProfit = Number((todayRevenue - todayCogs).toFixed(2));
+    const monthGrossProfit = Number((monthRevenue - monthCogs).toFixed(2));
+    const totalGrossProfit = Number((totalRevenue - totalCogs).toFixed(2));
 
     // Net Profits (Gross Profit - Sale Return Discounts - Total Operating Expenses including Voucher Discounts & Salaries):
     const todayNetProfit = Number((todayGrossProfit - todaySaleReturnDiscount - todayExpenses).toFixed(2));
     const monthNetProfit = Number((monthGrossProfit - monthSaleReturnDiscount - monthExpenses).toFixed(2));
     const totalNetProfit = Number((totalGrossProfit - totalSaleReturnDiscount - totalExpenses).toFixed(2));
 
-    const todayNetMargin = todayExVatRevenue > 0 ? (todayNetProfit / todayExVatRevenue) * 100 : 0;
-    const monthMarginPct = monthExVatRevenue > 0 ? (monthNetProfit / monthExVatRevenue) * 100 : 0;
-    const totalMarginPct = totalExVatRevenue > 0 ? (totalNetProfit / totalExVatRevenue) * 100 : 0;
+    const todayNetMargin = todayRevenue > 0 ? (todayNetProfit / todayRevenue) * 100 : 0;
+    const monthMarginPct = monthRevenue > 0 ? (monthNetProfit / monthRevenue) * 100 : 0;
+    const totalMarginPct = totalRevenue > 0 ? (totalNetProfit / totalRevenue) * 100 : 0;
 
     // -------------------------------------------------------------
     // 7. CASH & BANK LIQUIDITY REGISTER (CASH IN HAND)

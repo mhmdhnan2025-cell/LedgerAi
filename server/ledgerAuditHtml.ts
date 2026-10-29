@@ -670,7 +670,7 @@ export function renderAiLedgerAuditHtml(data: AiLedgerAuditReport): string {
           <th style="width:26%">Audit Period</th>
           <th class="num" style="width:16%">Net Profit</th>
           <th class="num" style="width:12%">Margin</th>
-          <th class="num" style="width:16%">VAT Excluded</th>
+          <th class="num" style="width:16%">Sales VAT (Included)</th>
           <th class="num" style="width:16%">Discounts</th>
           <th class="center" style="width:14%">Status</th>
         </tr>

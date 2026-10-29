@@ -6257,13 +6257,9 @@ ON CONFLICT (id) DO NOTHING;`);
       return cogs;
     };
 
-    const billExVatRevenue = (b: SaleBill) => {
-      const billDiscount = Number(b.billDiscountAmount) || 0;
-      const vat = Number(b.totalVatAmount) || 0;
-      if (b.grossAmount !== undefined && b.grossAmount > 0) {
-        return Math.max(0, Number((b.grossAmount - billDiscount).toFixed(2)));
-      }
-      return Math.max(0, Number((b.netTotal - vat).toFixed(2)));
+    const billRevenueWithVat = (b: SaleBill) => {
+      // Sales VAT is added to profit: net revenue with VAT is b.netTotal
+      return Math.max(0, Number(b.netTotal) || 0);
     };
 
     const validBills = (this.data.saleBills || []).filter((b) => b.status !== 'Cancelled');
@@ -6272,25 +6268,24 @@ ON CONFLICT (id) DO NOTHING;`);
     const expenses = (this.data.expenses || []).filter((e) => !e.id?.startsWith('exp-disc-'));
     const vouchers = (this.data.vouchers || []).filter((v) => v.status === 'POSTED');
 
-    // Sale Bills totals (Ex-VAT, deducting bill discounts)
-    let totalBillsExVat = 0;
+    // Sale Bills totals (Inclusive of Sales VAT, deducting bill discounts)
+    let totalBillsRevenue = 0;
     let totalBillsCogs = 0;
     let totalBillVatExcluded = 0;
     let totalBillDiscounts = 0;
 
     for (const b of validBills) {
-      totalBillsExVat += billExVatRevenue(b);
+      totalBillsRevenue += billRevenueWithVat(b);
       totalBillsCogs += calcBillCogs(b.items || []);
       totalBillVatExcluded += Number(b.totalVatAmount) || 0;
       totalBillDiscounts += Number(b.totalDiscount) || Number(b.billDiscountAmount) || 0;
     }
 
-    // Sales Returns deductions
-    let totalReturnsExVat = 0;
+    // Sales Returns deductions (inclusive of VAT)
+    let totalReturnsRevenue = 0;
     let totalReturnsCogs = 0;
     for (const r of validReturns) {
-      const rVat = Number(r.taxAmount) || 0;
-      totalReturnsExVat += Math.max(0, Number((r.netTotal - rVat).toFixed(2)));
+      totalReturnsRevenue += Math.max(0, Number(r.netTotal) || 0);
       for (const it of (r.items || [])) {
         let matched = it.productId ? productCostMap.get(it.productId) : undefined;
         if (!matched && it.itemTitle) matched = productCostMap.get(it.itemTitle.toLowerCase().trim());
@@ -6304,7 +6299,7 @@ ON CONFLICT (id) DO NOTHING;`);
     for (const o of validOrders) {
       if (existingBillNums.has(o.orderNumber) || existingBillNums.has(o.id)) continue;
       const oRevenue = (o.totalAmount || 0) - (o.discount || 0);
-      totalBillsExVat += oRevenue;
+      totalBillsRevenue += oRevenue;
       totalBillDiscounts += (o.discount || 0);
       const oCost = (o.items || []).reduce((itemSum, it) => itemSum + (it.totalCost || 0), 0);
       totalBillsCogs += oCost;
@@ -6316,7 +6311,7 @@ ON CONFLICT (id) DO NOTHING;`);
       0
     );
 
-    const totalRevenue = Math.max(0, Number((totalBillsExVat - totalReturnsExVat).toFixed(2)));
+    const totalRevenue = Math.max(0, Number((totalBillsRevenue - totalReturnsRevenue).toFixed(2)));
     const totalCostOfGoods = Math.max(0, Number((totalBillsCogs - totalReturnsCogs).toFixed(2)));
     const grossProfit = Number((totalRevenue - totalCostOfGoods).toFixed(2));
     const totalExpenses = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
@@ -6342,7 +6337,7 @@ ON CONFLICT (id) DO NOTHING;`);
       let restRevenue = 0;
       let restCost = 0;
       for (const b of custBills) {
-        restRevenue += billExVatRevenue(b);
+        restRevenue += billRevenueWithVat(b);
         restCost += calcBillCogs(b.items || []);
       }
 
@@ -6351,8 +6346,7 @@ ON CONFLICT (id) DO NOTHING;`);
         (r) => r.customerId === cId || (cTitle && r.customerAccountTitle && r.customerAccountTitle.toLowerCase().trim() === cTitle)
       );
       for (const r of custReturns) {
-        const rVat = Number(r.taxAmount) || 0;
-        restRevenue = Math.max(0, restRevenue - Number((r.netTotal - rVat).toFixed(2)));
+        restRevenue = Math.max(0, restRevenue - (Number(r.netTotal) || 0));
         for (const it of (r.items || [])) {
           let matched = it.productId ? productCostMap.get(it.productId) : undefined;
           if (!matched && it.itemTitle) matched = productCostMap.get(it.itemTitle.toLowerCase().trim());
@@ -9336,9 +9330,11 @@ ON CONFLICT (id) DO NOTHING;`);
       const totalDisc = Number(v.totalDiscountAmount.toFixed(2));
       const totalVat = Number(v.totalVatAmount.toFixed(2));
       const netRev = Number(Math.max(0, v.totalRevenue - totalDisc).toFixed(2));
-      const grossProfit = Number((v.totalRevenue - v.totalCostOfGoods).toFixed(2));
-      const netProfit = Number((netRev - v.totalCostOfGoods).toFixed(2));
-      const profitMarginPct = netRev > 0 ? Number(((netProfit / netRev) * 100).toFixed(1)) : (v.totalRevenue > 0 ? Number(((grossProfit / v.totalRevenue) * 100).toFixed(1)) : 0);
+      // Sales VAT is added to profit:
+      const grossProfit = Number(((v.totalRevenue + totalVat) - v.totalCostOfGoods).toFixed(2));
+      const netProfit = Number(((netRev + totalVat) - v.totalCostOfGoods).toFixed(2));
+      const totalSaleWithVat = Number((netRev + totalVat).toFixed(2));
+      const profitMarginPct = totalSaleWithVat > 0 ? Number(((netProfit / totalSaleWithVat) * 100).toFixed(1)) : ((v.totalRevenue + totalVat) > 0 ? Number(((grossProfit / (v.totalRevenue + totalVat)) * 100).toFixed(1)) : 0);
       const avgSaleRate = v.saleRateCounts > 0 ? Number((v.totalSaleRates / v.saleRateCounts).toFixed(2)) : (v.ctnSold > 0 ? Number((v.totalRevenue / v.ctnSold).toFixed(2)) : 0);
       const currentRemainingStock = v.matchedProduct ? (v.matchedProduct.currentQuantity || 0) : 0;
       const qtyInCarton = v.matchedProduct?.qtyInCarton || 1;
@@ -9354,13 +9350,15 @@ ON CONFLICT (id) DO NOTHING;`);
       const rateTiers: ItemProfitRateTier[] = Array.from(v.tiersMap.entries()).map(([tKey, t]) => {
         const tDisc = Number(t.totalDiscountAmount.toFixed(2));
         const tRev = Number(t.totalRevenue.toFixed(2));
+        const tVat = Number(t.totalVatAmount.toFixed(2));
         const tNetRev = Number(Math.max(0, tRev - tDisc).toFixed(2));
         const tCost = Number(t.totalCostOfGoods.toFixed(2));
-        const tGrossProfit = Number((tRev - tCost).toFixed(2));
-        const tNetProfit = Number((tNetRev - tCost).toFixed(2));
-        const tMarginPct = tNetRev > 0
-          ? Number(((tNetProfit / tNetRev) * 100).toFixed(1))
-          : (tRev > 0 ? Number(((tGrossProfit / tRev) * 100).toFixed(1)) : 0);
+        const tGrossProfit = Number(((tRev + tVat) - tCost).toFixed(2));
+        const tNetProfit = Number(((tNetRev + tVat) - tCost).toFixed(2));
+        const tNetWithVat = Number((tNetRev + tVat).toFixed(2));
+        const tMarginPct = tNetWithVat > 0
+          ? Number(((tNetProfit / tNetWithVat) * 100).toFixed(1))
+          : ((tRev + tVat) > 0 ? Number(((tGrossProfit / (tRev + tVat)) * 100).toFixed(1)) : 0);
 
         return {
           tierKey: tKey,
@@ -9373,7 +9371,7 @@ ON CONFLICT (id) DO NOTHING;`);
           ctnSold: Number(t.ctnSold.toFixed(2)),
           avgPurchaseRate: Number(t.avgPurchaseRate.toFixed(2)),
           totalRevenue: tRev,
-          totalVatAmount: Number(t.totalVatAmount.toFixed(2)),
+          totalVatAmount: tVat,
           totalDiscountAmount: tDisc,
           netRevenue: tNetRev,
           totalCostOfGoods: tCost,
@@ -9407,7 +9405,7 @@ ON CONFLICT (id) DO NOTHING;`);
         rateTiers,
         totalCtn: Number(v.ctnSold.toFixed(2)),
         totalQty: Number(v.qtySold.toFixed(2)),
-        totalSaleAmount: netRev || v.totalRevenue,
+        totalSaleAmount: totalSaleWithVat,
         marginPct: profitMarginPct,
       };
     }).sort((a, b) => (b.netProfit ?? b.grossProfit) - (a.netProfit ?? a.grossProfit));
@@ -9420,6 +9418,9 @@ ON CONFLICT (id) DO NOTHING;`);
         let matched = it.productId ? productCostMap.get(it.productId) : undefined;
         if (!matched && it.itemTitle) {
           matched = productCostMap.get(it.itemTitle.toLowerCase().trim());
+        }
+        if (!matched && it.mcode) {
+          matched = productCostMap.get(it.mcode.toLowerCase().trim());
         }
         const unitCost = matched ? matched.purchaseCost : (it.rate > 0 ? it.rate * 0.75 : 0);
         const prod = matched?.product;
@@ -9437,9 +9438,11 @@ ON CONFLICT (id) DO NOTHING;`);
       const saleRevenueBeforeTax = Number((bill.grossAmount !== undefined
         ? bill.grossAmount
         : (bill.netTotal - billVatTotal + billDiscountAmount)).toFixed(2));
-      const grossProfit = Number((saleRevenueBeforeTax - billCostOfGoods).toFixed(2));
+      // Sales VAT is added to profit:
+      const grossProfit = Number(((saleRevenueBeforeTax + billVatTotal) - billCostOfGoods).toFixed(2));
       const billDiscount = billDiscountAmount || Number(bill.totalDiscount) || 0;
-      const netProfit = Number((grossProfit - billDiscountAmount).toFixed(2)); // bill discount is given away - NOT company profit
+      // Net Profit includes Sales VAT and deducts bill discount:
+      const netProfit = Number((bill.netTotal - billCostOfGoods).toFixed(2));
       const profitMarginPct = bill.netTotal > 0 ? Number(((netProfit / bill.netTotal) * 100).toFixed(1)) : 0;
 
       return {
@@ -9520,8 +9523,14 @@ ON CONFLICT (id) DO NOTHING;`);
       for (const it of bill.items) {
         let matched = it.productId ? productCostMap.get(it.productId) : undefined;
         if (!matched && it.itemTitle) matched = productCostMap.get(it.itemTitle.toLowerCase().trim());
+        if (!matched && it.mcode) matched = productCostMap.get(it.mcode.toLowerCase().trim());
         const uCost = matched ? matched.purchaseCost : (it.rate > 0 ? it.rate * 0.75 : 0);
-        billCost += it.qty * uCost;
+        const prod = matched?.product;
+        const qInCtn = (prod?.qtyInCarton && prod.qtyInCarton > 0) ? prod.qtyInCarton : (it.qtyPerCtn || 1);
+        const ctnCost = (prod?.ctnPurchaseRate && prod.ctnPurchaseRate > 0) ? prod.ctnPurchaseRate : (uCost * qInCtn);
+        const ctnUnits = Number(it.ctn) || 0;
+        const looseUnits = Number(it.qty) || 0;
+        billCost += (ctnUnits * ctnCost) + (looseUnits * uCost);
       }
       rec.totalCostOfGoods += billCost;
     }
@@ -9605,8 +9614,14 @@ ON CONFLICT (id) DO NOTHING;`);
       for (const it of bill.items) {
         let matched = it.productId ? productCostMap.get(it.productId) : undefined;
         if (!matched && it.itemTitle) matched = productCostMap.get(it.itemTitle.toLowerCase().trim());
+        if (!matched && it.mcode) matched = productCostMap.get(it.mcode.toLowerCase().trim());
         const uCost = matched ? matched.purchaseCost : (it.rate > 0 ? it.rate * 0.75 : 0);
-        billCost += it.qty * uCost;
+        const prod = matched?.product;
+        const qInCtn = (prod?.qtyInCarton && prod.qtyInCarton > 0) ? prod.qtyInCarton : (it.qtyPerCtn || 1);
+        const ctnCost = (prod?.ctnPurchaseRate && prod.ctnPurchaseRate > 0) ? prod.ctnPurchaseRate : (uCost * qInCtn);
+        const ctnUnits = Number(it.ctn) || 0;
+        const looseUnits = Number(it.qty) || 0;
+        billCost += (ctnUnits * ctnCost) + (looseUnits * uCost);
       }
       rec.totalCostOfGoods += billCost;
       const billProfit = bill.netTotal - billCost;
@@ -9665,13 +9680,15 @@ ON CONFLICT (id) DO NOTHING;`);
       .filter((v) => v.status === 'POSTED' && (!normFrom || this.normalizeDateToYMD(v.date) >= normFrom) && (!normTo || this.normalizeDateToYMD(v.date) <= normTo))
       .reduce((sum, v) => sum + (v.entries || []).reduce((esum, e) => esum + (Number(e.discount) || 0), 0), 0);
 
+    const totalBillDiscounts = Number(bills.reduce((s, b) => s + (b.totalDiscount || b.billDiscountAmount || 0), 0).toFixed(2));
     const profitWithoutTax = Number((totalSalesBeforeTax - totalCostOfGoods - totalVoucherDiscounts).toFixed(2));
-    const profitWithTax = profitWithoutTax;
+    // Sales VAT is added to profit:
+    const profitWithTax = Number((totalSalesVolume - totalCostOfGoods - totalVoucherDiscounts).toFixed(2));
+    const totalGrossProfit = Number((totalSalesVolume + totalBillDiscounts - totalCostOfGoods).toFixed(2));
+    const totalDiscountsGiven = Number((totalBillDiscounts + totalVoucherDiscounts).toFixed(2));
+    const totalNetProfit = profitWithTax;
     const netVatPayable = totalSalesTaxCollected;
-    const totalGrossProfit = Number((totalSalesBeforeTax - totalCostOfGoods).toFixed(2));
-    const totalDiscountsGiven = Number((bills.reduce((s, b) => s + (b.totalDiscount || b.billDiscountAmount || 0), 0) + totalVoucherDiscounts).toFixed(2));
-    const totalNetProfit = profitWithoutTax;
-    const overallMarginPct = totalSalesBeforeTax > 0 ? Number(((profitWithoutTax / totalSalesBeforeTax) * 100).toFixed(1)) : 0;
+    const overallMarginPct = totalSalesVolume > 0 ? Number(((totalNetProfit / totalSalesVolume) * 100).toFixed(1)) : 0;
     const totalQtySold = bills.reduce((s, b) => s + (b.totalQty || 0), 0);
     const totalCtnSold = Number(bills.reduce((s, b) => s + (b.totalCtn || 0), 0).toFixed(2));
 
