@@ -736,11 +736,6 @@ Thank you for your business!`;
                       Loose Qty
                     </th>
 
-                    {/* 5. Total Qty / Total Stock */}
-                    <th className="border border-slate-400 px-1.5 py-2 w-[85px] text-center bg-[#f0eadd] font-black">
-                      Total Qty
-                    </th>
-
                     {/* 6. Unit Price */}
                     <th className="border border-slate-400 px-1.5 py-2 w-[80px] text-right font-black">
                       Unit Price
@@ -814,11 +809,6 @@ Thank you for your business!`;
                           )}
                         </td>
 
-                        {/* 5. Total Qty */}
-                        <td className="border border-slate-400 px-1.5 py-1.5 text-center font-black bg-[#faf8f1]">
-                          {money(totalStock)} <span className="text-[10px] font-bold text-slate-700">{unit}</span>
-                        </td>
-
                         {/* 6. Unit Price */}
                         <td className="border border-slate-400 px-1.5 py-1.5 text-right font-mono font-medium">
                           {money(it.rate)}
@@ -849,7 +839,6 @@ Thank you for your business!`;
                   {Array.from({ length: fillerRows }).map((_, i) => (
                     <tr key={`filler-${i}`}>
                       <td className="border border-slate-400 h-[26px]" />
-                      <td className="border border-slate-400" />
                       <td className="border border-slate-400" />
                       <td className="border border-slate-400" />
                       <td className="border border-slate-400" />
