@@ -1129,6 +1129,148 @@ app.post('/api/expenses/:id/allocate', (req, res) => {
 
 
 // -------------------------------------------------------------
+// ITEM PRICE INTELLIGENCE & PARTY RECENT TRANSACTION HISTORY API
+// -------------------------------------------------------------
+app.get('/api/items/party-price-history', (req, res) => {
+  try {
+    const {
+      partyType, // 'supplier' | 'customer'
+      partyId,
+      partyName,
+      productId,
+      mcode,
+      itemTitle,
+    } = req.query as Record<string, string>;
+
+    const pId = (productId || '').trim();
+    const pMcode = (mcode || '').trim().toLowerCase();
+    const pTitle = (itemTitle || '').trim().toLowerCase();
+
+    const isMatchItem = (it: any) => {
+      if (!it) return false;
+      if (pId && it.productId === pId) return true;
+      if (pMcode && it.mcode && it.mcode.trim().toLowerCase() === pMcode) return true;
+      if (pTitle && it.itemTitle && it.itemTitle.trim().toLowerCase() === pTitle) return true;
+      return false;
+    };
+
+    const pType = (partyType || '').toLowerCase();
+    const pPartyId = (partyId || '').trim();
+    const pPartyName = (partyName || '').trim().toLowerCase();
+
+    const partyHistory: any[] = [];
+
+    if (pType === 'supplier') {
+      const sortedBills = [...(db.data.purchaseBills || [])].sort((a, b) =>
+        (b.date || '').localeCompare(a.date || '')
+      );
+      for (const bill of sortedBills) {
+        const isParty =
+          (pPartyId && (bill.supplierId === pPartyId || (bill as any).supplierCode === pPartyId)) ||
+          (pPartyName && (bill.supplierName?.trim().toLowerCase() === pPartyName || (bill as any).supplierAccountTitle?.trim().toLowerCase() === pPartyName));
+
+        if (!isParty) continue;
+
+        for (const it of bill.items || []) {
+          if (isMatchItem(it)) {
+            partyHistory.push({
+              billNumber: bill.billNumber,
+              date: bill.date,
+              rate: it.rate,
+              ratePerCtn: it.ratePerCtn,
+              ctn: it.ctn,
+              qty: it.qty,
+              packageType: it.packageType,
+            });
+            break;
+          }
+        }
+        if (partyHistory.length >= 4) break;
+      }
+    } else if (pType === 'customer') {
+      const sortedBills = [...(db.data.saleBills || [])].sort((a, b) =>
+        (b.date || '').localeCompare(a.date || '')
+      );
+      for (const bill of sortedBills) {
+        const isParty =
+          (pPartyId && (bill.customerId === pPartyId || (bill as any).customerCode === pPartyId)) ||
+          (pPartyName && (bill.customerName?.trim().toLowerCase() === pPartyName || (bill as any).customerAccountTitle?.trim().toLowerCase() === pPartyName));
+
+        if (!isParty) continue;
+
+        for (const it of bill.items || []) {
+          if (isMatchItem(it)) {
+            partyHistory.push({
+              billNumber: bill.billNumber,
+              date: bill.date,
+              rate: it.rate,
+              ratePerCtn: it.ratePerCtn,
+              ctn: it.ctn,
+              qty: it.qty,
+              packageType: it.packageType,
+            });
+            break;
+          }
+        }
+        if (partyHistory.length >= 4) break;
+      }
+    }
+
+    // Latest Purchase across all suppliers
+    let lastPurchase: any = null;
+    const sortedAllPurchases = [...(db.data.purchaseBills || [])].sort((a, b) =>
+      (b.date || '').localeCompare(a.date || '')
+    );
+    for (const bill of sortedAllPurchases) {
+      for (const it of bill.items || []) {
+        if (isMatchItem(it)) {
+          lastPurchase = {
+            billNumber: bill.billNumber,
+            date: bill.date,
+            supplierName: bill.supplierName || (bill as any).supplierAccountTitle || 'Supplier',
+            rate: it.rate,
+            ratePerCtn: it.ratePerCtn,
+            packageType: it.packageType,
+          };
+          break;
+        }
+      }
+      if (lastPurchase) break;
+    }
+
+    // Latest Sale across all customers
+    let lastSale: any = null;
+    const sortedAllSales = [...(db.data.saleBills || [])].sort((a, b) =>
+      (b.date || '').localeCompare(a.date || '')
+    );
+    for (const bill of sortedAllSales) {
+      for (const it of bill.items || []) {
+        if (isMatchItem(it)) {
+          lastSale = {
+            billNumber: bill.billNumber,
+            date: bill.date,
+            customerName: bill.customerName || (bill as any).customerAccountTitle || 'Customer',
+            rate: it.rate,
+            ratePerCtn: it.ratePerCtn,
+            packageType: it.packageType,
+          };
+          break;
+        }
+      }
+      if (lastSale) break;
+    }
+
+    res.json({
+      partyHistory,
+      lastPurchase,
+      lastSale,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// -------------------------------------------------------------
 // ITEM CATEGORIES, BRANDS & MEASURES API
 // -------------------------------------------------------------
 app.get('/api/items/categories', (req, res) => {

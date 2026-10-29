@@ -1,5 +1,5 @@
 import { currencySymbol } from '../utils/currency';
-import { isBillDateToday } from '../utils/dateUtils';
+import { isBillDateToday, sortByBillDateDesc } from '../utils/dateUtils';
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import {
   Receipt,
@@ -25,11 +25,13 @@ import {
   RotateCcw,
   Camera,
   Edit2,
+  History,
 } from 'lucide-react';
 import {
   Product,
   PurchaseBill,
   PurchaseBillItem,
+  SaleBill,
   Supplier,
   UserRole,
 } from '../types';
@@ -91,6 +93,27 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
     return () => {
       isMounted = false;
     };
+  }, []);
+
+  // Historical bills for price intelligence and party purchase history
+  const [allPurchases, setAllPurchases] = useState<PurchaseBill[]>([]);
+  const [allSales, setAllSales] = useState<SaleBill[]>([]);
+
+  const loadBillHistory = async () => {
+    try {
+      const [pList, sList] = await Promise.all([
+        api.getPurchases().catch(() => []),
+        api.getSales().catch(() => []),
+      ]);
+      if (Array.isArray(pList)) setAllPurchases(pList);
+      if (Array.isArray(sList)) setAllSales(sList);
+    } catch (err) {
+      console.error('Failed to load bill history in purchases:', err);
+    }
+  };
+
+  useEffect(() => {
+    loadBillHistory();
   }, []);
 
   // Messages & Loading states
@@ -725,6 +748,109 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
     return resolvedBaseUnit;
   }, [billItems, resolvedBaseUnit]);
 
+  // Current selected supplier title or cash supplier name
+  const currentSupplierName = (selectedSupplier ? (selectedSupplier.accountTitle || selectedSupplier.title || selectedSupplier.name) : cashSupplierName) || '';
+
+  // Helper to match a bill line item with the active product or entered title
+  const isLineItemMatch = React.useCallback((it: any) => {
+    if (!it) return false;
+    const targetTitle = (itemTitle || activeProduct?.name || activeProduct?.itemTitle || '').trim().toLowerCase();
+    const targetId = selectedProductId || activeProduct?.id || '';
+    const targetMcode = (activeProduct?.mcode || activeProduct?.sku || itemMCode || '').trim().toLowerCase();
+
+    if (targetId && it.productId && it.productId === targetId) return true;
+    if (targetMcode && (it.mcode || it.sku)?.trim().toLowerCase() === targetMcode) return true;
+    if (targetTitle && it.itemTitle?.trim().toLowerCase() === targetTitle) return true;
+    if (targetTitle && it.itemTitle && (it.itemTitle.toLowerCase().includes(targetTitle) || targetTitle.includes(it.itemTitle.toLowerCase()))) return true;
+    return false;
+  }, [selectedProductId, activeProduct, itemMCode, itemTitle]);
+
+  // Last 3 to 4 purchases of this item from THIS specific supplier
+  const supplierPurchaseHistory = React.useMemo(() => {
+    if (!selectedSupplierId && !currentSupplierName.trim()) return [];
+    if (!activeProduct && !selectedProductId && !itemTitle.trim()) return [];
+
+    const targetSupName = currentSupplierName.trim().toLowerCase();
+    const matched: {
+      billNumber: string | number;
+      date: string;
+      rate: number;
+      ratePerCtn?: number;
+      ctn?: number;
+      qty?: number;
+      packageType?: string;
+    }[] = [];
+
+    const sortedBills = [...allPurchases].sort(sortByBillDateDesc);
+
+    for (const bill of sortedBills) {
+      const isSupplier =
+        (selectedSupplierId && (bill.supplierId === selectedSupplierId || (bill as any).supplierCode === selectedSupplierId)) ||
+        (targetSupName && (
+          (bill.supplierName && bill.supplierName.trim().toLowerCase() === targetSupName) ||
+          (bill.supplierAccountTitle && bill.supplierAccountTitle.trim().toLowerCase() === targetSupName) ||
+          (bill.supplierName && bill.supplierName.trim().toLowerCase().includes(targetSupName)) ||
+          (targetSupName.includes((bill.supplierName || '').trim().toLowerCase()))
+        ));
+
+      if (!isSupplier) continue;
+
+      for (const it of bill.items || []) {
+        if (isLineItemMatch(it) && Number(it.rate) > 0) {
+          matched.push({
+            billNumber: bill.billNumber,
+            date: bill.date,
+            rate: Number(it.rate),
+            ratePerCtn: it.ratePerCtn ? Number(it.ratePerCtn) : undefined,
+            ctn: it.ctn ? Number(it.ctn) : undefined,
+            qty: it.qty ? Number(it.qty) : undefined,
+            packageType: it.packageType,
+          });
+          break;
+        }
+      }
+
+      if (matched.length >= 4) break;
+    }
+
+    return matched;
+  }, [allPurchases, selectedSupplierId, currentSupplierName, activeProduct, selectedProductId, itemTitle, isLineItemMatch]);
+
+  // Most recent sale price of this item across all market sales ("purchase bill main b last sale cost show ho")
+  const lastMarketSale = React.useMemo(() => {
+    if (!activeProduct && !selectedProductId && !itemTitle.trim()) return null;
+
+    const sortedSales = [...allSales].sort(sortByBillDateDesc);
+
+    for (const bill of sortedSales) {
+      for (const it of bill.items || []) {
+        if (isLineItemMatch(it) && Number(it.rate) > 0) {
+          return {
+            billNumber: bill.billNumber,
+            date: bill.date,
+            customerName: bill.customerAccountTitle || bill.customerName || 'Customer',
+            rate: Number(it.rate),
+            ratePerCtn: it.ratePerCtn ? Number(it.ratePerCtn) : undefined,
+            packageType: it.packageType,
+          };
+        }
+      }
+    }
+
+    return null;
+  }, [allSales, activeProduct, selectedProductId, itemTitle, isLineItemMatch]);
+
+  const applyHistoricalRate = (histRate: number, histCtnRate?: number) => {
+    if (histRate > 0) {
+      setRate(histRate);
+    }
+    if (histCtnRate && histCtnRate > 0) {
+      setRatePerCtn(histCtnRate);
+    } else if (histRate > 0 && Number(qtyPerCtn) > 0) {
+      setRatePerCtn(Number((histRate * Number(qtyPerCtn)).toFixed(2)));
+    }
+  };
+
   // SAVE PURCHASE BILL / REPORT
   // User: "aur ye new bill main add to stock btn funcionity remove krdo. us k baad baad purchase detail matlb new bill section main product select kr k seller select kr k details addkr k save report krwa skein aur wo report settings main aik report section hoga us main purchase detail section hoga us main save hogi"
   const handleSaveBill = async () => {
@@ -871,6 +997,7 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
       if (onRefreshData) {
         await onRefreshData();
       }
+      await loadBillHistory();
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to save purchase bill.');
     } finally {
@@ -1418,6 +1545,75 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                 </span>
               </div>
             </div>
+
+            {/* Market Last Sale Cross-Reference ("purchase bill main b last sale cost show ho") */}
+            {lastMarketSale && (
+              <div className="mt-2.5 pt-2 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2 text-[11px] bg-slate-900/60 px-2.5 py-1.5 rounded-lg">
+                <div className="flex items-center gap-1.5 text-slate-300">
+                  <span className="p-0.5 rounded bg-emerald-500/20 text-emerald-400">🏷️</span>
+                  <span className="text-slate-400 font-medium">Market Last Sale Price:</span>
+                  <span className="font-mono font-bold text-emerald-300">
+                    {currencySymbol()} {lastMarketSale.rate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-[10px] text-slate-400 font-normal">/ unit</span>
+                  </span>
+                  {lastMarketSale.ratePerCtn ? (
+                    <span className="font-mono text-slate-400 text-[10px]">
+                      (CTN: {currencySymbol()} {lastMarketSale.ratePerCtn.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                    </span>
+                  ) : null}
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
+                  <span>Customer: <strong className="text-white">{lastMarketSale.customerName}</strong></span>
+                  <span>&bull; Date: <strong className="text-slate-300">{lastMarketSale.date}</strong></span>
+                  {lastMarketSale.billNumber && (
+                    <span className="text-slate-500">(Bill #{lastMarketSale.billNumber})</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Supplier Past 3-4 Purchases History */}
+            {currentSupplierName && supplierPurchaseHistory.length > 0 && (
+              <div className="mt-2 pt-2 border-t border-slate-800">
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-1.5 text-xs text-sky-300 font-semibold">
+                    <History className="w-3.5 h-3.5 text-sky-400" />
+                    <span>Last {supplierPurchaseHistory.length} Purchase{supplierPurchaseHistory.length > 1 ? 's' : ''} from "{currentSupplierName}":</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 italic">Click any rate to auto-fill</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                  {supplierPurchaseHistory.map((rec, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => applyHistoricalRate(rec.rate, rec.ratePerCtn)}
+                      className="text-left p-2 rounded-lg bg-sky-950/40 hover:bg-sky-900/60 border border-sky-800/50 hover:border-sky-500 transition-all cursor-pointer group shadow-sm"
+                      title="Click to apply this rate to current purchase item"
+                    >
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 mb-0.5 font-mono">
+                        <span className="text-slate-200 font-semibold">{rec.date}</span>
+                        <span className="text-sky-400 font-bold">{String(rec.billNumber).startsWith('PB') ? rec.billNumber : `PB-${rec.billNumber}`}</span>
+                      </div>
+                      <div className="flex items-baseline justify-between gap-1">
+                        <span className="font-mono font-bold text-white text-xs group-hover:text-amber-300 transition-colors">
+                          {currencySymbol()} {rec.rate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-[9px] text-slate-400 font-normal">/ unit</span>
+                        </span>
+                        {rec.ratePerCtn ? (
+                          <span className="font-mono text-[10px] text-sky-300 font-medium">
+                            CTN: {currencySymbol()} {rec.ratePerCtn.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        ) : null}
+                      </div>
+                      {(rec.qty || rec.ctn) ? (
+                        <div className="text-[9px] text-slate-400 font-mono mt-0.5">
+                          Qty: {rec.ctn ? `${rec.ctn} CTN ` : ''}{rec.qty ? `(${rec.qty} units)` : ''}
+                        </div>
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

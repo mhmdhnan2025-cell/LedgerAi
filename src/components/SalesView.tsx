@@ -1,5 +1,5 @@
 import { currencySymbol } from '../utils/currency';
-import { isBillDateToday } from '../utils/dateUtils';
+import { isBillDateToday, sortByBillDateDesc } from '../utils/dateUtils';
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import {
   Receipt,
@@ -32,10 +32,12 @@ import {
   ShoppingBag,
   RotateCcw,
   Edit2,
+  History,
 } from 'lucide-react';
 import {
   Customer,
   Product,
+  PurchaseBill,
   SaleBill,
   SaleBillItem,
   UserRole,
@@ -81,6 +83,27 @@ export const SalesView: React.FC<SalesViewProps> = ({
   const [salesmen, setSalesmen] = useState<string[]>([]);
   const [newSalesmanInput, setNewSalesmanInput] = useState('');
   const [showAddSalesman, setShowAddSalesman] = useState(false);
+
+  // Historical bills for price intelligence and customer purchase history
+  const [allSales, setAllSales] = useState<SaleBill[]>([]);
+  const [allPurchases, setAllPurchases] = useState<PurchaseBill[]>([]);
+
+  const loadBillHistory = async () => {
+    try {
+      const [sList, pList] = await Promise.all([
+        api.getSales().catch(() => []),
+        api.getPurchases().catch(() => []),
+      ]);
+      if (Array.isArray(sList)) setAllSales(sList);
+      if (Array.isArray(pList)) setAllPurchases(pList);
+    } catch (err) {
+      console.error('Failed to load bill history in sales:', err);
+    }
+  };
+
+  useEffect(() => {
+    loadBillHistory();
+  }, []);
 
   // Status and messages
   const [isSaving, setIsSaving] = useState(false);
@@ -636,8 +659,111 @@ export const SalesView: React.FC<SalesViewProps> = ({
     return resolvedPackageType === 'Bag' ? 'KG' : 'Units';
   }, [activeProduct, itemTitle, resolvedPackageType]);
 
-  const unitPurchaseCost = activeProduct?.purchasePrice || activeProduct?.averagePurchaseCost || activeProduct?.lastPurchasePrice || 0;
-  const ctnPurchaseCost = activeProduct?.ctnPurchaseRate || (unitPurchaseCost * (activeProduct?.qtyInCarton || 1));
+  // Current selected customer title or customer name
+  const currentCustomerName = (customerAccountTitle || (customers.find(c => c.id === selectedCustomerId)?.accountTitle || customers.find(c => c.id === selectedCustomerId)?.name) || '').trim();
+
+  // Helper to match a bill line item with the active product or entered title
+  const isLineItemMatch = React.useCallback((it: any) => {
+    if (!it) return false;
+    const targetTitle = (itemTitle || activeProduct?.name || activeProduct?.itemTitle || '').trim().toLowerCase();
+    const targetId = selectedProductId || activeProduct?.id || '';
+    const targetMcode = (activeProduct?.mcode || activeProduct?.sku || itemMCode || '').trim().toLowerCase();
+
+    if (targetId && it.productId && it.productId === targetId) return true;
+    if (targetMcode && (it.mcode || it.sku)?.trim().toLowerCase() === targetMcode) return true;
+    if (targetTitle && it.itemTitle?.trim().toLowerCase() === targetTitle) return true;
+    if (targetTitle && it.itemTitle && (it.itemTitle.toLowerCase().includes(targetTitle) || targetTitle.includes(it.itemTitle.toLowerCase()))) return true;
+    return false;
+  }, [selectedProductId, activeProduct, itemMCode, itemTitle]);
+
+  // Last 3 to 4 sales of this item made to THIS specific customer
+  const customerSaleHistory = React.useMemo(() => {
+    if (!selectedCustomerId && !currentCustomerName) return [];
+    if (!activeProduct && !selectedProductId && !itemTitle.trim()) return [];
+
+    const targetCustName = currentCustomerName.toLowerCase();
+    const matched: {
+      billNumber: string | number;
+      date: string;
+      rate: number;
+      ratePerCtn?: number;
+      ctn?: number;
+      qty?: number;
+      packageType?: string;
+    }[] = [];
+
+    const sortedBills = [...allSales].sort(sortByBillDateDesc);
+
+    for (const bill of sortedBills) {
+      const isCustomer =
+        (selectedCustomerId && (bill.customerId === selectedCustomerId || (bill as any).customerCode === selectedCustomerId)) ||
+        (targetCustName && (
+          (bill.customerName && bill.customerName.trim().toLowerCase() === targetCustName) ||
+          (bill.customerAccountTitle && bill.customerAccountTitle.trim().toLowerCase() === targetCustName) ||
+          (bill.customerName && bill.customerName.trim().toLowerCase().includes(targetCustName)) ||
+          (targetCustName.includes((bill.customerName || '').trim().toLowerCase()))
+        ));
+
+      if (!isCustomer) continue;
+
+      for (const it of bill.items || []) {
+        if (isLineItemMatch(it) && Number(it.rate) > 0) {
+          matched.push({
+            billNumber: bill.billNumber,
+            date: bill.date,
+            rate: Number(it.rate),
+            ratePerCtn: it.ratePerCtn ? Number(it.ratePerCtn) : undefined,
+            ctn: it.ctn ? Number(it.ctn) : undefined,
+            qty: it.qty ? Number(it.qty) : undefined,
+            packageType: it.packageType,
+          });
+          break;
+        }
+      }
+
+      if (matched.length >= 4) break;
+    }
+
+    return matched;
+  }, [allSales, selectedCustomerId, currentCustomerName, activeProduct, selectedProductId, itemTitle, isLineItemMatch]);
+
+  // Most recent purchase cost of this item across all purchases in the market ("aur last purchase cost b show ho")
+  const lastMarketPurchase = React.useMemo(() => {
+    if (!activeProduct && !selectedProductId && !itemTitle.trim()) return null;
+
+    const sortedPurchases = [...allPurchases].sort(sortByBillDateDesc);
+
+    for (const bill of sortedPurchases) {
+      for (const it of bill.items || []) {
+        if (isLineItemMatch(it) && Number(it.rate) > 0) {
+          return {
+            billNumber: bill.billNumber,
+            date: bill.date,
+            supplierName: bill.supplierAccountTitle || bill.supplierName || 'Supplier',
+            rate: Number(it.rate),
+            ratePerCtn: it.ratePerCtn ? Number(it.ratePerCtn) : undefined,
+            packageType: it.packageType,
+          };
+        }
+      }
+    }
+
+    return null;
+  }, [allPurchases, activeProduct, selectedProductId, itemTitle, isLineItemMatch]);
+
+  const applyHistoricalRate = (histRate: number, histCtnRate?: number) => {
+    if (histRate > 0) {
+      setRate(String(histRate));
+    }
+    if (histCtnRate && histCtnRate > 0) {
+      setRatePerCtn(String(histCtnRate));
+    } else if (histRate > 0 && numericQtyPerCtn > 0) {
+      setRatePerCtn(String(Number((histRate * numericQtyPerCtn).toFixed(2))));
+    }
+  };
+
+  const unitPurchaseCost = activeProduct?.purchasePrice || activeProduct?.averagePurchaseCost || activeProduct?.lastPurchasePrice || (lastMarketPurchase ? lastMarketPurchase.rate : 0);
+  const ctnPurchaseCost = activeProduct?.ctnPurchaseRate || (unitPurchaseCost * (activeProduct?.qtyInCarton || 1)) || (lastMarketPurchase?.ratePerCtn || 0);
   const expectedProfitPerUnit = numericRate > 0 && unitPurchaseCost > 0 ? Number((numericRate - unitPurchaseCost).toFixed(2)) : 0;
   const expectedTotalLineProfit = numericQty > 0 ? Number((expectedProfitPerUnit * numericQty).toFixed(2)) : 0;
   const expectedMarginPct = numericRate > 0 && unitPurchaseCost > 0 ? Number(((expectedProfitPerUnit / numericRate) * 100).toFixed(1)) : 0;
@@ -914,6 +1040,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
       if (onRefreshData) {
         await onRefreshData();
       }
+      await loadBillHistory();
 
       // Reset form and increment bill number
       setBillItems([]);
@@ -1933,6 +2060,75 @@ export const SalesView: React.FC<SalesViewProps> = ({
                   </span>
                 </div>
               </div>
+
+              {/* Market Last Purchase Cross-Reference ("aur last purchase cost b show ho") */}
+              {lastMarketPurchase && (
+                <div className="mt-2.5 pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-[11px] bg-slate-900/60 px-2.5 py-1.5 rounded-lg">
+                  <div className="flex items-center gap-1.5 text-slate-300">
+                    <span className="p-0.5 rounded bg-amber-500/20 text-amber-400">📦</span>
+                    <span className="text-slate-400 font-medium">Market Last Purchase Cost:</span>
+                    <span className="font-mono font-bold text-amber-300">
+                      {currencySymbol()} {lastMarketPurchase.rate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-[10px] text-slate-400 font-normal">/ unit</span>
+                    </span>
+                    {lastMarketPurchase.ratePerCtn ? (
+                      <span className="font-mono text-slate-400 text-[10px]">
+                        (CTN: {currencySymbol()} {lastMarketPurchase.ratePerCtn.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
+                    <span>Supplier: <strong className="text-white">{lastMarketPurchase.supplierName}</strong></span>
+                    <span>&bull; Date: <strong className="text-slate-300">{lastMarketPurchase.date}</strong></span>
+                    {lastMarketPurchase.billNumber && (
+                      <span className="text-slate-500">({String(lastMarketPurchase.billNumber).startsWith('PB') ? lastMarketPurchase.billNumber : `PB-${lastMarketPurchase.billNumber}`})</span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Customer Past 3-4 Sales History */}
+              {currentCustomerName && customerSaleHistory.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-white/10">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-1.5 text-xs text-emerald-300 font-semibold">
+                      <History className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Last {customerSaleHistory.length} Sale{customerSaleHistory.length > 1 ? 's' : ''} to "{currentCustomerName}":</span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 italic">Click any rate to auto-fill</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                    {customerSaleHistory.map((rec, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => applyHistoricalRate(rec.rate, rec.ratePerCtn)}
+                        className="text-left p-2 rounded-lg bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-800/50 hover:border-emerald-500 transition-all cursor-pointer group shadow-sm"
+                        title="Click to apply this rate to current sale item"
+                      >
+                        <div className="flex items-center justify-between text-[10px] text-slate-400 mb-0.5 font-mono">
+                          <span className="text-slate-200 font-semibold">{rec.date}</span>
+                          <span className="text-emerald-400 font-bold">Bill #{rec.billNumber}</span>
+                        </div>
+                        <div className="flex items-baseline justify-between gap-1">
+                          <span className="font-mono font-bold text-white text-xs group-hover:text-emerald-300 transition-colors">
+                            {currencySymbol()} {rec.rate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-[9px] text-slate-400 font-normal">/ unit</span>
+                          </span>
+                          {rec.ratePerCtn ? (
+                            <span className="font-mono text-[10px] text-emerald-300 font-medium">
+                              CTN: {currencySymbol()} {rec.ratePerCtn.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          ) : null}
+                        </div>
+                        {(rec.qty || rec.ctn) ? (
+                          <div className="text-[9px] text-slate-400 font-mono mt-0.5">
+                            Qty: {rec.ctn ? `${rec.ctn} CTN ` : ''}{rec.qty ? `(${rec.qty} units)` : ''}
+                          </div>
+                        ) : null}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

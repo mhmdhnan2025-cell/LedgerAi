@@ -1947,6 +1947,53 @@ export const api = {
     return data;
   },
 
+  async getItemPartyPriceHistory(params: {
+    partyType: 'supplier' | 'customer';
+    partyId?: string;
+    partyName?: string;
+    productId?: string;
+    mcode?: string;
+    itemTitle?: string;
+  }): Promise<{
+    partyHistory: {
+      billNumber: string | number;
+      date: string;
+      rate: number;
+      ratePerCtn?: number;
+      ctn?: number;
+      qty?: number;
+      packageType?: string;
+    }[];
+    lastPurchase?: {
+      billNumber: string | number;
+      date: string;
+      supplierName?: string;
+      rate: number;
+      ratePerCtn?: number;
+      packageType?: string;
+    };
+    lastSale?: {
+      billNumber: string | number;
+      date: string;
+      customerName?: string;
+      rate: number;
+      ratePerCtn?: number;
+      packageType?: string;
+    };
+  }> {
+    const query = new URLSearchParams();
+    query.set('partyType', params.partyType);
+    if (params.partyId) query.set('partyId', params.partyId);
+    if (params.partyName) query.set('partyName', params.partyName);
+    if (params.productId) query.set('productId', params.productId);
+    if (params.mcode) query.set('mcode', params.mcode);
+    if (params.itemTitle) query.set('itemTitle', params.itemTitle);
+
+    const res = await fetch(`/api/items/party-price-history?${query.toString()}`);
+    if (!res.ok) throw new Error('Failed to load item price history');
+    return res.json();
+  },
+
   async getCashRecoveredReport(fromDate?: string, toDate?: string): Promise<{ items: CashRecoveredReportItem[]; totalAmount: number }> {
     const query = new URLSearchParams();
     if (fromDate) query.set('fromDate', fromDate);
