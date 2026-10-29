@@ -2281,3 +2281,37 @@ html[data-theme="dark"] .auth-card {
     display: none !important;
   }
 }
+
+
+/* LEDGER REPORTING HEADER BADGES (Universal high contrast across all light & dark themes) */
+.customer-ledger-pill-badge {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+  border: 1px solid #1e293b !important;
+}
+[data-theme="cream"] .customer-ledger-pill-badge,
+[data-theme="pearl"] .customer-ledger-pill-badge,
+[data-theme="sand"] .customer-ledger-pill-badge,
+[data-theme="light_blue"] .customer-ledger-pill-badge,
+[data-theme="dark"] .customer-ledger-pill-badge,
+[data-theme="dark_blue"] .customer-ledger-pill-badge {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+  border: 1px solid #1e293b !important;
+}
+
+.supplier-ledger-pill-badge {
+  background-color: #3b0764 !important;
+  color: #ffffff !important;
+  border: 1px solid #581c87 !important;
+}
+[data-theme="cream"] .supplier-ledger-pill-badge,
+[data-theme="pearl"] .supplier-ledger-pill-badge,
+[data-theme="sand"] .supplier-ledger-pill-badge,
+[data-theme="light_blue"] .supplier-ledger-pill-badge,
+[data-theme="dark"] .supplier-ledger-pill-badge,
+[data-theme="dark_blue"] .supplier-ledger-pill-badge {
+  background-color: #3b0764 !important;
+  color: #ffffff !important;
+  border: 1px solid #581c87 !important;
+}

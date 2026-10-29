@@ -22,7 +22,8 @@ import {
   Download,
 } from 'lucide-react';
 import { printCleanDocument } from '../utils/printUtils';
-import { Supplier, SupplierLedgerReport, SupplierLedgerEntry, CompanyProfile } from '../types';
+import { Supplier, SupplierLedgerReport, SupplierLedgerEntry, CompanyProfile, User, UserRole } from '../types';
+import { OfflineStorageService } from '../services/offlineStorage';
 import { api } from '../services/api';
 import { currencySymbol } from '../utils/currency';
 import { exportToCsv } from '../utils/exportCsv';
@@ -31,6 +32,8 @@ interface SupplierLedgerReportSectionProps {
   companyProfile?: CompanyProfile | null;
   suppliers?: Supplier[];
   initialSupplierId?: string;
+  currentUser?: User | null;
+  currentRole?: UserRole;
   onRefreshData?: () => void;
   onNavigateTab?: (tab: string) => void;
 }
@@ -39,9 +42,29 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
   companyProfile,
   suppliers: initialSuppliers,
   initialSupplierId,
+  currentUser,
+  currentRole,
   onRefreshData,
   onNavigateTab,
 }) => {
+  // Admin and Date-lock check for Delete actions
+  const activeUser = currentUser || OfflineStorageService.loadActiveUser();
+  const isAdmin = currentRole === 'Admin' || activeUser?.role === 'Admin' || activeUser?.username?.toLowerCase() === 'qamar99';
+
+  const isEntryActionAllowed = (entryDate?: string) => {
+    if (isAdmin) return true;
+    if (!entryDate) return false;
+    const raw = entryDate.slice(0, 10).trim();
+    let normalized = raw;
+    const dmyMatch = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+    if (dmyMatch) {
+      normalized = `${dmyMatch[3]}-${dmyMatch[2].padStart(2, '0')}-${dmyMatch[1].padStart(2, '0')}`;
+    }
+    const todayUtc = new Date().toISOString().slice(0, 10);
+    const todayLocal = new Date().toLocaleDateString('en-CA');
+    return normalized === todayUtc || normalized === todayLocal;
+  };
+
   // Filters
   const [fromDate, setFromDate] = useState<string>(() => {
     const d = new Date();
@@ -121,6 +144,10 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
 
   const handleDeleteEntry = async () => {
     if (!confirmEntry) return;
+    if (!isEntryActionAllowed(confirmEntry.date)) {
+      setErrorMsg('Sirf aaj ki date ki entry delete ki ja sakti hai. Admin authorization darkar hai.');
+      return;
+    }
     setIsDeleting(true);
     setErrorMsg(null);
     try {
@@ -759,7 +786,7 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
             <span>•</span>
             <span>Email: info@zahratfoodstuff.com</span>
           </div>
-          <div className="inline-block mt-3 px-4 py-1.5 bg-purple-950 !text-white rounded-md font-black text-sm uppercase tracking-widest shadow-xs print:!bg-slate-100 print:!text-black print:border print:border-black" style={{ color: '#ffffff', backgroundColor: '#3b0764' }}>
+          <div className="inline-block mt-3 px-4 py-1.5 supplier-ledger-pill-badge rounded-md font-black text-sm uppercase tracking-widest shadow-xs print:!bg-slate-100 print:!text-black print:border print:border-black" style={{ color: '#ffffff', backgroundColor: '#3b0764' }}>
             Supplier General Ledger Reporting
           </div>
         </div>
@@ -936,15 +963,19 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
 
                       {/* ACTION */}
                       <td className="py-2 px-2 text-center align-top print:hidden">
-                        <button
-                          type="button"
-                          onClick={() => setConfirmEntry(entry)}
-                          className="px-2 py-1 bg-rose-50 hover:bg-rose-600 border border-rose-300 hover:border-rose-600 text-rose-600 hover:text-white rounded-md text-[10px] font-bold inline-flex items-center gap-1 transition shadow-xs cursor-pointer group"
-                          title={`Delete transaction ${entry.refType} #${entry.refNumber}`}
-                        >
-                          <Trash2 className="w-3 h-3 text-rose-600 group-hover:text-white" />
-                          <span>Del</span>
-                        </button>
+                        {isEntryActionAllowed(entry.date) ? (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmEntry(entry)}
+                            className="px-2 py-1 bg-rose-50 hover:bg-rose-600 border border-rose-300 hover:border-rose-600 text-rose-600 hover:text-white rounded-md text-[10px] font-bold inline-flex items-center gap-1 transition shadow-xs cursor-pointer group"
+                            title={`Delete transaction ${entry.refType} #${entry.refNumber}`}
+                          >
+                            <Trash2 className="w-3 h-3 text-rose-600 group-hover:text-white" />
+                            <span>Del</span>
+                          </button>
+                        ) : (
+                          <span className="text-slate-300 dark:text-slate-600 text-xs select-none">—</span>
+                        )}
                       </td>
                     </tr>
                   );

@@ -767,6 +767,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           <CustomerLedgerReportSection
             companyProfile={companyProfile}
             customers={customers}
+            currentUser={currentUser}
+            currentRole={currentRole}
             onRefreshData={onRefreshData}
             onNavigateTab={onNavigateTab}
           />
@@ -776,6 +778,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           <SupplierLedgerReportSection
             companyProfile={companyProfile}
             suppliers={suppliers}
+            currentUser={currentUser}
+            currentRole={currentRole}
             onRefreshData={onRefreshData}
             onNavigateTab={onNavigateTab}
           />
