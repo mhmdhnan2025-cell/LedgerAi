@@ -1,5 +1,6 @@
 import React from 'react';
-import { Printer, X, Receipt, Building2, Package, CheckCircle2, FileText, UserCheck, Phone, MapPin, Edit2 } from 'lucide-react';
+import { Printer, X, Receipt, Building2, Package, CheckCircle2, FileText, UserCheck, Phone, MapPin, Edit2, Download } from 'lucide-react';
+import { printCleanDocument } from '../utils/printUtils';
 import { currencySymbol } from '../utils/currency';
 import { CompanyProfile, PurchaseBill } from '../types';
 
@@ -18,65 +19,14 @@ export const PurchaseBillVoucherModal: React.FC<PurchaseBillVoucherModalProps> =
 }) => {
   if (!bill) return null;
 
+  const documentTitle = `Purchase_Invoice_${bill.billNumber}_${(bill.supplierAccountTitle || bill.supplierName || 'Supplier').replace(/\s+/g, '_')}_${bill.date}`;
+
   const handlePrint = () => {
-    const srcEl = document.getElementById('printable-purchase-voucher');
-    if (!srcEl) {
-      window.print();
-      return;
-    }
+    printCleanDocument('printable-purchase-voucher', documentTitle);
+  };
 
-    const oldContainer = document.getElementById('active-print-container');
-    if (oldContainer) oldContainer.remove();
-
-    const printContainer = document.createElement('div');
-    printContainer.id = 'active-print-container';
-    printContainer.innerHTML = srcEl.outerHTML;
-    printContainer.querySelectorAll('.print\\:hidden, .print-hidden, button').forEach((el) => el.remove());
-
-    const oldStyle = document.getElementById('dynamic-print-page-style');
-    if (oldStyle) oldStyle.remove();
-
-    const pageStyle = document.createElement('style');
-    pageStyle.id = 'dynamic-print-page-style';
-    pageStyle.textContent = `
-      @page {
-        size: A4 portrait;
-        margin: 6mm 8mm;
-      }
-      @media print {
-        #active-print-container {
-          width: 100% !important;
-          max-width: 100% !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          background: white !important;
-          color: black !important;
-        }
-      }
-    `;
-
-    document.head.appendChild(pageStyle);
-    document.body.appendChild(printContainer);
-    document.body.classList.add('is-printing-slip');
-
-    const cleanup = () => {
-      document.body.classList.remove('is-printing-slip');
-      if (printContainer && printContainer.parentNode) {
-        printContainer.remove();
-      }
-      if (pageStyle && pageStyle.parentNode) {
-        pageStyle.remove();
-      }
-      window.removeEventListener('afterprint', cleanup);
-    };
-
-    window.addEventListener('afterprint', cleanup);
-
-    window.focus();
-    setTimeout(() => {
-      window.print();
-      setTimeout(cleanup, 2500);
-    }, 150);
+  const handleSavePdf = () => {
+    printCleanDocument('printable-purchase-voucher', documentTitle);
   };
 
   const currency = currencySymbol();
@@ -106,7 +56,7 @@ export const PurchaseBillVoucherModal: React.FC<PurchaseBillVoucherModalProps> =
 
   return (
     <div className="fixed inset-0 z-[100000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto print:p-0 print:bg-white print:static">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-5xl max-h-[94vh] shadow-2xl flex flex-col overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200 print:m-0 print:border-none print:shadow-none print:bg-white print:text-black print:w-full print:max-w-none print:max-h-none">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-5xl lg:max-w-6xl max-h-[94vh] shadow-2xl flex flex-col overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200 print:m-0 print:border-none print:shadow-none print:bg-white print:text-black print:w-full print:max-w-none print:max-h-none">
         
         {/* Top Controls Bar (Hidden during print) */}
         <div className="px-5 py-3.5 bg-slate-950 border-b border-slate-800 flex items-center justify-between gap-3 shrink-0 print:hidden">
@@ -137,6 +87,14 @@ export const PurchaseBillVoucherModal: React.FC<PurchaseBillVoucherModalProps> =
                 <span>Edit Bill</span>
               </button>
             )}
+            <button
+              onClick={handleSavePdf}
+              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow cursor-pointer"
+              title="Save Purchase Invoice as PDF"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Save as PDF</span>
+            </button>
             <button
               onClick={handlePrint}
               className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow cursor-pointer"
@@ -246,23 +204,19 @@ export const PurchaseBillVoucherModal: React.FC<PurchaseBillVoucherModalProps> =
             </div>
           </div>
 
-          {/* Table: Items Breakdown (All Details & Exact Headers Entered at Purchase Time) */}
-          <div className="border border-slate-800 print:border-black rounded-xl overflow-x-auto bg-slate-950/40 print:bg-white shadow-xs">
-            <table className="w-full text-left text-xs min-w-[850px] border-collapse">
+          {/* Table: Streamlined Clean 8-Column Purchase Breakdown (No Horizontal Scroll, Perfect 1-Page A4 Print) */}
+          <div className="border border-slate-800 print:border-black rounded-xl overflow-hidden bg-slate-950/40 print:bg-white shadow-xs w-full">
+            <table className="w-full text-left text-xs border-collapse">
               <thead className="bg-slate-950 print:bg-gray-100 text-slate-400 print:text-black font-bold border-b border-slate-800 print:border-black uppercase text-[10px] tracking-wider">
                 <tr>
                   <th className="py-2.5 px-2 text-center w-8">#</th>
-                  <th className="py-2.5 px-3 min-w-[170px]">Title</th>
-                  <th className="py-2.5 px-2 text-center text-sky-300 print:text-black">CTN / PKG</th>
-                  <th className="py-2.5 px-2 text-right text-sky-300 print:text-black">Rate / PKG</th>
-                  <th className="py-2.5 px-2 text-center text-slate-400 print:text-black">Qty / PKG</th>
-                  <th className="py-2.5 px-2 text-right text-sky-300 print:text-black">Measure (Qty)</th>
-                  <th className="py-2.5 px-2 text-right text-emerald-400 print:text-black">Total Stock</th>
-                  <th className="py-2.5 px-2 text-right">Rate</th>
-                  <th className="py-2.5 px-2 text-right text-amber-300 print:text-black">Disc Rs.</th>
-                  <th className="py-2.5 px-2 text-center">VAT@%</th>
-                  <th className="py-2.5 px-2 text-right">VAT Amount</th>
-                  <th className="py-2.5 px-3 text-right font-black text-emerald-400 print:text-black">Amount ({currency})</th>
+                  <th className="py-2.5 px-3">Item Description</th>
+                  <th className="py-2.5 px-2 text-center w-28 text-sky-300 print:text-black">Carton / PKG</th>
+                  <th className="py-2.5 px-2 text-center w-24 text-slate-300 print:text-black">Loose Qty</th>
+                  <th className="py-2.5 px-2 text-right w-28 text-slate-200 print:text-black">Rate</th>
+                  <th className="py-2.5 px-2 text-right w-20 text-amber-300 print:text-black">Disc.</th>
+                  <th className="py-2.5 px-2 text-right w-24 text-slate-300 print:text-black">VAT (5%)</th>
+                  <th className="py-2.5 px-3 text-right w-28 font-black text-emerald-400 print:text-black">Amount ({currency})</th>
                 </tr>
               </thead>
 
@@ -294,7 +248,7 @@ export const PurchaseBillVoucherModal: React.FC<PurchaseBillVoucherModalProps> =
                         {idx + 1}
                       </td>
 
-                      {/* Title */}
+                      {/* Title & Specs */}
                       <td className="py-2.5 px-3">
                         <div className="font-bold text-white print:text-black text-xs sm:text-sm">
                           {it.itemTitle}
@@ -310,55 +264,52 @@ export const PurchaseBillVoucherModal: React.FC<PurchaseBillVoucherModalProps> =
                       </td>
 
                       {/* CTN / PKG */}
-                      <td className="py-2.5 px-2 text-center font-mono font-bold text-sky-300 print:text-black">
+                      <td className="py-2.5 px-2 text-center font-mono">
                         {ctnCount > 0 ? (
-                          <span>
-                            {ctnCount} <span className="text-[10px] font-normal text-slate-400 print:text-gray-600">{pkgLabel}</span>
-                          </span>
+                          <div>
+                            <span className="font-bold text-sky-300 print:text-black">
+                              {ctnCount} <span className="text-[10px] font-normal text-slate-400 print:text-gray-600">{pkgLabel}</span>
+                            </span>
+                            {qtyPerCtn > 1 && (
+                              <div className="text-[9.5px] text-slate-400 print:text-gray-500 font-mono">
+                                ({qtyPerCtn} {looseUnit}/{pkgLabel})
+                              </div>
+                            )}
+                          </div>
                         ) : (
                           <span className="text-slate-600 print:text-gray-400">—</span>
                         )}
                       </td>
 
-                      {/* Rate / PKG */}
-                      <td className="py-2.5 px-2 text-right font-mono text-slate-300 print:text-black font-medium">
-                        {ratePerCtn > 0 ? (
-                          <span>{ratePerCtn.toFixed(2)}</span>
-                        ) : (
-                          <span className="text-slate-600 print:text-gray-400">—</span>
-                        )}
-                      </td>
-
-                      {/* Qty / PKG */}
-                      <td className="py-2.5 px-2 text-center font-mono text-slate-400 print:text-gray-700">
-                        {qtyPerCtn > 0 ? `${qtyPerCtn} ${looseUnit}/${pkgLabel}` : '—'}
-                      </td>
-
-                      {/* Measure (Qty) */}
-                      <td className="py-2.5 px-2 text-right font-mono font-bold text-sky-300 print:text-black">
+                      {/* Loose Qty */}
+                      <td className="py-2.5 px-2 text-center font-mono">
                         {looseQty > 0 ? (
-                          <span>
-                            {looseQty} <span className="text-[10px] font-normal text-slate-400 print:text-gray-600">{looseUnit}</span>
-                          </span>
+                          <div>
+                            <span className="font-bold text-slate-200 print:text-black">
+                              {looseQty} <span className="text-[10px] text-slate-400 print:text-gray-600">{looseUnit}</span>
+                            </span>
+                          </div>
                         ) : (
-                          <span className="text-slate-600 print:text-gray-400">0</span>
+                          <span className="text-slate-600 print:text-gray-400">—</span>
+                        )}
+                        {totalIntake > 0 && ctnCount > 0 && looseQty > 0 && (
+                          <div className="text-[9.5px] text-emerald-400 print:text-gray-600 font-mono">
+                            Tot: {totalIntake} {looseUnit}
+                          </div>
                         )}
                       </td>
 
-                      {/* Total Stock */}
-                      <td className="py-2.5 px-2 text-right font-mono font-black text-emerald-400 print:text-black">
-                        {totalIntake > 0 ? (
-                          <span>
-                            {totalIntake.toLocaleString()} <span className="text-[10px] font-normal text-slate-400 print:text-gray-600">{looseUnit}</span>
-                          </span>
-                        ) : (
-                          <span>0</span>
+                      {/* Rate */}
+                      <td className="py-2.5 px-2 text-right font-mono">
+                        <div className="font-bold text-white print:text-black">
+                          {unitRate > 0 ? `${unitRate.toFixed(2)}` : '—'}
+                          <span className="text-[9px] text-slate-400 print:text-gray-600 font-normal ml-0.5">/{looseUnit}</span>
+                        </div>
+                        {ratePerCtn > 0 && (
+                          <div className="text-[9.5px] text-sky-300 print:text-gray-600 font-mono">
+                            CTN: {ratePerCtn.toFixed(2)}
+                          </div>
                         )}
-                      </td>
-
-                      {/* Unit Rate */}
-                      <td className="py-2.5 px-2 text-right font-mono text-slate-300 print:text-black">
-                        {unitRate > 0 ? unitRate.toFixed(2) : '—'}
                       </td>
 
                       {/* Discount */}
@@ -366,18 +317,14 @@ export const PurchaseBillVoucherModal: React.FC<PurchaseBillVoucherModalProps> =
                         {disc > 0 ? disc.toFixed(2) : '0.00'}
                       </td>
 
-                      {/* VAT% */}
-                      <td className="py-2.5 px-2 text-center font-mono text-slate-400 print:text-gray-700">
-                        {it.vatType === 'Amount' ? `${currency} ${vatPct}` : `${vatPct}%`}
-                      </td>
-
-                      {/* VAT Amount */}
+                      {/* VAT */}
                       <td className="py-2.5 px-2 text-right font-mono text-slate-300 print:text-black">
-                        {vatAmt.toFixed(2)}
+                        <div>{vatAmt.toFixed(2)}</div>
+                        <div className="text-[9px] text-slate-500 print:text-gray-500">{vatPct}%</div>
                       </td>
 
                       {/* Line Amount */}
-                      <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-400 print:text-black text-sm">
+                      <td className="py-2.5 px-3 text-right font-mono font-black text-emerald-400 print:text-black text-sm">
                         {lineAmt.toFixed(2)}
                       </td>
                     </tr>
@@ -394,17 +341,13 @@ export const PurchaseBillVoucherModal: React.FC<PurchaseBillVoucherModalProps> =
                   <td className="py-2.5 px-2 text-center font-mono text-sky-300 print:text-black">
                     {totalCtn > 0 ? `${totalCtn} PKG` : '—'}
                   </td>
-                  <td className="py-2.5 px-2 text-center text-slate-600 print:text-gray-400">---</td>
-                  <td className="py-2.5 px-2 text-center text-slate-600 print:text-gray-400">---</td>
-                  <td className="py-2.5 px-2 text-center text-slate-600 print:text-gray-400">---</td>
-                  <td className="py-2.5 px-2 text-right font-mono font-bold text-emerald-400 print:text-black">
-                    {totalQty.toFixed(2)} Total Stock
+                  <td className="py-2.5 px-2 text-center font-mono text-emerald-400 print:text-black text-[11px]">
+                    {totalQty.toFixed(1)} Units
                   </td>
-                  <td className="py-2.5 px-2 text-center text-slate-600 print:text-gray-400">---</td>
+                  <td className="py-2.5 px-2 text-right text-slate-600 print:text-gray-400">---</td>
                   <td className="py-2.5 px-2 text-right font-mono text-amber-400 print:text-black">
                     {totalDiscount.toFixed(2)}
                   </td>
-                  <td className="py-2.5 px-2 text-center text-slate-600 print:text-gray-400">---</td>
                   <td className="py-2.5 px-2 text-right font-mono text-slate-200 print:text-black">
                     {totalVatAmount.toFixed(2)}
                   </td>

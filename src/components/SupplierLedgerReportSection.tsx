@@ -342,7 +342,13 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
   };
 
   const handlePrint = () => {
-    window.print();
+    const supName = (report?.accountTitle || selectedSupplier?.accountTitle || 'Supplier').replace(/\s+/g, '_');
+    const docTitle = `Supplier_Ledger_${supName}_${report?.fromDate || fromDate}_to_${report?.toDate || toDate}`;
+    printCleanDocument('supplier-ledger-printable-canvas', docTitle);
+  };
+
+  const handleSavePdf = () => {
+    handlePrint();
   };
 
   const handleExportCSV = () => {
@@ -606,6 +612,15 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
 
           <div className="flex items-center gap-2">
             <button
+              onClick={handleSavePdf}
+              disabled={!report || report.entries.length === 0}
+              className="flex items-center gap-1.5 px-3 py-2 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white rounded-lg border border-emerald-600 text-xs font-semibold transition cursor-pointer"
+              title="Save Supplier Ledger as PDF"
+            >
+              <Download className="w-3.5 h-3.5 text-white" />
+              <span>Save as PDF</span>
+            </button>
+            <button
               onClick={handlePrint}
               disabled={!report || report.entries.length === 0}
               className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 hover:text-white rounded-lg border border-slate-700 text-xs font-semibold transition cursor-pointer"
@@ -729,7 +744,7 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
 
       {/* Report Canvas (Exact Match to General Ledger Reporting) */}
       {(report || isLoading) && (
-      <div className="bg-white text-slate-900 rounded-xl shadow-xl p-6 sm:p-8 font-sans border border-slate-200 print:shadow-none print:border-none print:p-0 print:m-0">
+      <div id="supplier-ledger-printable-canvas" className="bg-white text-slate-900 rounded-xl shadow-xl p-4 sm:p-8 font-sans border border-slate-200 print:shadow-none print:border-none print:p-0 print:m-0 w-full">
         {/* Header (Branded Company Header) */}
         <div className="text-center pb-4 border-b border-slate-300">
           <h1 className="text-xl sm:text-3xl font-black text-slate-900 tracking-wide uppercase">
@@ -742,7 +757,7 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
             <span>•</span>
             <span>Email: info@zahratfoodstuff.com</span>
           </div>
-          <div className="inline-block mt-3 px-4 py-1.5 bg-purple-950 text-white rounded-md font-black text-sm uppercase tracking-widest shadow-xs">
+          <div className="inline-block mt-3 px-4 py-1.5 bg-purple-950 !text-white rounded-md font-black text-sm uppercase tracking-widest shadow-xs print:!bg-slate-100 print:!text-black print:border print:border-black" style={{ color: '#ffffff', backgroundColor: '#3b0764' }}>
             Supplier General Ledger Reporting
           </div>
         </div>
@@ -794,9 +809,9 @@ export const SupplierLedgerReportSection: React.FC<SupplierLedgerReportSectionPr
         </div>
 
         {/* General Ledger Table */}
-        <div className="overflow-x-auto mt-2">
+        <div className="overflow-x-auto max-h-[72vh] overflow-y-auto scroll-smooth mt-2 border border-slate-300 rounded-lg">
           <table className={`w-full text-left border-collapse ${reportFontSize === 'sm' ? 'text-xs' : reportFontSize === 'base' ? 'text-sm' : 'text-base'}`}>
-            <thead>
+            <thead className="sticky top-0 z-10 bg-slate-100 shadow-xs">
               <tr className={`border-y-2 border-slate-900 bg-slate-100 ${reportFontWeight === 'normal' ? 'font-bold' : 'font-black'} text-slate-950 uppercase ${reportFontSize === 'sm' ? 'text-xs' : reportFontSize === 'base' ? 'text-sm' : 'text-base'}`}>
                 <th className="py-2.5 px-2 text-center w-12">REF</th>
                 <th className="py-2.5 px-2 text-center w-16">[REF#]</th>

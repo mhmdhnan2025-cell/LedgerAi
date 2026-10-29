@@ -266,7 +266,19 @@ export const SalesBillReceiptModal: React.FC<SalesBillReceiptModalProps> = ({
     }
   };
 
+  const documentTitle = `Sale_Invoice_${invoiceNo}_${(bill.customerAccountTitle || bill.customerName || 'Customer').replace(/\s+/g, '_')}_${bill.date}`;
+
+  const handleSavePdf = () => {
+    const originalTitle = document.title;
+    document.title = documentTitle;
+    handlePrint();
+    setTimeout(() => { document.title = originalTitle; }, 3000);
+  };
+
   const handlePrint = () => {
+    const originalTitle = document.title;
+    document.title = documentTitle;
+    setTimeout(() => { document.title = originalTitle; }, 3000);
     const srcEl = document.getElementById('printable-sales-receipt');
     if (!srcEl) {
       window.print();
@@ -444,6 +456,16 @@ Thank you for your business!`;
                 <span>Edit Bill</span>
               </button>
             )}
+
+            {/* Save as PDF */}
+            <button
+              onClick={handleSavePdf}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition shadow-sm cursor-pointer"
+              title="Save Sales Invoice as PDF"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Save as PDF</span>
+            </button>
 
             {/* Print Button */}
             <button
@@ -713,7 +735,7 @@ Thank you for your business!`;
                 </tbody>
               </table>
             ) : (
-              <table className="w-full border-collapse text-[11.5px] min-w-[680px]">
+              <table className="w-full border-collapse text-[11.5px]">
                 <thead>
                   <tr className="bg-[#f4efe1] text-slate-900 align-bottom">
                     {/* 1. SL# */}

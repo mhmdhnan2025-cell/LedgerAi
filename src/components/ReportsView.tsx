@@ -1128,9 +1128,9 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         </div>
 
         {/* Report Table (Exact Columns as Image 3 with Paid & Payables Breakdown) */}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[72vh] overflow-y-auto scroll-smooth">
           <table className="w-full text-left text-xs text-slate-300">
-            <thead className="bg-slate-950 text-slate-400 font-bold border-b border-slate-800 uppercase tracking-wider text-[11px]">
+            <thead className="sticky top-0 z-10 bg-slate-950 text-slate-300 border-b border-slate-800 uppercase tracking-wider text-[11px] shadow-xs">
               <tr>
                 <th className="py-3 px-3">BILL#</th>
                 <th className="py-3 px-3">V.BILL#</th>

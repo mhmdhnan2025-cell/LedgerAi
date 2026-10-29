@@ -617,7 +617,7 @@ export default function App() {
       />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <main className="flex-1 max-w-[1750px] w-full mx-auto px-2 sm:px-4 lg:px-6 py-6 space-y-6">
         {/* Step 1 Company Registration Prominent Notice */}
         {!companyProfile?.isRegistered && (
           <div

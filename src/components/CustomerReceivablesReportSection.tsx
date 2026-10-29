@@ -12,7 +12,9 @@ import {
   BookOpen,
   X,
   ExternalLink,
+  Download,
 } from 'lucide-react';
+import { printCleanDocument } from '../utils/printUtils';
 import { Customer, SaleBill, CompanyProfile, Voucher, SaleReturn, CustomerLedgerReport } from '../types';
 import { api } from '../services/api';
 import { exportToCsv } from '../utils/exportCsv';
@@ -957,7 +959,11 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
 
   // Handle Print Action matching Image 2
   const handlePrint = () => {
-    window.print();
+    printCleanDocument('party-receivable-printable', `Party_Receivable_Report_${subtitleDate}`);
+  };
+
+  const handleSavePdf = () => {
+    printCleanDocument('party-receivable-printable', `Party_Receivable_Report_${subtitleDate}`);
   };
 
   // Handle Export CSV
@@ -1334,6 +1340,14 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
           </div>
 
           <button
+            onClick={handleSavePdf}
+            className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+            title="Save Party Receivables as PDF"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Save as PDF</span>
+          </button>
+          <button
             onClick={handlePrint}
             className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
           >
@@ -1355,7 +1369,7 @@ export const CustomerReceivablesReportSection: React.FC<CustomerReceivablesRepor
         {/* ------------------------------------------------------------- */}
         {/* REPORT TABLE: Strictly matching reference Image 2              */}
         {/* ------------------------------------------------------------- */}
-        <div className="party-rec-table-container border border-slate-300 dark:border-slate-800 rounded-lg shadow-sm bg-white dark:bg-slate-900 w-full">
+        <div className="party-rec-table-container max-h-[72vh] overflow-y-auto scroll-smooth border border-slate-300 dark:border-slate-800 rounded-lg shadow-sm bg-white dark:bg-slate-900 w-full">
           <table className="w-full text-left text-xs border-collapse party-rec-table">
             {/* Dark Navy Table Header with sticky lock */}
             <thead className="sticky top-0 z-30 shadow-xs">

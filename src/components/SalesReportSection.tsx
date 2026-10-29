@@ -761,9 +761,9 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
         </div>
 
         {/* Detailed Table */}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[72vh] overflow-y-auto scroll-smooth">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-950/90 text-slate-400 border-b border-slate-800 uppercase tracking-wider font-semibold">
+            <thead className="sticky top-0 z-10 bg-slate-950 text-slate-300 border-b border-slate-800 uppercase tracking-wider font-semibold shadow-xs">
               <tr>
                 <th className="py-2.5 px-3">Bill #</th>
                 <th className="py-2.5 px-3">Date</th>

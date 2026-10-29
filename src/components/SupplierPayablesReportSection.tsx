@@ -159,7 +159,13 @@ export const SupplierPayablesReportSection: React.FC<SupplierPayablesReportSecti
     ]);
   }, [rows]);
 
-  const handlePrint = useCallback(() => window.print(), []);
+  const handlePrint = useCallback(() => {
+    printCleanDocument('party-payables-printable', `Party_Payables_Report_${todayDDMMYYYY()}`);
+  }, []);
+
+  const handleSavePdf = useCallback(() => {
+    printCleanDocument('party-payables-printable', `Party_Payables_Report_${todayDDMMYYYY()}`);
+  }, []);
 
   const columns = [
     { label: 'S.No', width: 'w-12' },
@@ -219,6 +225,14 @@ export const SupplierPayablesReportSection: React.FC<SupplierPayablesReportSecti
               <span>CSV</span>
             </button>
             <button
+              onClick={handleSavePdf}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-500 transition cursor-pointer"
+              title="Save Party Payables as PDF"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Save as PDF</span>
+            </button>
+            <button
               onClick={handlePrint}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-blue-600 text-white hover:bg-blue-500 transition cursor-pointer"
             >
@@ -239,7 +253,7 @@ export const SupplierPayablesReportSection: React.FC<SupplierPayablesReportSecti
       </div>
 
       {/* Report */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden print:shadow-none print:border-0">
+      <div id="party-payables-printable" className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden print:shadow-none print:border-0 w-full">
         <div className="px-5 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-lg bg-purple-600 flex items-center justify-center">
@@ -258,9 +272,9 @@ export const SupplierPayablesReportSection: React.FC<SupplierPayablesReportSecti
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[72vh] overflow-y-auto scroll-smooth">
           <table className="w-full text-sm border-collapse">
-            <thead>
+            <thead className="sticky top-0 z-10 bg-slate-100 shadow-xs">
               <tr className="bg-slate-100 text-slate-700 text-[11px] uppercase tracking-wide">
                 {columns.map((c) => (
                   <th
