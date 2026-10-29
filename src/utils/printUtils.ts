@@ -111,6 +111,15 @@ export function printCleanDocument(
         position: static !important;
         top: auto !important;
       }
+
+      /* Guarantee #printable-sales-receipt inside print container adapts cleanly */
+      #active-print-container #printable-sales-receipt {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: ${isThermal ? '0' : '4mm 6mm'} !important;
+        margin: 0 !important;
+        background: white !important;
+      }
             /* CRITICAL: Overwrite any scroll container, height limits, and overflow so all rows paginate naturally */
       #active-print-container div,
       #active-print-container section,
@@ -226,6 +235,7 @@ export function printCleanDocument(
   window.focus();
   setTimeout(() => {
     window.print();
-    setTimeout(cleanup, 2500);
-  }, 150);
+    // Safety fallback: only cleanup after 60 seconds if afterprint didn't fire
+    setTimeout(cleanup, 60000);
+  }, 200);
 }

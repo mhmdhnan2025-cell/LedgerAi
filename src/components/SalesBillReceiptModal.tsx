@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Printer, X, Share2, CheckCircle2, Receipt, Save, Edit2, Download } from 'lucide-react';
+import { printCleanDocument } from '../utils/printUtils';
 import { CompanyProfile, Customer, SaleBill } from '../types';
 import { api } from '../services/api';
 
@@ -12,6 +13,17 @@ interface SalesBillReceiptModalProps {
 
 const money = (n: number) =>
   Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const renderMoneySplit = (n: number, colorClass?: string) => {
+  const formatted = money(n);
+  const [intPart, decPart] = formatted.split('.');
+  return (
+    <span className={`inline-flex items-baseline justify-center font-mono ${colorClass || ''}`}>
+      <span className="font-black text-[11px] sm:text-[11.5px] leading-tight">{intPart}.</span>
+      <span className="font-bold text-[9px] sm:text-[9.5px] leading-tight opacity-90">{decPart || '00'}</span>
+    </span>
+  );
+};
 
 const ONES = [
   '', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN',
@@ -870,21 +882,21 @@ Thank you for your business!`;
                   <div className="grid grid-cols-2 divide-x divide-slate-400 border-b border-slate-400">
                     <div className="p-1.5 flex flex-col justify-between">
                       <span className="text-[9.5px] uppercase font-bold text-slate-600">Opening Balance</span>
-                      <span className="font-black text-[12.5px] text-slate-900">{money(openingBalance)}</span>
+                      <div className="mt-0.5">{renderMoneySplit(openingBalance, 'text-slate-900')}</div>
                     </div>
                     <div className="p-1.5 flex flex-col justify-between bg-emerald-50/40">
                       <span className="text-[9.5px] uppercase font-bold text-slate-600">Current Bill</span>
-                      <span className="font-black text-[12.5px] text-[#0f7b3f]">{money(currentBillAmount)}</span>
+                      <div className="mt-0.5">{renderMoneySplit(currentBillAmount, 'text-[#0f7b3f]')}</div>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 divide-x divide-slate-400">
                     <div className="p-1.5 flex flex-col justify-between">
                       <span className="text-[9.5px] uppercase font-bold text-slate-600">Amount Paid</span>
-                      <span className="font-black text-[12.5px] text-blue-700">{money(cashPaid)}</span>
+                      <div className="mt-0.5">{renderMoneySplit(cashPaid, 'text-blue-700')}</div>
                     </div>
                     <div className="p-1.5 flex flex-col justify-between bg-rose-50/40">
                       <span className="text-[9.5px] uppercase font-bold text-slate-600">Closing Balance</span>
-                      <span className="font-black text-[12.5px] text-[#c1121f]">{money(closingBalance)}</span>
+                      <div className="mt-0.5">{renderMoneySplit(closingBalance, 'text-[#c1121f]')}</div>
                     </div>
                   </div>
                 </div>
@@ -892,19 +904,35 @@ Thank you for your business!`;
                 <div className="border border-slate-400 mt-2.5">
                   <table className="w-full table-fixed border-collapse">
                     <thead>
-                      <tr className="border-b border-slate-400 bg-slate-50 text-[10.5px] font-black text-slate-800">
-                        <th className="py-1 px-1.5 text-center border-r border-slate-400 w-1/4">Opening Balance</th>
-                        <th className="py-1 px-1.5 text-center border-r border-slate-400 w-1/4">Current Bill</th>
-                        <th className="py-1 px-1.5 text-center border-r border-slate-400 w-1/4">Amount Paid</th>
-                        <th className="py-1 px-1.5 text-center w-1/4">Closing Balance</th>
+                      <tr className="border-b border-slate-400 bg-slate-50 text-[10px] font-black text-slate-800">
+                        <th className="py-1 px-0.5 text-center border-r border-slate-400 w-1/4">
+                          <div className="leading-tight">Opening<br/>Balance</div>
+                        </th>
+                        <th className="py-1 px-0.5 text-center border-r border-slate-400 w-1/4">
+                          <div className="leading-tight">Current<br/>Bill</div>
+                        </th>
+                        <th className="py-1 px-0.5 text-center border-r border-slate-400 w-1/4">
+                          <div className="leading-tight">Amount<br/>Paid</div>
+                        </th>
+                        <th className="py-1 px-0.5 text-center w-1/4">
+                          <div className="leading-tight">Closing<br/>Balance</div>
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr className="font-mono font-black text-[12px]">
-                        <td className="py-1.5 px-1.5 text-center border-r border-slate-400 overflow-hidden text-ellipsis whitespace-nowrap">{money(openingBalance)}</td>
-                        <td className="py-1.5 px-1.5 text-center border-r border-slate-400 text-[#0f7b3f] overflow-hidden text-ellipsis whitespace-nowrap">{money(currentBillAmount)}</td>
-                        <td className="py-1.5 px-1.5 text-center border-r border-slate-400 text-blue-700 overflow-hidden text-ellipsis whitespace-nowrap">{money(cashPaid)}</td>
-                        <td className="py-1.5 px-1.5 text-center text-[#c1121f] overflow-hidden text-ellipsis whitespace-nowrap">{money(closingBalance)}</td>
+                      <tr>
+                        <td className="py-1.5 px-0.5 text-center border-r border-slate-400 whitespace-nowrap">
+                          {renderMoneySplit(openingBalance, 'text-slate-900')}
+                        </td>
+                        <td className="py-1.5 px-0.5 text-center border-r border-slate-400 whitespace-nowrap">
+                          {renderMoneySplit(currentBillAmount, 'text-[#0f7b3f]')}
+                        </td>
+                        <td className="py-1.5 px-0.5 text-center border-r border-slate-400 whitespace-nowrap">
+                          {renderMoneySplit(cashPaid, 'text-blue-700')}
+                        </td>
+                        <td className="py-1.5 px-0.5 text-center whitespace-nowrap">
+                          {renderMoneySplit(closingBalance, 'text-[#c1121f]')}
+                        </td>
                       </tr>
                     </tbody>
                   </table>
