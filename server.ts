@@ -38,6 +38,7 @@ import {
   tenantStorage,
   checkRateLimit,
   resetRateLimit,
+  generateToken,
 } from './server/auth';
 
 dotenv.config();
@@ -637,6 +638,84 @@ app.post('/api/company/users/:id/unfreeze', requireAuth, (req, res) => {
   }
 });
 
+app.post('/api/auth/switch-user', requireAuth, async (req, res) => {
+  try {
+    const isAdmin = req.user?.role === 'Admin' || req.user?.username?.toLowerCase() === 'qamar99';
+    if (!isAdmin) {
+      return res.status(403).json({ error: 'Permission denied: Sirf Admin account dusray accounts main enter ho sakta hai.' });
+    }
+    const { targetUserId } = req.body;
+    if (!targetUserId) {
+      return res.status(400).json({ error: 'targetUserId is required' });
+    }
+    const targetUser = db.getCompanyUserById(targetUserId, req.user!.companyId);
+    if (!targetUser) {
+      return res.status(404).json({ error: 'Target user not found in company.' });
+    }
+    if (targetUser.role === 'Admin' || targetUser.username?.toLowerCase() === 'qamar99') {
+      return res.status(403).json({ error: 'Admin account main switch krny k liye password login darkar hai.' });
+    }
+    const token = generateToken({
+      userId: targetUser.id,
+      companyId: targetUser.companyId,
+      role: targetUser.role,
+      username: targetUser.username,
+      name: targetUser.name,
+    });
+    const userObj = {
+      id: targetUser.id,
+      companyId: targetUser.companyId,
+      name: targetUser.name,
+      email: targetUser.email,
+      username: targetUser.username,
+      role: targetUser.role,
+      avatar: targetUser.avatar,
+    };
+    res.json({ success: true, token, user: userObj });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/users/admin-switch', requireAuth, async (req, res) => {
+  try {
+    const isAdmin = req.user?.role === 'Admin' || req.user?.username?.toLowerCase() === 'qamar99';
+    if (!isAdmin) {
+      return res.status(403).json({ error: 'Permission denied: Sirf Admin account dusray accounts main enter ho sakta hai.' });
+    }
+    const { targetUserId } = req.body;
+    if (!targetUserId) {
+      return res.status(400).json({ error: 'targetUserId is required' });
+    }
+    const targetUser = db.getCompanyUserById(targetUserId, req.user!.companyId);
+    if (!targetUser) {
+      return res.status(404).json({ error: 'Target user not found in company.' });
+    }
+    if (targetUser.role === 'Admin' || targetUser.username?.toLowerCase() === 'qamar99') {
+      return res.status(403).json({ error: 'Admin account main switch krny k liye password login darkar hai.' });
+    }
+    const token = generateToken({
+      userId: targetUser.id,
+      companyId: targetUser.companyId,
+      role: targetUser.role,
+      username: targetUser.username,
+      name: targetUser.name,
+    });
+    const userObj = {
+      id: targetUser.id,
+      companyId: targetUser.companyId,
+      name: targetUser.name,
+      email: targetUser.email,
+      username: targetUser.username,
+      role: targetUser.role,
+      avatar: targetUser.avatar,
+    };
+    res.json({ success: true, token, user: userObj });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Backwards compatibility legacy routes
 app.get('/api/auth/users', requireAuth, (req, res) => {
   res.json(db.getCompanyUsers(req.user!.companyId));
@@ -991,7 +1070,8 @@ app.post('/api/payments', (req, res) => {
 
 app.delete('/api/payments/:id', (req, res) => {
   try {
-    const success = db.deletePayment(req.params.id, req.body.user);
+    const effectiveUser = req.user || req.body?.user;
+    const success = db.deletePayment(req.params.id, effectiveUser);
     res.json({ success });
   } catch (err: any) {
     res.status(400).json({ error: err.message });
@@ -1720,8 +1800,9 @@ app.post('/api/vouchers', (req, res) => {
 
 app.put('/api/vouchers/:id', (req, res) => {
   try {
-    const userName = (req as any).user?.name || req.body.userName || 'Admin';
-    const voucher = db.updateVoucher(req.params.id, req.body, userName);
+    const effectiveUser = req.user || req.body?.user;
+    const userName = effectiveUser?.name || req.body.userName || 'Admin';
+    const voucher = db.updateVoucher(req.params.id, req.body, userName, effectiveUser);
     res.json(voucher);
   } catch (err: any) {
     res.status(400).json({ error: err.message });
@@ -1730,11 +1811,12 @@ app.put('/api/vouchers/:id', (req, res) => {
 
 app.delete('/api/vouchers/:id', (req, res) => {
   try {
-    const userName = (req as any).user?.name || 'Admin';
-    const ok = db.deleteVoucher(req.params.id, userName);
+    const effectiveUser = req.user || req.body?.user;
+    const userName = effectiveUser?.name || 'Admin';
+    const ok = db.deleteVoucher(req.params.id, userName, effectiveUser);
     res.json({ success: ok });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(400).json({ error: err.message });
   }
 });
 
@@ -1800,53 +1882,57 @@ app.get('/api/reports/customer-ledger', (req, res) => {
 
 app.delete('/api/reports/cash-recovered/:id', (req, res) => {
   try {
-    const userName = (req as any).user?.name || 'Admin';
-    const ok = db.deleteCashRecoveredItem(req.params.id, userName);
+    const effectiveUser = req.user || req.body?.user;
+    const userName = effectiveUser?.name || 'Admin';
+    const ok = db.deleteCashRecoveredItem(req.params.id, userName, effectiveUser);
     if (!ok) {
       return res.status(404).json({ error: 'Recovery entry not found or already deleted.' });
     }
     res.json({ success: true, message: 'Recovery entry deleted and ledger recalculated successfully.' });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(400).json({ error: err.message });
   }
 });
 
 app.delete('/api/reports/cash-paid/:id', (req, res) => {
   try {
-    const userName = (req as any).user?.name || 'Admin';
-    const ok = db.deleteCashPaidItem(req.params.id, userName);
+    const effectiveUser = req.user || req.body?.user;
+    const userName = effectiveUser?.name || 'Admin';
+    const ok = db.deleteCashPaidItem(req.params.id, userName, effectiveUser);
     if (!ok) {
       return res.status(404).json({ error: 'Paid entry not found or already deleted.' });
     }
     res.json({ success: true, message: 'Payment entry deleted and ledger recalculated successfully.' });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(400).json({ error: err.message });
   }
 });
 
 app.post('/api/reports/customer-ledger/delete-entry', (req, res) => {
   try {
-    const userName = (req as any).user?.name || 'Admin';
-    const ok = db.deleteCustomerLedgerEntry(req.body, userName);
+    const effectiveUser = req.user || req.body?.user;
+    const userName = effectiveUser?.name || 'Admin';
+    const ok = db.deleteCustomerLedgerEntry(req.body, userName, effectiveUser);
     if (!ok) {
       return res.status(404).json({ error: 'Ledger entry not found or could not be deleted.' });
     }
     res.json({ success: true, message: 'Ledger entry deleted and accounts recalculated successfully.' });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(400).json({ error: err.message });
   }
 });
 
 app.delete('/api/reports/customer-ledger/:id', (req, res) => {
   try {
-    const userName = (req as any).user?.name || 'Admin';
-    const ok = db.deleteCustomerLedgerEntry({ id: req.params.id }, userName);
+    const effectiveUser = req.user || req.body?.user;
+    const userName = effectiveUser?.name || 'Admin';
+    const ok = db.deleteCustomerLedgerEntry({ id: req.params.id }, userName, effectiveUser);
     if (!ok) {
       return res.status(404).json({ error: 'Ledger entry not found or could not be deleted.' });
     }
     res.json({ success: true, message: 'Ledger entry deleted and accounts recalculated successfully.' });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(400).json({ error: err.message });
   }
 });
 
@@ -1873,27 +1959,29 @@ app.get('/api/reports/supplier-ledger', (req, res) => {
 
 app.post('/api/reports/supplier-ledger/delete-entry', (req, res) => {
   try {
-    const userName = (req as any).user?.name || 'Admin';
-    const ok = db.deleteSupplierLedgerEntry(req.body, userName);
+    const effectiveUser = req.user || req.body?.user;
+    const userName = effectiveUser?.name || 'Admin';
+    const ok = db.deleteSupplierLedgerEntry(req.body, userName, effectiveUser);
     if (!ok) {
       return res.status(404).json({ error: 'Supplier ledger entry not found or could not be deleted.' });
     }
     res.json({ success: true, message: 'Supplier ledger entry deleted and accounts recalculated successfully.' });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(400).json({ error: err.message });
   }
 });
 
 app.delete('/api/reports/supplier-ledger/:id', (req, res) => {
   try {
-    const userName = (req as any).user?.name || 'Admin';
-    const ok = db.deleteSupplierLedgerEntry({ id: req.params.id }, userName);
+    const effectiveUser = req.user || req.body?.user;
+    const userName = effectiveUser?.name || 'Admin';
+    const ok = db.deleteSupplierLedgerEntry({ id: req.params.id }, userName, effectiveUser);
     if (!ok) {
       return res.status(404).json({ error: 'Supplier ledger entry not found or could not be deleted.' });
     }
     res.json({ success: true, message: 'Supplier ledger entry deleted and accounts recalculated successfully.' });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(400).json({ error: err.message });
   }
 });
 

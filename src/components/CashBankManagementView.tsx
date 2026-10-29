@@ -87,6 +87,23 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
     return `${dd}-${mm}-${yyyy}`;
   };
 
+  const effectiveUser = currentUser || OfflineStorageService.loadActiveUser();
+  const isAdmin = effectiveUser?.role === 'Admin' || effectiveUser?.username?.toLowerCase() === 'qamar99';
+
+  const isVoucherActionAllowed = (vDateStr?: string) => {
+    if (isAdmin) return true;
+    if (!vDateStr) return false;
+    const raw = vDateStr.slice(0, 10).trim();
+    let normalized = raw;
+    const dmyMatch = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+    if (dmyMatch) {
+      normalized = `${dmyMatch[3]}-${dmyMatch[2].padStart(2, '0')}-${dmyMatch[1].padStart(2, '0')}`;
+    }
+    const todayUtc = new Date().toISOString().slice(0, 10);
+    const todayLocal = new Date().toLocaleDateString('en-CA');
+    return normalized === todayUtc || normalized === todayLocal;
+  };
+
   // Form State for Vouchers
   const [voucherDate, setVoucherDate] = useState<string>(getTodayFormatted());
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
@@ -576,6 +593,14 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
       createdBy: currentUser?.name || OfflineStorageService.loadActiveUser()?.name || 'Admin',
     };
 
+    if (editingVoucherId && !isVoucherActionAllowed(voucherDate)) {
+      setFeedback({
+        type: 'error',
+        text: 'Sirf aaj ki date k vouchers edit kiye ja saktay hain. Previous dates k vouchers edit ya save krny k liye Admin (qamar99) authorization darkar hai.',
+      });
+      return;
+    }
+
     try {
       if (editingVoucherId) {
         await api.updateVoucher(editingVoucherId, payload);
@@ -632,6 +657,13 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
 
   // Edit Voucher from Search View
   const handleEditVoucherFromSearch = (v: Voucher) => {
+    if (!isVoucherActionAllowed(v.date)) {
+      setFeedback({
+        type: 'error',
+        text: 'Sirf aaj ki date k vouchers edit kiye ja saktay hain. Previous dates k vouchers edit krny k liye Admin (qamar99) authorization darkar hai.',
+      });
+      return;
+    }
     setEditingVoucherId(v.id);
     setEditingVoucher(v);
     setVoucherDate(v.date);
@@ -662,6 +694,13 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
 
   // Delete Voucher
   const handleDeleteVoucher = async (v: Voucher) => {
+    if (!isVoucherActionAllowed(v.date)) {
+      setFeedback({
+        type: 'error',
+        text: 'Sirf aaj ki date k vouchers delete kiye ja saktay hain. Previous dates k vouchers delete krny k liye Admin (qamar99) authorization darkar hai.',
+      });
+      return;
+    }
     if (!window.confirm(`Are you sure you want to delete Voucher #${v.voucherNumberFormatted} (JV# ${v.jvNumber})? This will reverse all ledger account balance updates!`)) {
       return;
     }
@@ -1906,25 +1945,36 @@ export const CashBankManagementView: React.FC<CashBankManagementViewProps> = ({
                         <span>Slip</span>
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={() => handleEditVoucherFromSearch(v)}
-                        className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-white rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-sm border border-amber-300/40"
-                        title="Edit voucher details & repost"
-                      >
-                        <Edit2 className="w-3.5 h-3.5 text-white" />
-                        <span>Edit</span>
-                      </button>
+                      {isVoucherActionAllowed(v.date) ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleEditVoucherFromSearch(v)}
+                            className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-white rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-sm border border-amber-300/40"
+                            title="Edit voucher details & repost"
+                          >
+                            <Edit2 className="w-3.5 h-3.5 text-white" />
+                            <span>Edit</span>
+                          </button>
 
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteVoucher(v)}
-                        className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-sm border border-rose-400/40"
-                        title="Delete voucher and revert account balances"
-                      >
-                        <Trash2 className="w-3.5 h-3.5 text-white" />
-                        <span>Delete</span>
-                      </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteVoucher(v)}
+                            className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-sm border border-rose-400/40"
+                            title="Delete voucher and revert account balances"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-white" />
+                            <span>Delete</span>
+                          </button>
+                        </>
+                      ) : (
+                        <span
+                          className="px-2.5 py-1 text-[11px] bg-slate-800 text-slate-400 rounded-lg border border-slate-700/60 font-medium"
+                          title="Previous date vouchers can only be edited or deleted by Admin (qamar99)"
+                        >
+                          Locked (Admin Only)
+                        </span>
+                      )}
                     </div>
                   </div>
 

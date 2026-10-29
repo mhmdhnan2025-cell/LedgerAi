@@ -1923,8 +1923,28 @@ export const api = {
 
   async deleteVoucher(id: string): Promise<{ success: boolean }> {
     const res = await fetch(`/api/vouchers/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('Failed to delete voucher');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to delete voucher');
+    }
     return res.json();
+  },
+
+  async adminSwitchUser(targetUserId: string): Promise<{ token: string; user: User }> {
+    const res = await fetch('/api/auth/switch-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetUserId }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to switch user');
+    }
+    const data = await res.json();
+    if (data.token) {
+      authStorage.setToken(data.token);
+    }
+    return data;
   },
 
   async getCashRecoveredReport(fromDate?: string, toDate?: string): Promise<{ items: CashRecoveredReportItem[]; totalAmount: number }> {

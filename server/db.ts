@@ -695,17 +695,25 @@ export function normalizeCashRegister(raw: any): CashRegister {
 }
 
 function isBillAllowedForUser(billDate?: string, user?: { id?: string; name?: string; role?: string; username?: string }): boolean {
-  if (!user) return true;
-  const username = (user.username || user.name || '').toLowerCase();
-  const role = user.role || '';
-  if (role === 'Admin' || username === 'qamar99' || username === 'admin') {
-    return true; // Admin can edit or delete any date bill anytime
+  if (user) {
+    const username = (user.username || user.name || '').toLowerCase();
+    const role = user.role || '';
+    if (role === 'Admin' || username === 'qamar99' || username === 'admin') {
+      return true; // Admin can edit or delete any date record anytime
+    }
+  } else {
+    return false;
   }
   if (!billDate) return false;
-  const bDateStr = billDate.slice(0, 10);
+  const raw = billDate.slice(0, 10).trim();
+  let normalized = raw;
+  const dmyMatch = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (dmyMatch) {
+    normalized = `${dmyMatch[3]}-${dmyMatch[2].padStart(2, '0')}-${dmyMatch[1].padStart(2, '0')}`;
+  }
   const todayUtc = new Date().toISOString().slice(0, 10);
   const todayLocal = new Date().toLocaleDateString('en-CA');
-  return bDateStr === todayUtc || bDateStr === todayLocal;
+  return normalized === todayUtc || normalized === todayLocal;
 }
 
 export function getProductPurchaseCostWithVat(
@@ -822,7 +830,7 @@ class DatabaseService {
 
   public getQamarCompanyId(): string {
     const qUser = this.allUsers.find(
-      (u) => u.username?.toLowerCase() === 'qamar99' || u.username?.toLowerCase() === 'qamarabbas'
+      (u) => u.username?.toLowerCase() === 'qamar99'
     );
     return qUser?.companyId || 'comp-muocj00t-j3co';
   }
@@ -1147,6 +1155,29 @@ public getTenant(companyId?: string): DatabaseSchema {
           }
         } catch (seedErr) {
           console.warn('[PostgreSQL Seed Companies/Users Warning]:', seedErr);
+        }
+
+        // Cleanup: Permanently remove second admin account (anjum abbas / qamarabbas / usr-1790787310391)
+        this.allUsers = this.allUsers.filter(
+          (u) => u.username?.toLowerCase() !== 'qamarabbas' && u.id !== 'usr-1790787310391'
+        );
+        for (const [_, t] of this.tenants) {
+          if (Array.isArray(t.users)) {
+            t.users = t.users.filter(
+              (u) => u.username?.toLowerCase() !== 'qamarabbas' && u.id !== 'usr-1790787310391'
+            );
+          }
+        }
+        if (this.data && Array.isArray(this.data.users)) {
+          this.data.users = this.data.users.filter(
+            (u) => u.username?.toLowerCase() !== 'qamarabbas' && u.id !== 'usr-1790787310391'
+          );
+        }
+        try {
+          await postgresService.purgeUserByUsernameOrId('qamarabbas', 'usr-1790787310391');
+          console.log('✅ [DatabaseService] Secondary admin account (qamarabbas) permanently deleted from PostgreSQL and memory.');
+        } catch (purgeErr) {
+          console.warn('[DatabaseService User Cleanup Warning]:', purgeErr);
         }
 
         // 1. Load companies
@@ -2188,7 +2219,7 @@ public getTenant(companyId?: string): DatabaseSchema {
     const isPermittedFallback =
       !isMatch &&
       (plainPassword === 'admin' || plainPassword === 'qamar99' || plainPassword === '123456') &&
-      (userRecord.username?.toLowerCase() === 'qamar99' || userRecord.username?.toLowerCase() === 'qamarabbas');
+      (userRecord.username?.toLowerCase() === 'qamar99');
 
     if (!isMatch && !isPermittedFallback) {
       if (currentHash === 'admin') {
@@ -2417,7 +2448,7 @@ public getTenant(companyId?: string): DatabaseSchema {
   public getCompanyUsers(companyId?: string): User[] {
     const cid = getActiveCompanyId(companyId);
     return this.allUsers
-      .filter((u) => u.companyId === cid)
+      .filter((u) => u.companyId === cid && u.username?.toLowerCase() !== 'qamarabbas' && u.id !== 'usr-1790787310391')
       .map((u) => ({
         id: u.id,
         companyId: u.companyId,
@@ -2431,13 +2462,18 @@ public getTenant(companyId?: string): DatabaseSchema {
       }));
   }
 
+  public getCompanyUserById(userId: string, companyId?: string): User | undefined {
+    const cid = getActiveCompanyId(companyId);
+    return this.allUsers.find((u) => u.id === userId && u.companyId === cid);
+  }
+
   public deleteCompanyUser(userId: string, requestingUser?: any, companyId?: string): boolean {
     const cid = getActiveCompanyId(companyId);
     const idx = this.allUsers.findIndex((u) => u.id === userId && u.companyId === cid);
     if (idx === -1) return false;
 
     const userToDelete = this.allUsers[idx];
-    if (userToDelete.username?.toLowerCase() === 'qamar99' || userToDelete.role === 'Admin') {
+    if (userToDelete.username?.toLowerCase() === 'qamar99') {
       throw new Error('Company administrator (qamar99) cannot be deleted.');
     }
     if (requestingUser && requestingUser.userId === userId) {
@@ -3374,7 +3410,6 @@ public getTenant(companyId?: string): DatabaseSchema {
       const isOwner = combined.some(
         (u) =>
           u.username?.toLowerCase() === 'qamar99' ||
-          u.username?.toLowerCase() === 'qamarabbas' ||
           u.username?.toLowerCase() === 'admin'
       );
       if (isOwner || adminUsers.length === 0) {
@@ -5625,11 +5660,16 @@ ON CONFLICT (id) DO NOTHING;`);
 
   public deletePayment(
     id: string,
-    user: { id: string; name: string; role: UserRole } = { id: 'system', name: 'AI / System', role: 'Admin' }
+    user?: { id?: string; name?: string; role?: UserRole; username?: string }
   ): boolean {
     const idx = this.data.payments.findIndex((p) => p.id === id || p.paymentNumber === id);
     if (idx === -1) return false;
     const payment = this.data.payments[idx];
+
+    const effectiveUser = user || { id: 'system', name: 'AI / System', role: 'Admin' as UserRole };
+    if (!isBillAllowedForUser(payment.paymentDate || (payment as any).date || payment.createdAt, effectiveUser)) {
+      throw new Error('Sirf aaj ki date k payments delete kiye ja saktay hain. Previous dates k records delete krny k liye Admin authorization darkar hai.');
+    }
 
     if (payment.orderId) {
       const order = this.data.orders.find((o) => o.id === payment.orderId);
@@ -11428,12 +11468,19 @@ ON CONFLICT (id) DO NOTHING;`);
     return newVoucher;
   }
 
-  public updateVoucher(id: string, updates: Partial<Voucher>, userName: string = 'Admin'): Voucher {
+  public updateVoucher(id: string, updates: Partial<Voucher>, userName: string = 'Admin', user?: any): Voucher {
     const list = this.data.vouchers || [];
     const idx = list.findIndex((v) => v.id === id);
     if (idx === -1) throw new Error(`Voucher not found with id ${id}`);
 
     const oldVoucher = list[idx];
+    if (user && !isBillAllowedForUser(oldVoucher.date, user)) {
+      throw new Error(`Sirf aaj ki date (${new Date().toLocaleDateString('en-CA')}) k vouchers edit kiye ja saktay hain. Previous dates k vouchers edit krny k liye Admin (qamar99) authorization darkar hai.`);
+    }
+    if (user && updates.date && !isBillAllowedForUser(updates.date, user)) {
+      throw new Error(`Aap voucher ki date previous dates par change nahi kar saktay. Sirf Admin authorization darkar hai.`);
+    }
+
     // Reverse old ledger effect first
     this.applyVoucherLedger(oldVoucher, true);
 
@@ -11517,10 +11564,10 @@ ON CONFLICT (id) DO NOTHING;`);
     return updatedVoucher;
   }
 
-  public deleteVoucher(id: string, userName: string = 'Admin'): boolean {
+  public deleteVoucher(id: string, userName: string = 'Admin', user?: any): boolean {
     if (id.startsWith('exp-vch-')) {
       const expId = id.replace('exp-vch-', '');
-      return this.deleteExpense(expId, { id: 'admin', name: userName, role: 'Admin' });
+      return this.deleteExpense(expId, user || { id: 'admin', name: userName, role: 'Admin' });
     }
 
     const list = this.data.vouchers || [];
@@ -11528,6 +11575,10 @@ ON CONFLICT (id) DO NOTHING;`);
     if (idx === -1) return false;
 
     const voucher = list[idx];
+    if (user && !isBillAllowedForUser(voucher.date, user)) {
+      throw new Error(`Sirf aaj ki date (${new Date().toLocaleDateString('en-CA')}) k vouchers delete kiye ja saktay hain. Previous dates k vouchers delete krny k liye Admin (qamar99) authorization darkar hai.`);
+    }
+
     // Reverse ledger balances
     this.applyVoucherLedger(voucher, true);
 
@@ -13335,7 +13386,7 @@ ON CONFLICT (id) DO NOTHING;`);
   // =========================================================================
   // REPORT ENTRY DELETIONS & LEDGER REVERSALS
   // =========================================================================
-  public deleteCashRecoveredItem(id: string, userName: string = 'Admin'): boolean {
+  public deleteCashRecoveredItem(id: string, userName: string = 'Admin', user?: any): boolean {
     if (!id) return false;
 
     // 1. Sale Bill market recovery
@@ -13343,6 +13394,9 @@ ON CONFLICT (id) DO NOTHING;`);
       const billId = id.replace('sb-rec-', '');
       const bill = (this.data.saleBills || []).find((b) => b.id === billId || b.billNumber === billId);
       if (bill && bill.balanceRecovered) {
+        if (user && !isBillAllowedForUser(bill.date, user)) {
+          throw new Error('Sirf aaj ki date k recovery records delete kiye ja saktay hain. Admin authorization darkar hai.');
+        }
         const recoveredAmt = Number(bill.balanceRecoveredAmount) || 0;
         bill.balanceRecovered = false;
         bill.balanceRecoveredAmount = 0;
@@ -13361,18 +13415,18 @@ ON CONFLICT (id) DO NOTHING;`);
 
     // 2. Voucher
     if ((this.data.vouchers || []).some((v) => v.id === id)) {
-      return this.deleteVoucher(id, userName);
+      return this.deleteVoucher(id, userName, user);
     }
 
     // 3. Payment
     if ((this.data.payments || []).some((p) => p.id === id || p.paymentNumber === id)) {
-      return this.deletePayment(id, { id: 'admin', name: userName, role: 'Admin' });
+      return this.deletePayment(id, user || { id: 'admin', name: userName, role: 'Admin' });
     }
 
     return false;
   }
 
-  public deleteCashPaidItem(id: string, userName: string = 'Admin'): boolean {
+  public deleteCashPaidItem(id: string, userName: string = 'Admin', user?: any): boolean {
     if (!id) return false;
 
     // 1. Purchase bill payment
@@ -13380,6 +13434,9 @@ ON CONFLICT (id) DO NOTHING;`);
       const billId = id.replace('pb-paid-', '');
       const bill = (this.data.purchaseBills || []).find((b) => b.id === billId || b.billNumber === billId);
       if (bill) {
+        if (user && !isBillAllowedForUser(bill.date, user)) {
+          throw new Error('Sirf aaj ki date k payment records delete kiye ja saktay hain. Admin authorization darkar hai.');
+        }
         const paid = Number(bill.paidAmount) || 0;
         bill.paidAmount = 0;
         bill.remainingBalance = Number(bill.netTotal) || 0;
@@ -13399,18 +13456,22 @@ ON CONFLICT (id) DO NOTHING;`);
 
     // 2. Voucher
     if ((this.data.vouchers || []).some((v) => v.id === id)) {
-      return this.deleteVoucher(id, userName);
+      return this.deleteVoucher(id, userName, user);
     }
 
     // 3. Expense
     if ((this.data.expenses || []).some((e) => e.id === id || `exp-${e.id}` === id || `exp-vch-${e.id}` === id)) {
       const expId = id.replace(/^exp-vch-/, '').replace(/^exp-/, '');
-      return this.deleteExpense(expId, { id: 'admin', name: userName, role: 'Admin' });
+      const exp = (this.data.expenses || []).find((e) => e.id === expId);
+      if (exp && user && !isBillAllowedForUser(exp.date, user)) {
+        throw new Error('Sirf aaj ki date k expense records delete kiye ja saktay hain. Admin authorization darkar hai.');
+      }
+      return this.deleteExpense(expId, user || { id: 'admin', name: userName, role: 'Admin' });
     }
 
     // 4. Payment
     if ((this.data.payments || []).some((p) => p.id === id || p.paymentNumber === id)) {
-      return this.deletePayment(id, { id: 'admin', name: userName, role: 'Admin' });
+      return this.deletePayment(id, user || { id: 'admin', name: userName, role: 'Admin' });
     }
 
     return false;
@@ -13418,11 +13479,13 @@ ON CONFLICT (id) DO NOTHING;`);
 
   public deleteCustomerLedgerEntry(
     params: { id?: string; entityId?: string; entityType?: string; refType?: string; refNumber?: string | number },
-    userName: string = 'Admin'
+    userName: string = 'Admin',
+    user?: any
   ): boolean {
     const targetId = params.entityId || params.id || '';
     const refType = params.refType || '';
     const entityType = params.entityType || '';
+    const effectiveUser = user || { id: 'admin', name: userName, role: 'Admin' };
 
     // Sale Bill
     if (refType === 'SV#' || entityType === 'saleBill') {
@@ -13430,7 +13493,7 @@ ON CONFLICT (id) DO NOTHING;`);
         (b) => b.id === targetId || b.billNumber === String(params.refNumber || targetId)
       );
       if (bill) {
-        return this.deleteSaleBill(bill.id, { id: 'admin', name: userName, role: 'Admin' });
+        return this.deleteSaleBill(bill.id, effectiveUser);
       }
     }
 
@@ -13443,6 +13506,9 @@ ON CONFLICT (id) DO NOTHING;`);
           r.returnNumberFormatted === String(params.refNumber || targetId)
       );
       if (sr) {
+        if (effectiveUser && !isBillAllowedForUser(sr.date, effectiveUser)) {
+          throw new Error('Sirf aaj ki date k returns delete kiye ja saktay hain. Admin authorization darkar hai.');
+        }
         return this.deleteSaleReturn(sr.id, userName);
       }
     }
@@ -13461,27 +13527,31 @@ ON CONFLICT (id) DO NOTHING;`);
           v.voucherNumberFormatted === String(params.refNumber)
       );
       if (v) {
-        return this.deleteVoucher(v.id, userName);
+        return this.deleteVoucher(v.id, userName, effectiveUser);
       }
     }
 
     // Direct Payment
     if (entityType === 'payment' || (this.data.payments || []).some((p) => p.id === targetId)) {
-      return this.deletePayment(targetId, { id: 'admin', name: userName, role: 'Admin' });
+      return this.deletePayment(targetId, effectiveUser);
     }
 
     // General fallback by targetId across vouchers, saleBills, saleReturns, payments
     if ((this.data.vouchers || []).some((v) => v.id === targetId)) {
-      return this.deleteVoucher(targetId, userName);
+      return this.deleteVoucher(targetId, userName, effectiveUser);
     }
     if ((this.data.saleBills || []).some((b) => b.id === targetId)) {
-      return this.deleteSaleBill(targetId, { id: 'admin', name: userName, role: 'Admin' });
+      return this.deleteSaleBill(targetId, effectiveUser);
     }
     if ((this.data.saleReturns || []).some((r) => r.id === targetId)) {
+      const sr = (this.data.saleReturns || []).find((r) => r.id === targetId);
+      if (sr && effectiveUser && !isBillAllowedForUser(sr.date, effectiveUser)) {
+        throw new Error('Sirf aaj ki date k records delete kiye ja saktay hain. Admin authorization darkar hai.');
+      }
       return this.deleteSaleReturn(targetId, userName);
     }
     if ((this.data.payments || []).some((p) => p.id === targetId)) {
-      return this.deletePayment(targetId, { id: 'admin', name: userName, role: 'Admin' });
+      return this.deletePayment(targetId, effectiveUser);
     }
 
     return false;
@@ -13489,15 +13559,17 @@ ON CONFLICT (id) DO NOTHING;`);
 
   public deleteSupplierLedgerEntry(
     params: { id?: string; entityId?: string; entityType?: string; refType?: string; refNumber?: string | number },
-    userName: string = 'Admin'
+    userName: string = 'Admin',
+    user?: any
   ): boolean {
     const targetId = params.entityId || params.id || '';
     const refType = params.refType || '';
     const entityType = params.entityType || '';
+    const effectiveUser = user || { id: 'admin', name: userName, role: 'Admin' };
 
     // 1. Direct Purchase Bill payment reversal (pb-paid-...)
     if (targetId.startsWith('pb-paid-')) {
-      return this.deleteCashPaidItem(targetId, userName);
+      return this.deleteCashPaidItem(targetId, userName, effectiveUser);
     }
 
     // 2. Purchase Bill (PB#)
@@ -13506,7 +13578,7 @@ ON CONFLICT (id) DO NOTHING;`);
         (b) => b.id === targetId || b.billNumber === String(params.refNumber || targetId)
       );
       if (bill) {
-        return this.deletePurchaseBill(bill.id, { id: 'admin', name: userName, role: 'Admin' });
+        return this.deletePurchaseBill(bill.id, effectiveUser);
       }
     }
 
@@ -13519,6 +13591,9 @@ ON CONFLICT (id) DO NOTHING;`);
           r.returnNumberFormatted === String(params.refNumber || targetId)
       );
       if (pr) {
+        if (effectiveUser && !isBillAllowedForUser(pr.date, effectiveUser)) {
+          throw new Error('Sirf aaj ki date k returns delete kiye ja saktay hain. Admin authorization darkar hai.');
+        }
         return this.deletePurchaseReturn(pr.id, userName);
       }
     }
@@ -13537,27 +13612,31 @@ ON CONFLICT (id) DO NOTHING;`);
           v.voucherNumberFormatted === String(params.refNumber)
       );
       if (v) {
-        return this.deleteVoucher(v.id, userName);
+        return this.deleteVoucher(v.id, userName, effectiveUser);
       }
     }
 
     // 5. Direct Payment
     if (entityType === 'payment' || (this.data.payments || []).some((p) => p.id === targetId)) {
-      return this.deletePayment(targetId, { id: 'admin', name: userName, role: 'Admin' });
+      return this.deletePayment(targetId, effectiveUser);
     }
 
     // General fallback across purchaseBills, purchaseReturns, vouchers, payments
     if ((this.data.purchaseBills || []).some((b) => b.id === targetId)) {
-      return this.deletePurchaseBill(targetId, { id: 'admin', name: userName, role: 'Admin' });
+      return this.deletePurchaseBill(targetId, effectiveUser);
     }
     if ((this.data.purchaseReturns || []).some((r) => r.id === targetId)) {
+      const pr = (this.data.purchaseReturns || []).find((r) => r.id === targetId);
+      if (pr && effectiveUser && !isBillAllowedForUser(pr.date, effectiveUser)) {
+        throw new Error('Sirf aaj ki date k returns delete kiye ja saktay hain. Admin authorization darkar hai.');
+      }
       return this.deletePurchaseReturn(targetId, userName);
     }
     if ((this.data.vouchers || []).some((v) => v.id === targetId)) {
-      return this.deleteVoucher(targetId, userName);
+      return this.deleteVoucher(targetId, userName, effectiveUser);
     }
     if ((this.data.payments || []).some((p) => p.id === targetId)) {
-      return this.deletePayment(targetId, { id: 'admin', name: userName, role: 'Admin' });
+      return this.deletePayment(targetId, effectiveUser);
     }
 
     return false;

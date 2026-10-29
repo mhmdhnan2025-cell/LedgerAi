@@ -24,6 +24,7 @@ import { CashPaidReportItem, CompanyProfile } from '../types';
 import { api } from '../services/api';
 import { currencySymbol } from '../utils/currency';
 import { exportToCsv } from '../utils/exportCsv';
+import { OfflineStorageService } from '../services/offlineStorage';
 
 interface CashPaidReportSectionProps {
   companyProfile?: CompanyProfile | null;
@@ -34,6 +35,22 @@ export const CashPaidReportSection: React.FC<CashPaidReportSectionProps> = ({
   companyProfile,
   onNavigateTab,
 }) => {
+  const activeUser = OfflineStorageService.loadActiveUser();
+  const isAdmin = activeUser?.role === 'Admin' || activeUser?.username?.toLowerCase() === 'qamar99';
+
+  const isEntryActionAllowed = (entryDate?: string) => {
+    if (isAdmin) return true;
+    if (!entryDate) return false;
+    const raw = entryDate.slice(0, 10).trim();
+    let normalized = raw;
+    const dmyMatch = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+    if (dmyMatch) {
+      normalized = `${dmyMatch[3]}-${dmyMatch[2].padStart(2, '0')}-${dmyMatch[1].padStart(2, '0')}`;
+    }
+    const todayUtc = new Date().toISOString().slice(0, 10);
+    const todayLocal = new Date().toLocaleDateString('en-CA');
+    return normalized === todayUtc || normalized === todayLocal;
+  };
   const [fromDate, setFromDate] = useState<string>(() => {
     const d = new Date();
     d.setDate(1); // 1st of month
@@ -486,14 +503,18 @@ export const CashPaidReportSection: React.FC<CashPaidReportSectionProps> = ({
                       {row.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </td>
                     <td className="px-3 py-2.5 text-center print:hidden">
-                      <button
-                        onClick={() => setConfirmItem(row)}
-                        className="px-2.5 py-1 bg-rose-500/15 hover:bg-rose-600 border border-rose-500/30 hover:border-rose-600 text-rose-300 hover:text-white rounded-md text-[11px] font-bold inline-flex items-center gap-1 transition shadow-sm cursor-pointer group"
-                        title="Delete Payment Voucher"
-                      >
-                        <Trash2 className="w-3.5 h-3.5 text-rose-400 group-hover:text-white" />
-                        <span>Del</span>
-                      </button>
+                      {isEntryActionAllowed(row.date) ? (
+                        <button
+                          onClick={() => setConfirmItem(row)}
+                          className="px-2.5 py-1 bg-rose-500/15 hover:bg-rose-600 border border-rose-500/30 hover:border-rose-600 text-rose-300 hover:text-white rounded-md text-[11px] font-bold inline-flex items-center gap-1 transition shadow-sm cursor-pointer group"
+                          title="Delete Payment Voucher"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-rose-400 group-hover:text-white" />
+                          <span>Del</span>
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-slate-500 font-medium">Locked</span>
+                      )}
                     </td>
                   </tr>
                 ))

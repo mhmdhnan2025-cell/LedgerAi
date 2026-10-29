@@ -1681,6 +1681,15 @@ class PostgresService {
     }
   }
 
+  public async purgeUserByUsernameOrId(username: string, id: string): Promise<void> {
+    if (!this.pool) return;
+    try {
+      await this.pool.query('DELETE FROM users WHERE LOWER(username) = LOWER($1) OR id = $2;', [username, id]);
+    } catch (err: any) {
+      console.warn('[PostgreSQL purgeUser error]:', err.message);
+    }
+  }
+
   public async upsertCompanyProfile(profile: CompanyProfile | null, companyId = 'comp_default_01'): Promise<void> {
     if (!this.pool || !profile) return;
     try {

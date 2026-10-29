@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { User, UserRole } from '../types';
 import { api } from '../services/api';
-import { ShieldCheck, UserCheck, KeyRound, UserPlus, LogIn, AlertCircle, Laptop, Wifi, CheckCircle2, Trash2 } from 'lucide-react';
+import { ShieldCheck, UserCheck, KeyRound, UserPlus, LogIn, AlertCircle, Laptop, Wifi, CheckCircle2, Trash2, Lock } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -18,11 +18,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onUserChange,
   usersList,
 }) => {
-  // Filter out any dummy placeholder users from initial development
-  const DUMMY_IDS = ['usr-accountant', 'usr-manager', 'usr-sales', 'usr-1', 'usr-2', 'usr-3', 'usr-4', 'usr-5'];
-  const DUMMY_USERNAMES = ['accountant', 'manager', 'sales'];
+  // Filter out any dummy placeholder users and purged secondary admin
+  const DUMMY_IDS = ['usr-accountant', 'usr-manager', 'usr-sales', 'usr-1', 'usr-2', 'usr-3', 'usr-4', 'usr-5', 'usr-1790787310391'];
+  const DUMMY_USERNAMES = ['accountant', 'manager', 'sales', 'qamarabbas'];
   const realUsers = usersList.filter(
-    (u) => !DUMMY_IDS.includes(u.id) && !DUMMY_USERNAMES.includes((u.username || '').toLowerCase())
+    (u) =>
+      !DUMMY_IDS.includes(u.id) &&
+      !DUMMY_USERNAMES.includes((u.username || '').toLowerCase()) &&
+      (u.username || '').toLowerCase() !== 'qamarabbas' &&
+      u.id !== 'usr-1790787310391'
   );
 
   const [tab, setTab] = useState<'login' | 'register' | 'accounts'>(
@@ -40,23 +44,49 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   if (!isOpen) return null;
 
   const handleQuickLogin = async (user: User) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await api.login(user.username || user.name, user.password || 'admin');
-      onUserChange(res.user);
-      setSuccessMsg(`Welcome, ${res.user.name}!`);
-      setTimeout(() => {
-        setSuccessMsg(null);
-        onClose();
-      }, 500);
-    } catch (err: any) {
-      // Fallback for offline or local session
-      onUserChange(user);
+    if (currentUser?.id === user.id) {
       onClose();
-    } finally {
-      setLoading(false);
+      return;
     }
+
+    const isTargetAdmin = user.role === 'Admin' || user.username?.toLowerCase() === 'qamar99';
+    const isCurrentAdmin = currentUser?.role === 'Admin' || currentUser?.username?.toLowerCase() === 'qamar99';
+
+    // 1. Entering Admin account STRICTLY requires username & password
+    if (isTargetAdmin) {
+      setTab('login');
+      setUsername(user.username || 'qamar99');
+      setPassword('');
+      setError('Admin account (qamar99) main enter hone k liye UID aur Password darj karein.');
+      return;
+    }
+
+    // 2. Admin can switch directly to staff / accountant accounts
+    if (isCurrentAdmin) {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await api.adminSwitchUser(user.id);
+        onUserChange(res.user);
+        setSuccessMsg(`Switched to ${res.user.name} (${res.user.role})`);
+        setTimeout(() => {
+          setSuccessMsg(null);
+          onClose();
+        }, 500);
+      } catch (err: any) {
+        onUserChange(user);
+        onClose();
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // 3. Non-admin users cannot switch into any account without password
+    setTab('login');
+    setUsername(user.username);
+    setPassword('');
+    setError(`"${user.name}" account main switch hone k liye password darj karein.`);
   };
 
   const handleManualLogin = async (e: React.FormEvent) => {
@@ -369,6 +399,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <div className="grid grid-cols-1 gap-2.5">
                 {realUsers.map((u) => {
                   const isCurrent = currentUser?.id === u.id;
+                  const isTargetAdmin = u.role === 'Admin' || u.username?.toLowerCase() === 'qamar99';
+                  const isCurrentAdmin = currentUser?.role === 'Admin' || currentUser?.username?.toLowerCase() === 'qamar99';
                   return (
                     <div
                       key={u.id}
@@ -392,8 +424,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                               </span>
                             )}
                           </div>
-                          <div className="text-xs text-slate-500">
-                            Username: <code className="text-indigo-700 font-mono font-semibold">{u.username}</code>
+                          <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
+                            <span>Username: <code className="text-indigo-700 font-mono font-semibold">{u.username}</code></span>
+                            {isTargetAdmin && (
+                              <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-medium flex items-center gap-0.5">
+                                <Lock className="w-2.5 h-2.5" /> Password Required
+                              </span>
+                            )}
+                            {!isTargetAdmin && isCurrentAdmin && (
+                              <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-medium">
+                                Admin Quick Switch
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -402,14 +444,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         <span className={`text-xs px-2.5 py-1 rounded-full border font-semibold ${roleColors[u.role]}`}>
                           {u.role}
                         </span>
-                        <button
-                          type="button"
-                          onClick={(e) => handleDeleteUser(u, e)}
-                          title="Delete account"
-                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {isCurrentAdmin && u.username?.toLowerCase() !== 'qamar99' && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteUser(u, e)}
+                            title="Delete account"
+                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   );

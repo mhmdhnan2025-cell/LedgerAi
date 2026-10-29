@@ -24,7 +24,7 @@
     {
       "id": "comp-muocj00t-j3co",
       "name": "ZAHRAT  AL  FAJR  FOOD  STUFF  TRADING L.L.C",
-      "ownerName": "ANJUM ABBAS",
+      "ownerName": "Qamar Abbas",
       "inviteCode": "ZAHR-FAJR",
       "inviteCodeStatus": "ACTIVE",
       "currency": "AED",
@@ -68,16 +68,6 @@
       "name": "Qamar Abbas",
       "username": "qamar99",
       "email": "qamar99@comp-muocj00t-j3co.erp",
-      "passwordHash": "$2b$10$bLEy87g5rSDVKk1keAobyuol.sqmwRHDKVhPDizuMWtC9hpM5CaKi",
-      "password": "admin",
-      "role": "Admin"
-    },
-    {
-      "id": "usr-1790787310391",
-      "companyId": "comp-muocj00t-j3co",
-      "name": "ANJUM ABBAS",
-      "username": "qamarabbas",
-      "email": "qamarabbas@comp-muocj00t-j3co.erp",
       "passwordHash": "$2b$10$bLEy87g5rSDVKk1keAobyuol.sqmwRHDKVhPDizuMWtC9hpM5CaKi",
       "password": "admin",
       "role": "Admin"
