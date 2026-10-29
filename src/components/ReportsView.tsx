@@ -48,6 +48,8 @@ import { PurchaseReturnReportSection } from './PurchaseReturnReportSection';
 import { DiscountsReportSection } from './DiscountsReportSection';
 import { ErrorBoundary } from './ErrorBoundary';
 import { exportToCsv } from '../utils/exportCsv';
+import { isBillDateToday } from '../utils/dateUtils';
+import { User } from '../types';
 
 interface ReportsViewProps {
   suppliers: Supplier[];
@@ -55,6 +57,7 @@ interface ReportsViewProps {
   products?: Product[];
   companyProfile?: CompanyProfile | null;
   currentRole: UserRole;
+  currentUser?: User | null;
   onRefreshData?: () => void;
   onNavigateTab?: (tab: string) => void;
   onEditPurchaseBill?: (bill: PurchaseBill) => void;
@@ -67,11 +70,14 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   products = [],
   companyProfile,
   currentRole,
+  currentUser,
   onRefreshData,
   onNavigateTab,
   onEditPurchaseBill,
   onEditSaleBill,
 }) => {
+  const isAdmin = currentRole === 'Admin' || currentUser?.username?.toLowerCase() === 'qamar99';
+
   // Breadcrumb / Report sub-tabs
   const [activeReportTab, setActiveReportTab] = useState<
     'purchases' | 'sales' | 'partyReceivables' | 'supplierPayables' | 'profit' | 'stockHistory' | 'aiLedgerAudit' | 'cashRecovered' | 'cashPaid' | 'customerLedger' | 'supplierLedger' | 'saleReturns' | 'purchaseReturns' | 'discounts'
@@ -80,12 +86,21 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       if (typeof window !== 'undefined') {
         const saved = sessionStorage.getItem('erp_active_report_tab');
         if (saved && ['purchases', 'sales', 'partyReceivables', 'supplierPayables', 'profit', 'stockHistory', 'aiLedgerAudit', 'cashRecovered', 'cashPaid', 'customerLedger', 'supplierLedger', 'saleReturns', 'purchaseReturns', 'discounts'].includes(saved)) {
+          if (!isAdmin && (saved === 'profit' || saved === 'aiLedgerAudit')) {
+            return 'purchases';
+          }
           return saved as any;
         }
       }
     } catch {}
     return 'purchases';
   });
+
+  useEffect(() => {
+    if (!isAdmin && (activeReportTab === 'profit' || activeReportTab === 'aiLedgerAudit')) {
+      setActiveReportTab('purchases');
+    }
+  }, [isAdmin, activeReportTab]);
 
   useEffect(() => {
     try {
@@ -403,17 +418,19 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               <DollarSign className="w-3.5 h-3.5" />
               <span>Sale Report</span>
             </button>
-            <button
-              onClick={() => setActiveReportTab('profit')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                activeReportTab === 'profit'
-                  ? 'bg-amber-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <TrendingUp className="w-3.5 h-3.5 text-amber-300" />
-              <span>Profit Intelligence</span>
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => setActiveReportTab('profit')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  activeReportTab === 'profit'
+                    ? 'bg-amber-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <TrendingUp className="w-3.5 h-3.5 text-amber-300" />
+                <span>Profit Intelligence</span>
+              </button>
+            )}
             <button
               onClick={() => setActiveReportTab('stockHistory')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
@@ -513,18 +530,20 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               <Undo2 className="w-3.5 h-3.5 text-purple-300" />
               <span>Purchase Returns</span>
             </button>
-            <button
-              onClick={() => setActiveReportTab('aiLedgerAudit')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                activeReportTab === 'aiLedgerAudit'
-                  ? 'bg-emerald-700 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-              title="AI Ledger Master Business Audit Report (One Page A4)"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-300" />
-              <span>Master Audit Report</span>
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => setActiveReportTab('aiLedgerAudit')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  activeReportTab === 'aiLedgerAudit'
+                    ? 'bg-emerald-700 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+                title="AI Ledger Master Business Audit Report (One Page A4)"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-300" />
+                <span>Master Audit Report</span>
+              </button>
+            )}
             <button
               onClick={() => setActiveReportTab('discounts')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
@@ -670,18 +689,25 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           <SalesReportSection
             companyProfile={companyProfile}
             currentRole={currentRole}
+            currentUser={currentUser}
             onRefreshData={onRefreshData}
             onNavigateTab={onNavigateTab}
             onEditSaleBill={onEditSaleBill}
           />
         </ErrorBoundary>
       ) : activeReportTab === 'profit' ? (
-        <ErrorBoundary fallbackTitle="Comprehensive Profit Report">
-          <ComprehensiveProfitReportSection
-            onRefreshData={onRefreshData}
-            onNavigateTab={onNavigateTab}
-          />
-        </ErrorBoundary>
+        isAdmin ? (
+          <ErrorBoundary fallbackTitle="Comprehensive Profit Report">
+            <ComprehensiveProfitReportSection
+              onRefreshData={onRefreshData}
+              onNavigateTab={onNavigateTab}
+            />
+          </ErrorBoundary>
+        ) : (
+          <div className="p-8 text-center bg-slate-900 border border-slate-800 rounded-xl text-slate-400 text-xs">
+            Access Restricted: Only company administrator (qamar99) can view Profit Intelligence reports.
+          </div>
+        )
       ) : activeReportTab === 'stockHistory' ? (
         <ErrorBoundary fallbackTitle="Stock History Ledger">
           <StockHistoryLedgerSection
@@ -691,13 +717,19 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           />
         </ErrorBoundary>
       ) : activeReportTab === 'aiLedgerAudit' ? (
-        <ErrorBoundary fallbackTitle="AI Master Ledger Audit Report">
-          <AiLedgerAuditReportSection
-            companyProfile={companyProfile}
-            currentRole={currentRole}
-            onRefreshData={onRefreshData}
-          />
-        </ErrorBoundary>
+        isAdmin ? (
+          <ErrorBoundary fallbackTitle="AI Master Ledger Audit Report">
+            <AiLedgerAuditReportSection
+              companyProfile={companyProfile}
+              currentRole={currentRole}
+              onRefreshData={onRefreshData}
+            />
+          </ErrorBoundary>
+        ) : (
+          <div className="p-8 text-center bg-slate-900 border border-slate-800 rounded-xl text-slate-400 text-xs">
+            Access Restricted: Only company administrator (qamar99) can view Master Business Audit reports.
+          </div>
+        )
       ) : activeReportTab === 'cashRecovered' ? (
         <ErrorBoundary fallbackTitle="Cash Recovered Report">
           <CashRecoveredReportSection
@@ -1215,26 +1247,30 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                           >
                             <Eye className="w-3.5 h-3.5" />
                           </button>
-                          <button
-                            onClick={() => {
-                              if (onEditPurchaseBill) {
-                                onEditPurchaseBill(bill);
-                              } else {
-                                setEditingBill(bill);
-                              }
-                            }}
-                            className="p-1.5 bg-amber-600/20 hover:bg-amber-600 text-amber-400 hover:text-white rounded-lg border border-amber-500/30 text-[11px] font-bold shadow transition cursor-pointer"
-                            title="Edit Purchase Bill (Opens Purchasing Page with all items)"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={(e) => handleDeletePurchaseBill(bill.id, bill.billNumber, e)}
-                            className="p-1.5 bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white rounded-lg border border-rose-500/30 text-[11px] font-bold shadow transition cursor-pointer"
-                            title="Delete Purchase Bill (Reverses Stock & Ledger)"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {(isAdmin || isBillDateToday(bill.date)) && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  if (onEditPurchaseBill) {
+                                    onEditPurchaseBill(bill);
+                                  } else {
+                                    setEditingBill(bill);
+                                  }
+                                }}
+                                className="p-1.5 bg-amber-600/20 hover:bg-amber-600 text-amber-400 hover:text-white rounded-lg border border-amber-500/30 text-[11px] font-bold shadow transition cursor-pointer"
+                                title="Edit Purchase Bill (Opens Purchasing Page with all items)"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={(e) => handleDeletePurchaseBill(bill.id, bill.billNumber, e)}
+                                className="p-1.5 bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white rounded-lg border border-rose-500/30 text-[11px] font-bold shadow transition cursor-pointer"
+                                title="Delete Purchase Bill (Reverses Stock & Ledger)"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1277,7 +1313,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         bill={activeBillDetail}
         companyProfile={companyProfile}
         onClose={() => setActiveBillDetail(null)}
-        onEditBill={onEditPurchaseBill}
+        onEditBill={(activeBillDetail && (isAdmin || isBillDateToday(activeBillDetail.date))) ? onEditPurchaseBill : undefined}
       />
 
       {/* EDIT PURCHASE BILL MODAL */}

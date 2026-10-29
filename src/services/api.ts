@@ -487,6 +487,30 @@ export const api = {
     return this.deleteUser(userId);
   },
 
+  async freezeCompanyUser(userId: string): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`/api/company/users/${userId}/freeze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to freeze user account');
+    }
+    return res.json();
+  },
+
+  async unfreezeCompanyUser(userId: string): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`/api/company/users/${userId}/unfreeze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to unfreeze user account');
+    }
+    return res.json();
+  },
+
   async exportBackup(): Promise<any> {
     const res = await fetch('/api/backup/export');
     if (!res.ok) throw new Error('Failed to export backup');

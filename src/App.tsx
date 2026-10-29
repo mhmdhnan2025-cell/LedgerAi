@@ -754,6 +754,7 @@ export default function App() {
             products={products}
             companyProfile={companyProfile}
             currentRole={currentRole}
+            currentUser={currentUser}
             onEditPurchaseBill={(bill) => {
               setEditingPurchaseBill(bill);
               setCurrentTab('purchasing');

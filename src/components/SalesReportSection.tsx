@@ -25,10 +25,13 @@ import { CompanyProfile, Customer, Product, SaleBill, UserRole } from '../types'
 import { api } from '../services/api';
 import { SalesBillReceiptModal } from './SalesBillReceiptModal';
 import { exportToCsv } from '../utils/exportCsv';
+import { isBillDateToday } from '../utils/dateUtils';
+import { User } from '../types';
 
 interface SalesReportSectionProps {
   companyProfile?: CompanyProfile | null;
   currentRole: UserRole;
+  currentUser?: User | null;
   onRefreshData?: () => void;
   onNavigateTab?: (tab: string) => void;
   onEditSaleBill?: (bill: SaleBill) => void;
@@ -37,10 +40,12 @@ interface SalesReportSectionProps {
 export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
   companyProfile,
   currentRole,
+  currentUser,
   onRefreshData,
   onNavigateTab,
   onEditSaleBill,
 }) => {
+  const isAdmin = currentRole === 'Admin' || currentUser?.username?.toLowerCase() === 'qamar99';
   // Search & Filter State - default to empty to show all records or user selects preset
   const [fromDate, setFromDate] = useState<string>('');
   const [toDate, setToDate] = useState<string>('');
@@ -855,26 +860,30 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </button>
-                        <button
-                          onClick={() => {
-                            if (onEditSaleBill) {
-                              onEditSaleBill(b);
-                            } else {
-                              setEditingSaleBill(b);
-                            }
-                          }}
-                          className="p-1 hover:bg-amber-900/40 text-slate-400 hover:text-amber-400 rounded cursor-pointer transition"
-                          title="Edit Sale Bill (Opens Sales Page with all items)"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={(e) => handleDeleteBill(b.id, b.billNumber, e)}
-                          className="p-1 hover:bg-rose-900/40 text-slate-400 hover:text-rose-400 rounded cursor-pointer"
-                          title="Delete Bill"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {(isAdmin || isBillDateToday(b.date)) && (
+                          <>
+                            <button
+                              onClick={() => {
+                                if (onEditSaleBill) {
+                                  onEditSaleBill(b);
+                                } else {
+                                  setEditingSaleBill(b);
+                                }
+                              }}
+                              className="p-1 hover:bg-amber-900/40 text-slate-400 hover:text-amber-400 rounded cursor-pointer transition"
+                              title="Edit Sale Bill (Opens Sales Page with all items)"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={(e) => handleDeleteBill(b.id, b.billNumber, e)}
+                              className="p-1 hover:bg-rose-900/40 text-slate-400 hover:text-rose-400 rounded cursor-pointer"
+                              title="Delete Bill"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1012,7 +1021,7 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
                   <Printer className="w-3.5 h-3.5" />
                   <span>Print Receipt</span>
                 </button>
-                {onEditSaleBill && (
+                {onEditSaleBill && (isAdmin || isBillDateToday(activeBillDetail.date)) && (
                   <button
                     onClick={() => {
                       const b = activeBillDetail;
@@ -1044,7 +1053,7 @@ export const SalesReportSection: React.FC<SalesReportSectionProps> = ({
           bill={receiptModalBill}
           companyProfile={companyProfile}
           onClose={() => setReceiptModalBill(null)}
-          onEditBill={onEditSaleBill}
+          onEditBill={(receiptModalBill && (isAdmin || isBillDateToday(receiptModalBill.date))) ? onEditSaleBill : undefined}
         />
       )}
 

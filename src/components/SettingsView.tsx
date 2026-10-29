@@ -38,6 +38,8 @@ import {
   Copy,
   Type,
   Calendar,
+  Lock,
+  Unlock,
 } from 'lucide-react';
 import { CompanyProfile, Employee, Product, Supplier, User } from '../types';
 import { CURRENCY_OPTIONS } from '../utils/currency';
@@ -291,15 +293,40 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleDeleteCompanyUser = async (user: User) => {
-    if (!window.confirm(`Are you sure you want to delete user "${user.name}" (${user.username || user.email})?`)) {
+    if (!window.confirm(`Are you sure you want to delete login account for "${user.name}" (${user.username || user.email})?\n\nNOTE: This only revokes their login access. ALL company data, sales bills, purchases, vouchers, and ledgers remain 100% intact.`)) {
       return;
     }
     try {
       await api.deleteCompanyUser(user.id);
       setCompanyUsers((prev) => prev.filter((u) => u.id !== user.id));
-      setInviteActionMsg({ type: 'success', text: `User "${user.name}" removed successfully.` });
+      setInviteActionMsg({ type: 'success', text: `Login account for "${user.name}" deleted successfully. Company business records remain 100% safe.` });
     } catch (e: any) {
-      setInviteActionMsg({ type: 'error', text: e.message || 'Failed to delete user.' });
+      setInviteActionMsg({ type: 'error', text: e.message || 'Failed to delete user login.' });
+    }
+  };
+
+  const handleToggleFreezeUser = async (user: User) => {
+    const isFreezing = !user.isFrozen;
+    const actionLabel = isFreezing ? 'FREEZE' : 'UNFREEZE';
+    const confirmPrompt = isFreezing
+      ? `Are you sure you want to FREEZE account for "${user.name}" (@${user.username})?\n\nThis user will not be able to log in until you unfreeze them.`
+      : `Are you sure you want to UNFREEZE account for "${user.name}" (@${user.username})?\n\nThis user will be able to log in normally.`;
+
+    if (!window.confirm(confirmPrompt)) return;
+
+    try {
+      if (isFreezing) {
+        await api.freezeCompanyUser(user.id);
+        setInviteActionMsg({ type: 'success', text: `Account for "${user.name}" has been frozen successfully.` });
+      } else {
+        await api.unfreezeCompanyUser(user.id);
+        setInviteActionMsg({ type: 'success', text: `Account for "${user.name}" has been unfrozen successfully.` });
+      }
+      setCompanyUsers((prev) =>
+        prev.map((u) => (u.id === user.id ? { ...u, isFrozen: isFreezing } : u))
+      );
+    } catch (e: any) {
+      setInviteActionMsg({ type: 'error', text: e.message || `Failed to ${actionLabel.toLowerCase()} user.` });
     }
   };
 
@@ -2599,6 +2626,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${roleBadgeClass}`}>
                               {u.role}
                             </span>
+                            {u.isFrozen ? (
+                              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-rose-950 text-rose-400 border border-rose-700 animate-pulse">
+                                FROZEN
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-800">
+                                Active
+                              </span>
+                            )}
                             {isCurrent && (
                               <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-indigo-900/60 text-indigo-300 border border-indigo-700">
                                 You
@@ -2611,14 +2647,40 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         </div>
                       </div>
 
-                      {currentUser?.role === 'Admin' && !isCurrent && (
-                        <button
-                          onClick={() => handleDeleteCompanyUser(u)}
-                          className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
-                          title={`Delete account for ${u.name}`}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                      {(currentUser?.role === 'Admin' || currentUser?.username?.toLowerCase() === 'qamar99') && !isCurrent && (
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleFreezeUser(u)}
+                            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border ${
+                              u.isFrozen
+                                ? 'bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border-emerald-700'
+                                : 'bg-amber-950/80 hover:bg-amber-900 text-amber-300 border-amber-700'
+                            }`}
+                            title={u.isFrozen ? 'Unfreeze this account' : 'Freeze this account'}
+                          >
+                            {u.isFrozen ? (
+                              <>
+                                <Unlock className="w-3.5 h-3.5" />
+                                <span>Unfreeze</span>
+                              </>
+                            ) : (
+                              <>
+                                <Lock className="w-3.5 h-3.5" />
+                                <span>Freeze</span>
+                              </>
+                            )}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCompanyUser(u)}
+                            className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer border border-transparent hover:border-rose-900"
+                            title={`Delete login access for ${u.name}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       )}
                     </div>
                   );

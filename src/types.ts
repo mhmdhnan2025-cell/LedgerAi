@@ -38,6 +38,7 @@ export interface User {
   password?: string;
   role: UserRole;
   avatar?: string;
+  isFrozen?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }

@@ -694,6 +694,20 @@ export function normalizeCashRegister(raw: any): CashRegister {
   };
 }
 
+function isBillAllowedForUser(billDate?: string, user?: { id?: string; name?: string; role?: string; username?: string }): boolean {
+  if (!user) return true;
+  const username = (user.username || user.name || '').toLowerCase();
+  const role = user.role || '';
+  if (role === 'Admin' || username === 'qamar99' || username === 'admin') {
+    return true; // Admin can edit or delete any date bill anytime
+  }
+  if (!billDate) return false;
+  const bDateStr = billDate.slice(0, 10);
+  const todayUtc = new Date().toISOString().slice(0, 10);
+  const todayLocal = new Date().toLocaleDateString('en-CA');
+  return bDateStr === todayUtc || bDateStr === todayLocal;
+}
+
 class DatabaseService {
   private _defaultData: DatabaseSchema;
   private tenants: Map<string, DatabaseSchema> = new Map();
@@ -2047,6 +2061,11 @@ public getTenant(companyId?: string): DatabaseSchema {
       throw new Error('This invite code has expired. Please request a fresh code.');
     }
 
+    // Only qamar99 can ever be administrator. Prevent username impersonation or admin creation
+    if (username === 'qamar99') {
+      throw new Error('Username "qamar99" is strictly reserved for the company administrator.');
+    }
+
     // Check unique username
     const existing = this.allUsers.find(
       (u) =>
@@ -2058,6 +2077,7 @@ public getTenant(companyId?: string): DatabaseSchema {
     }
 
     const passwordHash = await hashPassword(password);
+    const assignedRole: UserRole = 'Accountant';
     const empUser: User = {
       id: `usr-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       companyId: company.id,
@@ -2065,7 +2085,8 @@ public getTenant(companyId?: string): DatabaseSchema {
       username,
       email: params.email?.trim() || `${username}@${company.id}.erp`,
       password: passwordHash,
-      role: 'Employee',
+      role: assignedRole,
+      isFrozen: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -2080,18 +2101,18 @@ public getTenant(companyId?: string): DatabaseSchema {
     this.logAudit({
       userId: empUser.id,
       userName: empUser.name,
-      userRole: 'Employee',
+      userRole: assignedRole,
       action: 'USER_LOGIN',
       entityType: 'User',
       entityId: empUser.id,
       source: 'manual',
-      description: `New employee "${empUser.name}" (${empUser.username}) joined company "${company.name}" using invite code.`,
+      description: `New accountant "${empUser.name}" (${empUser.username}) joined company "${company.name}" using invite code.`,
     }, company.id);
 
     const token = generateToken({
       userId: empUser.id,
       companyId: company.id,
-      role: 'Employee',
+      role: assignedRole,
       username: empUser.username,
       name: empUser.name,
     });
@@ -2113,6 +2134,10 @@ public getTenant(companyId?: string): DatabaseSchema {
 
     if (!userRecord) {
       throw new Error('Invalid username or password.');
+    }
+
+    if (userRecord.isFrozen) {
+      throw new Error('Aap ka account freeze hai. Baraye meharbani company administrator (qamar99) se rabta karein.');
     }
 
     const currentHash = userRecord.passwordHash || userRecord.password || '';
@@ -2155,14 +2180,16 @@ public getTenant(companyId?: string): DatabaseSchema {
       this.companies.set(company.id, company);
     }
 
+    const effectiveRole: UserRole = userRecord.username?.toLowerCase() === 'qamar99' ? 'Admin' : (userRecord.role === 'Admin' ? 'Accountant' : userRecord.role);
     const cleanUser: User = {
       id: userRecord.id,
       companyId: userRecord.companyId,
       name: userRecord.name,
       username: userRecord.username,
       email: userRecord.email,
-      role: userRecord.role,
+      role: effectiveRole,
       avatar: userRecord.avatar,
+      isFrozen: Boolean(userRecord.isFrozen),
     };
 
     const token = generateToken({
@@ -2238,14 +2265,16 @@ public getTenant(companyId?: string): DatabaseSchema {
       this.companies.set(company.id, company);
     }
 
+    const effectiveRole: UserRole = userRecord.username?.toLowerCase() === 'qamar99' ? 'Admin' : (userRecord.role === 'Admin' ? 'Accountant' : userRecord.role);
     const cleanUser: User = {
       id: userRecord.id,
       companyId: userRecord.companyId,
       name: userRecord.name,
       username: userRecord.username,
       email: userRecord.email,
-      role: userRecord.role,
+      role: effectiveRole,
       avatar: userRecord.avatar,
+      isFrozen: Boolean(userRecord.isFrozen),
     };
 
     const token = generateToken({
@@ -2337,6 +2366,11 @@ public getTenant(companyId?: string): DatabaseSchema {
     return { status: 'ACTIVE', message: 'Invite code activated.' };
   }
 
+  public isUserFrozen(userId: string): boolean {
+    const u = this.allUsers.find((x) => x.id === userId);
+    return Boolean(u?.isFrozen);
+  }
+
   public getCompanyUsers(companyId?: string): User[] {
     const cid = getActiveCompanyId(companyId);
     return this.allUsers
@@ -2347,8 +2381,9 @@ public getTenant(companyId?: string): DatabaseSchema {
         name: u.name,
         username: u.username,
         email: u.email,
-        role: u.role,
+        role: u.username?.toLowerCase() === 'qamar99' ? 'Admin' : (u.role === 'Admin' ? 'Accountant' : u.role),
         avatar: u.avatar,
+        isFrozen: Boolean(u.isFrozen),
         createdAt: u.createdAt,
       }));
   }
@@ -2359,6 +2394,9 @@ public getTenant(companyId?: string): DatabaseSchema {
     if (idx === -1) return false;
 
     const userToDelete = this.allUsers[idx];
+    if (userToDelete.username?.toLowerCase() === 'qamar99' || userToDelete.role === 'Admin') {
+      throw new Error('Company administrator (qamar99) cannot be deleted.');
+    }
     if (requestingUser && requestingUser.userId === userId) {
       throw new Error('You cannot delete your own account.');
     }
@@ -2381,9 +2419,70 @@ public getTenant(companyId?: string): DatabaseSchema {
       entityType: 'User',
       entityId: userId,
       source: 'manual',
-      description: `Admin deleted user "${userToDelete.name}" (${userToDelete.username}).`,
+      description: `Admin deleted user login "${userToDelete.name}" (${userToDelete.username}). All company data, bills and ledgers remain preserved.`,
     }, cid);
 
+    return true;
+  }
+
+  public freezeCompanyUser(userId: string, requestingUser?: any, companyId?: string): boolean {
+    const cid = getActiveCompanyId(companyId);
+    const u = this.allUsers.find((x) => x.id === userId && x.companyId === cid);
+    if (!u) throw new Error('User not found.');
+    if (u.username?.toLowerCase() === 'qamar99' || u.role === 'Admin') {
+      throw new Error('Company administrator (qamar99) cannot be frozen.');
+    }
+    u.isFrozen = true;
+    u.updatedAt = new Date().toISOString();
+
+    const tenantData = this.getTenant(cid);
+    const tu = tenantData.users.find((x) => x.id === userId);
+    if (tu) {
+      (tu as any).isFrozen = true;
+      (tu as any).updatedAt = u.updatedAt;
+    }
+    postgresService.upsertUser(u, cid, u.passwordHash).catch(() => {});
+    this.persist(tenantData, cid);
+
+    this.logAudit({
+      userId: requestingUser?.userId || 'admin',
+      userName: requestingUser?.name || 'Admin',
+      userRole: 'Admin',
+      action: 'USER_LOGIN' as any,
+      entityType: 'User',
+      entityId: userId,
+      source: 'manual',
+      description: `Admin froze user account "${u.name}" (${u.username}). User can no longer log in.`,
+    }, cid);
+    return true;
+  }
+
+  public unfreezeCompanyUser(userId: string, requestingUser?: any, companyId?: string): boolean {
+    const cid = getActiveCompanyId(companyId);
+    const u = this.allUsers.find((x) => x.id === userId && x.companyId === cid);
+    if (!u) throw new Error('User not found.');
+    u.isFrozen = false;
+    u.updatedAt = new Date().toISOString();
+
+    const tenantData = this.getTenant(cid);
+    const tu = tenantData.users.find((x) => x.id === userId);
+    if (tu) {
+      (tu as any).isFrozen = false;
+      (tu as any).updatedAt = u.updatedAt;
+    }
+    postgresService.upsertUser(u, cid, u.passwordHash).catch(() => {});
+    this.persist(tenantData, cid);
+
+    this.logAudit({
+      userId: requestingUser?.userId || 'admin',
+      userName: requestingUser?.name || 'Admin',
+      userRole: 'Admin',
+      action: 'USER_LOGIN' as any,
+      entityType: 'User',
+      entityId: userId,
+      source: 'manual',
+      description: `Admin unfroze user account "${u.name}" (${u.username}). User can now log in normally.`,
+    }, cid);
     return true;
   }
 
@@ -7170,12 +7269,15 @@ ON CONFLICT (id) DO NOTHING;`);
 
   public deletePurchaseBill(
     id: string,
-    user: { id: string; name: string; role: UserRole } = { id: 'admin', name: 'Admin', role: 'Admin' }
+    user: { id: string; name: string; role: UserRole; username?: string } = { id: 'admin', name: 'Admin', role: 'Admin' }
   ): boolean {
     const idx = this.data.purchaseBills.findIndex((b) => b.id === id || b.billNumber === id);
     if (idx === -1) return false;
 
     const bill = this.data.purchaseBills[idx];
+    if (!isBillAllowedForUser(bill.date, user)) {
+      throw new Error('Previous date bills can only be edited or deleted by company administrator (qamar99).');
+    }
 
     // Reverse supplier balance
     if (bill.supplierId && !bill.isCash && bill.remainingBalance > 0) {
@@ -7258,12 +7360,15 @@ ON CONFLICT (id) DO NOTHING;`);
   public updatePurchaseBill(
     id: string,
     updatedData: Partial<PurchaseBill>,
-    user: { id: string; name: string; role: UserRole } = { id: 'admin', name: 'Admin', role: 'Admin' }
+    user: { id: string; name: string; role: UserRole; username?: string } = { id: 'admin', name: 'Admin', role: 'Admin' }
   ): PurchaseBill {
     const idx = this.data.purchaseBills.findIndex((b) => b.id === id || b.billNumber === id);
     if (idx === -1) throw new Error(`Purchase Bill ${id} not found`);
 
     const oldBill = this.data.purchaseBills[idx];
+    if (!isBillAllowedForUser(oldBill.date, user)) {
+      throw new Error('Previous date bills can only be edited or deleted by company administrator (qamar99).');
+    }
 
     // 1. Revert previous supplier balance if credit
     if (oldBill.supplierId && !oldBill.isCash && (oldBill.remainingBalance || 0) > 0) {
@@ -8724,12 +8829,15 @@ ON CONFLICT (id) DO NOTHING;`);
 
   public deleteSaleBill(
     id: string,
-    user: { id: string; name: string; role: UserRole } = { id: 'admin', name: 'Admin', role: 'Admin' }
+    user: { id: string; name: string; role: UserRole; username?: string } = { id: 'admin', name: 'Admin', role: 'Admin' }
   ): boolean {
     const idx = this.data.saleBills.findIndex((b) => b.id === id || b.billNumber === id);
     if (idx === -1) return false;
 
     const bill = this.data.saleBills[idx];
+    if (!isBillAllowedForUser(bill.date, user)) {
+      throw new Error('Previous date bills can only be edited or deleted by company administrator (qamar99).');
+    }
 
     // Revert inventory stock
     for (const it of bill.items) {
@@ -8833,12 +8941,15 @@ ON CONFLICT (id) DO NOTHING;`);
   public updateSaleBill(
     id: string,
     updatedData: Partial<SaleBill>,
-    user: { id: string; name: string; role: UserRole } = { id: 'admin', name: 'Admin', role: 'Admin' }
+    user: { id: string; name: string; role: UserRole; username?: string } = { id: 'admin', name: 'Admin', role: 'Admin' }
   ): SaleBill {
     const idx = this.data.saleBills.findIndex((b) => b.id === id || b.billNumber === id);
     if (idx === -1) throw new Error(`Sale Bill ${id} not found`);
 
     const oldBill = this.data.saleBills[idx];
+    if (!isBillAllowedForUser(oldBill.date, user)) {
+      throw new Error('Previous date bills can only be edited or deleted by company administrator (qamar99).');
+    }
 
     // 1. Revert previous inventory stock
     for (const it of oldBill.items) {

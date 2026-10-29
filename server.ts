@@ -86,6 +86,19 @@ app.use((req, res, next) => {
 // Tenant Context Middleware (preserves company isolation across all requests)
 app.use(tenantContextMiddleware);
 
+// Security Middleware: Reject any requests from frozen user accounts immediately
+app.use((req, res, next) => {
+  if (req.user?.userId) {
+    if (db.isUserFrozen(req.user.userId)) {
+      return res.status(403).json({
+        error: 'Aap ka account freeze hai. Baraye meharbani company administrator (qamar99) se rabta karein.',
+        code: 'ACCOUNT_FROZEN',
+      });
+    }
+  }
+  next();
+});
+
 // -------------------------------------------------------------
 // HEALTH & DB SNAPSHOT
 // -------------------------------------------------------------
@@ -582,13 +595,43 @@ app.get('/api/company/users', requireAuth, (req, res) => {
   }
 });
 
-app.delete('/api/company/users/:id', requireAuth, requireRole('Admin'), (req, res) => {
+app.delete('/api/company/users/:id', requireAuth, (req, res) => {
   try {
+    const isAdmin = req.user?.role === 'Admin' || req.user?.username?.toLowerCase() === 'qamar99';
+    if (!isAdmin) {
+      return res.status(403).json({ error: 'Permission denied: Only company administrator (qamar99) can delete user logins.' });
+    }
     const success = db.deleteCompanyUser(req.params.id, req.user, req.user!.companyId);
     if (!success) {
       return res.status(404).json({ error: 'User not found in your company.' });
     }
-    res.json({ success: true, message: 'User deleted successfully.' });
+    res.json({ success: true, message: 'User login deleted successfully. All business data, bills and ledgers remain preserved.' });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/company/users/:id/freeze', requireAuth, (req, res) => {
+  try {
+    const isAdmin = req.user?.role === 'Admin' || req.user?.username?.toLowerCase() === 'qamar99';
+    if (!isAdmin) {
+      return res.status(403).json({ error: 'Permission denied: Only company administrator (qamar99) can freeze accounts.' });
+    }
+    const success = db.freezeCompanyUser(req.params.id, req.user, req.user!.companyId);
+    res.json({ success: true, message: 'User account frozen successfully.' });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/company/users/:id/unfreeze', requireAuth, (req, res) => {
+  try {
+    const isAdmin = req.user?.role === 'Admin' || req.user?.username?.toLowerCase() === 'qamar99';
+    if (!isAdmin) {
+      return res.status(403).json({ error: 'Permission denied: Only company administrator (qamar99) can unfreeze accounts.' });
+    }
+    const success = db.unfreezeCompanyUser(req.params.id, req.user, req.user!.companyId);
+    res.json({ success: true, message: 'User account unfrozen successfully.' });
   } catch (err: any) {
     res.status(400).json({ error: err.message });
   }
@@ -601,19 +644,31 @@ app.get('/api/auth/users', requireAuth, (req, res) => {
 
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { name, username, email, password, role } = req.body;
-    if (!name || !username) {
-      return res.status(400).json({ error: 'Name and username are required.' });
+    const { inviteCode, name, username, email, password } = req.body;
+    if (!inviteCode || !String(inviteCode).trim()) {
+      return res.status(400).json({
+        error: 'Company invite code is required. Contact company administrator (qamar99) for an invite code.',
+      });
     }
-    const user = db.registerUser({ name, username, email, password, role });
-    res.json({ success: true, user });
+    const result = await db.joinCompany({
+      inviteCode: String(inviteCode).trim(),
+      name: String(name || '').trim(),
+      username: String(username || '').trim(),
+      email: email ? String(email).trim() : undefined,
+      password: String(password || ''),
+    });
+    res.json({ success: true, ...result });
   } catch (err: any) {
     res.status(400).json({ error: err.message });
   }
 });
 
-app.delete('/api/auth/users/:id', requireAuth, requireRole('Admin'), (req, res) => {
+app.delete('/api/auth/users/:id', requireAuth, (req, res) => {
   try {
+    const isAdmin = req.user?.role === 'Admin' || req.user?.username?.toLowerCase() === 'qamar99';
+    if (!isAdmin) {
+      return res.status(403).json({ error: 'Permission denied: Only company administrator (qamar99) can delete user logins.' });
+    }
     const success = db.deleteCompanyUser(req.params.id, req.user, req.user!.companyId);
     if (!success) {
       return res.status(404).json({ error: 'User not found' });
@@ -1135,7 +1190,8 @@ app.post('/api/purchases', (req, res) => {
 
 app.delete('/api/purchases/:id', async (req, res) => {
   try {
-    const success = db.deletePurchaseBill(req.params.id, req.body?.user);
+    const effectiveUser = req.user || req.body?.user || { id: 'admin', name: 'Admin', role: 'Admin', username: 'admin' };
+    const success = db.deletePurchaseBill(req.params.id, effectiveUser);
     const cid = (req as any).companyId || 'comp-muocj00t-j3co';
     await postgresService.deletePurchaseBill(req.params.id, cid);
     res.json({ success });
@@ -1146,7 +1202,8 @@ app.delete('/api/purchases/:id', async (req, res) => {
 
 app.put('/api/purchases/:id', (req, res) => {
   try {
-    const updated = db.updatePurchaseBill(req.params.id, req.body.bill || req.body, req.body.user);
+    const effectiveUser = req.user || req.body?.user || { id: 'admin', name: 'Admin', role: 'Admin', username: 'admin' };
+    const updated = db.updatePurchaseBill(req.params.id, req.body.bill || req.body, effectiveUser);
     res.json(updated);
   } catch (err: any) {
     res.status(400).json({ error: err.message });
@@ -1366,7 +1423,8 @@ app.post('/api/sales', (req, res) => {
 
 app.delete('/api/sales/:id', async (req, res) => {
   try {
-    const success = db.deleteSaleBill(req.params.id, req.body?.user);
+    const effectiveUser = req.user || req.body?.user || { id: 'admin', name: 'Admin', role: 'Admin', username: 'admin' };
+    const success = db.deleteSaleBill(req.params.id, effectiveUser);
     const cid = (req as any).companyId || 'comp-muocj00t-j3co';
     await postgresService.deleteSaleBill(req.params.id, cid);
     res.json({ success });
@@ -1377,7 +1435,8 @@ app.delete('/api/sales/:id', async (req, res) => {
 
 app.put('/api/sales/:id', (req, res) => {
   try {
-    const updated = db.updateSaleBill(req.params.id, req.body.bill || req.body, req.body.user);
+    const effectiveUser = req.user || req.body?.user || { id: 'admin', name: 'Admin', role: 'Admin', username: 'admin' };
+    const updated = db.updateSaleBill(req.params.id, req.body.bill || req.body, effectiveUser);
     res.json(updated);
   } catch (err: any) {
     res.status(400).json({ error: err.message });
@@ -1408,6 +1467,13 @@ app.get('/api/sales-report', (req, res) => {
 // -------------------------------------------------------------
 app.get('/api/reports/profit', (req, res) => {
   try {
+    const isAdmin = req.user?.role === 'Admin' || req.user?.username?.toLowerCase() === 'qamar99';
+    if (!isAdmin) {
+      return res.status(403).json({
+        error: 'Access restricted: Only company administrator (qamar99) can view Profit Intelligence reports.',
+        code: 'FORBIDDEN',
+      });
+    }
     const { fromDate, toDate, search, customerId, salesmanId } = req.query;
     const report = db.getComprehensiveProfitReport({
       fromDate: fromDate ? String(fromDate) : undefined,
@@ -1450,6 +1516,13 @@ app.get('/api/summary', (req, res) => {
 });
 
 app.get('/api/profit-diagnosis', (req, res) => {
+  const isAdmin = req.user?.role === 'Admin' || req.user?.username?.toLowerCase() === 'qamar99';
+  if (!isAdmin) {
+    return res.status(403).json({
+      error: 'Access restricted: Only company administrator (qamar99) can view Profit Diagnosis.',
+      code: 'FORBIDDEN',
+    });
+  }
   res.json(db.getProfitDiagnosis());
 });
 
@@ -1935,6 +2008,14 @@ app.delete('/api/purchase-returns/:id', async (req, res) => {
 // -------------------------------------------------------------
 app.get('/api/reports/ledger-audit', (req, res) => {
   try {
+    const isAdmin = req.user?.role === 'Admin' || req.user?.username?.toLowerCase() === 'qamar99';
+    if (!isAdmin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access restricted: Only company administrator (qamar99) can view Master Business Audit reports.',
+        code: 'FORBIDDEN',
+      });
+    }
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
@@ -1961,7 +2042,11 @@ app.get('/api/reports/download', (req, res) => {
   const type = String(req.query.type || 'business');
   const format = String(req.query.format || (type === 'ledger-audit' || type === 'business' ? 'html' : 'doc'));
 
-  if (type === 'ledger-audit' || type === 'business' || type === 'master_audit' || type === 'master-audit' || type === 'audit') {
+  if (type === 'ledger-audit' || type === 'business' || type === 'master_audit' || type === 'master-audit' || type === 'audit' || type === 'profit') {
+    const isAdmin = req.user?.role === 'Admin' || req.user?.username?.toLowerCase() === 'qamar99';
+    if (!isAdmin) {
+      return res.status(403).send('Access restricted: Only company administrator (qamar99) can download audit and profit reports.');
+    }
     const date = typeof req.query.date === 'string' ? req.query.date : undefined;
     const isHtml = format !== 'doc';
     const result = isHtml ? generateAiLedgerAuditHtml(date) : generateAiLedgerAuditDoc(date);

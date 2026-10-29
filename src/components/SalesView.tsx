@@ -1,4 +1,5 @@
 import { currencySymbol } from '../utils/currency';
+import { isBillDateToday } from '../utils/dateUtils';
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import {
   Receipt,
@@ -128,7 +129,13 @@ export const SalesView: React.FC<SalesViewProps> = ({
   const [isLoadingRecentSaleBills, setIsLoadingRecentSaleBills] = useState(false);
   const [saleBillSearchQuery, setSaleBillSearchQuery] = useState('');
 
+  const isAdmin = currentUser?.role === 'Admin' || currentUser?.username?.toLowerCase() === 'qamar99';
+
   const loadBillIntoForm = (bill: SaleBill) => {
+    if (!isAdmin && !isBillDateToday(bill.date)) {
+      alert('Previous date bills can only be edited or modified by company administrator (qamar99).');
+      return;
+    }
     setEditingBillId(bill.id);
     editingOriginalBillRef.current = bill;
     setBillNumber(bill.billNumber || '');
@@ -828,6 +835,11 @@ export const SalesView: React.FC<SalesViewProps> = ({
       let savedBill: SaleBill;
       if (editingBillId) {
         const origBill = editingOriginalBillRef.current;
+        if (!isAdmin && !isBillDateToday(origBill?.date)) {
+          alert('Previous date bills can only be edited or modified by company administrator (qamar99).');
+          setIsSaving(false);
+          return;
+        }
         savedBill = await api.updateSale(editingBillId, payload, {
           id: currentUser?.id || 'admin',
           name: userName.trim() || currentUser?.name || 'Admin',
@@ -2400,32 +2412,54 @@ export const SalesView: React.FC<SalesViewProps> = ({
                         (b.lpoNo && b.lpoNo.toLowerCase().includes(q))
                       );
                     })
-                    .map((b) => (
-                      <div
-                        key={b.id}
-                        onClick={() => {
-                          loadBillIntoForm(b);
-                          setIsLoadBillModalOpen(false);
-                        }}
-                        className="p-3 hover:bg-emerald-950/40 cursor-pointer transition flex items-center justify-between gap-3 text-xs"
-                      >
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-extrabold text-emerald-400 font-mono">Bill #{b.billNumber}</span>
-                            <span className="text-slate-400 text-[11px]">{b.date}</span>
-                            {b.lpoNo && <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-mono">LPO: {b.lpoNo}</span>}
-                          </div>
-                          <div className="text-white font-semibold mt-0.5">{b.customerAccountTitle || 'Customer'}</div>
-                          <div className="text-slate-400 text-[10px]">{b.items?.length || 0} items &bull; Total: {currencySymbol()} {b.netTotal?.toLocaleString()}</div>
-                        </div>
-                        <button
-                          type="button"
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition shadow-sm cursor-pointer"
+                    .map((b) => {
+                      const isAllowed = isAdmin || isBillDateToday(b.date);
+                      return (
+                        <div
+                          key={b.id}
+                          onClick={() => {
+                            if (!isAllowed) {
+                              alert('Previous date bills can only be edited or modified by company administrator (qamar99).');
+                              return;
+                            }
+                            loadBillIntoForm(b);
+                            setIsLoadBillModalOpen(false);
+                          }}
+                          className={`p-3 transition flex items-center justify-between gap-3 text-xs ${
+                            isAllowed
+                              ? 'hover:bg-emerald-950/40 cursor-pointer'
+                              : 'opacity-70 bg-slate-950/40 cursor-not-allowed'
+                          }`}
                         >
-                          Load &amp; Edit
-                        </button>
-                      </div>
-                    ))
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-extrabold text-emerald-400 font-mono">Bill #{b.billNumber}</span>
+                              <span className="text-slate-400 text-[11px]">{b.date}</span>
+                              {b.lpoNo && <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-mono">LPO: {b.lpoNo}</span>}
+                              {!isAllowed && (
+                                <span className="text-[10px] bg-amber-950/80 text-amber-400 border border-amber-800 px-1.5 py-0.5 rounded font-semibold">
+                                  Locked (Admin Only)
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-white font-semibold mt-0.5">{b.customerAccountTitle || 'Customer'}</div>
+                            <div className="text-slate-400 text-[10px]">{b.items?.length || 0} items &bull; Total: {currencySymbol()} {b.netTotal?.toLocaleString()}</div>
+                          </div>
+                          {isAllowed ? (
+                            <button
+                              type="button"
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition shadow-sm cursor-pointer"
+                            >
+                              Load &amp; Edit
+                            </button>
+                          ) : (
+                            <span className="text-xs text-slate-500 font-mono italic">
+                              Past Date
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })
                 )}
                 {!isLoadingRecentSaleBills && recentSaleBills.length === 0 && (
                   <div className="p-6 text-center text-slate-500 text-xs">No sale bills found.</div>

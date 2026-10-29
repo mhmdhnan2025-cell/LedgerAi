@@ -1,4 +1,5 @@
 import { currencySymbol } from '../utils/currency';
+import { isBillDateToday } from '../utils/dateUtils';
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import {
   Receipt,
@@ -122,7 +123,13 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
   const [isLoadingRecentBills, setIsLoadingRecentBills] = useState(false);
   const [billSearchQuery, setBillSearchQuery] = useState('');
 
+  const isAdmin = currentUser?.role === 'Admin' || currentUser?.username?.toLowerCase() === 'qamar99';
+
   const loadBillIntoForm = (bill: PurchaseBill) => {
+    if (!isAdmin && !isBillDateToday(bill.date)) {
+      alert('Previous date bills can only be edited or modified by company administrator (qamar99).');
+      return;
+    }
     setEditingBillId(bill.id);
     setBillNumber(bill.billNumber || '');
     setVendorBillNumber(bill.vendorBillNumber || '');
@@ -806,6 +813,11 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
 
       let savedBillResult: PurchaseBill;
       if (editingBillId) {
+        if (!isAdmin && !isBillDateToday(billData.date)) {
+          alert('Previous date bills can only be edited or modified by company administrator (qamar99).');
+          setIsSaving(false);
+          return;
+        }
         savedBillResult = await api.updatePurchase(editingBillId, billData, {
           id: currentUser?.id || 'usr-admin',
           name: currentUser?.name || 'Admin',
@@ -2189,31 +2201,53 @@ export const PurchasingView: React.FC<PurchasingViewProps> = ({
                         (b.vendorBillNumber && b.vendorBillNumber.toLowerCase().includes(q))
                       );
                     })
-                    .map((b) => (
-                      <div
-                        key={b.id}
-                        onClick={() => {
-                          loadBillIntoForm(b);
-                          setIsLoadBillModalOpen(false);
-                        }}
-                        className="p-3 hover:bg-sky-950/40 cursor-pointer transition flex items-center justify-between gap-3 text-xs"
-                      >
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-extrabold text-sky-400 font-mono">Bill #{b.billNumber}</span>
-                            <span className="text-slate-400 text-[11px]">{b.date}</span>
-                          </div>
-                          <div className="text-white font-semibold mt-0.5">{b.supplierAccountTitle || 'Supplier'}</div>
-                          <div className="text-slate-400 text-[10px]">{b.items?.length || 0} items &bull; Total: {currencySymbol()} {b.netTotal?.toLocaleString()}</div>
-                        </div>
-                        <button
-                          type="button"
-                          className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold transition shadow-sm cursor-pointer"
+                    .map((b) => {
+                      const isAllowed = isAdmin || isBillDateToday(b.date);
+                      return (
+                        <div
+                          key={b.id}
+                          onClick={() => {
+                            if (!isAllowed) {
+                              alert('Previous date bills can only be edited or modified by company administrator (qamar99).');
+                              return;
+                            }
+                            loadBillIntoForm(b);
+                            setIsLoadBillModalOpen(false);
+                          }}
+                          className={`p-3 transition flex items-center justify-between gap-3 text-xs ${
+                            isAllowed
+                              ? 'hover:bg-sky-950/40 cursor-pointer'
+                              : 'opacity-70 bg-slate-950/40 cursor-not-allowed'
+                          }`}
                         >
-                          Load &amp; Edit
-                        </button>
-                      </div>
-                    ))
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-extrabold text-sky-400 font-mono">Bill #{b.billNumber}</span>
+                              <span className="text-slate-400 text-[11px]">{b.date}</span>
+                              {!isAllowed && (
+                                <span className="text-[10px] bg-amber-950/80 text-amber-400 border border-amber-800 px-1.5 py-0.5 rounded font-semibold">
+                                  Locked (Admin Only)
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-white font-semibold mt-0.5">{b.supplierAccountTitle || 'Supplier'}</div>
+                            <div className="text-slate-400 text-[10px]">{b.items?.length || 0} items &bull; Total: {currencySymbol()} {b.netTotal?.toLocaleString()}</div>
+                          </div>
+                          {isAllowed ? (
+                            <button
+                              type="button"
+                              className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold transition shadow-sm cursor-pointer"
+                            >
+                              Load &amp; Edit
+                            </button>
+                          ) : (
+                            <span className="text-xs text-slate-500 font-mono italic">
+                              Past Date
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })
                 )}
                 {!isLoadingRecentBills && recentBills.length === 0 && (
                   <div className="p-6 text-center text-slate-500 text-xs">No purchase bills found.</div>
